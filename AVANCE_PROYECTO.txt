@@ -1,0 +1,151 @@
+============================================
+POS-iaDoS - AVANCE DEL PROYECTO
+iaDoS - iados.mx
+Fecha: 2026-02-17
+============================================
+
+ESTADO GENERAL: 100% CODIFICADO - PENDIENTE PRUEBAS CON DOCKER
+============================================
+
+## 1. QUE ES ESTE PROYECTO
+Sistema POS (Punto de Venta) multitenant completo.
+Arquitectura: Tenant → Empresa → Tienda
+Reglas de negocio en: ReglasPos.txt
+
+## 2. STACK TECNOLOGICO
+- Backend: NestJS 10 + TypeORM + MySQL 8 + JWT + Passport
+- Frontend: React 18 + Vite + TailwindCSS + Zustand + Dexie.js (offline)
+- Charts: Recharts
+- PWA: vite-plugin-pwa + Workbox
+- Docker: 3 contenedores (mysql, backend, frontend/nginx)
+- Passwords: bcryptjs (puro JS, NO bcrypt nativo)
+
+## 3. ESTRUCTURA DE ARCHIVOS (115+ archivos)
+
+### RAIZ
+- config.json          → Config central (DB, JWT, print, offline, branding)
+- .env.example         → Template de variables de entorno
+- .gitignore
+- docker-compose.yml   → 3 servicios con health checks
+- install.sh/bat       → Instalador 1-click con 30+ pruebas
+- start.sh/bat         → Iniciar contenedores
+- stop.sh/bat          → Detener contenedores
+
+### MYSQL (mysql/init/)
+- 01-schema.sql        → 14 tablas: tenants, empresas, tiendas, users, categorias,
+                          productos, producto_tienda, cajas, movimientos_caja,
+                          ventas, venta_detalles, venta_pagos, ticket_configs, auditoria
+- 02-seeds.sql         → Datos demo: 1 tenant, 1 empresa, 1 tienda, 4 usuarios,
+                          7 categorias, 25 productos, 1 ticket_config
+
+### BACKEND (backend/src/)
+Modulos (13 total):
+  1. auth/        → Login email+password, login PIN+tienda, JWT strategy
+  2. users/       → CRUD + wizard (crea tenant/empresa/tienda en 1 flujo)
+  3. tenants/     → CRUD, solo SuperAdmin
+  4. empresas/    → CRUD con tenant scoping
+  5. tiendas/     → CRUD con tenant+empresa scoping
+  6. productos/   → CRUD + CSV template + CSV import con validacion
+  7. categorias/  → CRUD con secciones especiales (bebidas/postres/adicionales)
+  8. ventas/      → Crear, cancelar con auditoria, listar, sync offline
+  9. caja/        → Abrir/cerrar, entradas/salidas, corte X
+  10. dashboard/  → KPIs, tendencia semanal, top productos, ventas x hora
+  11. tickets/    → Config heredable (Tenant→Empresa→Tienda), generacion texto
+  12. print/      → Cola de impresion con reintentos, ESC/POS simulado
+  13. health/     → GET /api/health para Docker healthcheck
+
+Common:
+  - middleware/tenant-scope  → Extrae scope del JWT
+  - guards/roles             → Control acceso por rol
+  - decorators/roles         → @Roles() decorator
+  - decorators/tenant        → @TenantScope() param decorator
+
+Config:
+  - typeorm.config.ts        → MySQL con retryAttempts: 10
+
+### FRONTEND (frontend/src/)
+Pages:
+  - auth/Login.tsx                    → Login con branding iaDoS
+  - pos/POSPage.tsx                   → Estilo McDonald's kiosk, grid responsive
+  - caja/CajaPage.tsx                 → Abrir/cerrar caja, movimientos, corte X
+  - dashboard/DashboardPage.tsx       → KPI cards + graficas (Bar, Pie, Line)
+  - admin/ProductosAdmin.tsx          → CRUD tabla + CSV import
+  - admin/CategoriasAdmin.tsx         → Grid cards con color picker
+  - admin/TicketsConfig.tsx           → Config ticket + preview en vivo
+  - superadmin/UsuariosAdmin.tsx      → Tabla + wizard 4 pasos
+  - superadmin/TenantsAdmin.tsx       → Lista + detalle jerarquia
+  - kiosk/KioscoPage.tsx              → Vista cliente, cards grandes
+
+Components:
+  - layout/MainLayout.tsx             → Sidebar responsive con nav por rol
+  - pos/CartPanel.tsx                 → Carrito con +/- cantidad, notas
+  - pos/PayModal.tsx                  → Pago efectivo/tarjeta/transferencia/mixto
+
+Stores (Zustand):
+  - auth.store.ts                     → Auth con localStorage
+  - pos.store.ts                      → Carrito, subtotal/iva/total
+  - offline.store.ts                  → Dexie IndexedDB, cola offline
+
+API:
+  - client.ts                         → Axios + JWT interceptor, baseURL=/api
+  - endpoints.ts                      → Todos los endpoints del backend
+
+## 4. CREDENCIALES DE PRUEBA
++-------------+-------------------+----------+------+------------+
+| Usuario     | Email             | Password | PIN  | Rol        |
++-------------+-------------------+----------+------+------------+
+| Super Admin | admin@iados.mx    | admin123 | 0000 | superadmin |
+| Admin       | admin2@iados.mx   | admin123 | 1111 | admin      |
+| Cajero      | cajero@iados.mx   | cajero123| 1234 | cajero     |
+| Mesero      | mesero@iados.mx   | cajero123| 5678 | mesero     |
++-------------+-------------------+----------+------+------------+
+
+## 5. PUERTOS
+- Frontend:  http://localhost      (puerto 80, nginx)
+- API:       http://localhost:3000/api
+- MySQL:     localhost:3307 (usuario: pos_user / password: pos_secret_2024)
+
+## 6. COMO EJECUTAR (despues de instalar Docker Desktop)
+  Windows CMD:  install.bat
+  Git Bash:     bash install.sh
+
+  Despues:
+  Iniciar:  start.bat  o  bash start.sh
+  Detener:  stop.bat   o  bash stop.sh
+
+## 7. QUE HACE EL INSTALADOR (install.sh/bat)
+1. Verifica Docker instalado
+2. docker compose build (construye 3 imagenes)
+3. docker compose up -d (levanta contenedores)
+4. Espera MySQL listo (health check)
+5. Ejecuta 30+ pruebas:
+   - Conexion MySQL
+   - 14 tablas existen
+   - 7 conteos de seeds correctos
+   - Indices y FK
+   - Charset utf8mb4
+   - Login API funciona
+   - Endpoints productos/categorias/health
+   - Frontend accesible
+
+## 8. PROBLEMAS RESUELTOS
+- bcrypt nativo no compila en Alpine Docker → bcryptjs (puro JS)
+- escpos/escpos-usb deps nativas fallan → removidos, print simula ESC/POS
+- Hashes fake en seeds → generados reales con bcryptjs, verificados
+- Frontend API URL absoluta → cambiada a /api relativa para proxy nginx
+
+## 9. PENDIENTE
+- [ ] Instalar Docker Desktop en la maquina
+- [ ] Ejecutar install.bat y verificar que pasan las 30+ pruebas
+- [ ] Probar login en navegador http://localhost
+- [ ] Probar flujo completo: login → abrir caja → vender → cerrar caja
+- [ ] Probar modo kiosco http://localhost/kiosco
+- [ ] Probar dashboard con datos reales
+- [ ] Probar CSV import de productos
+- [ ] Probar offline mode (desconectar red, hacer venta, reconectar, sync)
+
+## 10. BRANDING
+- Nombre: POS-iaDoS
+- Empresa: iaDoS - iados.mx
+- Colores: primary #1e40af, accent #f59e0b, dark #0f172a
+============================================

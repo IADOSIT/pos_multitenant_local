@@ -1,0 +1,42 @@
+{
+  "app": {
+    "name": "POS-iaDoS",
+    "brand": "iaDoS",
+    "website": "iados.mx",
+    "version": "1.0.0"
+  },
+  "backend": {
+    "host": "0.0.0.0",
+    "port": 3000,
+    "cors_origins": ["http://localhost:5173", "http://localhost:4173"]
+  },
+  "database": {
+    "host": "localhost",
+    "port": 3306,
+    "username": "pos_iados",
+    "password": "pos_iados_2024",
+    "database": "pos_iados"
+  },
+  "jwt": {
+    "secret": "CAMBIAR_EN_PRODUCCION_iados_jwt_secret_key_2024",
+    "expiresIn": "8h",
+    "refreshExpiresIn": "7d"
+  },
+  "print": {
+    "enabled": true,
+    "type": "escpos",
+    "interface": "usb",
+    "paperWidth": 80,
+    "fallbackBrowser": true
+  },
+  "offline": {
+    "syncInterval": 30000,
+    "maxRetries": 5,
+    "queueLimit": 1000
+  },
+  "defaultTenant": {
+    "name": "iaDoS Corp",
+    "empresa": "iaDoS Principal",
+    "tienda": "Tienda Demo"
+  }
+}

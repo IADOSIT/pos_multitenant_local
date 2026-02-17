@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-iados-dark text-white antialiased;
+    touch-action: manipulation;
+    overscroll-behavior: none;
+  }
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-iados-dark;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-iados-card rounded;
+  }
+}
+
+@layer components {
+  .btn-touch {
+    @apply px-4 py-3 rounded-xl font-semibold text-base transition-all active:scale-95 select-none
+      min-h-[48px] flex items-center justify-center;
+  }
+  .btn-primary {
+    @apply btn-touch bg-iados-primary hover:bg-blue-700 text-white;
+  }
+  .btn-secondary {
+    @apply btn-touch bg-iados-card hover:bg-slate-500 text-white;
+  }
+  .btn-accent {
+    @apply btn-touch bg-iados-accent hover:bg-amber-600 text-black font-bold;
+  }
+  .btn-danger {
+    @apply btn-touch bg-red-600 hover:bg-red-700 text-white;
+  }
+  .btn-success {
+    @apply btn-touch bg-green-600 hover:bg-green-700 text-white;
+  }
+  .card {
+    @apply bg-iados-surface rounded-2xl p-4 border border-slate-700/50;
+  }
+  .input-touch {
+    @apply w-full px-4 py-3 bg-iados-card border border-slate-600 rounded-xl text-white
+      placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-iados-secondary
+      text-base min-h-[48px];
+  }
+}

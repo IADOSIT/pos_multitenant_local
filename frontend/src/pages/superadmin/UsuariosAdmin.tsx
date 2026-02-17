@@ -1,0 +1,185 @@
+import { useState, useEffect } from 'react';
+import { usersApi, tenantsApi, empresasApi, tiendasApi } from '../../api/endpoints';
+import { useAuthStore } from '../../store/auth.store';
+import toast from 'react-hot-toast';
+import { Plus, Users, Shield, UserCheck, UserX } from 'lucide-react';
+
+export default function UsuariosAdmin() {
+  const { user } = useAuthStore();
+  const [usuarios, setUsuarios] = useState<any[]>([]);
+  const [showWizard, setShowWizard] = useState(false);
+  const [step, setStep] = useState(1);
+
+  // Wizard data
+  const [tenants, setTenants] = useState<any[]>([]);
+  const [empresas, setEmpresas] = useState<any[]>([]);
+  const [tiendas, setTiendas] = useState<any[]>([]);
+  const [form, setForm] = useState({
+    nombre: '', email: '', password: '', rol: 'cajero', pin: '',
+    tenant_id: '', empresa_id: '', tienda_id: '',
+    nuevo_tenant: null as any, nueva_empresa: null as any, nueva_tienda: null as any,
+    crearTenant: false, crearEmpresa: false, crearTienda: false,
+    tenantNombre: '', empresaNombre: '', tiendaNombre: '', tiendaDireccion: '',
+  });
+
+  useEffect(() => { load(); }, []);
+
+  const load = async () => {
+    try { const { data } = await usersApi.list(); setUsuarios(data); } catch {}
+    if (user?.rol === 'superadmin') {
+      try { const { data } = await tenantsApi.list(); setTenants(data); } catch {}
+    }
+  };
+
+  const loadEmpresas = async (tenantId: number) => {
+    try { const { data } = await empresasApi.list(); setEmpresas(data.filter((e: any) => e.tenant_id === tenantId)); } catch {}
+  };
+
+  const loadTiendas = async (empresaId: number) => {
+    try { const { data } = await tiendasApi.list(); setTiendas(data.filter((t: any) => t.empresa_id === empresaId)); } catch {}
+  };
+
+  const handleSave = async () => {
+    const payload: any = {
+      nombre: form.nombre, email: form.email, password: form.password,
+      rol: form.rol, pin: form.pin || undefined,
+    };
+
+    if (form.crearTenant) {
+      payload.nuevo_tenant = { nombre: form.tenantNombre };
+    } else { payload.tenant_id = Number(form.tenant_id) || undefined; }
+
+    if (form.crearEmpresa) {
+      payload.nueva_empresa = { nombre: form.empresaNombre };
+    } else { payload.empresa_id = Number(form.empresa_id) || undefined; }
+
+    if (form.crearTienda) {
+      payload.nueva_tienda = { nombre: form.tiendaNombre, direccion: form.tiendaDireccion };
+    } else { payload.tienda_id = Number(form.tienda_id) || undefined; }
+
+    try {
+      await usersApi.createWizard(payload);
+      toast.success('Usuario creado');
+      setShowWizard(false); setStep(1); load();
+    } catch (e: any) { toast.error(e.response?.data?.message || 'Error'); }
+  };
+
+  const handleToggle = async (id: number) => {
+    try { await usersApi.toggle(id); load(); toast.success('Estado actualizado'); } catch {}
+  };
+
+  const rolColors: Record<string, string> = {
+    superadmin: 'bg-purple-600', admin: 'bg-blue-600', manager: 'bg-cyan-600', cajero: 'bg-green-600', mesero: 'bg-amber-600',
+  };
+
+  return (
+    <div className="p-4 max-w-6xl mx-auto">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold flex items-center gap-2"><Users size={24} /> Usuarios</h1>
+        <button onClick={() => setShowWizard(true)} className="btn-primary text-sm"><Plus size={16} className="mr-1" />Nuevo (Wizard)</button>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead><tr className="text-left text-slate-400 border-b border-slate-700">
+            <th className="p-3">Nombre</th><th className="p-3">Email</th><th className="p-3">Rol</th><th className="p-3">Estado</th><th className="p-3"></th>
+          </tr></thead>
+          <tbody>
+            {usuarios.map((u) => (
+              <tr key={u.id} className="border-b border-slate-800 hover:bg-iados-card/50">
+                <td className="p-3 font-medium">{u.nombre}</td>
+                <td className="p-3 text-slate-400">{u.email}</td>
+                <td className="p-3"><span className={`px-2 py-1 rounded text-xs text-white ${rolColors[u.rol] || 'bg-slate-600'}`}>{u.rol}</span></td>
+                <td className="p-3">
+                  <button onClick={() => handleToggle(u.id)} className={`flex items-center gap-1 text-xs ${u.activo ? 'text-green-400' : 'text-red-400'}`}>
+                    {u.activo ? <><UserCheck size={14} /> Activo</> : <><UserX size={14} /> Inactivo</>}
+                  </button>
+                </td>
+                <td className="p-3"><Shield size={14} className="text-slate-500" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Wizard Modal */}
+      {showWizard && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="card max-w-md w-full space-y-4">
+            <h3 className="text-lg font-bold">Crear Usuario - Paso {step}/4</h3>
+
+            {/* Progress */}
+            <div className="flex gap-1">
+              {[1, 2, 3, 4].map((s) => (
+                <div key={s} className={`h-1 flex-1 rounded ${s <= step ? 'bg-iados-primary' : 'bg-iados-card'}`} />
+              ))}
+            </div>
+
+            {step === 1 && (<>
+              <input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} placeholder="Nombre completo" className="input-touch" />
+              <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Email" type="email" className="input-touch" />
+              <input value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Contraseña" type="password" className="input-touch" />
+              <select value={form.rol} onChange={(e) => setForm({ ...form, rol: e.target.value })} className="input-touch">
+                <option value="cajero">Cajero</option><option value="mesero">Mesero</option>
+                <option value="manager">Manager</option><option value="admin">Admin</option>
+                {user?.rol === 'superadmin' && <option value="superadmin">SuperAdmin</option>}
+              </select>
+              <input value={form.pin} onChange={(e) => setForm({ ...form, pin: e.target.value })} placeholder="PIN (opcional)" className="input-touch" />
+            </>)}
+
+            {step === 2 && user?.rol === 'superadmin' && (<>
+              <h4 className="font-medium">Tenant (Corporativo)</h4>
+              <label className="flex items-center gap-2"><input type="checkbox" checked={form.crearTenant} onChange={(e) => setForm({ ...form, crearTenant: e.target.checked })} className="w-5 h-5" /> Crear nuevo</label>
+              {form.crearTenant ? (
+                <input value={form.tenantNombre} onChange={(e) => setForm({ ...form, tenantNombre: e.target.value })} placeholder="Nombre del tenant" className="input-touch" />
+              ) : (
+                <select value={form.tenant_id} onChange={(e) => { setForm({ ...form, tenant_id: e.target.value }); loadEmpresas(Number(e.target.value)); }} className="input-touch">
+                  <option value="">Seleccionar...</option>
+                  {tenants.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                </select>
+              )}
+            </>)}
+
+            {step === 3 && (<>
+              <h4 className="font-medium">Empresa</h4>
+              <label className="flex items-center gap-2"><input type="checkbox" checked={form.crearEmpresa} onChange={(e) => setForm({ ...form, crearEmpresa: e.target.checked })} className="w-5 h-5" /> Crear nueva</label>
+              {form.crearEmpresa ? (
+                <input value={form.empresaNombre} onChange={(e) => setForm({ ...form, empresaNombre: e.target.value })} placeholder="Nombre empresa" className="input-touch" />
+              ) : (
+                <select value={form.empresa_id} onChange={(e) => { setForm({ ...form, empresa_id: e.target.value }); loadTiendas(Number(e.target.value)); }} className="input-touch">
+                  <option value="">Seleccionar...</option>
+                  {empresas.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                </select>
+              )}
+            </>)}
+
+            {step === 4 && (<>
+              <h4 className="font-medium">Tienda</h4>
+              <label className="flex items-center gap-2"><input type="checkbox" checked={form.crearTienda} onChange={(e) => setForm({ ...form, crearTienda: e.target.checked })} className="w-5 h-5" /> Crear nueva</label>
+              {form.crearTienda ? (<>
+                <input value={form.tiendaNombre} onChange={(e) => setForm({ ...form, tiendaNombre: e.target.value })} placeholder="Nombre tienda" className="input-touch" />
+                <input value={form.tiendaDireccion} onChange={(e) => setForm({ ...form, tiendaDireccion: e.target.value })} placeholder="Dirección" className="input-touch" />
+              </>) : (
+                <select value={form.tienda_id} onChange={(e) => setForm({ ...form, tienda_id: e.target.value })} className="input-touch">
+                  <option value="">Seleccionar...</option>
+                  {tiendas.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                </select>
+              )}
+            </>)}
+
+            <div className="flex gap-2">
+              <button onClick={() => { if (step === 1) setShowWizard(false); else setStep(step - 1); }} className="btn-secondary flex-1">
+                {step === 1 ? 'Cancelar' : 'Anterior'}
+              </button>
+              {step < 4 ? (
+                <button onClick={() => setStep(step + 1)} className="btn-primary flex-1">Siguiente</button>
+              ) : (
+                <button onClick={handleSave} className="btn-success flex-1">Crear Usuario</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

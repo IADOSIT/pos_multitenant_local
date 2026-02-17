@@ -1,0 +1,100 @@
+version: '3.8'
+
+# ============================================
+# POS-iaDoS - Docker Compose
+# iaDoS - iados.mx
+# Un solo: docker-compose up -d --build
+# ============================================
+
+services:
+  # ---- MySQL ----
+  mysql:
+    image: mysql:8.0
+    container_name: pos-iados-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_iados_2024
+      MYSQL_DATABASE: pos_iados
+      MYSQL_USER: pos_iados
+      MYSQL_PASSWORD: pos_iados_2024
+    ports:
+      - "3307:3306"
+    volumes:
+      - pos_mysql_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max-connections=200
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "pos_iados", "-ppos_iados_2024"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    networks:
+      - pos-net
+
+  # ---- Backend NestJS ----
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pos-iados-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      APP_PORT: 3000
+      APP_HOST: 0.0.0.0
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USERNAME: pos_iados
+      DB_PASSWORD: pos_iados_2024
+      DB_DATABASE: pos_iados
+      JWT_SECRET: iados_jwt_secret_key_production_2024_cambiar
+      JWT_EXPIRES_IN: 8h
+      FRONTEND_URL: http://localhost
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - pos-net
+
+  # ---- Frontend React + Nginx ----
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
+    container_name: pos-iados-web
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - pos-net
+
+volumes:
+  pos_mysql_data:
+    driver: local
+
+networks:
+  pos-net:
+    driver: bridge
