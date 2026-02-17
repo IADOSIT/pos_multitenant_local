@@ -1,0 +1,270 @@
+
+## Prompt completo (POS-iaDoS by iaDoS, Multitenant Offline Touch, MySQL Local, KPI Dashboard, compatible móvil/tablet)
+
+**Rol / Contexto**
+Eres un **Senior Pro Full-Stack Engineer** especializado en **sistemas POS touch**, arquitectura **multitenant**, instalación local simple (server/cliente), **offline-first**, impresión de tickets, dashboards KPI, y UX multiplataforma. Debes diseñar y especificar una solución lista para producción para **iaDoS – Inteligencia Artificial DevOps Solutions**.
+
+* **Marca:** iaDoS
+* **Nombre del sistema:** **POS-iaDoS**
+* **Sitio web:** **iados.mx**
+
+Debes entregar: **arquitectura + modelo de datos + endpoints + UI/UX + seguridad + instalación + mejores prácticas**.
+
+---
+
+### 1) Objetivo del sistema
+
+Construir **POS-iaDoS**: un sistema tipo **POS Touch** que sea:
+
+* **Multitenant / Multiempresa** con jerarquía:
+
+  * **Tenant (Corporativo) → Empresa → Tienda**
+* **Arquitectura multitenant con Opción C obligatoria**:
+
+  * **Tablas compartidas** con `tenant_id`, `empresa_id`, `tienda_id` donde aplique.
+* **SuperAdmin** es el **único** con permiso de crear:
+
+  * Tenant (Corporativo), Empresa y Tienda
+  * y esto debe gestionarse **desde la gestión de usuarios** (flujo guiado).
+* **Frontend, Backend y Base de datos desacoplados y configurables**:
+
+  * Separados para poder moverlos de ubicación (otra PC/servidor) sin reescribir.
+  * Todo debe ser configurable por variables/archivo `config.json`/wizard.
+* Instalación extremadamente sencilla en 1 PC local que funcione como:
+
+  * **Servidor local** (backend + DB + print service)
+  * **Cliente** (frontend touch)
+  * opcionalmente permitir que otras PCs/tablets entren por red local.
+* Debe incluir:
+
+  * Panel de **SuperAdmin**
+  * Panel de **Admin**
+  * Panel de **Operación**
+  * Panel de **Caja**
+* Un **POS Touch** para ventas.
+* Un modo **Kiosco / Menú Touch** para clientes (simple, intuitivo, bloqueable).
+
+---
+
+### 2) Compatibilidad multiplataforma (OBLIGATORIA)
+
+El sistema debe ser compatible y usable en:
+
+* **PC / Laptop** (Windows/macOS/Linux)
+* **Cualquier móvil / teléfono celular**
+* **Cualquier tablet** (Android/iPadOS)
+* Debe ser **responsive + touch-first**:
+
+  * Layout adaptativo por tamaño de pantalla
+  * Gestos touch (tap, long-press opcional)
+  * Tipografía y botones escalables
+* Debe operar como **PWA** (obligatorio/recomendado):
+
+  * instalarse como “app” en Android/iOS (cuando aplique)
+  * trabajar offline
+  * acceso rápido tipo app nativa
+* Evitar dependencias de hardware específico:
+
+  * El POS debe funcionar sin lector/impresora, pero integrarse si existen.
+
+---
+
+### 3) Restricciones técnicas (obligatorias)
+
+1. **MySQL local** como DB principal (fácil de instalar).
+2. **Modo Offline obligatorio** (offline-first):
+
+   * El POS debe seguir vendiendo sin internet.
+   * Sincronización cuando vuelva conectividad (si aplica red o server remoto).
+   * Si el backend es local, igual debe tolerar caídas de red/servicios.
+3. Frontend y backend deben poder instalarse en cualquier computadora con pasos mínimos:
+
+   * Ideal: instalador único o script 1-click.
+   * Incluir modo “portable”.
+4. **Separación física y lógica** de:
+
+   * Backend (API)
+   * DB (MySQL)
+   * Frontend (UI)
+     Cada uno con endpoints/hosts configurables.
+5. Touch-first obligatorio: botones grandes, navegación simple, alta velocidad.
+
+---
+
+### 4) Arquitectura propuesta (debes entregar y justificar)
+
+Debes proponer un stack y arquitectura sólida y simple:
+
+#### Backend
+
+* Elige y justifica: **Node.js (NestJS)** o **Laravel** o **.NET**.
+* Patrón: modular con capas (Domain/UseCases/Infra) o Clean/Hexagonal.
+* **Multitenant Opción C**:
+
+  * Estrategia de scoping estricto por `tenant_id`, `empresa_id`, `tienda_id`.
+  * Middleware global que aplique filtros automáticamente.
+  * Policies/guards por rol + scope.
+
+#### Base de datos
+
+* MySQL local
+* Migraciones + seeds.
+* Índices compuestos para performance con `tenant_id` y fechas.
+
+#### Frontend
+
+* Elige y justifica: **React + Vite** o **Next.js**.
+* **PWA obligatorio/recomendado** para offline y para móviles/tablets.
+* UI tipo app de restaurante fast-food:
+
+  * estilo “McDonald’s kiosk”: categorías, productos grandes, flujo guiado.
+
+#### Offline-first (obligatorio)
+
+* Define estrategia concreta:
+
+  * Cola local de transacciones (ventas, movimientos) en IndexedDB.
+  * IDs temporales + reconciliación al sincronizar.
+  * Manejo de conflictos (reglas claras).
+  * Modo “solo local” cuando backend vive en la misma PC.
+
+#### Impresión
+
+* Servicio local de impresión + fallback:
+
+  * ESC/POS por USB/red
+  * y/o impresión por navegador
+* Cola de impresión, reintentos, logging.
+
+#### Configuración y despliegue
+
+* Todo configurable: host backend, credenciales MySQL, tienda default, impresora, branding iaDoS, etc.
+* Proponer:
+
+  1. Instalación “súper simple”
+  2. Modo docker-compose opcional para DevOps
+
+---
+
+### 5) Branding y contenido (obligatorio)
+
+* El sistema debe mostrar marca **iaDoS** y nombre **POS-iaDoS** en:
+
+  * Login
+  * Header del admin/POS
+  * Splash/PWA install screen (si aplica)
+* Incluir en el footer o sección “Acerca de”:
+
+  * **iados.mx**
+* Tickets: permitir imprimir opcionalmente “Desarrollado por iaDoS – iados.mx”.
+
+---
+
+### 6) Módulos funcionales obligatorios
+
+#### 6.1 Gestión de usuarios (y creación de tenant/empresa/tienda desde ahí)
+
+* **SuperAdmin**:
+
+  * Al crear un usuario nuevo, puede crear:
+
+    * Tenant (Corporativo) → Empresa → Tienda
+  * Flujo tipo wizard:
+
+    1. Crear usuario (correo, pass, rol)
+    2. Asignar / crear Tenant
+    3. Asignar / crear Empresa
+    4. Asignar / crear Tienda
+* Admin puede gestionar usuarios **solo dentro de su tenant/empresa** (según permisos).
+
+#### 6.2 Productos (CSV Import / Plantilla)
+
+* Descargar plantilla CSV base.
+* Importar CSV con:
+
+  * validación
+  * vista previa
+  * reporte de errores por fila
+  * opción “actualizar existentes” por SKU
+
+#### 6.3 POS Touch (Venta rápida) – UX tipo McDonald’s
+
+* Pantalla principal:
+
+  * Categorías grandes arriba/izquierda
+  * Productos grandes con imagen (opcional)
+  * **Carrito siempre visible** (en móvil: dock inferior o panel deslizante)
+* Flujo guiado:
+
+  1. Seleccionar producto
+  2. Opciones/modificadores → modal touch rápido
+  3. Se agrega al carrito y se ve inmediatamente
+* **Secciones especiales** configurables:
+
+  * Bebidas / Postres / Adicionales
+* Búsqueda rápida (teclado touch).
+* Pagos: efectivo, tarjeta, transferencia, mixto.
+* Cancelaciones/reimpresiones con permisos + auditoría.
+
+#### 6.4 Caja
+
+* Apertura/cierre
+* Entradas/salidas
+* Cortes X/Z
+* Arqueo/diferencias
+
+#### 6.5 Tickets e impresión (config súper simple)
+
+* Config de ticket desde Admin:
+
+  * Logo, datos, mensajes, 58/80mm, columnas
+* Previsualización
+* Herencia: Tenant → Empresa → Tienda
+
+#### 6.6 Dashboard KPI (esencial + gráficas)
+
+* Ventas día/semana/mes, tickets, ticket promedio, top vendidos, horas pico, métodos pago, devoluciones.
+* Comparación semana vs semana, tendencias 4–12 semanas.
+* Filtros por tienda/categoría/rango.
+
+#### 6.7 Kiosco / Menú Touch para cliente
+
+* Responsive para tablet y móvil
+* Bloqueable (kiosco)
+* UI simple
+
+---
+
+### 7) Multiempresa y scoping (OBLIGATORIO)
+
+* Tablas con `tenant_id` + `empresa_id` + `tienda_id` donde aplique.
+* Middleware/guard que aplique scope.
+* Tokens con claims mínimos y selección de tienda.
+
+---
+
+### 8) Entregables (tu respuesta debe incluir TODO)
+
+1. Stack y decisiones.
+2. Arquitectura (diagrama textual).
+3. Modelo MySQL + índices.
+4. Roles/permisos.
+5. API endpoints clave.
+6. Flujos críticos.
+7. Offline sync.
+8. Instalación simple + config movible.
+9. Buenas prácticas senior.
+10. UX touch responsive (PC/tablet/móvil).
+11. Branding iaDoS / POS-iaDoS aplicado.
+
+---
+
+### 9) Output esperado
+
+Incluye ejemplos de:
+
+* CSV plantilla base
+* payload de venta (items + adicionales)
+* config ticket
+* endpoint KPI
+* registro auditoría
