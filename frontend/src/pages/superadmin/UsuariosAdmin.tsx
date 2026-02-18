@@ -17,7 +17,9 @@ export default function UsuariosAdmin() {
   const [deleteConfirm, setDeleteConfirm] = useState<any>(null);
   const [showEdit, setShowEdit] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
-  const [editForm, setEditForm] = useState({ nombre: '', email: '', password: '', rol: 'cajero', pin: '' });
+  const [editForm, setEditForm] = useState({ nombre: '', email: '', password: '', rol: 'cajero', pin: '', tenant_id: '', empresa_id: '', tienda_id: '' });
+  const [editEmpresas, setEditEmpresas] = useState<any[]>([]);
+  const [editTiendas, setEditTiendas] = useState<any[]>([]);
   const [form, setForm] = useState({
     nombre: '', email: '', password: '', rol: 'cajero', pin: '',
     tenant_id: '', empresa_id: '', tienda_id: '',
@@ -81,16 +83,48 @@ export default function UsuariosAdmin() {
     } catch (e: any) { toast.error(e.response?.data?.message || 'Error al eliminar'); }
   };
 
-  const handleEdit = (u: any) => {
+  const handleEdit = async (u: any) => {
     setEditItem(u);
-    setEditForm({ nombre: u.nombre, email: u.email, password: '', rol: u.rol, pin: u.pin || '' });
+    setEditForm({
+      nombre: u.nombre, email: u.email, password: '', rol: u.rol, pin: u.pin || '',
+      tenant_id: String(u.tenant_id || ''), empresa_id: String(u.empresa_id || ''), tienda_id: String(u.tienda_id || ''),
+    });
+    // Load tenants for superadmin
+    if (user?.rol === 'superadmin' && tenants.length === 0) {
+      try { const { data } = await tenantsApi.list(); setTenants(data); } catch {}
+    }
+    // Load empresas/tiendas for current user's scope
+    if (u.tenant_id) {
+      try { const { data } = await empresasApi.list(); setEditEmpresas(data.filter((e: any) => e.tenant_id === u.tenant_id)); } catch {}
+    }
+    if (u.empresa_id) {
+      try { const { data } = await tiendasApi.list(); setEditTiendas(data.filter((t: any) => t.empresa_id === u.empresa_id)); } catch {}
+    }
     setShowEdit(true);
+  };
+
+  const handleEditTenantChange = async (tenantId: string) => {
+    setEditForm({ ...editForm, tenant_id: tenantId, empresa_id: '', tienda_id: '' });
+    setEditTiendas([]);
+    if (tenantId) {
+      try { const { data } = await empresasApi.list(); setEditEmpresas(data.filter((e: any) => e.tenant_id === Number(tenantId))); } catch {}
+    } else { setEditEmpresas([]); }
+  };
+
+  const handleEditEmpresaChange = async (empresaId: string) => {
+    setEditForm({ ...editForm, empresa_id: empresaId, tienda_id: '' });
+    if (empresaId) {
+      try { const { data } = await tiendasApi.list(); setEditTiendas(data.filter((t: any) => t.empresa_id === Number(empresaId))); } catch {}
+    } else { setEditTiendas([]); }
   };
 
   const handleUpdate = async () => {
     try {
       const payload: any = { nombre: editForm.nombre, email: editForm.email, rol: editForm.rol, pin: editForm.pin || undefined };
       if (editForm.password) payload.password = editForm.password;
+      if (editForm.tenant_id) payload.tenant_id = Number(editForm.tenant_id);
+      if (editForm.empresa_id) payload.empresa_id = Number(editForm.empresa_id);
+      if (editForm.tienda_id) payload.tienda_id = Number(editForm.tienda_id);
       await usersApi.update(editItem.id, payload);
       toast.success('Usuario actualizado');
       setShowEdit(false); setEditItem(null); load();
@@ -111,7 +145,7 @@ export default function UsuariosAdmin() {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead><tr className="text-left text-slate-400 border-b border-slate-700">
-            <th className="p-3">Nombre</th><th className="p-3">Email</th><th className="p-3">Rol</th><th className="p-3">Estado</th><th className="p-3"></th>
+            <th className="p-3">Nombre</th><th className="p-3">Email</th><th className="p-3">Rol</th><th className="p-3">Tenant/Empresa/Tienda</th><th className="p-3">Estado</th><th className="p-3"></th>
           </tr></thead>
           <tbody>
             {usuarios.map((u) => (
@@ -119,6 +153,7 @@ export default function UsuariosAdmin() {
                 <td className="p-3 font-medium">{u.nombre}</td>
                 <td className="p-3 text-slate-400">{u.email}</td>
                 <td className="p-3"><span className={`px-2 py-1 rounded text-xs text-white ${rolColors[u.rol] || 'bg-slate-600'}`}>{u.rol}</span></td>
+                <td className="p-3 text-xs text-slate-400">{u.tenant_id}/{u.empresa_id}/{u.tienda_id}</td>
                 <td className="p-3">
                   <button onClick={() => handleToggle(u.id)} className={`flex items-center gap-1 text-xs ${u.activo ? 'text-green-400' : 'text-red-400'}`}>
                     {u.activo ? <><UserCheck size={14} /> Activo</> : <><UserX size={14} /> Inactivo</>}
@@ -215,8 +250,8 @@ export default function UsuariosAdmin() {
 
       {/* Modal Editar Usuario */}
       {showEdit && editItem && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="card max-w-md w-full space-y-3">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="card max-w-md w-full space-y-3 my-4">
             <h3 className="text-lg font-bold">Editar Usuario</h3>
             <input value={editForm.nombre} onChange={(e) => setEditForm({ ...editForm, nombre: e.target.value })} placeholder="Nombre completo" className="input-touch" />
             <input value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} placeholder="Email" type="email" className="input-touch" />
@@ -227,6 +262,41 @@ export default function UsuariosAdmin() {
               {user?.rol === 'superadmin' && <option value="superadmin">SuperAdmin</option>}
             </select>
             <input value={editForm.pin} onChange={(e) => setEditForm({ ...editForm, pin: e.target.value })} placeholder="PIN" className="input-touch" />
+
+            {/* Asignacion Tenant/Empresa/Tienda */}
+            <div className="border-t border-slate-700 pt-3 space-y-3">
+              <h4 className="text-sm font-semibold text-slate-300">Asignacion</h4>
+
+              {/* Tenant - solo superadmin puede cambiar */}
+              {user?.rol === 'superadmin' && (
+                <div>
+                  <label className="text-xs text-slate-400 mb-1 block">Tenant</label>
+                  <select value={editForm.tenant_id} onChange={(e) => handleEditTenantChange(e.target.value)} className="input-touch">
+                    <option value="">Seleccionar...</option>
+                    {tenants.map((t: any) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                  </select>
+                </div>
+              )}
+
+              {/* Empresa - superadmin y admin */}
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">Empresa</label>
+                <select value={editForm.empresa_id} onChange={(e) => handleEditEmpresaChange(e.target.value)} className="input-touch">
+                  <option value="">Seleccionar...</option>
+                  {editEmpresas.map((e: any) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                </select>
+              </div>
+
+              {/* Tienda */}
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">Tienda</label>
+                <select value={editForm.tienda_id} onChange={(e) => setEditForm({ ...editForm, tienda_id: e.target.value })} className="input-touch">
+                  <option value="">Seleccionar...</option>
+                  {editTiendas.map((t: any) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                </select>
+              </div>
+            </div>
+
             <div className="flex gap-2">
               <button onClick={() => { setShowEdit(false); setEditItem(null); }} className="btn-secondary flex-1">Cancelar</button>
               <button onClick={handleUpdate} className="btn-primary flex-1">Guardar</button>
