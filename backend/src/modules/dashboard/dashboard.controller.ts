@@ -25,4 +25,10 @@ export class DashboardController {
   getTendencia(@TenantScope() scope, @Query('semanas') semanas?: string) {
     return this.service.getTendencia(scope, semanas ? parseInt(semanas) : 4);
   }
+
+  @Get('pedidos-count')
+  @Roles('superadmin', 'admin', 'manager', 'cajero', 'mesero')
+  getPedidosCount(@TenantScope() scope) {
+    return this.service.getPedidosPendientes(scope);
+  }
 }

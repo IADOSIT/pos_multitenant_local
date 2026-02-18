@@ -19,7 +19,7 @@ export class Categoria {
   @Column({ length: 500, nullable: true })
   descripcion: string;
 
-  @Column({ length: 500, nullable: true })
+  @Column({ type: 'text', nullable: true })
   imagen_url: string;
 
   @Column({ length: 20, nullable: true })

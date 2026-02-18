@@ -4,11 +4,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User } from '../users/user.entity';
+import { Empresa } from '../empresas/empresa.entity';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User) private usersRepo: Repository<User>,
+    @InjectRepository(Empresa) private empresaRepo: Repository<Empresa>,
     private jwtService: JwtService,
   ) {}
 
@@ -34,6 +36,8 @@ export class AuthService {
       nombre: user.nombre,
     };
 
+    const empresa = user.empresa_id ? await this.empresaRepo.findOne({ where: { id: user.empresa_id } }) : null;
+
     return {
       access_token: this.jwtService.sign(payload),
       user: {
@@ -44,6 +48,9 @@ export class AuthService {
         tenant_id: user.tenant_id,
         empresa_id: user.empresa_id,
         tienda_id: user.tienda_id,
+        empresa_nombre: empresa?.nombre || null,
+        empresa_logo: empresa?.logo_url || null,
+        config_apariencia: empresa?.config_apariencia || null,
       },
     };
   }
@@ -67,6 +74,8 @@ export class AuthService {
       nombre: user.nombre,
     };
 
+    const empresa2 = user.empresa_id ? await this.empresaRepo.findOne({ where: { id: user.empresa_id } }) : null;
+
     return {
       access_token: this.jwtService.sign(payload),
       user: {
@@ -77,6 +86,9 @@ export class AuthService {
         tenant_id: user.tenant_id,
         empresa_id: user.empresa_id,
         tienda_id: user.tienda_id,
+        empresa_nombre: empresa2?.nombre || null,
+        empresa_logo: empresa2?.logo_url || null,
+        config_apariencia: empresa2?.config_apariencia || null,
       },
     };
   }

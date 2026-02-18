@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, ManyToOne, JoinColumn, Index } from 'typeorm';
 
 export enum VentaEstado {
   COMPLETADA = 'completada',
@@ -35,6 +35,9 @@ export class Venta {
 
   @Column()
   usuario_id: number;
+
+  @Column({ nullable: true })
+  pedido_id: number;
 
   @Column({ length: 50 })
   folio: string;
@@ -134,6 +137,7 @@ export class VentaDetalle {
   notas: string;
 
   @ManyToOne(() => Venta, (v) => v.detalles)
+  @JoinColumn({ name: 'venta_id' })
   venta: Venta;
 }
 
@@ -156,5 +160,6 @@ export class VentaPago {
   referencia: string;
 
   @ManyToOne(() => Venta, (v) => v.pagos)
+  @JoinColumn({ name: 'venta_id' })
   venta: Venta;
 }

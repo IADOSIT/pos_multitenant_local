@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Param, Body, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -21,4 +21,7 @@ export class TenantsController {
 
   @Put(':id')
   update(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.update(id, data); }
+
+  @Delete(':id')
+  delete(@Param('id', ParseIntPipe) id: number) { return this.service.softDelete(id); }
 }

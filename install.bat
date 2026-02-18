@@ -5,6 +5,9 @@ REM POS-iaDoS - INSTALADOR 1-CLICK (Docker)
 REM iaDoS - iados.mx
 REM ============================================
 
+REM Cambiar al directorio donde esta el script
+cd /d "%~dp0"
+
 cls
 echo ============================================
 echo   POS-iaDoS - Instalador 1-Click

@@ -5,12 +5,12 @@ export default {
     extend: {
       colors: {
         iados: {
-          primary: '#1e40af',
-          secondary: '#3b82f6',
-          accent: '#f59e0b',
-          dark: '#0f172a',
-          surface: '#1e293b',
-          card: '#334155',
+          primary: 'rgb(var(--c-primary) / <alpha-value>)',
+          secondary: 'rgb(var(--c-secondary) / <alpha-value>)',
+          accent: 'rgb(var(--c-accent) / <alpha-value>)',
+          dark: 'rgb(var(--c-dark) / <alpha-value>)',
+          surface: 'rgb(var(--c-surface) / <alpha-value>)',
+          card: 'rgb(var(--c-card) / <alpha-value>)',
         },
       },
       fontFamily: {

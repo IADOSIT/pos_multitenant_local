@@ -27,4 +27,17 @@ api.interceptors.response.use(
   },
 );
 
+// Resolve upload URLs: in dev with VITE_API_URL, prepend backend origin
+export function resolveUploadUrl(path?: string): string {
+  if (!path) return '';
+  if (path.startsWith('http')) return path;
+  const apiUrl = import.meta.env.VITE_API_URL || '';
+  if (apiUrl && path.startsWith('/api/')) {
+    // VITE_API_URL = http://localhost:3000/api → extract origin
+    const origin = apiUrl.replace(/\/api\/?$/, '');
+    return origin + path;
+  }
+  return path;
+}
+
 export default api;

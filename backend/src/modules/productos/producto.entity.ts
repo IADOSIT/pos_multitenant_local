@@ -32,7 +32,7 @@ export class Producto {
   @Column({ nullable: true })
   categoria_id: number;
 
-  @Column({ length: 500, nullable: true })
+  @Column({ type: 'text', nullable: true })
   imagen_url: string;
 
   @Column({ length: 50, nullable: true })

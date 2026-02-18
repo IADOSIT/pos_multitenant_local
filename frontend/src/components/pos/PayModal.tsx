@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { usePOSStore } from '../../store/pos.store';
 import { offlineActions } from '../../store/offline.store';
-import { ventasApi } from '../../api/endpoints';
+import { ventasApi, ticketsApi } from '../../api/endpoints';
+import { printTicket } from '../../utils/printTicket';
 import toast from 'react-hot-toast';
-import { X, DollarSign, CreditCard, ArrowRightLeft, Banknote } from 'lucide-react';
+import { X, DollarSign, CreditCard, ArrowRightLeft, Banknote, Printer } from 'lucide-react';
 
 interface Props {
   onClose: () => void;
@@ -21,6 +22,7 @@ export default function PayModal({ onClose, isOnline }: Props) {
   const [pagoTransferencia, setPagoTransferencia] = useState('');
   const [loading, setLoading] = useState(false);
   const [ventaCompletada, setVentaCompletada] = useState<any>(null);
+  const ticketRawRef = useRef<string>('');
 
   const cambio = metodo === 'efectivo' ? Math.max(0, Number(pagoEfectivo || 0) - total) : 0;
 
@@ -33,6 +35,22 @@ export default function PayModal({ onClose, isOnline }: Props) {
       return (Number(pagoEfectivo || 0) + Number(pagoTarjeta || 0) + Number(pagoTransferencia || 0)) >= total;
     }
     return false;
+  };
+
+  const generarEImprimir = async (ventaData: any) => {
+    try {
+      const { data: ticket } = await ticketsApi.preview(ventaData);
+      ticketRawRef.current = ticket.raw;
+      printTicket(ticket.raw);
+    } catch {
+      toast.error('No se pudo generar el ticket');
+    }
+  };
+
+  const handleReprint = () => {
+    if (ticketRawRef.current) {
+      printTicket(ticketRawRef.current);
+    }
   };
 
   const handlePay = async () => {
@@ -69,6 +87,7 @@ export default function PayModal({ onClose, isOnline }: Props) {
         const { data } = await ventasApi.crear(ventaData);
         setVentaCompletada(data);
         toast.success(`Venta ${data.folio} completada`);
+        generarEImprimir(data);
       } else {
         const folio = await offlineActions.saveVentaOffline(ventaData);
         setVentaCompletada({ folio_offline: folio, total });
@@ -76,7 +95,6 @@ export default function PayModal({ onClose, isOnline }: Props) {
       }
       clearCart();
     } catch (err: any) {
-      // Guardar offline si falla
       const folio = await offlineActions.saveVentaOffline(ventaData);
       setVentaCompletada({ folio_offline: folio, total });
       toast('Guardada offline por error de red', { icon: '📡' });
@@ -98,6 +116,12 @@ export default function PayModal({ onClose, isOnline }: Props) {
           <p className="text-3xl font-bold">${Number(ventaCompletada.total).toFixed(2)}</p>
           {cambio > 0 && (
             <p className="text-xl text-green-400">Cambio: ${cambio.toFixed(2)}</p>
+          )}
+          {ticketRawRef.current && (
+            <button onClick={handleReprint} className="btn-secondary w-full text-lg flex items-center justify-center gap-2">
+              <Printer size={20} />
+              Reimprimir Ticket
+            </button>
           )}
           <button onClick={onClose} className="btn-primary w-full text-lg">
             Nueva Venta

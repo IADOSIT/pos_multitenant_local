@@ -1,14 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThanOrEqual } from 'typeorm';
+import { Repository, Between, MoreThanOrEqual, In } from 'typeorm';
 import { Venta, VentaEstado } from '../ventas/venta.entity';
 import { VentaDetalle } from '../ventas/venta.entity';
+import { Pedido, PedidoEstado } from '../pedidos/pedido.entity';
 
 @Injectable()
 export class DashboardService {
   constructor(
     @InjectRepository(Venta) private ventasRepo: Repository<Venta>,
     @InjectRepository(VentaDetalle) private detallesRepo: Repository<VentaDetalle>,
+    @InjectRepository(Pedido) private pedidosRepo: Repository<Pedido>,
   ) {}
 
   async getKPI(scope: any, desde: string, hasta: string, tienda_id?: number) {
@@ -88,5 +90,16 @@ export class DashboardService {
     });
 
     return [...semanaMap.entries()].map(([semana, data]) => ({ semana, ...data })).sort((a, b) => a.semana.localeCompare(b.semana));
+  }
+
+  async getPedidosPendientes(scope: any) {
+    const count = await this.pedidosRepo.count({
+      where: {
+        tenant_id: scope.tenant_id,
+        empresa_id: scope.empresa_id,
+        estado: In([PedidoEstado.RECIBIDO, PedidoEstado.EN_ELABORACION, PedidoEstado.LISTO_PARA_ENTREGA]),
+      },
+    });
+    return { count };
   }
 }

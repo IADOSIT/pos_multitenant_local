@@ -1,11 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ticketsApi } from '../../api/endpoints';
+import { resolveUploadUrl } from '../../api/client';
 import toast from 'react-hot-toast';
-import { Receipt } from 'lucide-react';
+import { Receipt, Upload, Image, X } from 'lucide-react';
 
 export default function TicketsConfig() {
   const [config, setConfig] = useState<any>(null);
   const [preview, setPreview] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const logoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { load(); }, []);
 
@@ -17,7 +20,7 @@ export default function TicketsConfig() {
     try {
       if (config.id) { await ticketsApi.updateConfig(config.id, config); }
       else { await ticketsApi.saveConfig(config); }
-      toast.success('Configuración guardada');
+      toast.success('Configuracion guardada');
     } catch { toast.error('Error'); }
   };
 
@@ -28,13 +31,25 @@ export default function TicketsConfig() {
         subtotal: 189, descuento: 0, impuestos: 30.24, total: 219.24,
         pago_efectivo: 250, cambio: 30.76,
         detalles: [
-          { producto_nombre: 'Hamburguesa Clásica', cantidad: 2, precio_unitario: 89, subtotal: 178 },
+          { producto_nombre: 'Hamburguesa Clasica', cantidad: 2, precio_unitario: 89, subtotal: 178 },
           { producto_nombre: 'Refresco 600ml', cantidad: 1, precio_unitario: 25, subtotal: 25 },
         ],
       };
       const { data } = await ticketsApi.preview(ventaDemo);
       setPreview(data.raw);
     } catch { toast.error('Error en preview'); }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const { data } = await ticketsApi.uploadLogo(file);
+      update('logo_url', data.logo_url);
+      toast.success('Logo subido');
+    } catch { toast.error('Error al subir logo'); }
+    finally { setUploading(false); if (logoRef.current) logoRef.current.value = ''; }
   };
 
   if (!config) return <div className="p-4 text-center text-slate-400">Cargando...</div>;
@@ -47,14 +62,36 @@ export default function TicketsConfig() {
 
       <div className="grid lg:grid-cols-2 gap-4">
         <div className="card space-y-3">
-          <h3 className="font-bold">Encabezado</h3>
-          <input value={config.encabezado_linea1 || ''} onChange={(e) => update('encabezado_linea1', e.target.value)} placeholder="Línea 1" className="input-touch" />
-          <input value={config.encabezado_linea2 || ''} onChange={(e) => update('encabezado_linea2', e.target.value)} placeholder="Línea 2" className="input-touch" />
-          <input value={config.encabezado_linea3 || ''} onChange={(e) => update('encabezado_linea3', e.target.value)} placeholder="Línea 3" className="input-touch" />
+          {/* Logo */}
+          <h3 className="font-bold">Logo del Ticket</h3>
+          <div className="flex items-center gap-4">
+            {config.logo_url ? (
+              <div className="relative">
+                <img src={resolveUploadUrl(config.logo_url)} alt="Logo" className="w-20 h-20 rounded-xl object-contain border border-slate-700 bg-white p-1" />
+                <button onClick={() => update('logo_url', null)} className="absolute -top-2 -right-2 bg-red-600 rounded-full p-0.5"><X size={12} /></button>
+              </div>
+            ) : (
+              <div className="w-20 h-20 rounded-xl bg-iados-card flex items-center justify-center text-slate-500 border border-slate-700">
+                <Image size={24} />
+              </div>
+            )}
+            <div>
+              <p className="text-xs text-slate-400 mb-2">Se imprime en la parte superior del ticket</p>
+              <button onClick={() => logoRef.current?.click()} disabled={uploading} className="btn-secondary text-xs flex items-center gap-1">
+                <Upload size={14} /> {uploading ? 'Subiendo...' : 'Subir Logo'}
+              </button>
+              <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+            </div>
+          </div>
+
+          <h3 className="font-bold pt-2">Encabezado</h3>
+          <input value={config.encabezado_linea1 || ''} onChange={(e) => update('encabezado_linea1', e.target.value)} placeholder="Linea 1 (ej: nombre negocio)" className="input-touch" />
+          <input value={config.encabezado_linea2 || ''} onChange={(e) => update('encabezado_linea2', e.target.value)} placeholder="Linea 2 (ej: direccion)" className="input-touch" />
+          <input value={config.encabezado_linea3 || ''} onChange={(e) => update('encabezado_linea3', e.target.value)} placeholder="Linea 3 (ej: telefono)" className="input-touch" />
 
           <h3 className="font-bold pt-2">Pie</h3>
-          <input value={config.pie_linea1 || ''} onChange={(e) => update('pie_linea1', e.target.value)} placeholder="Pie línea 1" className="input-touch" />
-          <input value={config.pie_linea2 || ''} onChange={(e) => update('pie_linea2', e.target.value)} placeholder="Pie línea 2" className="input-touch" />
+          <input value={config.pie_linea1 || ''} onChange={(e) => update('pie_linea1', e.target.value)} placeholder="Pie linea 1" className="input-touch" />
+          <input value={config.pie_linea2 || ''} onChange={(e) => update('pie_linea2', e.target.value)} placeholder="Pie linea 2" className="input-touch" />
 
           <h3 className="font-bold pt-2">Papel</h3>
           <div className="grid grid-cols-2 gap-2">
@@ -72,7 +109,7 @@ export default function TicketsConfig() {
 
           <h3 className="font-bold pt-2">Opciones</h3>
           {[
-            ['mostrar_logo', 'Mostrar logo'],
+            ['mostrar_logo', 'Imprimir logo en ticket'],
             ['mostrar_fecha', 'Mostrar fecha'],
             ['mostrar_cajero', 'Mostrar cajero'],
             ['mostrar_folio', 'Mostrar folio'],
@@ -93,8 +130,15 @@ export default function TicketsConfig() {
         {/* Preview */}
         <div className="card">
           <h3 className="font-bold mb-3">Vista Previa</h3>
-          <div className="bg-white text-black p-4 rounded-xl font-mono text-xs whitespace-pre-wrap min-h-[300px]">
-            {preview || 'Haz clic en "Preview" para ver el ticket'}
+          <div className="bg-white text-black p-4 rounded-xl min-h-[300px]">
+            {config.mostrar_logo && config.logo_url && (
+              <div className="text-center mb-2">
+                <img src={resolveUploadUrl(config.logo_url)} alt="Logo" className="h-12 mx-auto object-contain" />
+              </div>
+            )}
+            <pre className="font-mono text-xs whitespace-pre-wrap">
+              {preview || 'Haz clic en "Preview" para ver el ticket'}
+            </pre>
           </div>
         </div>
       </div>

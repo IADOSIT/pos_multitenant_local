@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { usePOSStore } from '../../store/pos.store';
+import { useAuthStore } from '../../store/auth.store';
 import { offlineActions } from '../../store/offline.store';
-import { productosApi, categoriasApi, ventasApi, cajaApi } from '../../api/endpoints';
+import { productosApi, categoriasApi, cajaApi, tiendasApi, pedidosApi } from '../../api/endpoints';
+import { resolveUploadUrl } from '../../api/client';
 import { Producto, Categoria } from '../../types';
 import toast from 'react-hot-toast';
 import CartPanel from '../../components/pos/CartPanel';
@@ -16,17 +18,35 @@ export default function POSPage() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [cartVisible, setCartVisible] = useState(false);
 
-  const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, cajaActiva, setCajaActiva } = usePOSStore();
+  const { user } = useAuthStore();
+  const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, clearCart } = usePOSStore();
 
   useEffect(() => {
     loadData();
     loadCaja();
+    loadTiendaConfig();
     const onOnline = () => setIsOnline(true);
     const onOffline = () => setIsOnline(false);
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
     return () => { window.removeEventListener('online', onOnline); window.removeEventListener('offline', onOffline); };
   }, []);
+
+  const loadTiendaConfig = async () => {
+    if (!user?.tienda_id) return;
+    try {
+      const { data } = await tiendasApi.get(user.tienda_id);
+      if (data.config_pos) {
+        setModoServicio(data.config_pos.modo_servicio || 'autoservicio');
+        setTipoCobro(data.config_pos.tipo_cobro_mesa || 'pago_inmediato');
+        setIvaConfig({
+          enabled: data.config_pos.iva_enabled || false,
+          porcentaje: data.config_pos.iva_porcentaje ?? 16,
+          incluido: data.config_pos.iva_incluido ?? true,
+        });
+      }
+    } catch {}
+  };
 
   const loadData = async () => {
     try {
@@ -36,17 +56,15 @@ export default function POSPage() {
       ]);
       setProductos(prodsRes.data);
       setCategorias(catsRes.data);
-      // Cache para offline
       offlineActions.cacheProductos(prodsRes.data);
       offlineActions.cacheCategorias(catsRes.data);
     } catch {
-      // Fallback offline
       const cachedProds = await offlineActions.getCachedProductos();
       const cachedCats = await offlineActions.getCachedCategorias();
       if (cachedProds.length) {
         setProductos(cachedProds);
         setCategorias(cachedCats);
-        toast('Modo offline - datos en caché', { icon: '📡' });
+        toast('Modo offline - datos en cache', { icon: '📡' });
       }
     }
   };
@@ -72,12 +90,43 @@ export default function POSPage() {
     toast.success(`${producto.nombre} agregado`, { duration: 1000 });
   };
 
+  const handleEnviarPedido = async () => {
+    if (!mesaActiva || cart.length === 0) return;
+    try {
+      const data = {
+        mesa: mesaActiva,
+        items: cart.map((i) => ({
+          producto_id: i.producto_id,
+          nombre: i.nombre,
+          sku: i.sku,
+          precio: i.precio,
+          cantidad: i.cantidad,
+          descuento: i.descuento,
+          impuesto: i.impuesto,
+          modificadores: i.modificadores,
+          notas: i.notas,
+        })),
+        subtotal: getSubtotal(),
+        impuestos: getImpuestos(),
+        total: getTotal(),
+      };
+      const { data: pedido } = await pedidosApi.crear(data);
+      toast.success(`Pedido ${pedido.folio} enviado - Mesa ${mesaActiva}`);
+      clearCart();
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Error al enviar pedido');
+    }
+  };
+
   return (
     <div className="flex flex-col lg:flex-row h-full">
-      {/* Panel izquierdo: categorías + productos */}
+      {/* Panel izquierdo: categorias + productos */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header POS */}
         <div className="flex items-center gap-2 p-3 bg-iados-surface border-b border-slate-700">
+          {user?.empresa_logo && (
+            <img src={resolveUploadUrl(user.empresa_logo)} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" />
+          )}
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
             <input
@@ -90,8 +139,11 @@ export default function POSPage() {
           </div>
           <div className="flex items-center gap-1 text-xs text-slate-400">
             {isOnline ? <Wifi size={16} className="text-green-400" /> : <WifiOff size={16} className="text-red-400" />}
+            {modoServicio === 'mesa' && (
+              <span className="ml-1 px-2 py-0.5 bg-iados-primary/30 text-iados-accent rounded text-xs">Mesa</span>
+            )}
           </div>
-          {/* Botón carrito móvil */}
+          {/* Boton carrito movil */}
           <button
             className="lg:hidden btn-accent relative"
             onClick={() => setCartVisible(!cartVisible)}
@@ -105,7 +157,7 @@ export default function POSPage() {
           </button>
         </div>
 
-        {/* Categorías - scroll horizontal */}
+        {/* Categorias - scroll horizontal */}
         <div className="flex gap-2 p-3 overflow-x-auto shrink-0 bg-iados-dark/50">
           <button
             onClick={() => { setCategoriaActiva(null); setBusqueda(''); }}
@@ -131,7 +183,7 @@ export default function POSPage() {
           ))}
         </div>
 
-        {/* Grid de productos - estilo McDonald's */}
+        {/* Grid de productos */}
         <div className="flex-1 overflow-y-auto p-3">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
             {filteredProductos.map((prod) => (
@@ -161,11 +213,13 @@ export default function POSPage() {
         </div>
       </div>
 
-      {/* Panel derecho: Carrito - Desktop siempre, móvil condicional */}
+      {/* Panel derecho: Carrito */}
       <div className={`${cartVisible ? 'fixed inset-0 z-40 lg:relative' : 'hidden lg:flex'} lg:w-96 flex flex-col bg-iados-surface border-l border-slate-700`}>
-        {/* Cerrar en móvil */}
         <button className="lg:hidden absolute top-2 right-2 z-50 p-2 text-slate-400" onClick={() => setCartVisible(false)}>✕</button>
-        <CartPanel onPay={() => { setShowPay(true); setCartVisible(false); }} />
+        <CartPanel
+          onPay={() => { setShowPay(true); setCartVisible(false); }}
+          onEnviarPedido={handleEnviarPedido}
+        />
       </div>
 
       {/* Modal de pago */}

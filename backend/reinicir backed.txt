@@ -1,0 +1,28 @@
+pkill -f nest; cd /c/sites/pos_multitenant_local/backend && npx nest start --watch
+
+
+  Archivos de configuración:
+                                                                                                                                                                                                                                                                                 ┌──────────────────┬─────────────────────────┬───────────────────────┐
+  │     Archivo      │           BD            │ API Frontend apunta a │
+  ├──────────────────┼─────────────────────────┼───────────────────────┤
+  │ backend/loc.env  │ localhost:3306          │ -                     │                                                                                                                                                                                                         ├──────────────────┼─────────────────────────┼───────────────────────┤
+  │ backend/ext.env  │ my.bodegadigital.com.mx │ -                     │
+  ├──────────────────┼─────────────────────────┼───────────────────────┤
+  │ frontend/loc.env │ -                       │ localhost:3000/api    │
+  ├──────────────────┼─────────────────────────┼───────────────────────┤
+  │ frontend/ext.env │ -                       │ 34.71.132.26:3000/api │
+  └──────────────────┴─────────────────────────┴───────────────────────┘
+
+  Para cambiar:
+
+  # Modo LOCAL (desarrollo en tu máquina)
+  bash usar-local.sh    # o doble-click usar-local.bat
+
+  # Modo EXTERNO (BD remota + acceso por IP)
+  bash usar-externo.sh  # o doble-click usar-externo.bat
+
+
+  Después de cambiar, reinicia ambos servicios:
+  1. Backend: cd backend && npm run start:dev
+  2. Frontend: cd frontend && npx vite --host 0.0.0.0
+

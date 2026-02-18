@@ -122,7 +122,7 @@ export class VentasService {
 
   // Sync offline sales
   async syncOffline(ventas: any[], scope: any) {
-    const results = [];
+    const results: any[] = [];
     for (const v of ventas) {
       const existing = await this.ventasRepo.findOne({ where: { folio_offline: v.folio_offline } });
       if (existing) {

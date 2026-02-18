@@ -34,6 +34,16 @@ export class Tienda {
   @Column({ type: 'json', nullable: true })
   config_impresora: any;
 
+  @Column({ type: 'json', nullable: true })
+  config_pos: {
+    modo_servicio: 'autoservicio' | 'mesa';
+    tipo_cobro_mesa: 'pago_inmediato' | 'post_pago';
+    num_mesas: number;
+    iva_enabled: boolean;
+    iva_porcentaje: number;
+    iva_incluido: boolean; // true = precio ya incluye IVA, false = IVA se suma al precio
+  };
+
   @Column({ default: true })
   activo: boolean;
 

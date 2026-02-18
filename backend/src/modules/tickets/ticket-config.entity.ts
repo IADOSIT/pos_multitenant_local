@@ -15,7 +15,7 @@ export class TicketConfig {
   @Column({ nullable: true })
   tienda_id: number;
 
-  @Column({ length: 500, nullable: true })
+  @Column({ type: 'text', nullable: true })
   logo_url: string;
 
   @Column({ length: 200, nullable: true })

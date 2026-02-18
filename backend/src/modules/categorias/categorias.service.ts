@@ -23,7 +23,16 @@ export class CategoriasService {
   }
 
   async update(id: number, data: Partial<Categoria>) {
-    await this.repo.update(id, data);
+    const clean: any = { ...data };
+    if (clean.imagen_url === '') clean.imagen_url = null;
+    delete clean.productos;
+    delete clean.id;
+    await this.repo.update(id, clean);
     return this.findOne(id);
+  }
+
+  async softDelete(id: number) {
+    await this.repo.update(id, { activo: false });
+    return { deleted: true };
   }
 }

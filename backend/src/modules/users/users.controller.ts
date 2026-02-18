@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Patch, Param, Body, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Param, Body, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { UsersService } from './users.service';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -39,5 +39,11 @@ export class UsersController {
   @Roles('superadmin', 'admin')
   toggle(@Param('id', ParseIntPipe) id: number, @TenantScope() scope) {
     return this.usersService.toggleActive(id, scope);
+  }
+
+  @Delete(':id')
+  @Roles('superadmin', 'admin')
+  delete(@Param('id', ParseIntPipe) id: number, @TenantScope() scope) {
+    return this.usersService.softDelete(id, scope);
   }
 }

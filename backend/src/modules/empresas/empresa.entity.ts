@@ -32,6 +32,12 @@ export class Empresa {
   @Column({ length: 500, nullable: true })
   logo_url: string;
 
+  @Column({ type: 'json', nullable: true })
+  config_apariencia: {
+    tema: string;
+    paleta: string;
+  };
+
   @Column({ default: true })
   activo: boolean;
 

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Param, Body, Query, UseGuards, UseInterceptors, UploadedFile, Res, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards, UseInterceptors, UploadedFile, Res, ParseIntPipe } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
@@ -26,9 +26,15 @@ export class ProductosController {
   @Roles('superadmin', 'admin')
   downloadTemplate(@Res() res: Response) {
     const csv = this.service.getCSVTemplate();
-    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename=productos_template.csv');
-    res.send(csv);
+    res.send('\uFEFF' + csv);
+  }
+
+  @Get('image-search')
+  @Roles('superadmin', 'admin')
+  searchImages(@Query('q') query: string) {
+    return this.service.searchImages(query);
   }
 
   @Get(':id')
@@ -53,9 +59,28 @@ export class ProductosController {
     return this.service.importCSV(file.buffer, scope, update === 'true');
   }
 
+  @Post('upload-image')
+  @Roles('superadmin', 'admin')
+  @UseInterceptors(FileInterceptor('image'))
+  uploadImage(@UploadedFile() file: Express.Multer.File) {
+    return this.service.uploadImage(file);
+  }
+
   @Put(':id')
   @Roles('superadmin', 'admin')
   update(@Param('id', ParseIntPipe) id: number, @Body() data: any) {
     return this.service.update(id, data);
+  }
+
+  @Post('purge-inactive')
+  @Roles('superadmin', 'admin')
+  purge(@TenantScope() scope) {
+    return this.service.purgeInactive(scope);
+  }
+
+  @Delete(':id')
+  @Roles('superadmin', 'admin')
+  delete(@Param('id', ParseIntPipe) id: number) {
+    return this.service.deleteProduct(id);
   }
 }

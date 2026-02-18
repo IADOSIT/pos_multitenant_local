@@ -7,7 +7,24 @@
       "Bash(docker compose:*)",
       "Bash(docker:*)",
       "Bash(wc:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(sc query:*)",
+      "Bash(systeminfo:*)",
+      "Bash(powershell.exe -Command \"Get-WindowsOptionalFeature -Online | Where-Object { $_.FeatureName -match ''Hyper-V|Container|VirtualMachine|WSL'' } | Format-Table FeatureName, State -AutoSize\")",
+      "Bash(powershell.exe -Command 'Get-WindowsOptionalFeature -Online | Where-Object { $_.FeatureName -match \"\"Hyper-V|Container|VirtualMachine|WSL\"\" } | Format-Table FeatureName, State -AutoSize')",
+      "Bash(powershell.exe -Command 'systeminfo | Select-String \"\"Hyper-V|virtual\"\"')",
+      "Bash(powershell.exe -Command 'Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All -NoRestart')",
+      "Bash(powershell.exe -Command 'Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-Management-PowerShell -All -NoRestart; Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux -All -NoRestart')",
+      "Bash(curl:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImVtYWlsIjoiYWRtaW5AaWFkb3MubXgiLCJyb2wiOiJzdXBlcmFkbWluIiwidGVuYW50X2lkIjoxLCJlbXByZXNhX2lkIjoxLCJ0aWVuZGFfaWQiOjEsIm5vbWJyZSI6IlN1cGVyIEFkbWluIiwiaWF0IjoxNzcxMzE1NTA2LCJleHAiOjE3NzEzNDQzMDZ9.umiuQfRVv49Penmw6cM6hUvZlm93WVyTyyDpfOq0g_s\")",
+      "Bash(C:/tools/mysql/current/bin/mysql.exe:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm ls:*)",
+      "Bash(mysql:*)",
+      "Bash(pkill:*)",
+      "Bash(VITE_API_URL=http://localhost:3000/api npx vite:*)",
+      "Bash(npx nest start --watch)",
+      "Bash(npx vite:*)"
     ]
   }
 }

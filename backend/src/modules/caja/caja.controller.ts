@@ -31,6 +31,12 @@ export class CajaController {
     return this.service.corteX(id);
   }
 
+  @Get(':id/reporte')
+  @Roles('superadmin', 'admin', 'manager', 'cajero')
+  reporte(@Param('id', ParseIntPipe) id: number) {
+    return this.service.reporteCaja(id);
+  }
+
   @Get('activa')
   getActiva(@TenantScope() scope) {
     return this.service.getActiva(scope);

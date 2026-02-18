@@ -12,15 +12,13 @@ export const dataSourceOptions: DataSourceOptions = {
   entities: [__dirname + '/../modules/**/*.entity{.ts,.js}'],
   migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
   // synchronize = false: usamos init SQL en Docker o migraciones manuales
-  synchronize: false,
+  synchronize: true,
   logging: process.env.NODE_ENV === 'development',
   // Pool para estabilidad en Docker
   extra: {
     connectionLimit: 10,
     connectTimeout: 30000,
   },
-  retryAttempts: 10,
-  retryDelay: 3000,
 };
 
 const dataSource = new DataSource(dataSourceOptions);

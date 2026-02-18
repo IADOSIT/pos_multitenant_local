@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { usersApi, tenantsApi, empresasApi, tiendasApi } from '../../api/endpoints';
 import { useAuthStore } from '../../store/auth.store';
 import toast from 'react-hot-toast';
-import { Plus, Users, Shield, UserCheck, UserX } from 'lucide-react';
+import { Plus, Users, Shield, UserCheck, UserX, Trash2, Edit2 } from 'lucide-react';
 
 export default function UsuariosAdmin() {
   const { user } = useAuthStore();
@@ -14,6 +14,10 @@ export default function UsuariosAdmin() {
   const [tenants, setTenants] = useState<any[]>([]);
   const [empresas, setEmpresas] = useState<any[]>([]);
   const [tiendas, setTiendas] = useState<any[]>([]);
+  const [deleteConfirm, setDeleteConfirm] = useState<any>(null);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editItem, setEditItem] = useState<any>(null);
+  const [editForm, setEditForm] = useState({ nombre: '', email: '', password: '', rol: 'cajero', pin: '' });
   const [form, setForm] = useState({
     nombre: '', email: '', password: '', rol: 'cajero', pin: '',
     tenant_id: '', empresa_id: '', tienda_id: '',
@@ -68,6 +72,31 @@ export default function UsuariosAdmin() {
     try { await usersApi.toggle(id); load(); toast.success('Estado actualizado'); } catch {}
   };
 
+  const handleDelete = async (u: any) => {
+    try {
+      await usersApi.delete(u.id);
+      toast.success('Usuario eliminado');
+      setDeleteConfirm(null);
+      load();
+    } catch (e: any) { toast.error(e.response?.data?.message || 'Error al eliminar'); }
+  };
+
+  const handleEdit = (u: any) => {
+    setEditItem(u);
+    setEditForm({ nombre: u.nombre, email: u.email, password: '', rol: u.rol, pin: u.pin || '' });
+    setShowEdit(true);
+  };
+
+  const handleUpdate = async () => {
+    try {
+      const payload: any = { nombre: editForm.nombre, email: editForm.email, rol: editForm.rol, pin: editForm.pin || undefined };
+      if (editForm.password) payload.password = editForm.password;
+      await usersApi.update(editItem.id, payload);
+      toast.success('Usuario actualizado');
+      setShowEdit(false); setEditItem(null); load();
+    } catch (e: any) { toast.error(e.response?.data?.message || 'Error al actualizar'); }
+  };
+
   const rolColors: Record<string, string> = {
     superadmin: 'bg-purple-600', admin: 'bg-blue-600', manager: 'bg-cyan-600', cajero: 'bg-green-600', mesero: 'bg-amber-600',
   };
@@ -95,7 +124,10 @@ export default function UsuariosAdmin() {
                     {u.activo ? <><UserCheck size={14} /> Activo</> : <><UserX size={14} /> Inactivo</>}
                   </button>
                 </td>
-                <td className="p-3"><Shield size={14} className="text-slate-500" /></td>
+                <td className="p-3 flex gap-1">
+                  <button onClick={() => handleEdit(u)} className="p-2 hover:bg-iados-card rounded-lg"><Edit2 size={16} /></button>
+                  <button onClick={() => setDeleteConfirm(u)} className="p-2 hover:bg-red-900/50 rounded-lg text-red-400"><Trash2 size={16} /></button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -176,6 +208,43 @@ export default function UsuariosAdmin() {
               ) : (
                 <button onClick={handleSave} className="btn-success flex-1">Crear Usuario</button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Editar Usuario */}
+      {showEdit && editItem && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="card max-w-md w-full space-y-3">
+            <h3 className="text-lg font-bold">Editar Usuario</h3>
+            <input value={editForm.nombre} onChange={(e) => setEditForm({ ...editForm, nombre: e.target.value })} placeholder="Nombre completo" className="input-touch" />
+            <input value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} placeholder="Email" type="email" className="input-touch" />
+            <input value={editForm.password} onChange={(e) => setEditForm({ ...editForm, password: e.target.value })} placeholder="Nueva contraseña (dejar vacio para no cambiar)" type="password" className="input-touch" />
+            <select value={editForm.rol} onChange={(e) => setEditForm({ ...editForm, rol: e.target.value })} className="input-touch">
+              <option value="cajero">Cajero</option><option value="mesero">Mesero</option>
+              <option value="manager">Manager</option><option value="admin">Admin</option>
+              {user?.rol === 'superadmin' && <option value="superadmin">SuperAdmin</option>}
+            </select>
+            <input value={editForm.pin} onChange={(e) => setEditForm({ ...editForm, pin: e.target.value })} placeholder="PIN" className="input-touch" />
+            <div className="flex gap-2">
+              <button onClick={() => { setShowEdit(false); setEditItem(null); }} className="btn-secondary flex-1">Cancelar</button>
+              <button onClick={handleUpdate} className="btn-primary flex-1">Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Confirmar Eliminacion */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="card max-w-sm w-full text-center space-y-4">
+            <Trash2 size={40} className="mx-auto text-red-400" />
+            <h3 className="text-lg font-bold">Eliminar Usuario</h3>
+            <p className="text-slate-400">Seguro que deseas eliminar a <strong>{deleteConfirm.nombre}</strong>?</p>
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteConfirm(null)} className="btn-secondary flex-1">Cancelar</button>
+              <button onClick={() => handleDelete(deleteConfirm)} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl flex-1">Eliminar</button>
             </div>
           </div>
         </div>

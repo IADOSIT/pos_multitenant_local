@@ -142,7 +142,7 @@ export default function CajaPage() {
               {Object.entries(corteX.resumen).map(([key, val]) => (
                 <div key={key} className="flex justify-between">
                   <span className="text-slate-400">{key.replace(/_/g, ' ')}</span>
-                  <span className="font-bold">{typeof val === 'number' ? `$${val.toFixed(2)}` : val}</span>
+                  <span className="font-bold">{typeof val === 'number' ? `$${val.toFixed(2)}` : String(val)}</span>
                 </div>
               ))}
             </div>

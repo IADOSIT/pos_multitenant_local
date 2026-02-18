@@ -12,7 +12,13 @@ import CategoriasAdmin from './pages/admin/CategoriasAdmin';
 import UsuariosAdmin from './pages/superadmin/UsuariosAdmin';
 import TenantsAdmin from './pages/superadmin/TenantsAdmin';
 import TicketsConfig from './pages/admin/TicketsConfig';
+import PedidosPage from './pages/pedidos/PedidosPage';
+import ConfiguracionPage from './pages/admin/ConfiguracionPage';
+import ReportesPage from './pages/reportes/ReportesPage';
+import LicenciasAdmin from './pages/admin/LicenciasAdmin';
 import KioscoPage from './pages/kiosk/KioscoPage';
+import InventarioPage from './pages/inventario/InventarioPage';
+import MateriaPrimaPage from './pages/admin/MateriaPrimaPage';
 
 function PrivateRoute({ children, roles }: { children: JSX.Element; roles?: string[] }) {
   const { isAuthenticated, user } = useAuthStore();
@@ -40,9 +46,19 @@ export default function App() {
         <Route path="/" element={<PrivateRoute><MainLayout /></PrivateRoute>}>
           <Route index element={<Navigate to="/pos" />} />
           <Route path="pos" element={<POSPage />} />
+          <Route path="pedidos" element={<PedidosPage />} />
           <Route path="caja" element={<CajaPage />} />
+          <Route path="reportes" element={
+            <PrivateRoute roles={['superadmin', 'admin', 'manager', 'cajero']}><ReportesPage /></PrivateRoute>
+          } />
+          <Route path="inventario" element={
+            <PrivateRoute roles={['superadmin', 'admin', 'manager']}><InventarioPage /></PrivateRoute>
+          } />
           <Route path="dashboard" element={
             <PrivateRoute roles={['superadmin', 'admin', 'manager']}><DashboardPage /></PrivateRoute>
+          } />
+          <Route path="admin/materia-prima" element={
+            <PrivateRoute roles={['superadmin', 'admin']}><MateriaPrimaPage /></PrivateRoute>
           } />
           <Route path="admin/productos" element={
             <PrivateRoute roles={['superadmin', 'admin']}><ProductosAdmin /></PrivateRoute>
@@ -53,8 +69,14 @@ export default function App() {
           <Route path="admin/tickets" element={
             <PrivateRoute roles={['superadmin', 'admin']}><TicketsConfig /></PrivateRoute>
           } />
+          <Route path="admin/configuracion" element={
+            <PrivateRoute roles={['superadmin', 'admin']}><ConfiguracionPage /></PrivateRoute>
+          } />
           <Route path="admin/usuarios" element={
             <PrivateRoute roles={['superadmin', 'admin']}><UsuariosAdmin /></PrivateRoute>
+          } />
+          <Route path="admin/licencias" element={
+            <PrivateRoute roles={['superadmin']}><LicenciasAdmin /></PrivateRoute>
           } />
           <Route path="admin/tenants" element={
             <PrivateRoute roles={['superadmin']}><TenantsAdmin /></PrivateRoute>

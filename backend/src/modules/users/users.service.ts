@@ -122,4 +122,11 @@ export class UsersService {
     user.activo = !user.activo;
     return this.usersRepo.save(user);
   }
+
+  async softDelete(id: number, scope: any) {
+    const user = await this.findOne(id, scope);
+    user.activo = false;
+    await this.usersRepo.save(user);
+    return { deleted: true };
+  }
 }

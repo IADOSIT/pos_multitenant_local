@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, ManyToOne, JoinColumn, Index } from 'typeorm';
 
 export enum CajaEstado {
   ABIERTA = 'abierta',
@@ -102,5 +102,6 @@ export class MovimientoCaja {
   created_at: Date;
 
   @ManyToOne(() => Caja, (c) => c.movimientos)
+  @JoinColumn({ name: 'caja_id' })
   caja: Caja;
 }

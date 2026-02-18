@@ -12,10 +12,10 @@ export class TicketsService {
     const tiendaConfig = await this.repo.findOne({ where: { tenant_id, empresa_id, tienda_id } });
     if (tiendaConfig) return tiendaConfig;
 
-    const empresaConfig = await this.repo.findOne({ where: { tenant_id, empresa_id, tienda_id: null } });
+    const empresaConfig = await this.repo.findOne({ where: { tenant_id, empresa_id, tienda_id: undefined as any } });
     if (empresaConfig) return empresaConfig;
 
-    const tenantConfig = await this.repo.findOne({ where: { tenant_id, empresa_id: null, tienda_id: null } });
+    const tenantConfig = await this.repo.findOne({ where: { tenant_id, empresa_id: undefined as any, tienda_id: undefined as any } });
     return tenantConfig || this.getDefault(tenant_id);
   }
 

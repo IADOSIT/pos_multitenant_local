@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-interface PrintJob {
+export interface PrintJob {
   id: string;
   content: string;
   status: 'pending' | 'printing' | 'done' | 'error';

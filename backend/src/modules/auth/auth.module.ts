@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { User } from '../users/user.entity';
+import { Empresa } from '../empresas/empresa.entity';
 
 @Module({
   imports: [
@@ -14,7 +15,7 @@ import { User } from '../users/user.entity';
       secret: process.env.JWT_SECRET || 'CAMBIAR_EN_PRODUCCION_iados_jwt_secret_key_2024',
       signOptions: { expiresIn: process.env.JWT_EXPIRES_IN || '8h' },
     }),
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, Empresa]),
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],

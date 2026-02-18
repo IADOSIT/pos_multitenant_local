@@ -1,12 +1,16 @@
 import { usePOSStore } from '../../store/pos.store';
-import { Minus, Plus, Trash2, ShoppingCart } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingCart, Send } from 'lucide-react';
 
 interface Props {
   onPay: () => void;
+  onEnviarPedido?: () => void;
 }
 
-export default function CartPanel({ onPay }: Props) {
-  const { cart, updateQuantity, removeFromCart, clearCart, getSubtotal, getImpuestos, getTotal, cajaActiva } = usePOSStore();
+export default function CartPanel({ onPay, onEnviarPedido }: Props) {
+  const { cart, updateQuantity, removeFromCart, clearCart, getSubtotal, getImpuestos, getTotal, cajaActiva, modoServicio, tipoCobro, mesaActiva, setMesaActiva } = usePOSStore();
+
+  const isMesa = modoServicio === 'mesa';
+  const isPostPago = isMesa && tipoCobro === 'post_pago';
 
   return (
     <div className="flex flex-col h-full">
@@ -19,7 +23,22 @@ export default function CartPanel({ onPay }: Props) {
         )}
       </div>
 
-      {!cajaActiva && (
+      {/* Mesa selector */}
+      {isMesa && (
+        <div className="p-3 border-b border-slate-700 bg-iados-card/50">
+          <label className="text-xs text-slate-400 mb-1 block">Mesa</label>
+          <input
+            type="number"
+            min="1"
+            value={mesaActiva || ''}
+            onChange={(e) => setMesaActiva(e.target.value ? Number(e.target.value) : null)}
+            placeholder="# Mesa"
+            className="input-touch text-center text-lg font-bold"
+          />
+        </div>
+      )}
+
+      {!cajaActiva && !isPostPago && (
         <div className="p-4 bg-amber-900/30 border-b border-amber-700 text-amber-300 text-sm text-center">
           No hay caja abierta. Abra una caja para vender.
         </div>
@@ -29,7 +48,7 @@ export default function CartPanel({ onPay }: Props) {
         {cart.length === 0 ? (
           <div className="text-center text-slate-500 py-12">
             <ShoppingCart size={48} className="mx-auto mb-3 opacity-30" />
-            <p>Carrito vacío</p>
+            <p>Carrito vacio</p>
             <p className="text-xs mt-1">Toca un producto para agregar</p>
           </div>
         ) : (
@@ -87,13 +106,23 @@ export default function CartPanel({ onPay }: Props) {
             <span className="text-iados-accent">${getTotal().toFixed(2)}</span>
           </div>
 
-          <button
-            onClick={onPay}
-            disabled={!cajaActiva}
-            className="btn-accent w-full text-lg mt-3 disabled:opacity-50"
-          >
-            Cobrar ${getTotal().toFixed(2)}
-          </button>
+          {isPostPago ? (
+            <button
+              onClick={onEnviarPedido}
+              disabled={!mesaActiva || cart.length === 0}
+              className="btn-primary w-full text-lg mt-3 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              <Send size={20} /> Enviar Pedido
+            </button>
+          ) : (
+            <button
+              onClick={onPay}
+              disabled={!cajaActiva || (isMesa && !mesaActiva)}
+              className="btn-accent w-full text-lg mt-3 disabled:opacity-50"
+            >
+              Cobrar ${getTotal().toFixed(2)}
+            </button>
+          )}
         </div>
       )}
     </div>

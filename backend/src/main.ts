@@ -1,10 +1,20 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 import { AppModule } from './app.module';
+import { LicenciaGuard } from './common/guards/licencia.guard';
+import { LicenciasService } from './modules/licencias/licencias.service';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // License guard global
+  const licService = app.get(LicenciasService);
+  app.useGlobalGuards(new LicenciaGuard(licService));
+
+  // Static assets BEFORE global prefix so /api/uploads works directly
+  app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/api/uploads' });
   app.setGlobalPrefix('api');
 
   app.enableCors({
@@ -15,9 +25,8 @@ async function bootstrap() {
 
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,
       transform: true,
-      forbidNonWhitelisted: true,
+      skipMissingProperties: true,
     }),
   );
 

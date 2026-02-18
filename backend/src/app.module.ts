@@ -16,6 +16,11 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { TicketsModule } from './modules/tickets/tickets.module';
 import { PrintModule } from './modules/print/print.module';
 import { HealthModule } from './modules/health/health.module';
+import { PedidosModule } from './modules/pedidos/pedidos.module';
+import { NotificacionesModule } from './modules/notificaciones/notificaciones.module';
+import { LicenciasModule } from './modules/licencias/licencias.module';
+import { InventarioModule } from './modules/inventario/inventario.module';
+import { MateriaPrimaModule } from './modules/materia-prima/materia-prima.module';
 
 @Module({
   imports: [
@@ -37,6 +42,11 @@ import { HealthModule } from './modules/health/health.module';
     DashboardModule,
     TicketsModule,
     PrintModule,
+    NotificacionesModule,
+    PedidosModule,
+    LicenciasModule,
+    InventarioModule,
+    MateriaPrimaModule,
   ],
 })
 export class AppModule implements NestModule {

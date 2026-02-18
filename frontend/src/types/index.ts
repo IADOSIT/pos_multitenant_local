@@ -6,6 +6,9 @@ export interface User {
   tenant_id: number;
   empresa_id: number;
   tienda_id: number;
+  empresa_nombre?: string;
+  empresa_logo?: string;
+  config_apariencia?: { tema: string; paleta: string } | null;
 }
 
 export interface Categoria {

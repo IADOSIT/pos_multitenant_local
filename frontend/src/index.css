@@ -2,12 +2,98 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ========================================
+   COLOR PALETTES (CSS Variables)
+   ======================================== */
+
+:root {
+  /* Default - Blue & Amber */
+  --c-primary: 30 64 175;
+  --c-primary-hover: 29 78 216;
+  --c-secondary: 59 130 246;
+  --c-accent: 245 158 11;
+  --c-accent-hover: 217 119 6;
+  --c-accent-text: 0 0 0;
+  --c-dark: 15 23 42;
+  --c-surface: 30 41 59;
+  --c-card: 51 65 85;
+  --c-border: 71 85 105;
+  --c-text: 255 255 255;
+  --c-text-sub: 148 163 184;
+}
+
+[data-palette="esmeralda"] {
+  --c-primary: 4 120 87;
+  --c-primary-hover: 5 150 105;
+  --c-secondary: 16 185 129;
+  --c-accent: 251 191 36;
+  --c-accent-hover: 245 158 11;
+  --c-accent-text: 0 0 0;
+  --c-dark: 2 44 34;
+  --c-surface: 6 78 59;
+  --c-card: 6 95 70;
+  --c-border: 16 185 129;
+  --c-text: 255 255 255;
+  --c-text-sub: 167 243 208;
+}
+
+[data-palette="purpura"] {
+  --c-primary: 109 40 217;
+  --c-primary-hover: 124 58 237;
+  --c-secondary: 139 92 246;
+  --c-accent: 244 114 182;
+  --c-accent-hover: 236 72 153;
+  --c-accent-text: 0 0 0;
+  --c-dark: 26 10 46;
+  --c-surface: 46 16 101;
+  --c-card: 76 29 149;
+  --c-border: 139 92 246;
+  --c-text: 255 255 255;
+  --c-text-sub: 196 181 253;
+}
+
+[data-palette="rubi"] {
+  --c-primary: 185 28 28;
+  --c-primary-hover: 220 38 38;
+  --c-secondary: 239 68 68;
+  --c-accent: 251 146 60;
+  --c-accent-hover: 249 115 22;
+  --c-accent-text: 0 0 0;
+  --c-dark: 26 5 5;
+  --c-surface: 69 10 10;
+  --c-card: 127 29 29;
+  --c-border: 239 68 68;
+  --c-text: 255 255 255;
+  --c-text-sub: 252 165 165;
+}
+
+[data-palette="oceano"] {
+  --c-primary: 14 116 144;
+  --c-primary-hover: 8 145 178;
+  --c-secondary: 6 182 212;
+  --c-accent: 163 230 53;
+  --c-accent-hover: 132 204 22;
+  --c-accent-text: 0 0 0;
+  --c-dark: 4 47 46;
+  --c-surface: 19 78 74;
+  --c-card: 22 78 99;
+  --c-border: 6 182 212;
+  --c-text: 255 255 255;
+  --c-text-sub: 153 246 228;
+}
+
+/* ========================================
+   BASE STYLES
+   ======================================== */
+
 @layer base {
   * {
     -webkit-tap-highlight-color: transparent;
   }
   body {
-    @apply bg-iados-dark text-white antialiased;
+    background-color: rgb(var(--c-dark));
+    color: rgb(var(--c-text));
+    @apply antialiased;
     touch-action: manipulation;
     overscroll-behavior: none;
   }
@@ -15,12 +101,17 @@
     width: 6px;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-iados-dark;
+    background-color: rgb(var(--c-dark));
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-iados-card rounded;
+    background-color: rgb(var(--c-card));
+    border-radius: 4px;
   }
 }
+
+/* ========================================
+   COMPONENT LAYER
+   ======================================== */
 
 @layer components {
   .btn-touch {
@@ -28,13 +119,26 @@
       min-h-[48px] flex items-center justify-center;
   }
   .btn-primary {
-    @apply btn-touch bg-iados-primary hover:bg-blue-700 text-white;
+    @apply btn-touch text-white;
+    background-color: rgb(var(--c-primary));
+  }
+  .btn-primary:hover {
+    background-color: rgb(var(--c-primary-hover));
   }
   .btn-secondary {
-    @apply btn-touch bg-iados-card hover:bg-slate-500 text-white;
+    @apply btn-touch text-white;
+    background-color: rgb(var(--c-card));
+  }
+  .btn-secondary:hover {
+    background-color: rgb(var(--c-border));
   }
   .btn-accent {
-    @apply btn-touch bg-iados-accent hover:bg-amber-600 text-black font-bold;
+    @apply btn-touch font-bold;
+    background-color: rgb(var(--c-accent));
+    color: rgb(var(--c-accent-text));
+  }
+  .btn-accent:hover {
+    background-color: rgb(var(--c-accent-hover));
   }
   .btn-danger {
     @apply btn-touch bg-red-600 hover:bg-red-700 text-white;
@@ -43,11 +147,504 @@
     @apply btn-touch bg-green-600 hover:bg-green-700 text-white;
   }
   .card {
-    @apply bg-iados-surface rounded-2xl p-4 border border-slate-700/50;
+    @apply rounded-2xl p-4;
+    background-color: rgb(var(--c-surface));
+    border: 1px solid rgb(var(--c-border) / 0.5);
   }
   .input-touch {
-    @apply w-full px-4 py-3 bg-iados-card border border-slate-600 rounded-xl text-white
-      placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-iados-secondary
-      text-base min-h-[48px];
+    @apply w-full px-4 py-3 rounded-xl text-base min-h-[48px]
+      focus:outline-none focus:ring-2;
+    background-color: rgb(var(--c-card));
+    border: 1px solid rgb(var(--c-border) / 0.6);
+    color: rgb(var(--c-text));
+    --tw-ring-color: rgb(var(--c-secondary));
   }
+  .input-touch::placeholder {
+    color: rgb(var(--c-text-sub) / 0.6);
+  }
+}
+
+/* ========================================
+   GLOBAL BORDER COLOR OVERRIDE
+   All border-slate-700 and border-slate-600
+   now follow the palette
+   ======================================== */
+
+/* These ensure the sidebar, dividers, and general
+   layout borders all adapt to the active palette */
+aside,
+nav,
+header {
+  border-color: rgb(var(--c-border) / 0.35);
+}
+
+/* Override hardcoded slate borders site-wide for palettes.
+   Only applies when a non-default palette is active. */
+[data-palette]:not([data-palette=""]) .border-slate-700,
+[data-palette]:not([data-palette=""]) .border-slate-600,
+[data-palette]:not([data-palette=""]) .border-slate-800 {
+  border-color: rgb(var(--c-border) / 0.3) !important;
+}
+
+/* Override hardcoded slate text for non-default palettes */
+[data-palette]:not([data-palette=""]) .text-slate-400,
+[data-palette]:not([data-palette=""]) .text-slate-500 {
+  color: rgb(var(--c-text-sub)) !important;
+}
+
+
+/* ================================================================
+   THEME: MODERNO
+   Glass morphism, gradientes, blur, sombras profundas, todo suave
+   ================================================================ */
+
+/* -- Fondo principal: gradiente sutil -- */
+[data-theme="moderno"] body {
+  background: linear-gradient(160deg, rgb(var(--c-dark)) 0%, rgb(var(--c-surface) / 0.5) 50%, rgb(var(--c-dark)) 100%);
+  background-attachment: fixed;
+}
+
+/* -- Sidebar: vidrio translucido -- */
+[data-theme="moderno"] aside {
+  background: rgb(var(--c-surface) / 0.55) !important;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-color: rgb(var(--c-text) / 0.06) !important;
+}
+
+/* -- Top bar mobile: vidrio -- */
+[data-theme="moderno"] .md\:hidden.fixed {
+  background: rgb(var(--c-surface) / 0.6) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* -- Nav links -- */
+[data-theme="moderno"] nav a {
+  border-radius: 1rem;
+  transition: all 0.25s ease;
+}
+[data-theme="moderno"] nav a:hover {
+  background: rgb(var(--c-card) / 0.5) !important;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.15);
+}
+
+/* -- Cards: vidrio flotante -- */
+[data-theme="moderno"] .card {
+  background: rgb(var(--c-surface) / 0.55);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgb(var(--c-text) / 0.07);
+  box-shadow: 0 8px 32px rgb(0 0 0 / 0.25), 0 2px 8px rgb(0 0 0 / 0.15);
+  border-radius: 1.25rem;
+}
+
+/* -- Botones: gradientes suaves con sombra -- */
+[data-theme="moderno"] .btn-touch {
+  border-radius: 1rem;
+  box-shadow: 0 4px 15px rgb(0 0 0 / 0.15);
+  transition: all 0.2s ease;
+}
+[data-theme="moderno"] .btn-touch:hover {
+  transform: translateY(-1px) scale(0.98);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.25);
+}
+[data-theme="moderno"] .btn-primary {
+  background: linear-gradient(135deg, rgb(var(--c-primary)), rgb(var(--c-primary-hover)));
+  border: 1px solid rgb(var(--c-text) / 0.1);
+}
+[data-theme="moderno"] .btn-accent {
+  background: linear-gradient(135deg, rgb(var(--c-accent)), rgb(var(--c-accent-hover)));
+  border: 1px solid rgb(var(--c-text) / 0.15);
+}
+[data-theme="moderno"] .btn-secondary {
+  background: rgb(var(--c-card) / 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgb(var(--c-text) / 0.06);
+}
+[data-theme="moderno"] .btn-success {
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+}
+[data-theme="moderno"] .btn-danger {
+  background: linear-gradient(135deg, #dc2626, #ef4444);
+}
+
+/* -- Inputs: vidrio sutil -- */
+[data-theme="moderno"] .input-touch {
+  background: rgb(var(--c-card) / 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgb(var(--c-text) / 0.08);
+  border-radius: 1rem;
+}
+[data-theme="moderno"] .input-touch:focus {
+  border-color: rgb(var(--c-secondary) / 0.5);
+  box-shadow: 0 0 0 3px rgb(var(--c-secondary) / 0.15);
+}
+
+/* -- Selects y checkboxes -- */
+[data-theme="moderno"] select {
+  background: rgb(var(--c-card) / 0.4);
+  border-radius: 1rem;
+}
+
+/* -- Scrollbar: sutil -- */
+[data-theme="moderno"] ::-webkit-scrollbar-thumb {
+  background-color: rgb(var(--c-secondary) / 0.25);
+  border-radius: 10px;
+}
+
+/* -- Dividers internos -- */
+[data-theme="moderno"] [class*="border-t"],
+[data-theme="moderno"] [class*="border-b"],
+[data-theme="moderno"] [class*="border-l"],
+[data-theme="moderno"] [class*="border-r"] {
+  border-color: rgb(var(--c-text) / 0.06) !important;
+}
+
+/* -- Grids de productos POS: cards suaves -- */
+[data-theme="moderno"] .grid button.card,
+[data-theme="moderno"] button[class*="card"] {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+
+/* ================================================================
+   THEME: ELEGANTE
+   Bordes rectos, lineas finas, tipografia refinada, aspecto premium
+   ================================================================ */
+
+/* -- Fondo: oscuro puro con gradiente sutil -- */
+[data-theme="elegante"] body {
+  background: linear-gradient(180deg, rgb(var(--c-dark)) 0%, rgb(var(--c-dark)) 60%, rgb(var(--c-surface) / 0.3) 100%);
+  background-attachment: fixed;
+}
+
+/* -- Sidebar: limpia con linea lateral de acento -- */
+[data-theme="elegante"] aside {
+  border-right: 2px solid rgb(var(--c-primary) / 0.5) !important;
+  border-radius: 0;
+}
+
+/* -- Nav links: minimal rectangulares -- */
+[data-theme="elegante"] nav a {
+  border-radius: 0.375rem;
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+[data-theme="elegante"] nav a:hover {
+  border-left: 3px solid rgb(var(--c-accent));
+  padding-left: calc(1rem - 3px);
+}
+
+/* -- Cards: bordes rectos, sombra minima -- */
+[data-theme="elegante"] .card {
+  border-radius: 0.5rem;
+  border: 1px solid rgb(var(--c-border) / 0.35);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
+  border-top: 2px solid rgb(var(--c-primary) / 0.4);
+}
+
+/* -- Botones: rectos, uppercase, thin -- */
+[data-theme="elegante"] .btn-touch {
+  border-radius: 0.375rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+}
+[data-theme="elegante"] .btn-primary {
+  border-bottom: 2px solid rgb(var(--c-primary-hover));
+}
+[data-theme="elegante"] .btn-primary:hover {
+  border-bottom-color: rgb(var(--c-accent));
+}
+[data-theme="elegante"] .btn-accent {
+  border-bottom: 2px solid rgb(var(--c-accent-hover));
+}
+[data-theme="elegante"] .btn-secondary {
+  border: 1px solid rgb(var(--c-border) / 0.4);
+}
+[data-theme="elegante"] .btn-success {
+  border-radius: 0.375rem;
+  border-bottom: 2px solid #15803d;
+}
+[data-theme="elegante"] .btn-danger {
+  border-radius: 0.375rem;
+  border-bottom: 2px solid #b91c1c;
+}
+
+/* -- Inputs: linea inferior, sin bordes laterales prominentes -- */
+[data-theme="elegante"] .input-touch {
+  border-radius: 0.375rem;
+  border: 1px solid rgb(var(--c-border) / 0.3);
+  border-bottom: 2px solid rgb(var(--c-secondary) / 0.4);
+  background: rgb(var(--c-card) / 0.5);
+}
+[data-theme="elegante"] .input-touch:focus {
+  border-bottom-color: rgb(var(--c-secondary));
+  box-shadow: none;
+}
+[data-theme="elegante"] select {
+  border-radius: 0.375rem;
+}
+
+/* -- Scrollbar: delgada elegante -- */
+[data-theme="elegante"] ::-webkit-scrollbar {
+  width: 4px;
+}
+[data-theme="elegante"] ::-webkit-scrollbar-thumb {
+  background-color: rgb(var(--c-primary) / 0.4);
+  border-radius: 2px;
+}
+
+/* -- Dividers: sutiles -- */
+[data-theme="elegante"] [class*="border-t"],
+[data-theme="elegante"] [class*="border-b"] {
+  border-color: rgb(var(--c-border) / 0.2) !important;
+}
+[data-theme="elegante"] [class*="border-l"],
+[data-theme="elegante"] [class*="border-r"] {
+  border-color: rgb(var(--c-border) / 0.2) !important;
+}
+
+/* -- Rounded overrides: todo mas recto -- */
+[data-theme="elegante"] [class*="rounded-2xl"] {
+  border-radius: 0.5rem !important;
+}
+[data-theme="elegante"] [class*="rounded-xl"]:not(.btn-touch):not(.input-touch):not(.card) {
+  border-radius: 0.375rem !important;
+}
+
+
+/* ================================================================
+   THEME: NEON
+   Bordes brillantes, glow por todos lados, cyberpunk futurista
+   ================================================================ */
+
+/* -- Fondo: oscuro profundo con textura sutil -- */
+[data-theme="neon"] body {
+  background:
+    radial-gradient(ellipse at 20% 50%, rgb(var(--c-primary) / 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgb(var(--c-secondary) / 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgb(var(--c-accent) / 0.04) 0%, transparent 50%),
+    rgb(var(--c-dark));
+  background-attachment: fixed;
+}
+
+/* -- Sidebar: borde neon pulsante -- */
+[data-theme="neon"] aside {
+  border-right: 1px solid rgb(var(--c-secondary) / 0.4) !important;
+  box-shadow: 1px 0 20px rgb(var(--c-secondary) / 0.1);
+  background: rgb(var(--c-surface) / 0.9) !important;
+}
+
+/* -- Nav links: glow al hover -- */
+[data-theme="neon"] nav a {
+  border-radius: 0.75rem;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+[data-theme="neon"] nav a:hover {
+  border-color: rgb(var(--c-secondary) / 0.3);
+  box-shadow: 0 0 12px rgb(var(--c-secondary) / 0.15);
+  background: rgb(var(--c-card) / 0.5) !important;
+}
+[data-theme="neon"] nav a.active,
+[data-theme="neon"] nav a[class*="bg-iados-primary"] {
+  box-shadow: 0 0 15px rgb(var(--c-primary) / 0.4);
+}
+
+/* -- Cards: bordes neon brillantes -- */
+[data-theme="neon"] .card {
+  border: 1px solid rgb(var(--c-secondary) / 0.3);
+  box-shadow:
+    0 0 20px rgb(var(--c-secondary) / 0.07),
+    inset 0 1px 0 rgb(var(--c-secondary) / 0.1),
+    0 0 60px rgb(var(--c-primary) / 0.03);
+  border-radius: 1rem;
+  background: rgb(var(--c-surface) / 0.85);
+}
+
+/* -- Botones: neon glow en todos -- */
+[data-theme="neon"] .btn-touch {
+  border-radius: 0.75rem;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+[data-theme="neon"] .btn-primary {
+  box-shadow: 0 0 20px rgb(var(--c-primary) / 0.35), 0 0 40px rgb(var(--c-primary) / 0.15);
+  border: 1px solid rgb(var(--c-primary-hover) / 0.5);
+}
+[data-theme="neon"] .btn-primary:hover {
+  box-shadow: 0 0 30px rgb(var(--c-primary) / 0.5), 0 0 60px rgb(var(--c-primary) / 0.2);
+}
+[data-theme="neon"] .btn-accent {
+  box-shadow: 0 0 20px rgb(var(--c-accent) / 0.35), 0 0 40px rgb(var(--c-accent) / 0.15);
+  border: 1px solid rgb(var(--c-accent-hover) / 0.5);
+}
+[data-theme="neon"] .btn-accent:hover {
+  box-shadow: 0 0 30px rgb(var(--c-accent) / 0.5), 0 0 60px rgb(var(--c-accent) / 0.2);
+}
+[data-theme="neon"] .btn-secondary {
+  border: 1px solid rgb(var(--c-secondary) / 0.25);
+}
+[data-theme="neon"] .btn-secondary:hover {
+  box-shadow: 0 0 15px rgb(var(--c-secondary) / 0.2);
+  border-color: rgb(var(--c-secondary) / 0.5);
+}
+[data-theme="neon"] .btn-success {
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.35);
+  border: 1px solid rgba(34, 197, 94, 0.5);
+}
+[data-theme="neon"] .btn-danger {
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.35);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+}
+
+/* -- Inputs: borde neon al focus -- */
+[data-theme="neon"] .input-touch {
+  border: 1px solid rgb(var(--c-secondary) / 0.2);
+  border-radius: 0.75rem;
+  background: rgb(var(--c-card) / 0.6);
+}
+[data-theme="neon"] .input-touch:focus {
+  border-color: rgb(var(--c-secondary) / 0.7);
+  box-shadow: 0 0 15px rgb(var(--c-secondary) / 0.2), 0 0 30px rgb(var(--c-secondary) / 0.08);
+}
+[data-theme="neon"] select {
+  border: 1px solid rgb(var(--c-secondary) / 0.2);
+  border-radius: 0.75rem;
+}
+
+/* -- Scrollbar: neon -- */
+[data-theme="neon"] ::-webkit-scrollbar-thumb {
+  background: rgb(var(--c-secondary) / 0.35);
+  box-shadow: 0 0 6px rgb(var(--c-secondary) / 0.3);
+}
+
+/* -- Borders: brillo neon sutil -- */
+[data-theme="neon"] [class*="border-t"],
+[data-theme="neon"] [class*="border-b"],
+[data-theme="neon"] [class*="border-l"],
+[data-theme="neon"] [class*="border-r"] {
+  border-color: rgb(var(--c-secondary) / 0.2) !important;
+}
+
+/* -- Producto cards en POS: brillo sutil -- */
+[data-theme="neon"] .grid button {
+  transition: all 0.2s ease;
+}
+[data-theme="neon"] .grid button:hover {
+  box-shadow: 0 0 20px rgb(var(--c-secondary) / 0.15);
+}
+
+
+/* ================================================================
+   THEME: COMPACTO
+   Todo mas denso, menos padding, mas informacion en pantalla
+   ================================================================ */
+
+/* -- Fondo: limpio y plano -- */
+[data-theme="compacto"] body {
+  background: rgb(var(--c-dark));
+}
+
+/* -- Sidebar: mas angosta -- */
+[data-theme="compacto"] aside {
+  font-size: 0.82rem;
+}
+
+/* -- Nav links: compactos -- */
+[data-theme="compacto"] nav a {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-radius: 0.4rem;
+  font-size: 0.8rem;
+}
+
+/* -- Cards: padding reducido, bordes minimos -- */
+[data-theme="compacto"] .card {
+  border-radius: 0.5rem;
+  padding: 0.65rem;
+  border: 1px solid rgb(var(--c-border) / 0.25);
+}
+
+/* -- Botones: mas pequenos y apretados -- */
+[data-theme="compacto"] .btn-touch {
+  padding: 0.4rem 0.7rem;
+  border-radius: 0.4rem;
+  font-size: 0.8rem;
+  min-height: 36px;
+}
+
+/* -- Inputs: compactos -- */
+[data-theme="compacto"] .input-touch {
+  padding: 0.4rem 0.65rem;
+  border-radius: 0.4rem;
+  font-size: 0.82rem;
+  min-height: 36px;
+}
+[data-theme="compacto"] select {
+  padding: 0.4rem 0.65rem;
+  border-radius: 0.4rem;
+  font-size: 0.82rem;
+}
+
+/* -- Rounded overrides: todo compacto -- */
+[data-theme="compacto"] [class*="rounded-2xl"] {
+  border-radius: 0.5rem !important;
+}
+[data-theme="compacto"] [class*="rounded-xl"]:not(.btn-touch):not(.input-touch):not(.card) {
+  border-radius: 0.4rem !important;
+}
+
+/* -- Scrollbar: delgada -- */
+[data-theme="compacto"] ::-webkit-scrollbar {
+  width: 4px;
+}
+
+/* -- Gaps y margins reducidos -- */
+[data-theme="compacto"] .space-y-4 > * + * {
+  margin-top: 0.6rem;
+}
+[data-theme="compacto"] .space-y-3 > * + * {
+  margin-top: 0.4rem;
+}
+[data-theme="compacto"] .space-y-2 > * + * {
+  margin-top: 0.3rem;
+}
+[data-theme="compacto"] .gap-4 {
+  gap: 0.6rem;
+}
+[data-theme="compacto"] .gap-3 {
+  gap: 0.45rem;
+}
+[data-theme="compacto"] .gap-2 {
+  gap: 0.3rem;
+}
+[data-theme="compacto"] .p-4 {
+  padding: 0.65rem;
+}
+[data-theme="compacto"] .p-3 {
+  padding: 0.5rem;
+}
+[data-theme="compacto"] .mb-4 {
+  margin-bottom: 0.6rem;
+}
+[data-theme="compacto"] .text-2xl {
+  font-size: 1.25rem;
+}
+[data-theme="compacto"] .text-xl {
+  font-size: 1.05rem;
+}
+[data-theme="compacto"] .text-lg {
+  font-size: 0.92rem;
 }

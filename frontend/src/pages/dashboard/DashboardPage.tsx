@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { dashboardApi } from '../../api/endpoints';
 import { KPI } from '../../types';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, ShoppingBag, Receipt, DollarSign, Ban } from 'lucide-react';
+import { TrendingUp, ShoppingBag, Receipt, DollarSign, Ban, ClipboardList } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -11,8 +12,14 @@ export default function DashboardPage() {
   const [tendencia, setTendencia] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [rango, setRango] = useState('hoy');
+  const [pedidosPendientes, setPedidosPendientes] = useState(0);
+  const navigate = useNavigate();
 
-  useEffect(() => { loadKPI(); loadTendencia(); }, [rango]);
+  useEffect(() => { loadKPI(); loadTendencia(); loadPedidosCount(); }, [rango]);
+
+  const loadPedidosCount = async () => {
+    try { const { data } = await dashboardApi.pedidosCount(); setPedidosPendientes(data.count); } catch {}
+  };
 
   const getRangoFechas = () => {
     const now = new Date();
@@ -56,7 +63,7 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         {[
           { label: 'Ventas', value: kpi?.total_ventas, icon: DollarSign, color: 'text-green-400', prefix: '$' },
           { label: 'Tickets', value: kpi?.num_tickets, icon: Receipt, color: 'text-blue-400' },
@@ -74,6 +81,16 @@ export default function DashboardPage() {
             </p>
           </div>
         ))}
+        {/* Pedidos Pendientes */}
+        <div onClick={() => navigate('/pedidos')} className="card cursor-pointer hover:ring-2 hover:ring-iados-secondary transition-all">
+          <div className="flex items-center gap-2 mb-1">
+            <ClipboardList size={18} className="text-orange-400" />
+            <span className="text-xs text-slate-400">Pedidos Pend.</span>
+          </div>
+          <p className={`text-xl font-bold ${pedidosPendientes > 0 ? 'text-orange-400 animate-pulse' : 'text-slate-500'}`}>
+            {pedidosPendientes}
+          </p>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4">

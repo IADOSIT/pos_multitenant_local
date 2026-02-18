@@ -26,4 +26,9 @@ export class EmpresasService {
     await this.repo.update(id, data);
     return this.findOne(id);
   }
+
+  async remove(id: number) {
+    await this.repo.delete(id);
+    return { deleted: true };
+  }
 }
