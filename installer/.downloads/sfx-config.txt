@@ -1,0 +1,5 @@
+;!@Install@!UTF-8!
+Title="POS-iaDoS v1.0.0 - Instalador"
+BeginPrompt="¿Desea instalar POS-iaDoS v1.0.0?"
+RunProgram="INSTALAR.bat"
+;!@InstallEnd@!

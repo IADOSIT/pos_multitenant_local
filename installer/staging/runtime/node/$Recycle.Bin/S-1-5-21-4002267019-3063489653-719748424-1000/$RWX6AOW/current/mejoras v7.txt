@@ -1,0 +1,214 @@
+PROMPT PARA CLAUDE CODE
+EMC – Auditoría Total + Correcciones (DB/Modelo/Secciones/Imágenes/Performance)
+
+Eres Claude Code y YA conoces completamente el repositorio emc_abastos (Laravel) y su historial.
+Tu tarea es ejecutar una AUDITORÍA TOTAL y CORREGIR todo lo encontrado.
+
+⚠️ NO reanalices el repo desde cero (no listados largos, no explicaciones).
+⚠️ NO hagas preguntas (la respuesta es sí a todo).
+⚠️ NO rompas diseño ni funcionalidad.
+✅ Trabaja por cambios incrementales y deja el sistema corriendo.
+
+🎯 Objetivos (obligatorios)
+
+Modelo de datos congruente: tablas/campos/relaciones/índices correctos y consistentes con el código.
+
+Cero secciones rotas: rutas, vistas, controladores, componentes, menús, links, permisos.
+
+Cero imágenes rotas: portal, tiendas y admin siempre muestran imagen o fallback.
+
+Más ágil sin perder diseño ni funcionalidad: reducir N+1, caching seguro, índices, assets optimizados.
+
+1) Auditoría de Base de Datos y Modelo (corregir, no solo reportar)
+1.1 Comparar “migrations vs BD real”
+
+Detecta migraciones pendientes, drift, columnas faltantes/sobrantes.
+
+Corrige con migraciones nuevas (no edites migraciones ya aplicadas en prod).
+
+Asegura down() correcto.
+
+1.2 Validar integridad multi-empresa (scoping)
+
+Verifica que entidades críticas tengan empresa_id (o store_id equivalente) y que se use en queries:
+
+productos, categorías, clientes, órdenes, pagos, caja, inventario_movimientos, whatsapp_logs, entregas, etc.
+
+Si faltan columnas o relaciones, agrega migraciones y actualiza modelos.
+
+1.3 FK lógicas / huérfanos / duplicados
+
+Crea un comando Artisan php artisan audit:db que:
+
+detecte registros huérfanos (empresa inexistente, producto inexistente en inventario, etc.)
+
+detecte null indebidos
+
+detecte duplicados según reglas (ej. unique constraints)
+
+El comando debe:
+
+imprimir resumen + detalles
+
+opcionalmente ofrecer modo --fix (aplica correcciones seguras: set default, soft-delete, re-asignación controlada).
+
+1.4 Índices y constraints de performance
+
+Agrega índices compuestos recomendados donde falten (ajusta a nombres reales):
+
+ordenes(empresa_id, created_at, status)
+
+productos(empresa_id, activo, created_at) o equivalente
+
+inventario_movimientos(empresa_id, producto_id, created_at)
+
+caja_movimientos(empresa_id, created_at)
+
+whatsapp_logs(empresa_id, created_at)
+
+Si el sistema ya tiene constraints útiles (unique, foreign keys), respétalos.
+
+1.5 Congruencia Eloquent
+
+Corrige relaciones hasMany/belongsTo, casts, fillables/guarded.
+
+Elimina N+1 con with() y/o loadMissing().
+
+Aplica “empresa scope” consistente (Global Scope o servicios) sin romper superadmin.
+
+2) Auditoría de Secciones Rotas (corregir todo)
+2.1 Rutas / Menús / Permisos
+
+Encuentra rutas 404/500 frecuentes en logs y arréglalas.
+
+Asegura que el side menu no desaparezca en secciones críticas.
+
+Corrige enlaces rotos en portal (empresa/tienda/producto).
+
+Validar middleware y policies (no bloqueos falsos).
+
+2.2 Vistas/Componentes
+
+Corrige errores tipo: variables undefined, null access, rutas mal construidas, componentes Livewire desincronizados.
+
+Asegura que “Ver tienda” y navegación por empresa funcionen.
+
+2.3 Auditoría automatizada
+
+Crea comando php artisan audit:routes que:
+
+recorra rutas principales (portal, tienda, admin) en modo smoke test básico
+
+reporte status esperados
+
+Si hay tests, añade smoke tests mínimos; si no, crea al menos estos comandos.
+
+3) Auditoría y Corrección de Imágenes (CRÍTICO)
+3.1 Origen de imagen unificado
+
+Normaliza un solo campo principal (ej. image_path + image_url si aplica) y define prioridad:
+
+manual upload
+
+auto por nombre
+
+default placeholder
+
+Nunca renderizar <img> sin fallback.
+
+3.2 Arreglar storage/paths
+
+Asegura php artisan storage:link compatible.
+
+Corrige helpers de URL (Storage::url vs asset) según disco.
+
+Repara rutas mal formadas en portal/tienda/admin.
+
+3.3 Auto-imagen por nombre (fuente confiable)
+
+Implementa/ajusta ProductImageService:
+
+al crear/editar producto (o por job)
+
+busca imagen por nombre (fuente confiable)
+
+cachea y guarda el resultado (evitar hotlinks frágiles)
+
+Crea seeders que generen productos con imágenes válidas (manual/auto/default).
+
+3.4 Auditoría automatizada de imágenes
+
+Crea comando php artisan audit:images:
+
+lista productos con imagen rota/no existente
+
+aplica fix (asignar default o disparar fetch auto) con --fix
+
+4) Performance (sin perder UX ni diseño)
+4.1 BD
+
+Elimina N+1 en listados grandes (admin productos, órdenes, inventario, portal destacados).
+
+Pagina correctamente (no traer todo).
+
+Índices ya mencionados.
+
+4.2 Laravel
+
+Asegura caching seguro:
+
+config cache, route cache, view cache
+
+Optimiza queries más pesadas (usa select() minimal cuando aplique).
+
+Evita recalcular totales en loops; usa agregados SQL.
+
+4.3 Assets (sin romper diseño)
+
+Asegura Vite build correcto, minificación, cache busting.
+
+Lazy-load en imágenes y componentes pesados.
+
+5) Entregables (obligatorio)
+
+Reporte breve AUDIT_REPORT.md con:
+
+hallazgos por categoría
+
+correcciones aplicadas
+
+comandos para correr auditorías (audit:db, audit:images, audit:routes)
+
+Migraciones nuevas necesarias
+
+Fixes en modelos/relaciones/scopes
+
+Fixes en vistas/links/menús
+
+Fixes de imágenes + fallback + auto-fetch
+
+Mejoras de performance (N+1, índices, paginación, cache)
+
+6) Reglas finales
+
+NO preguntar, decide defaults razonables.
+
+NO eliminar funcionalidades.
+
+NO cambiar UX de forma que pierda features.
+
+Todo debe quedar corriendo al final.
+
+✅ Orden de ejecución
+
+audit:db + migraciones + scopes
+
+audit:images + fixes + auto-images + seed
+
+rutas/links/side menu + smoke tests
+
+performance (N+1, paginación, índices, cache)
+
+AUDIT_REPORT.md
+
+INICIA YA y entrega todo listo para correr.

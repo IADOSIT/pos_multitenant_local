@@ -1,0 +1,635 @@
+PROMPT PARA CLAUDE CODE — CAMBIOS OPERACIONALES (EMC SaaS Multitenant)
+Trabaja en el repo:
+
+
+C:\sites\emc_abastos\current
+
+
+PHP: C:\php\php.exe
+
+
+DB: Postgres (pgsql)
+
+
+Logo oficial: C:\sites\emc_abastos\current\storage\app\public\brand\logo-iados.png
+(si no existe, créalo copiando el archivo adjunto que ya está en el repo como /mnt/data/logo iados.png y muévelo ahí)
+
+
+Objetivo: implementar mejoras operacionales + UX + pagos + branding + superadmin features, sin romper multitenancy (empresa_id) y manteniendo arquitectura limpia.
+
+0) Reglas obligatorias
+
+
+Nada de hotfix “a medias”. Cada cambio debe traer:
+
+
+
+
+rutas
+
+
+controladores/Livewire
+
+
+vistas
+
+
+validaciones
+
+
+migraciones si aplica
+
+
+seeders demo (si aplica)
+
+
+y scripts Windows si hay pasos manuales
+
+
+
+
+Multi-tenant estricto:
+
+
+
+
+Todo lo que sea de negocio debe filtrarse por empresa_id
+
+
+Superadmin ve todo y administra configuración global + empresas.
+
+
+Admin de empresa sólo su empresa.
+
+
+
+
+UI consistente:
+
+
+
+
+Admin/Ops debe conservar el Side Menu siempre (homologar “Orden del día” y “Operaciones” para que no desaparezca).
+
+
+No usar Tailwind CDN. Vite + Tailwind compilado.
+
+
+
+1) Superadmin: CRUDes nuevos (Empresas, Usuarios, Temas/Plantillas)
+1.1 CRUD Empresas (superadmin)
+Debe permitir:
+
+
+nombre comercial (display name) y nombre interno
+
+
+status (activo)
+
+
+branding por empresa:
+
+
+app_name (nombre del sistema por empresa)
+
+
+logo_path
+
+
+primary_color, secondary_color, accent_color
+
+
+modo (light/dark opcional)
+
+
+theme_preset (por ejemplo: “abastos”, “minimal”, “corporate”)
+
+
+
+
+configuración de pagos (Mercado Pago):
+
+
+mp_access_token
+
+
+mp_public_key
+
+
+mp_webhook_secret (si aplica)
+
+
+
+
+configuración de catálogo:
+
+
+default_product_image_url
+
+
+
+
+Guardar todo en tabla empresas en columnas JSON settings o columnas explícitas (elige mejor práctica; recomendado: settings JSON + casts).
+1.2 CRUD Usuarios (superadmin)
+
+
+listar usuarios globales
+
+
+crear usuario
+
+
+asignar a una o varias empresas con rol (pivote empresa_usuario)
+
+
+activar/desactivar usuario
+
+
+reset de password (acción admin)
+
+
+1.3 CRUD Temas / Plantillas (superadmin)
+Crear un módulo “Plantillas” o “Themes”:
+
+
+permite crear presets de colores + tipografía + estilo (sin JS)
+
+
+asociar plantilla a empresas (default y override)
+
+
+vista preview (opcional pero recomendado)
+
+
+store todo en tabla themes y pivot empresa_theme o referencia en empresas.settings.theme_id.
+
+
+UI: intuitiva, con tabs:
+
+
+“Branding” (logo/nombre/colores)
+
+
+“Pagos”
+
+
+“Catálogo”
+
+
+“Seguridad”
+
+
+
+2) Tienda: mejora “Agregar al carrito” sin redirección
+Actualmente al agregar producto manda al carrito. Cambiar a:
+
+
+Al hacer click “Agregar”, debe:
+
+
+agregar el producto al carrito (AJAX / Livewire)
+
+
+quedarse en la misma página/sección
+
+
+mostrar un efecto:
+
+
+toast / badge “Agregado”
+
+
+animación breve en el botón
+
+
+
+
+
+
+En el header/topbar de tienda:
+
+
+actualizar contador de productos
+
+
+actualizar importe total
+
+
+inmediatamente tras cada agregado
+
+
+
+
+Implementación recomendada:
+
+
+Crear/usar Livewire para catálogo/listado y para el “Cart Mini Summary” del header:
+
+
+Store\ProductCard (emite evento)
+
+
+Store\CartSummary (escucha evento y refresca total)
+
+
+
+
+Mantener fallback con fetch POST si no quieres Livewire en storefront, pero el resultado debe ser igual.
+
+
+
+3) Auth: permitir que el usuario cree su cuenta (registro)
+Agregar:
+
+
+/registro GET/POST
+
+
+validaciones (email único, password fuerte)
+
+
+crear usuario y (si hay empresa seleccionada) asociarlo a la empresa actual como rol “cliente” o rol base.
+
+
+si no existe rol cliente, créalo (o usar users sin rol pero recomendado rol “cliente”).
+
+
+Opcional recomendado:
+
+
+recuperación de contraseña
+
+
+rate limiting
+
+
+
+4) Catálogo: imagen default + “auto imagen vendible confiable”
+4.1 Imagen default
+
+
+Si producto no tiene imagen, usar:
+
+
+empresas.settings.default_product_image_url o un asset global
+
+
+
+
+Mostrarlo en cards y detalle.
+
+
+4.2 Auto-obtener imagen al crear producto
+Al crear/editar producto, si no se sube imagen:
+
+
+disparar un job FetchProductImageJob
+
+
+buscar una imagen “vendible” de fuente confiable vía API configurable.
+
+
+Implementación recomendada (elige una, pero deja config por ENV):
+
+
+Opción A (recomendada): Bing Image Search API / Azure Cognitive Services
+
+
+Opción B: SerpAPI (Google Images) con safe search y filtros
+
+
+Opción C: Unsplash/Pexels (más genérico; menos ideal para productos exactos)
+
+
+Requisitos:
+
+
+Guardar el source_url, provider, query, license/terms en productos.meta
+
+
+Descargar y almacenar localmente en storage/app/public/productos/
+
+
+Nunca bloquear el request del usuario: que sea async (queue) y el producto quede con default mientras llega.
+
+
+Agregar configuración:
+
+
+.env: IMAGE_PROVIDER, IMAGE_API_KEY, etc.
+
+
+UI: checkbox “Auto buscar imagen si no subo una”.
+
+
+
+5) Admin/Ops: side menu no debe desaparecer
+En “Orden del día” y “Operaciones”, al entrar se pierde el layout con sidebar.
+Arreglar para que:
+
+
+todas las rutas admin/ops usen el mismo layout base
+
+
+misma navegación
+
+
+mismo componente sidebar
+
+
+Entregable:
+
+
+refactor de layouts y/o middleware de views para homologar.
+
+
+
+6) Pagos: integrar Mercado Pago (Mercado Libre) + sincronización Admin Pagos
+El botón “Pagar” en tienda no permite pagar. Integrar lo más simple del mercado:
+
+
+Mercado Pago Checkout Pro (plataforma de Mercado Libre)
+
+
+Flujo requerido:
+
+
+En checkout, crear preferencia Mercado Pago:
+
+
+items
+
+
+total
+
+
+referencia interna: orden_id y folio
+
+
+
+
+Redirigir al checkout de Mercado Pago
+
+
+Al volver (success/failure/pending), mostrar pantalla de estado
+
+
+Webhook:
+
+
+endpoint /webhooks/mercadopago
+
+
+valida firma/secret si aplica
+
+
+actualiza orden_pagos.status (paid/pending/failed)
+
+
+registra provider_response y referencia
+
+
+
+
+Admin Pagos:
+
+
+listar pagos por empresa
+
+
+ver estatus y detalle
+
+
+botón “refrescar estatus” (consulta API MP si es necesario)
+
+
+
+
+Todo debe quedar multi-tenant (empresa_id en orden_pagos, caja_movimientos si aplica)
+
+
+
+7) Admin: CRUD de Clientes (por empresa)
+Implementar módulo Clientes (admin_empresa):
+
+
+tabla clientes:
+
+
+empresa_id
+
+
+nombre
+
+
+whatsapp
+
+
+email
+
+
+meta JSON
+
+
+timestamps
+
+
+
+
+Al crear orden en checkout:
+
+
+upsert cliente por email/whatsapp en esa empresa
+
+
+linkear orden.cliente_id (agregar columna si no existe)
+
+
+
+
+CRUD Clientes:
+
+
+listar, crear, editar, eliminar
+
+
+búsqueda y filtros
+
+
+desde cliente ver historial de órdenes
+
+
+
+
+Colocar en menú admin en sección recomendada (Clientes).
+
+8) Branding: nombre del sistema + logo
+8.1 Nombre por defecto del sistema
+El nombre visible debe ser:
+"Mercado De Abastos - Guadalupe / San Nicolas"
+Pero debe ser configurable:
+
+
+global (superadmin) y por empresa
+
+
+si empresa tiene app_name, usar ese; si no, usar global default.
+
+
+8.2 Logo iaDoS
+Reemplazar donde dice iaDoS por el logo adjunto.
+
+
+Ajustar en layout admin y store header:
+
+
+logo a la izquierda
+
+
+responsive
+
+
+fallback si no hay logo empresa: usar iaDoS
+
+
+
+
+
+9) Asistente de ayuda con IA (helpdesk interno)
+Agregar un “Asistente IA” dentro del sistema (admin + ops):
+
+
+botón flotante o ítem de menú “Asistente”
+
+
+responde preguntas sobre:
+
+
+“cómo registrar un pago”
+
+
+“cómo crear producto”
+
+
+“cómo funciona inventario/caja/whatsapp”
+
+
+
+
+Debe conocer el sistema y opciones según rol del usuario (no sugerir acciones que no tiene permiso)
+
+
+Implementación sugerida:
+
+
+Un endpoint POST /ai/help que recibe pregunta
+
+
+Construye contexto (lista de módulos habilitados + rutas + rol + empresa)
+
+
+Responde con pasos, links internos y recomendaciones
+
+
+Guardar logs ai_help_logs (empresa_id, user_id, pregunta, respuesta, tokens/meta)
+
+
+Config:
+
+
+.env AI_PROVIDER=openai AI_API_KEY=... etc.
+
+
+Si no hay key, mostrar “Configura AI_API_KEY en panel superadmin”.
+
+
+
+10) Entregables
+
+
+Lista de archivos modificados/creados
+
+
+Migraciones nuevas (si aplican)
+
+
+Seeders demo para:
+
+
+2 empresas con branding distinto
+
+
+productos sin imagen para probar auto-fetch
+
+
+pagos con estados (paid/pending)
+
+
+clientes creados por órdenes
+
+
+
+
+Scripts Windows:
+
+
+
+
+scripts/windows/APPLY_OPERATIONAL_UPGRADES.ps1
+
+
+instala deps si faltan
+
+
+corre migraciones
+
+
+limpia caches
+
+
+compila assets
+
+
+
+
+scripts/windows/SEED_DEMO.ps1
+
+
+
+
+Checklist de verificación manual (5-10 pasos)
+
+
+
+11) Criterio de éxito
+
+
+“Agregar al carrito” NO redirige, actualiza header contador+total, muestra confirmación visual
+
+
+Registro funciona
+
+
+Checkout crea pago Mercado Pago y webhook actualiza status
+
+
+Admin Pagos refleja status real
+
+
+CRUD Clientes funciona y se vincula con órdenes
+
+
+Superadmin controla empresas/usuarios/temas/branding/pagos
+
+
+Side menu consistente en todas las secciones
+
+
+App name y logo correctos y configurables
+
+
+Asistente IA responde con opciones según rol
+
+
+
+

@@ -1,0 +1,6 @@
+// Add to $middlewareGroups['web'] if you want empresa selection enforced globally AFTER login:
+// \App\Http\Middleware\EnsureEmpresaSelected::class,
+
+// Add to $routeMiddleware (or $middlewareAliases in newer Laravel):
+// 'empresa' => \App\Http\Middleware\EnsureEmpresaSelected::class,
+// 'role' => \App\Http\Middleware\RequireRole::class,

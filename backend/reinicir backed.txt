@@ -26,3 +26,6 @@ pkill -f nest; cd /c/sites/pos_multitenant_local/backend && npx nest start --wat
   1. Backend: cd backend && npm run start:dev
   2. Frontend: cd frontend && npx vite --host 0.0.0.0
 
+
+mysql -h 127.0.0.1 -P 3306 -u root -p -D pos_iados -e "SELECT * FROM USERS;"
+pos_iados_2024

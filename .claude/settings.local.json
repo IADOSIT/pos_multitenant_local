@@ -24,7 +24,17 @@
       "Bash(pkill:*)",
       "Bash(VITE_API_URL=http://localhost:3000/api npx vite:*)",
       "Bash(npx nest start --watch)",
-      "Bash(npx vite:*)"
+      "Bash(npx vite:*)",
+      "Bash(powershell -Command \"Invoke-WebRequest -Uri ''https://www.7-zip.org/a/7z2408-x64.exe'' -OutFile ''C:/sites/pos_multitenant_local/installer/.downloads/7z-setup.exe'' -UseBasicParsing\")",
+      "Bash(powershell -Command \"Invoke-WebRequest -Uri ''https://www.7-zip.org/a/7z2408-x64.exe'' -OutFile ''C:\\\\sites\\\\pos_multitenant_local\\\\installer\\\\.downloads\\\\7z-setup.exe'' -UseBasicParsing\")",
+      "Bash(powershell -Command \"Start-Process ''C:\\\\sites\\\\pos_multitenant_local\\\\installer\\\\.downloads\\\\7z-setup.exe'' -ArgumentList ''/S'' -Wait; Write-Host ''Done''; Test-Path ''C:\\\\Program Files\\\\7-Zip\\\\7z.exe''\")",
+      "Bash(powershell -Command \"Write-Host ''Descargando Node.js v20.11.1 portable...''; Invoke-WebRequest -Uri ''https://nodejs.org/dist/v20.11.1/node-v20.11.1-win-x64.zip'' -OutFile ''C:\\\\sites\\\\pos_multitenant_local\\\\installer\\\\.downloads\\\\node.zip'' -UseBasicParsing; Write-Host ''Node.js descargado''; \\(Get-Item ''C:\\\\sites\\\\pos_multitenant_local\\\\installer\\\\.downloads\\\\node.zip''\\).Length / 1MB\")",
+      "Bash(powershell -Command:*)",
+      "Bash(npm run build:*)",
+      "Bash(VITE_API_URL=\"/api\" npm run build:*)",
+      "Bash(powershell -ExecutionPolicy Bypass -File:*)",
+      "Bash(\"C:/Program Files/7-Zip/7z.exe\" x -y -o\"/c/sites/pos_multitenant_local/installer/.downloads/mariadb-tmp\" \"/c/sites/pos_multitenant_local/installer/.downloads/mariadb.zip\")",
+      "Bash(\"C:/Program Files/7-Zip/7z.exe\" a -t7z -mx=9 -mfb=64 -md=32m -ms=on \"C:\\\\sites\\\\pos_multitenant_local\\\\installer\\\\output\\\\POS-iaDoS.7z\" \"C:\\\\sites\\\\pos_multitenant_local\\\\installer\\\\staging\\\\*\")"
     ]
   }
 }

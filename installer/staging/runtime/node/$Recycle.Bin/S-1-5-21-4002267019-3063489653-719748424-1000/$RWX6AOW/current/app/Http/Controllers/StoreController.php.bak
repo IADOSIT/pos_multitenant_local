@@ -1,0 +1,39 @@
+<?php
+declare(strict_types=1);
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Models\Producto;
+use App\Models\Orden;
+
+final class StoreController extends Controller
+{
+    public function index(Request $request)
+    {
+        $q = trim((string) $request->query('q', ''));
+        $categoriaId = $request->query('categoria_id');
+
+        $productos = Producto::query()
+            ->when($q !== '', fn($qq) => $qq->where('nombre', 'ilike', "%{$q}%"))
+            ->when($categoriaId, fn($qq) => $qq->where('categoria_id', $categoriaId))
+            ->where('activo', true)
+            ->orderBy('id', 'desc')
+            ->paginate(12)
+            ->withQueryString();
+
+        return view('store.index', compact('productos', 'q', 'categoriaId'));
+    }
+
+    public function show(Producto $producto)
+    {
+        abort_unless($producto->activo, 404);
+        return view('store.producto', compact('producto'));
+    }
+
+    public function track($folio)
+    {
+        $orden = Orden::where('folio', $folio)->firstOrFail();
+        return view('store.track', compact('orden'));
+    }
+}

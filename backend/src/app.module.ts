@@ -1,6 +1,8 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 import { dataSourceOptions } from './config/typeorm.config';
 import { TenantScopeMiddleware } from './common/middleware/tenant-scope.middleware';
 import { AuthModule } from './modules/auth/auth.module';
@@ -28,6 +30,10 @@ import { MateriaPrimaModule } from './modules/materia-prima/materia-prima.module
     TypeOrmModule.forRoot({
       ...dataSourceOptions,
       autoLoadEntities: true,
+    }),
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'public'),
+      exclude: ['/api/(.*)'],
     }),
     HealthModule,
     AuthModule,

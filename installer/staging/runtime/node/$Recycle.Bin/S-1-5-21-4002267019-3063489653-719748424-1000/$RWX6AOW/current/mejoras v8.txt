@@ -1,0 +1,242 @@
+PROMPT PARA CLAUDE CODE
+EMC – Mejoras V7 (Importaciones + Pickup/Delivery + Portal)
+
+Eres Claude Code y YA conoces completamente el repositorio emc_abastos (Laravel) y lo trabajado en V6.
+Esta es una NUEVA VERSIÓN: V7.
+
+⚠️ NO reanalices el repo, NO listes archivos, NO hagas preguntas.
+✅ Mantén diseño y funcionalidad existentes.
+✅ Implementa con mejores prácticas, estable y escalable.
+
+🎯 Objetivos V7 (obligatorios)
+
+Importaciones (productos, categorías, clientes, inventarios) con plantilla descargable y carga por empresa(s).
+
+Implementar proceso Pickup / Delivery con estados + notificaciones WhatsApp end-to-end (inicio→fin) incluyendo folio, mercancía y total.
+
+Quitar sección de productos del portal y mejorar animaciones/efectos del portal sin perder rendimiento.
+
+1) IMPORTACIONES (Admin) – CSV/XLSX + Plantillas
+1.1 Módulo “Importaciones”
+
+Agregar en Admin un módulo: Importaciones con tabs:
+
+Productos
+
+Categorías
+
+Clientes
+
+Inventarios
+
+1.2 Plantillas descargables (obligatorio)
+
+Para cada entidad:
+
+Botón “Descargar plantilla” (CSV y/o XLSX)
+
+Incluye:
+
+encabezados correctos
+
+ejemplos de 1–3 filas
+
+notas de formato (en segunda hoja si es XLSX o como comentario/documento)
+
+1.3 Carga de archivo (obligatorio)
+
+Botón “Subir archivo”
+
+Validación previa (preview):
+
+filas totales
+
+válidas / inválidas
+
+errores por fila con motivo
+
+Confirmación “Importar”
+
+1.4 Delimitado por empresa (regla clave)
+
+Si el usuario es admin de 1 empresa → se fija esa empresa (no seleccionable).
+
+Si tiene varias empresas → selector de empresa(s):
+
+opción 1 empresa
+
+opción múltiples empresas (cuando el formato lo soporte)
+
+Implementar 2 modos:
+
+Modo A (recomendado default): importar a 1 empresa seleccionada (más seguro)
+
+Modo B (opcional): archivo incluye columna empresa_public_id/empresa_slug para importar múltiples empresas en un mismo archivo (solo superadmin)
+
+1.5 Implementación técnica (mejor práctica)
+
+Usar jobs en cola para imports grandes (no bloquear request):
+
+ImportJob por tipo
+
+Guardar historial:
+
+imports table: tipo, empresa_id(s), usuario_id, archivo, status, counters, started_at/finished_at, error_file
+
+Rollback seguro:
+
+transacciones por chunk
+
+idempotencia (evitar duplicados por SKU/código)
+
+Mapeos:
+
+Productos: sku/código único por empresa
+
+Categorías: slug/nombre único por empresa
+
+Clientes: email/teléfono único por empresa (define prioridad y normaliza)
+
+1.6 Inventarios (importación)
+
+Soportar 2 variantes:
+
+Stock inicial (set absoluto)
+
+Ajuste (delta +/−) generando movimiento en kardex/ledger
+Default: Ajuste (para trazabilidad), con razón “Importación”.
+
+2) PICKUP / DELIVERY – Proceso + Estados + WhatsApp
+2.1 Mejor práctica de proceso (implementa)
+
+Crear un flujo estándar con estados claros (mínimo viable, escalable):
+
+Estados sugeridos:
+
+RECIBIDO (pedido creado, folio generado)
+
+CONFIRMADO (tienda confirma surtido)
+
+EN_PREPARACION (picking)
+
+LISTO_PARA_PICKUP o LISTO_PARA_ENVIO (según tipo)
+
+EN_RUTA (solo delivery)
+
+ENTREGADO o RECOGIDO
+
+CANCELADO (opcional)
+
+INCIDENCIA (opcional)
+
+2.2 Tipo de entrega
+
+En checkout/pedido:
+
+fulfillment_type: pickup | delivery
+Si delivery:
+
+dirección obligatoria
+
+ventana/horario (si existe)
+Si pickup:
+
+instrucciones de recolección
+
+2.3 WhatsApp end-to-end (obligatorio)
+
+Cada cambio de estado relevante dispara notificación WhatsApp al cliente incluyendo:
+
+Folio
+
+Estatus
+
+Mercancía (resumen: 3–5 items + “y N más”)
+
+Total
+
+CTA según estado (ej. “Seguimiento”, “Confirmar recepción”, etc.)
+
+Reutiliza el módulo WhatsApp existente (logs, retry, resend).
+Asegura:
+
+idempotencia (no duplicar mensajes)
+
+logs por pedido/estado
+
+reintentos automáticos/manuales
+
+2.4 Implementación técnica (mejor práctica)
+
+Evento OrderStatusChanged
+
+Listener SendOrderWhatsAppNotification
+
+Plantillas de mensaje configurables por empresa (si ya hay temas/plantillas, integrar ahí)
+
+Respetar reglas de “no enviar” si falta teléfono o cliente opt-out (log skipped_reason)
+
+3) PORTAL – Quitar productos + mejorar animación/efectos
+3.1 Quitar sección de productos del portal
+
+El portal NO debe listar productos (ni grid general).
+
+Mantener únicamente:
+
+promociones/destacados por tienda (si aplica)
+
+contenido marketing / directorio de tiendas / EMC
+
+Eliminar links/menú “Productos” del portal y cualquier ruta asociada.
+
+3.2 Animaciones y efectos (mejora)
+
+Mejorar animación general del portal y hero (ligero):
+
+fade/slide
+
+hover microinteractions
+
+“flash” en destacados si existe (respetar configuración de color)
+
+Performance:
+
+lazy-load
+
+evitar librerías pesadas
+
+mantener responsive y accesible
+
+📦 Entregables V7
+
+Admin → Importaciones (4 tabs) + plantillas descargables + preview + ejecución + historial
+
+Importación delimitada por empresa (selector y/o columna empresa para superadmin)
+
+Import inventarios con ajuste vía ledger/kardex
+
+Flujo Pickup/Delivery con estados + UI mínima
+
+WhatsApp notificaciones por estatus (inicio→fin) con folio, mercancía y total
+
+Portal sin sección de productos + animaciones/efectos mejorados sin perder rendimiento
+
+Documentación breve V7_IMPORTS_AND_FULFILLMENT.md con:
+
+formato plantillas
+
+estados
+
+cómo probar WhatsApp en dev
+
+✅ Orden de ejecución (sin preguntar)
+
+Importaciones (tablas + UI + templates + jobs + historial)
+
+Inventarios import (ajuste ledger)
+
+Fulfillment pickup/delivery + estados
+
+Eventos/listeners WhatsApp por estatus
+
+Portal: remover productos + polish animaciones

@@ -1,0 +1,119 @@
+﻿<?php
+
+// EMC hotfix: ensure named route for storefront home
+
+
+
+
+
+use Illuminate\Support\Facades\Route;
+
+
+use App\Http\Controllers\HomeController;
+
+
+use App\Http\Controllers\Auth\LoginController;
+
+
+use App\Http\Controllers\CartController;
+
+
+use App\Http\Controllers\CheckoutController;
+
+
+use App\Http\Controllers\StoreController;
+
+
+
+
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+
+
+
+
+
+// [EMC FIX] disabled old home route: Route::get('/', [StoreController::class, 'index'])->name('store.index');
+
+
+Route::get('/producto/{producto}', [StoreController::class, 'show'])->name('store.producto');
+
+
+
+
+
+Route::get('/carrito', [CartController::class,'index'])->name('cart.index');
+
+
+Route::post('/carrito/agregar', [CartController::class,'add'])->name('cart.add');
+
+
+Route::post('/carrito/actualizar', [CartController::class,'update'])->name('cart.update');
+
+
+Route::post('/carrito/vaciar', [CartController::class,'clear'])->name('cart.clear'); // FIX: POST only
+
+
+
+
+
+Route::get('/checkout', [CheckoutController::class,'show'])->name('checkout.show');
+
+
+Route::post('/checkout', [CheckoutController::class,'place'])->name('checkout.place');
+
+
+
+
+
+Route::get('/pedido/{folio}', [StoreController::class,'track'])->name('store.track');
+
+
+
+
+
+Route::get('/login', [LoginController::class,'show'])->name('login');
+
+
+Route::post('/login', [LoginController::class,'login'])->name('login.post');
+
+
+Route::post('/logout', [LoginController::class,'logout'])->name('logout');
+
+
+
+
+
+Route::get('/empresa', [HomeController::class,'empresa'])->name('empresa.switch');
+
+
+Route::post('/empresa', [HomeController::class,'empresaSet'])->name('empresa.set');
+
+
+
+
+
+// Generic dashboard alias (Fix for RouteNotFoundException)
+
+
+Route::get('/dashboard', function () { return redirect()->route('store.index'); });
+
+
+
+
+
+// Ops
+
+
+Route::prefix('ops')->name('ops.')->middleware(['auth','empresa','role:operaciones,admin_empresa,superadmin'])->group(function () {
+
+
+    // ... ops routes already defined in project
+
+
+});
+
+
+
+
+
+

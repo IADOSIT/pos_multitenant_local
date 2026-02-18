@@ -1,0 +1,24 @@
+# Claude Code - Sentencias de publicación (iados-EMC)
+
+## 1) Staging / QA (RESETEA BD y carga demo)
+# Ejecutar desde la raíz del repo
+powershell -ExecutionPolicy Bypass -File .\emc_publish_pack.ps1
+php artisan migrate:fresh --seed
+php artisan emc:smoke-check
+
+## 2) Producción (NO borra datos)
+powershell -ExecutionPolicy Bypass -File .\emc_publish_pack.ps1
+php artisan migrate --force
+php artisan optimize:clear
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+php artisan storage:link
+
+## 3) Worker de cola (si aplica)
+# En una terminal persistente / servicio:
+php artisan queue:work --sleep=1 --tries=3
+
+## 4) Si compilas assets (si usas Vite/Node)
+npm ci
+npm run build

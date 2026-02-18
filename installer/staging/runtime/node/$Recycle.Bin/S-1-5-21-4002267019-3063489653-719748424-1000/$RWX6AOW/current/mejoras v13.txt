@@ -1,0 +1,83 @@
+Eres Claude Code y YA conoces completamente el repo emc_abastos, su arquitectura multi-tenant, el Portal (landing page central), Admin, Empresas, Stores y su configuración. NO reanalices el repo, NO hagas preguntas y NO cambies lógica de negocio ni arquitectura existente. Enfócate solo en UI/UX del PORTAL y configuración.
+
+OBJETIVO: Convertir el PORTAL en una landing page moderna e innovadora que centraliza promociones, tiendas destacadas y la información de la Central de Abastos, con soporte de 2 TEMPLATES totalmente distintos, seleccionables desde Admin→Portal, con fallback al default.
+
+1) Sistema de Templates para el Portal:
+- Crear un selector `active_template` en la configuración del Portal (Admin→Portal).
+- Valores iniciales: `default` y `market_v2`.
+- El portal debe renderizar el template activo sin duplicar lógica de datos.
+- Si el template activo no existe, usar `default`.
+
+Estructura recomendada:
+- resources/views/portal/templates/default/*
+- resources/views/portal/templates/market_v2/*
+
+2) Template 1: DEFAULT (institucional / limpio)
+Enfoque:
+- Corporativo, claro, institucional.
+- Ideal para información general y confianza.
+
+Secciones:
+- Hero simple (mensaje institucional de la Central)
+- Texto descriptivo de la Central de Abastos
+- Tiendas participantes (grid simple)
+- Promociones destacadas (cards)
+- Footer institucional (contacto, redes, iados.mx)
+
+Diseño:
+- Tailwind CSS
+- Contenedor centrado (max-width)
+- Colores sobrios, tipografía clara
+- Animaciones mínimas
+
+3) Template 2: MARKET_V2 (marketing / vanguardia)
+Enfoque:
+- Visual, moderno, atractivo tipo marketplace.
+- Pensado para conversión y exploración.
+
+Secciones:
+- Hero full-width con imagen o video ligero + overlay
+- Banners promocionales por tienda (cards grandes)
+- Carrusel de tiendas destacadas
+- Promociones con CTA “Ir a la tienda”
+- Sección “¿Qué es la Central?” con iconos
+- Footer completo con contacto y redes
+
+Diseño:
+- Full-width (100vw)
+- Cards premium, sombras suaves, micro-interacciones
+- Animaciones ligeras (fade, slide)
+- Mobile-first
+
+4) Configuración desde Admin→Portal (JSON por template):
+Agregar configuración que alimente ambos templates:
+- Títulos y subtítulos del hero
+- Banners/flyers (imagen, texto, link a tienda o producto)
+- Tiendas destacadas (empresa_id)
+- Promociones destacadas (producto_id por empresa)
+- Colores base (primary, accent, bg, text)
+- Activar/desactivar secciones
+
+Cada template decide cómo renderizar, pero usa la MISMA data.
+
+5) Reglas clave:
+- El portal NO muestra catálogos completos, solo:
+  - promociones
+  - destacados
+  - enlaces a tiendas
+- Todo link debe redirigir correctamente a la tienda o producto (según empresa).
+- El portal no depende de login.
+- Optimizar performance:
+  - lazy-load de imágenes
+  - Tailwind purge
+  - no JS pesado
+
+6) Entregables:
+- Configuración `portal_settings` con `active_template`
+- Dos templates visualmente distintos (default y market_v2)
+- Admin→Portal para cambiar template y contenido
+- Portal renderiza dinámicamente según template activo
+- Fallback seguro al default
+- Sin regresiones
+
+INICIA creando la estructura de templates, el switch `active_template`, y luego implementa ambos diseños usando la misma data.

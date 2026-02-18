@@ -1,0 +1,253 @@
+PROMPT PARA CLAUDE CODE — EJECUCIÓN DIRECTA (SIN PREGUNTAS)
+
+Eres un ingeniero full-stack senior en Laravel trabajando en EMC iados SaaS.
+Debes implementar directamente los siguientes cambios de UI/UX, frontend y administración.
+
+⚠️ Regla obligatoria:
+NO HAGAS PREGUNTAS. NO PIDAS CONFIRMACIÓN. NO PROPONGAS ALTERNATIVAS.
+Si algo no está definido, toma la mejor decisión técnica profesional y continúa.
+Solo ejecuta.
+
+0) STACK Y LINEAMIENTOS GENERALES (OBLIGATORIOS)
+
+Livewire 3
+
+Tailwind CSS compilado
+
+Flux UI o Mary UI (elige una y úsala en TODO el sistema)
+
+Iconos: Heroicons o Lucide (consistencia total)
+
+Diseño:
+
+Colores oficiales:
+
+Verde (principal)
+
+Gris (secundario)
+
+Fondo blanco
+
+Estilo profesional, moderno, corporativo
+
+UX tipo SPA (sin recargas)
+
+Multi-tenant (empresa_id)
+
+SEO básico y accesibilidad
+
+A) TIENDA (FRONTEND PÚBLICO)
+1) Flyer profesional SEO (OBLIGATORIO)
+
+Crear Flyer / Hero Slider profesional
+
+Ubicación:
+
+Parte superior de la página
+
+Centrado
+
+Requisitos:
+
+SEO friendly:
+
+<h1> dinámico por empresa
+
+Texto indexable
+
+alt optimizado
+
+Configurable desde el panel admin
+
+Mínimo 3 imágenes por empresa
+
+Animación elegante (fade/slide)
+
+Autoplay + pausa hover
+
+Indicadores
+
+Fallback elegante si no hay imágenes
+
+2) Botón “Volver / Ir atrás”
+
+Visible en todas las vistas de tienda
+
+Icono flecha izquierda
+
+history.back() con fallback a home
+
+3) Botón “Actualizando tecnología”
+
+Botón visible en tienda
+
+Abre modal con:
+
+Livewire 3
+
+Tailwind
+
+Flux/Mary UI
+
+Ventajas SPA
+
+4) Branding API REST
+
+Bloque visual con iconos profesionales
+
+Solo visual (branding)
+
+5) Productos con imágenes
+
+Imagen en listado y detalle
+
+Placeholder elegante
+
+Lazy-load
+
+Preparado para multi-imagen
+
+6) Selector de cantidad + / −
+
+En cards y detalle
+
+Reglas:
+
+mínimo 1
+
+máximo stock
+
+deshabilitar botones
+
+Livewire reactivo
+
+7) Mini-carrito visible
+
+Header:
+
+Total de productos
+
+Total monetario
+
+Actualización en tiempo real
+
+8) Footer (OBLIGATORIO)
+
+En el pie de página mostrar:
+
+“Desarrollado por iaDoS.mx”
+
+Logo oficial iaDoS en la parte inferior
+
+WhatsApp desarrollador:
+
+8318989580
+
+Link wa.me
+
+Colores: Verde / Gris / Blanco
+
+B) CARRITO
+
+Layout moderno con componentes UI
+
+Resumen sticky
+
+Botón “Seguir comprando”
+
+Botón “Pagar”
+
+C) LOGIN / AUTENTICACIÓN
+Recuperar contraseña
+
+Link “¿Olvidaste tu contraseña?”
+
+Flujo Laravel estándar
+
+UI profesional
+
+Validaciones y mensajes claros
+
+D) DASHBOARD ADMINISTRACIÓN
+1) KPIs empresa
+
+Cards:
+
+Ventas hoy
+
+Ventas semana
+
+Ventas mes
+
+Órdenes
+
+Ticket promedio
+
+Órdenes pendientes / entregadas
+
+2) Gráfica de barras ventas
+
+Rangos 7 / 14 / 30 días
+
+Gráfica de barras
+
+Tooltips
+
+Skeleton loader
+
+Datos por empresa
+
+E) ADMIN – GESTIÓN DE FLYER
+
+CRUD por empresa
+
+Subir / ordenar / activar imágenes
+
+Validar formatos y tamaño
+
+Vista previa
+
+F) IMPORTACIÓN / EXPORTACIÓN
+Productos
+
+Descargar plantilla
+
+Importar CSV / Excel
+
+Preview
+
+Validación por fila
+
+Exportar
+
+Catálogos / Maestros
+
+Plantillas para todos los catálogos existentes
+
+Import / Export consistente
+
+G) REGLAS TÉCNICAS FINALES
+
+Corregir errores de rutas si existen:
+
+Ej: Route [store.index] not defined
+
+Usar nombres de rutas coherentes
+
+Commits separados por feature
+
+README corto:
+
+Flyer
+
+Import/export
+
+Storage link
+
+✅ INSTRUCCIÓN FINAL
+
+Ejecuta todo lo anterior directamente.
+No preguntes nada.
+No solicites confirmación.
+No sugieras alternativas.
+Decide y construye como senior.

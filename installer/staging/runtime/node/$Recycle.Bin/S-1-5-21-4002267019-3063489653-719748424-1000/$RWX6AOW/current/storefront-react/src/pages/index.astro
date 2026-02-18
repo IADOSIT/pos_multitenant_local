@@ -1,0 +1,50 @@
+---
+/**
+ * EMC Abastos - Storefront Home Page (Scaffold)
+ *
+ * This is a placeholder page for the future React storefront.
+ * The current production storefront uses Blade templates.
+ *
+ * To activate: npm run dev from storefront-react/
+ */
+import '../styles/global.css';
+import Navbar from '../components/Navbar';
+import ProductCard from '../components/ProductCard';
+---
+
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+    <title>EMC Abastos - Storefront</title>
+  </head>
+  <body>
+    <Navbar client:load appName="EMC Abastos" cartCount={0} />
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <section class="text-center mb-12">
+        <h1 class="font-heading text-4xl lg:text-5xl font-bold text-slate-800">
+          Bienvenido a la tienda
+        </h1>
+        <p class="mt-4 text-lg text-slate-500 max-w-2xl mx-auto">
+          Storefront React scaffold. Conecta con el backend Laravel para cargar productos.
+        </p>
+      </section>
+
+      <section id="products" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <!-- Products loaded via React hydration -->
+        <div class="col-span-full text-center py-12 text-slate-400">
+          <p>Ejecuta <code class="bg-slate-100 px-2 py-1 rounded text-sm">npm run dev</code> y configura <code class="bg-slate-100 px-2 py-1 rounded text-sm">API_BASE_URL</code> para cargar productos.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="bg-white border-t border-slate-200 py-8 mt-12">
+      <div class="max-w-7xl mx-auto px-4 text-center text-sm text-slate-500">
+        &copy; {new Date().getFullYear()} EMC Abastos. Scaffold React Storefront.
+      </div>
+    </footer>
+  </body>
+</html>

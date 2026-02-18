@@ -44,6 +44,6 @@ export class UsersController {
   @Delete(':id')
   @Roles('superadmin', 'admin')
   delete(@Param('id', ParseIntPipe) id: number, @TenantScope() scope) {
-    return this.usersService.softDelete(id, scope);
+    return this.usersService.hardDelete(id, scope);
   }
 }

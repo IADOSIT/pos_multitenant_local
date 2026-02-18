@@ -111,6 +111,22 @@ export class UsersService {
     if (data.password) {
       data.password = await bcrypt.hash(data.password, 10);
     }
+
+    // Validate scope changes
+    if (data.tenant_id !== undefined && scope.rol !== UserRole.SUPERADMIN) {
+      throw new ForbiddenException('Solo SuperAdmin puede cambiar el tenant');
+    }
+    if (data.empresa_id !== undefined && scope.rol !== UserRole.SUPERADMIN && scope.rol !== UserRole.ADMIN) {
+      throw new ForbiddenException('Solo SuperAdmin o Admin pueden cambiar la empresa');
+    }
+    // Admin can only assign within their own tenant
+    if (scope.rol === UserRole.ADMIN) {
+      if (data.tenant_id && data.tenant_id !== scope.tenant_id) {
+        throw new ForbiddenException('Admin solo puede asignar dentro de su tenant');
+      }
+      data.tenant_id = scope.tenant_id;
+    }
+
     Object.assign(user, data);
     const saved = await this.usersRepo.save(user);
     const { password, ...result } = saved;
@@ -123,10 +139,12 @@ export class UsersService {
     return this.usersRepo.save(user);
   }
 
-  async softDelete(id: number, scope: any) {
+  async hardDelete(id: number, scope: any) {
     const user = await this.findOne(id, scope);
-    user.activo = false;
-    await this.usersRepo.save(user);
+    if (user.id === scope.sub) {
+      throw new BadRequestException('No puedes eliminarte a ti mismo');
+    }
+    await this.usersRepo.remove(user);
     return { deleted: true };
   }
 }

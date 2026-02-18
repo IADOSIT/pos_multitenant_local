@@ -1,0 +1,40 @@
+Eres Claude Code y YA conoces completamente el repo emc_abastos (Laravel) y el contexto multi-empresa/tienda (scoping por empresa_id, store_domains path en dominio principal, portal→tienda/producto, pickup ETA por empresa, WhatsApp, imágenes/fallback, “fuera de servicio”, plantillas por empresa). NO reanalices el repo, NO hagas preguntas y NO toques lógica/arquitectura (controladores/core flows). Enfócate en UI/UX, configuración y wiring mínimo compatible.
+
+OBJETIVO: Rediseño premium y optimizado de la TIENDA ONLINE (storefront) sin mover arquitectura + alternativa tecnológica de alto diseño; carrito preparado para Pickup/Delivery con toggle por empresa; reemplazar temas actuales por temas nuevos compatibles y aplicables por empresa a stores existentes y nuevas. Todo en la store debe ser relativo a la tienda por empresa_id (Mi empresa, tienda, admin, ventas, pagos, órdenes, inventario).
+
+1) Diseño storefront premium con Tailwind CSS (default): Implementa/ajusta Tailwind (Vite, purge/content) y crea un layout base único del storefront full-width (100vw, full-bleed banner 100% ancho) mobile-first. Estilo “lujoso/marketing”: tipografía moderna (Inter/Manrope), cards premium (rounded-2xl, shadow suave), navegación sticky, microinteracciones ligeras (hover/fade), performance (lazy-load, img sizes, CSS mínimo). Usa componentes Blade/Livewire/partials (x-navbar, x-banner-fullwidth, x-product-card, x-mini-cart, x-footer) sin cambiar lógica de negocio.
+
+2) Alternativa tecnológica de “mucho diseño” y optimizada (sin cambiar backend): Propón y deja preparado un frontend opcional “Storefront React” con enfoque performance + diseño: ASTRO + React (recomendado por ligereza) o Next.js (SSG/ISR). No migres ahora toda la lógica: solo deja estructura (carpeta/repo) consumiendo endpoints existentes y respetando scoping por empresa_id; el Laravel sigue como backend. Mantén como opción futura, sin romper el storefront Blade actual.
+
+3) Carrito preparado para Pickup/Delivery con toggle por Empresa: En Admin→Empresas agrega configuración:
+   - enable_pickup (bool)
+   - enable_delivery (bool)
+   - (mantener) hora_atencion_inicio/fin + pickup_eta_hours
+En checkout/carrito:
+   - si ambos enabled: mostrar selector “Pickup / A domicilio”
+   - si solo uno enabled: fijar automáticamente y ocultar selector
+   - si delivery enabled: requiere dirección (usa lo existente)
+   - si pickup enabled: mostrar ETA sugerida según empresa (horario + pickup_eta_hours)
+Guardar en orden: fulfillment_type + estimated_ready_at (pickup) + datos delivery (si aplica). No cambies flujos de pago/órdenes, solo UI y guardado de campos ya previstos/compatibles. WhatsApp debe incluir folio + total + resumen mercancía + tipo (pickup/delivery) + ETA (pickup) o tracking (delivery).
+
+4) Temas/Plantillas por Empresa (reemplazo total de temas actuales): En Admin→Empresas elimina/deshabilita los temas actuales y crea un nuevo sistema de “Themes v2” alineado al diseño propuesto (Tailwind + CSS variables; opcional tokens para Astro/React).
+   - Crea catálogo de temas nuevos (mínimo 6) con combinaciones premium y contraste AA:
+     * Emerald Luxe (verde esmeralda + charcoal + blanco)
+     * Minimal Platinum (gris claro + negro + acento verde)
+     * Dark Market (oscuro elegante + acento verde)
+     * Fresh Produce (verde + crema + gris)
+     * Modern Mono (blanco/negro + acento)
+     * Gold Accent (neutros + acento dorado sutil)
+   - Cada tema define tokens: primary/secondary/accent/background/text, radius, button styles, banner overlay, typography.
+   - Guardar en empresa: template_id/theme_id + overrides opcionales (logo, banner full-width, copy).
+Aplicación: al crear o editar empresa (y su tienda), el tema debe aplicarse inmediatamente a su storefront (layout lee config de empresa y setea CSS variables). Idempotente: tiendas existentes se actualizan al cambiar el tema de su empresa.
+
+5) Regla de scoping estricta: Todo lo del storefront/admin/mi cuenta debe seguir siendo relativo por empresa_id:
+   - catálogo, carrito, checkout, órdenes, pagos, inventario, WhatsApp, configuraciones
+No mezclar tiendas. Si el usuario intenta agregar producto de otra empresa, mantener regla actual (bloquear/confirmar) sin romper.
+
+6) Fix imágenes en storefront (incluye listado, detalle, carrito, quick view): Asegura render unificado:
+   - image_url > Storage::url(image_path) > placeholder
+Evitar src vacío, lazy-load, object-cover. Asegurar storage link compatible. No modificar lógica, solo render/paths.
+
+ENTREGA: storefront premium full-width responsive con Tailwind + componentes; configuración empresa para habilitar pickup/delivery y ETA pickup; nuevo catálogo de Themes v2 (reemplaza actuales) aplicable por empresa a tiendas nuevas y existentes; fix imágenes tienda; WhatsApp incluye tipo y ETA; sin cambios de arquitectura ni regresiones.
