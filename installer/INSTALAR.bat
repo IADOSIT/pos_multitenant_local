@@ -2,10 +2,10 @@
 chcp 65001 >nul 2>&1
 title POS-iaDoS - Instalador v1.0.0
 echo.
-echo  ╔══════════════════════════════════════════╗
-echo  ║       POS-iaDoS - Instalador v1.0.0     ║
-echo  ║       Sistema Punto de Venta             ║
-echo  ╚══════════════════════════════════════════╝
+echo  ==========================================
+echo    POS-iaDoS - Instalador v1.0.0
+echo    Sistema Punto de Venta
+echo  ==========================================
 echo.
 
 :: Verificar permisos de administrador
@@ -18,7 +18,10 @@ if %errorlevel% neq 0 (
 
 echo  Ejecutando instalacion...
 echo.
-powershell -ExecutionPolicy Bypass -File "%~dp0setup\install.ps1" -InstallerPath "%~dp0"
+:: Quitar backslash final de %~dp0 para evitar escape de comillas en PowerShell
+set "INST_PATH=%~dp0"
+if "%INST_PATH:~-1%"=="\" set "INST_PATH=%INST_PATH:~0,-1%"
+powershell -ExecutionPolicy Bypass -File "%INST_PATH%\setup\install.ps1" -InstallerPath "%INST_PATH%"
 echo.
 if %errorlevel% equ 0 (
     echo  Instalacion completada exitosamente!

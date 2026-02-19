@@ -65,7 +65,7 @@ if (Test-Path "$InstallDir\version.json") {
     exit 1
 }
 
-$InstallerPath = $InstallerPath.TrimEnd('\')
+$InstallerPath = $InstallerPath.Trim('"').TrimEnd('\')
 
 # =============================================================================
 # PASO 1: Copiar archivos

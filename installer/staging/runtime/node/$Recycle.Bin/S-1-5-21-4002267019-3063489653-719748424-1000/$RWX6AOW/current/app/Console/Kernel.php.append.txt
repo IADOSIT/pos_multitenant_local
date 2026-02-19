@@ -1,2 +1,0 @@
-// Add this inside the $commands property or within commands() method loading:
-// protected $commands = [\App\Console\Commands\EmcSmokeCheck::class];
