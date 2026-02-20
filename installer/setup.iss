@@ -139,16 +139,16 @@ begin
   // Personalizar texto de bienvenida
   WelcomeText :=
     'Este asistente instalará {#MyAppName} v{#MyAppVersion} en su equipo.' + #13#10 +
-    #13#10 +
+    '' + #13#10 +
     'Componentes que se instalarán:' + #13#10 +
-    '  • MariaDB 11 — Base de datos' + #13#10 +
-    '  • Node.js 20 LTS — Servidor de aplicaciones' + #13#10 +
-    '  • NSSM — Administrador de servicios Windows' + #13#10 +
-    '  • POS-iaDoS — Backend + Frontend web' + #13#10 +
-    #13#10 +
-    'Directorio de instalación: C:\POS-iaDoS' + #13#10 +
+    '  - MariaDB 11  (base de datos)' + #13#10 +
+    '  - Node.js 20 LTS  (servidor)' + #13#10 +
+    '  - NSSM  (administrador de servicios)' + #13#10 +
+    '  - POS-iaDoS  (backend + frontend web)' + #13#10 +
+    '' + #13#10 +
+    'Directorio de instalacion: C:\POS-iaDoS' + #13#10 +
     'Espacio requerido: ~500 MB' + #13#10 +
-    #13#10 +
+    '' + #13#10 +
     'IMPORTANTE: Cierre otras aplicaciones antes de continuar.';
 
   WizardForm.WelcomeLabel2.Caption := WelcomeText;
@@ -162,16 +162,16 @@ begin
   if CurPageID = wpFinished then
   begin
     FinishedText :=
-      'POS-iaDoS v{#MyAppVersion} se instaló exitosamente.' + #13#10 +
-      #13#10 +
+      'POS-iaDoS v{#MyAppVersion} se instalo exitosamente.' + #13#10 +
+      '' + #13#10 +
       'Acceso al sistema:' + #13#10 +
       '  http://localhost:3000' + #13#10 +
-      #13#10 +
+      '' + #13#10 +
       'Credenciales iniciales de administrador:' + #13#10 +
       '  Usuario:     admin@iados.mx' + #13#10 +
-      '  Contraseña:  admin123' + #13#10 +
-      #13#10 +
-      'Los servicios se inician automáticamente con Windows.' + #13#10 +
+      '  Contrasena:  admin123' + #13#10 +
+      '' + #13#10 +
+      'Los servicios se inician automaticamente con Windows.' + #13#10 +
       'Soporte: iados.mx';
 
     WizardForm.FinishedLabel.Caption := FinishedText;
@@ -189,10 +189,11 @@ begin
   if DirExists('{#MyInstallDir}') then
   begin
     Response := MsgBox(
-      'Se detectó una instalación existente de POS-iaDoS en:' + #13#10 +
-      '{#MyInstallDir}' + #13#10 + #13#10 +
-      'Si continúa, la instalación existente será reemplazada.' + #13#10 +
-      '¿Desea continuar?',
+      'Se detecto una instalacion existente de POS-iaDoS en:' + #13#10 +
+      '{#MyInstallDir}' + #13#10 +
+      '' + #13#10 +
+      'Si continua, la instalacion existente sera reemplazada.' + #13#10 +
+      'Desea continuar?',
       mbConfirmation,
       MB_YESNO or MB_DEFBUTTON2
     );
