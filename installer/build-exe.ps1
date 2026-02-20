@@ -41,7 +41,25 @@ Write-Host "  ╚═════════════════════
 Write-Host ""
 
 # =============================================================================
-# 1. Verificar prerrequisitos
+# 1. Build frontend
+# =============================================================================
+Write-Step "Compilando frontend (npm run build)..."
+
+$FrontendSrcDir = Join-Path $ProjectDir "frontend"
+if (-not (Test-Path "$FrontendSrcDir\package.json")) {
+    Write-Fail "No se encontró frontend en: $FrontendSrcDir"
+}
+
+$env:VITE_API_URL = ""
+$buildResult = & cmd /c "cd /d `"$FrontendSrcDir`" && npm run build 2>&1"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host $buildResult
+    Write-Fail "npm run build falló (código: $LASTEXITCODE)"
+}
+Write-OK "Frontend compilado correctamente"
+
+# =============================================================================
+# 2. Verificar prerrequisitos
 # =============================================================================
 Write-Step "Verificando prerrequisitos..."
 
