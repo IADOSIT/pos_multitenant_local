@@ -34,7 +34,12 @@
       "Bash(VITE_API_URL=\"/api\" npm run build:*)",
       "Bash(powershell -ExecutionPolicy Bypass -File:*)",
       "Bash(\"C:/Program Files/7-Zip/7z.exe\" x -y -o\"/c/sites/pos_multitenant_local/installer/.downloads/mariadb-tmp\" \"/c/sites/pos_multitenant_local/installer/.downloads/mariadb.zip\")",
-      "Bash(\"C:/Program Files/7-Zip/7z.exe\" a -t7z -mx=9 -mfb=64 -md=32m -ms=on \"C:\\\\sites\\\\pos_multitenant_local\\\\installer\\\\output\\\\POS-iaDoS.7z\" \"C:\\\\sites\\\\pos_multitenant_local\\\\installer\\\\staging\\\\*\")"
+      "Bash(\"C:/Program Files/7-Zip/7z.exe\" a -t7z -mx=9 -mfb=64 -md=32m -ms=on \"C:\\\\sites\\\\pos_multitenant_local\\\\installer\\\\output\\\\POS-iaDoS.7z\" \"C:\\\\sites\\\\pos_multitenant_local\\\\installer\\\\staging\\\\*\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\POS-iaDoS\\\\backend'' | Select-Object Name\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\POS-iaDoS\\\\backend\\\\'' | Select-Object Name, Attributes\")",
+      "Bash(cmd.exe /c \"dir C:\\\\POS-iaDoS\\\\backend\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
