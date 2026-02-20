@@ -39,7 +39,20 @@
       "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\POS-iaDoS\\\\backend\\\\'' | Select-Object Name, Attributes\")",
       "Bash(cmd.exe /c \"dir C:\\\\POS-iaDoS\\\\backend\")",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(cmd.exe /c \"dir C:\\\\sites\\\\pos_multitenant_local\\\\installer\\\\output\\\\ /b\")",
+      "Bash(cmd.exe /c \"where iscc 2>nul & where makensis 2>nul & dir \"\"C:\\\\Program Files \\(x86\\)\\\\Inno Setup 6\\\\iscc.exe\"\" 2>nul & dir \"\"C:\\\\Program Files\\\\NSIS\\\\makensis.exe\"\" 2>nul\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\sites\\\\pos_multitenant_local\\\\installer\\\\output\\\\'' -ErrorAction SilentlyContinue | Select-Object Name\")",
+      "Bash(powershell.exe -Command \"Test-Path ''C:\\\\Program Files \\(x86\\)\\\\Inno Setup 6\\\\ISCC.exe''; Test-Path ''C:\\\\Program Files\\\\NSIS\\\\makensis.exe''; Test-Path ''C:\\\\Program Files\\\\7-Zip\\\\7z.exe''\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\sites\\\\pos_multitenant_local\\\\installer\\\\'' -Filter ''*.ps1'' | Select-Object Name\")",
+      "Bash(powershell.exe -Command \"Get-Item ''C:\\\\sites\\\\pos_multitenant_local\\\\installer\\\\output\\\\POS-iaDoS-Setup-v1.0.0.exe'' | Select-Object Name, Length, LastWriteTime\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\sites\\\\pos_multitenant_local\\\\installer\\\\'' | Select-Object Name, Attributes\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\sites\\\\pos_multitenant_local\\\\installer\\\\assets\\\\'' | Select-Object Name\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\sites\\\\pos_multitenant_local\\\\installer\\\\output\\\\POS-iaDoS-Setup-v1.0.0'' | Select-Object Name, Attributes\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\sites\\\\pos_multitenant_local\\\\installer\\\\output\\\\POS-iaDoS-Setup-v1.0.1'' | Select-Object Name, Attributes\")",
+      "Bash(# Buscar el valor exacto de la baseURL en el JS compilado grep -oP ''baseURL:.{0,30}'' /c/sites/pos_multitenant_local/frontend/dist/assets/index-DBYlhvrM.js)",
+      "Bash(# Buscar el patrón específico de la inicialización del axios client grep -oP ''.{50}baseURL.{50}'' /c/sites/pos_multitenant_local/frontend/dist/assets/index-DBYlhvrM.js)",
+      "Bash(# Buscar si hay alguna URL completa de localhost bakeada grep -oP ''http://[^\"\"''\\\\'''']+'' /c/sites/pos_multitenant_local/frontend/dist/assets/index-DBYlhvrM.js)"
     ]
   }
 }
