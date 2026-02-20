@@ -23,6 +23,6 @@ if %errorlevel% neq 0 (
     exit /b
 )
 
-powershell -ExecutionPolicy Bypass -File "%~dp0setup\uninstall.ps1"
+powershell -ExecutionPolicy Bypass -File "%~dp0tools\uninstall.ps1"
 echo.
 pause

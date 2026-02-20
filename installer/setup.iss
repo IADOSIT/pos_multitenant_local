@@ -123,7 +123,7 @@ Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
 [UninstallRun]
 ; Ejecutar uninstall.ps1 para detener servicios y limpiar
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
-  Parameters: "-ExecutionPolicy Bypass -NoProfile -NonInteractive -File ""{#MyInstallDir}\setup\uninstall.ps1"""; \
+  Parameters: "-ExecutionPolicy Bypass -NoProfile -NonInteractive -File ""{#MyInstallDir}\tools\uninstall.ps1"""; \
   RunOnceId: "POS-iaDoS-Uninstall"; \
   Flags: runhidden waituntilterminated skipifdoesntexist
 
