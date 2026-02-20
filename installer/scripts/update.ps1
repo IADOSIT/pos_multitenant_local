@@ -69,7 +69,9 @@ Write-Host "  Backup en: $backupDir" -ForegroundColor Green
 
 # --- Detener backend ---
 Write-Host "  [2/4] Deteniendo backend..." -ForegroundColor Yellow
+$ErrorActionPreference = "SilentlyContinue"
 & $NSSM stop "PosIaDos-Backend" 2>&1 | Out-Null
+$ErrorActionPreference = "Stop"
 Start-Sleep -Seconds 3
 Write-Host "  Backend detenido" -ForegroundColor Green
 
@@ -100,7 +102,9 @@ if (Test-Path $migrationFile) {
     Write-Host "    Ejecutando migracion SQL..." -ForegroundColor Gray
     $envFile = Get-Content "$InstallDir\backend\.env" | ConvertFrom-StringData
     $MYSQL = "$InstallDir\mariadb\bin\mysql.exe"
-    & $MYSQL -u $envFile.DB_USERNAME -p"$($envFile.DB_PASSWORD)" --port=$($envFile.DB_PORT) $envFile.DB_DATABASE -e "source $migrationFile" 2>&1
+    $ErrorActionPreference = "SilentlyContinue"
+    Get-Content $migrationFile -Raw | & $MYSQL -u $envFile.DB_USERNAME -p"$($envFile.DB_PASSWORD)" --host=127.0.0.1 --port=$($envFile.DB_PORT) $envFile.DB_DATABASE 2>&1
+    $ErrorActionPreference = "Stop"
 }
 
 # Actualizar version.json
@@ -109,7 +113,9 @@ Write-Host "  Archivos actualizados" -ForegroundColor Green
 
 # --- Reiniciar backend ---
 Write-Host "  [4/4] Reiniciando backend..." -ForegroundColor Yellow
+$ErrorActionPreference = "SilentlyContinue"
 & $NSSM start "PosIaDos-Backend" 2>&1 | Out-Null
+$ErrorActionPreference = "Stop"
 
 if (Wait-ForPort -Port 3000 -TimeoutSeconds 30) {
     Write-Host "  Backend reiniciado" -ForegroundColor Green

@@ -7,6 +7,7 @@ param(
     [string]$InstallDir = "C:\POS-iaDoS"
 )
 
+$ErrorActionPreference = "SilentlyContinue"
 $NSSM = "$InstallDir\tools\nssm.exe"
 $services = @("PosIaDos-MariaDB", "PosIaDos-Backend")
 

@@ -2,9 +2,9 @@
 chcp 65001 >nul 2>&1
 title POS-iaDoS - Desinstalador
 echo.
-echo  ╔══════════════════════════════════════════╗
-echo  ║     POS-iaDoS - Desinstalador            ║
-echo  ╚══════════════════════════════════════════╝
+echo  ==========================================
+echo    POS-iaDoS - Desinstalador
+echo  ==========================================
 echo.
 echo  ADVERTENCIA: Esto eliminara POS-iaDoS completamente,
 echo  incluyendo la base de datos y todos los datos.
