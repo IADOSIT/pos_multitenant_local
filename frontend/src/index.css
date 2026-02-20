@@ -648,3 +648,154 @@ header {
 [data-theme="compacto"] .text-lg {
   font-size: 0.92rem;
 }
+
+
+/* ================================================================
+   THEME: CLARO
+   Fondo blanco, texto oscuro, luminoso, alto contraste, limpio
+   ================================================================ */
+
+/* -- Sobreescribir variables de color al modo claro -- */
+[data-theme="claro"] {
+  --c-dark:    248 250 252;   /* slate-50  — fondo principal */
+  --c-surface: 241 245 249;   /* slate-100 — paneles */
+  --c-card:    255 255 255;   /* blanco    — tarjetas */
+  --c-border:  203 213 225;   /* slate-300 — bordes */
+  --c-text:    15 23 42;      /* slate-900 — texto principal */
+  --c-text-sub: 100 116 139;  /* slate-500 — texto secundario */
+}
+
+/* -- Body -- */
+[data-theme="claro"] body {
+  background-color: rgb(248 250 252);
+  color: rgb(15 23 42);
+}
+
+/* -- Cards: blancas con sombra suave -- */
+[data-theme="claro"] .card {
+  background-color: white;
+  border: 1px solid rgb(226 232 240);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 4px 12px rgba(0,0,0,0.04);
+}
+
+/* -- Sidebar: blanca, limpia -- */
+[data-theme="claro"] aside {
+  background: white !important;
+  border-right: 1px solid rgb(226 232 240) !important;
+  box-shadow: 2px 0 12px rgba(0,0,0,0.06);
+}
+
+/* -- Nav links en sidebar: texto oscuro -- */
+[data-theme="claro"] nav a {
+  color: rgb(51 65 85) !important;
+}
+[data-theme="claro"] nav a:hover {
+  background: rgb(241 245 249) !important;
+  color: rgb(15 23 42) !important;
+}
+
+/* -- Topbar móvil -- */
+[data-theme="claro"] .md\:hidden.fixed {
+  background: white !important;
+  border-bottom: 1px solid rgb(226 232 240) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+
+/* -- Botón secundario: gris claro con texto oscuro -- */
+[data-theme="claro"] .btn-secondary {
+  background-color: rgb(241 245 249) !important;
+  color: rgb(15 23 42) !important;
+  border: 1px solid rgb(203 213 225);
+}
+[data-theme="claro"] .btn-secondary:hover {
+  background-color: rgb(226 232 240) !important;
+}
+
+/* -- Inputs y selects -- */
+[data-theme="claro"] .input-touch {
+  background-color: white !important;
+  border-color: rgb(203 213 225) !important;
+  color: rgb(15 23 42) !important;
+}
+[data-theme="claro"] .input-touch::placeholder {
+  color: rgb(148 163 184) !important;
+}
+[data-theme="claro"] select {
+  background-color: white !important;
+  color: rgb(15 23 42) !important;
+  border-color: rgb(203 213 225) !important;
+}
+
+/* -- Texto general -- */
+[data-theme="claro"] .text-slate-400,
+[data-theme="claro"] .text-slate-500 {
+  color: rgb(100 116 139) !important;
+}
+[data-theme="claro"] .text-slate-300 {
+  color: rgb(71 85 105) !important;
+}
+[data-theme="claro"] .text-white {
+  color: rgb(15 23 42) !important;
+}
+
+/* -- Excepciones: botones conservan texto blanco -- */
+[data-theme="claro"] .btn-primary,
+[data-theme="claro"] .btn-accent,
+[data-theme="claro"] .btn-danger,
+[data-theme="claro"] .btn-success,
+[data-theme="claro"] button[class*="bg-iados-primary"],
+[data-theme="claro"] button[class*="bg-red"],
+[data-theme="claro"] button[class*="bg-green"] {
+  color: white !important;
+}
+
+/* -- Badges y pills de estado -- */
+[data-theme="claro"] .bg-green-900\/50 { background-color: rgb(220 252 231) !important; }
+[data-theme="claro"] .text-green-300   { color: rgb(22 101 52)  !important; }
+[data-theme="claro"] .bg-blue-900\/50  { background-color: rgb(219 234 254) !important; }
+[data-theme="claro"] .text-blue-300    { color: rgb(30 64 175)  !important; }
+[data-theme="claro"] .bg-amber-900\/50 { background-color: rgb(254 243 199) !important; }
+[data-theme="claro"] .text-amber-300   { color: rgb(146 64 14)  !important; }
+[data-theme="claro"] .bg-red-900\/50   { background-color: rgb(254 226 226) !important; }
+[data-theme="claro"] .text-red-400     { color: rgb(185 28 28)  !important; }
+[data-theme="claro"] .bg-purple-900\/50 { background-color: rgb(243 232 255) !important; }
+[data-theme="claro"] .text-purple-300  { color: rgb(88 28 135)  !important; }
+
+/* -- Dividers -- */
+[data-theme="claro"] .border-slate-700,
+[data-theme="claro"] .border-slate-600,
+[data-theme="claro"] .border-slate-800 {
+  border-color: rgb(203 213 225) !important;
+}
+[data-theme="claro"] [class*="border-t"],
+[data-theme="claro"] [class*="border-b"],
+[data-theme="claro"] [class*="border-l"],
+[data-theme="claro"] [class*="border-r"] {
+  border-color: rgb(226 232 240) !important;
+}
+
+/* -- Scrollbar -- */
+[data-theme="claro"] ::-webkit-scrollbar-track {
+  background-color: rgb(241 245 249);
+}
+[data-theme="claro"] ::-webkit-scrollbar-thumb {
+  background-color: rgb(203 213 225);
+}
+[data-theme="claro"] ::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(148 163 184);
+}
+
+/* -- Backgrounds de slots vacíos / placeholders -- */
+[data-theme="claro"] .bg-iados-card\/50,
+[data-theme="claro"] .bg-iados-card {
+  background-color: rgb(241 245 249) !important;
+}
+
+/* -- Modales: overlay oscuro se conserva -- */
+[data-theme="claro"] .fixed.inset-0.bg-black\/70 {
+  background-color: rgba(0,0,0,0.55) !important;
+}
+[data-theme="claro"] .fixed.inset-0.bg-black\/70 .card {
+  background-color: white;
+  color: rgb(15 23 42);
+}

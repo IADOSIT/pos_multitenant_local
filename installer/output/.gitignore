@@ -1,0 +1,8 @@
+# Ignorar carpetas de output con binarios (Node, MariaDB, NSSM)
+# Los instaladores generados (EXE, ZIP) se distribuyen por otros medios
+POS-iaDoS-Setup-v*/
+*.zip
+*.7z
+*.exe
+# Mantener el directorio vacío (placeholder)
+!.gitignore

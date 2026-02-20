@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type ThemeName = 'default' | 'moderno' | 'elegante' | 'neon' | 'compacto';
+export type ThemeName = 'default' | 'moderno' | 'elegante' | 'neon' | 'compacto' | 'claro';
 export type PaletteName = 'default' | 'esmeralda' | 'purpura' | 'rubi' | 'oceano';
 
 interface ThemeState {

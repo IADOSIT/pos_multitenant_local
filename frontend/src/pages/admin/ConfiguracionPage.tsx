@@ -12,6 +12,7 @@ const THEMES: { key: ThemeName; name: string; desc: string; previewStyle: React.
   { key: 'elegante', name: 'Elegante', desc: 'Recto, premium, refinado', previewStyle: { borderRadius: '0.375rem', borderTop: '2px solid rgba(59,130,246,0.5)', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' } },
   { key: 'neon', name: 'Neon', desc: 'Glow, cyberpunk, futurista', previewStyle: { borderRadius: '0.75rem', border: '1px solid rgba(59,130,246,0.4)', boxShadow: '0 0 20px rgba(59,130,246,0.15), 0 0 40px rgba(59,130,246,0.05)' } },
   { key: 'compacto', name: 'Compacto', desc: 'Denso, eficiente, menos espacio', previewStyle: { borderRadius: '0.4rem', padding: '0.3rem', fontSize: '0.75rem', border: '1px solid rgba(100,116,139,0.25)' } },
+  { key: 'claro', name: 'Claro', desc: 'Blanco, luminoso, alto contraste', previewStyle: { borderRadius: '1rem', background: 'white', border: '1px solid rgb(203 213 225)', boxShadow: '0 2px 8px rgba(0,0,0,0.10)' } },
 ];
 
 const PALETTES: { key: PaletteName; name: string; colors: [string, string, string] }[] = [
