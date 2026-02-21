@@ -59,7 +59,82 @@ if ($LASTEXITCODE -ne 0) {
 Write-OK "Frontend compilado correctamente"
 
 # =============================================================================
-# 2. Verificar prerrequisitos
+# 2. Generar icono ICO desde logo-iados.png
+# =============================================================================
+Write-Step "Generando icono pos-iados.ico..."
+
+$LogoPng  = Join-Path $ProjectDir "frontend\public\logo-iados.png"
+$IcoOut   = Join-Path $ScriptDir "assets\pos-iados.ico"
+
+if (Test-Path $LogoPng) {
+    try {
+        Add-Type -AssemblyName System.Drawing
+
+        $sizes = @(16, 32, 48, 256)
+        $images = @()
+        $pngDataList = @()
+
+        $src = [System.Drawing.Bitmap]::FromFile($LogoPng)
+
+        foreach ($size in $sizes) {
+            $bmp = New-Object System.Drawing.Bitmap($size, $size)
+            $g   = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+            $g.DrawImage($src, 0, 0, $size, $size)
+            $g.Dispose()
+
+            $ms = New-Object System.IO.MemoryStream
+            $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
+            $pngDataList += ,($ms.ToArray())
+            $ms.Dispose()
+            $bmp.Dispose()
+        }
+        $src.Dispose()
+
+        # Escribir ICO con múltiples tamaños (formato moderno con PNG embebido)
+        $icoStream = New-Object System.IO.FileStream($IcoOut, [System.IO.FileMode]::Create)
+        $w = New-Object System.IO.BinaryWriter($icoStream)
+
+        $count  = $sizes.Count
+        $offset = 6 + $count * 16   # header(6) + dirEntries(16 cada uno)
+
+        # ICO header
+        $w.Write([uint16]0)      # Reserved
+        $w.Write([uint16]1)      # Type: ICO
+        $w.Write([uint16]$count)
+
+        # Directory entries
+        for ($i = 0; $i -lt $count; $i++) {
+            $sz  = $sizes[$i]
+            $len = $pngDataList[$i].Length
+            $w.Write([byte]$(if ($sz -eq 256) { 0 } else { $sz }))  # width
+            $w.Write([byte]$(if ($sz -eq 256) { 0 } else { $sz }))  # height
+            $w.Write([byte]0)       # color count
+            $w.Write([byte]0)       # reserved
+            $w.Write([uint16]1)     # planes
+            $w.Write([uint16]32)    # bpp
+            $w.Write([uint32]$len)
+            $w.Write([uint32]$offset)
+            $offset += $len
+        }
+
+        # Image data
+        foreach ($png in $pngDataList) { $w.Write($png) }
+
+        $w.Close()
+        $icoStream.Close()
+        Write-OK "Icono generado: assets\pos-iados.ico ($($sizes -join 'x, ')px)"
+    } catch {
+        Write-Warn "No se pudo generar el ICO: $_"
+        Write-Info "El EXE se generará sin icono personalizado en el acceso directo"
+    }
+} else {
+    Write-Warn "No se encontró logo-iados.png en frontend\public\"
+    Write-Info "El EXE se generará sin icono personalizado en el acceso directo"
+}
+
+# =============================================================================
+# 3. Verificar prerrequisitos
 # =============================================================================
 Write-Step "Verificando prerrequisitos..."
 

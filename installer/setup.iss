@@ -43,6 +43,13 @@ LZMAUseSeparateProcess=yes
 WizardStyle=modern
 WizardResizable=no
 
+; Icono del instalador y desinstalador (generado por build-exe.ps1)
+#define IconFile "assets\pos-iados.ico"
+#if FileExists(IconFile)
+SetupIconFile={#IconFile}
+UninstallDisplayIcon={#IconFile}
+#endif
+
 ; Licencia
 LicenseFile={#SourceDir}\LICENSE.txt
 
@@ -91,6 +98,7 @@ Name: "{group}\Abrir POS-iaDoS (Navegador)"; \
   Filename: "{sys}\cmd.exe"; \
   Parameters: "/c start """" http://localhost:3000"; \
   WorkingDir: "{#MyInstallDir}"; \
+  IconFilename: "{#IconFile}"; \
   Comment: "Abre POS-iaDoS en el navegador predeterminado"
 
 Name: "{group}\Administrador de Servicios"; \
@@ -105,6 +113,7 @@ Name: "{commondesktop}\POS-iaDoS"; \
   Filename: "{sys}\cmd.exe"; \
   Parameters: "/c start """" http://localhost:3000"; \
   WorkingDir: "{#MyInstallDir}"; \
+  IconFilename: "{#IconFile}"; \
   Comment: "Abre POS-iaDoS en el navegador predeterminado"; \
   Tasks: desktopicon
 
