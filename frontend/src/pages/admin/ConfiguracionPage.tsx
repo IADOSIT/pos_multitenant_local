@@ -192,25 +192,30 @@ export default function ConfiguracionPage() {
   };
 
   const handleAparienciaChange = async (newTheme: ThemeName, newPalette: PaletteName) => {
-    if (!user?.empresa_id) return;
-    // Apply immediately to UI
+    // Aplicar al DOM inmediatamente, sin importar si hay empresa_id
     setTheme(newTheme);
     setPalette(newPalette);
-    // Save to empresa in backend
+    // Guardar en localStorage para persistir entre recargas
+    const stored = localStorage.getItem('pos_user');
+    if (stored) {
+      try {
+        const u = JSON.parse(stored);
+        u.config_apariencia = { tema: newTheme, paleta: newPalette };
+        localStorage.setItem('pos_user', JSON.stringify(u));
+      } catch {}
+    }
+    // Guardar en backend solo si hay empresa_id
+    if (!user?.empresa_id) {
+      toast.success('Apariencia aplicada');
+      return;
+    }
     try {
       await empresasApi.update(user.empresa_id, {
         config_apariencia: { tema: newTheme, paleta: newPalette },
       });
-      // Update local user storage so reload keeps it
-      const stored = localStorage.getItem('pos_user');
-      if (stored) {
-        const u = JSON.parse(stored);
-        u.config_apariencia = { tema: newTheme, paleta: newPalette };
-        localStorage.setItem('pos_user', JSON.stringify(u));
-      }
       toast.success('Apariencia guardada');
     } catch {
-      toast.error('Error al guardar apariencia');
+      toast.error('Error al guardar apariencia en servidor');
     }
   };
 
