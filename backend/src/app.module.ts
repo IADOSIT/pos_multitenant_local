@@ -23,6 +23,7 @@ import { NotificacionesModule } from './modules/notificaciones/notificaciones.mo
 import { LicenciasModule } from './modules/licencias/licencias.module';
 import { InventarioModule } from './modules/inventario/inventario.module';
 import { MateriaPrimaModule } from './modules/materia-prima/materia-prima.module';
+import { MenuDigitalModule } from './modules/menu-digital/menu-digital.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { MateriaPrimaModule } from './modules/materia-prima/materia-prima.module
     LicenciasModule,
     InventarioModule,
     MateriaPrimaModule,
+    MenuDigitalModule,
   ],
 })
 export class AppModule implements NestModule {

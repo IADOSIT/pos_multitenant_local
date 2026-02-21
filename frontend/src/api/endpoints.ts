@@ -186,3 +186,18 @@ export const printApi = {
   print: (content: string, config?: any) => api.post('/print', { content, config }),
   queue: () => api.get('/print/queue'),
 };
+
+// Menu Digital
+export const menuDigitalApi = {
+  getStatus:       (tiendaId: number) => api.get(`/menu-digital/config/${tiendaId}`),
+  updateConfig:    (tiendaId: number, data: any) => api.put(`/menu-digital/config/${tiendaId}`, data),
+  regenerateKey:   (tiendaId: number) => api.post(`/menu-digital/config/${tiendaId}/regenerate-key`),
+  publish:         (tiendaId: number) => api.post(`/menu-digital/publish/${tiendaId}`),
+  getLogs:         (tiendaId: number) => api.get(`/menu-digital/logs/${tiendaId}`),
+  getPendingOrders:(tiendaId: number) => api.get(`/menu-digital/orders/${tiendaId}`),
+  updateOrder:     (orderId: number, status: string, tiendaId: number) =>
+    api.patch(`/menu-digital/orders/${orderId}/status`, { status, tienda_id: tiendaId }),
+  // Public (no auth required - called directly)
+  getPublicMenu:   (slug: string) => api.get(`/menu-digital/view/${slug}`),
+  createOrder:     (slug: string, data: any) => api.post(`/menu-digital/view/${slug}/order`, data),
+};

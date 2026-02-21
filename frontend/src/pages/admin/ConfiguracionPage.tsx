@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
-import { tiendasApi, empresasApi } from '../../api/endpoints';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { tiendasApi, empresasApi, menuDigitalApi } from '../../api/endpoints';
 import api, { resolveUploadUrl } from '../../api/client';
 import { useAuthStore } from '../../store/auth.store';
 import { useThemeStore, ThemeName, PaletteName } from '../../store/theme.store';
 import toast from 'react-hot-toast';
-import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check } from 'lucide-react';
+import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key } from 'lucide-react';
 import QRCode from 'qrcode';
 
 const THEMES: { key: ThemeName; name: string; desc: string; previewStyle: React.CSSProperties }[] = [
@@ -40,6 +40,12 @@ export default function ConfiguracionPage() {
   const [systemInfo, setSystemInfo] = useState<any>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [copiedUrl, setCopiedUrl] = useState<string>('');
+  // Menu Digital
+  const [mdStatus, setMdStatus]       = useState<any>(null);
+  const [mdLogs, setMdLogs]           = useState<any[]>([]);
+  const [mdPublishing, setMdPublishing] = useState(false);
+  const [mdQr, setMdQr]               = useState<string>('');
+  const [mdCfgForm, setMdCfgForm]     = useState<any>({});
 
   // Form state
   const [form, setForm] = useState({
@@ -64,6 +70,11 @@ export default function ConfiguracionPage() {
   });
 
   useEffect(() => { load(); loadEmpresa(); fetchSystemInfo(); }, []);
+
+  // Load menu digital status when a tienda is selected
+  useEffect(() => {
+    if (selected?.id) loadMenuDigital(selected.id);
+  }, [selected?.id]);
 
   const loadEmpresa = async () => {
     if (!user?.empresa_id) return;
@@ -221,6 +232,74 @@ export default function ConfiguracionPage() {
     } catch {
       toast.error('Error al guardar apariencia en servidor');
     }
+  };
+
+  const loadMenuDigital = useCallback(async (tiendaId: number) => {
+    try {
+      const [statusRes, logsRes] = await Promise.all([
+        menuDigitalApi.getStatus(tiendaId),
+        menuDigitalApi.getLogs(tiendaId),
+      ]);
+      const status = statusRes.data;
+      setMdStatus(status);
+      setMdLogs(logsRes.data || []);
+      setMdCfgForm({
+        is_active:     status.config?.is_active    ?? false,
+        modo_menu:     status.config?.modo_menu    ?? 'consulta',
+        sync_mode:     status.config?.sync_mode    ?? 'manual',
+        sync_interval: status.config?.sync_interval ?? 30,
+        cloud_url:     status.config?.cloud_url    ?? '',
+        slug:          status.config?.slug         ?? '',
+      });
+      // Generate QR if active and has cloud URL
+      if (status.config?.is_active && status.config?.cloud_url && status.config?.slug) {
+        const menuUrl = `${status.config.cloud_url}/menu/${status.config.slug}`;
+        const qr = await QRCode.toDataURL(menuUrl, { width: 200, margin: 2 });
+        setMdQr(qr);
+      } else {
+        setMdQr('');
+      }
+      // Auto-sync check
+      if (status.should_auto_sync) {
+        handleMdPublish(tiendaId, true);
+      }
+    } catch {}
+  }, []);
+
+  const saveMdConfig = async () => {
+    if (!selected?.id) return;
+    try {
+      await menuDigitalApi.updateConfig(selected.id, mdCfgForm);
+      toast.success('Configuracion del menu guardada');
+      loadMenuDigital(selected.id);
+    } catch { toast.error('Error al guardar configuracion del menu'); }
+  };
+
+  const handleMdPublish = async (tiendaId: number, silent = false) => {
+    setMdPublishing(true);
+    try {
+      const { data } = await menuDigitalApi.publish(tiendaId);
+      if (data.success) {
+        if (!silent) toast.success(`Menu publicado: ${data.productos} productos, ${data.images_uploaded} imagenes`);
+        loadMenuDigital(tiendaId);
+      } else {
+        if (!silent) toast.error(data.error || 'Error al publicar');
+      }
+    } catch (e: any) {
+      if (!silent) toast.error(e.response?.data?.message || 'Error al publicar menu');
+    } finally {
+      setMdPublishing(false);
+    }
+  };
+
+  const handleMdRegenKey = async () => {
+    if (!selected?.id) return;
+    if (!confirm('¿Regenerar API key? Los enlaces activos dejarán de funcionar hasta publicar de nuevo.')) return;
+    try {
+      const { data } = await menuDigitalApi.regenerateKey(selected.id);
+      toast.success('API key regenerada');
+      loadMenuDigital(selected.id);
+    } catch { toast.error('Error al regenerar key'); }
   };
 
   const fetchSystemInfo = async () => {
@@ -494,6 +573,226 @@ export default function ConfiguracionPage() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* Seccion: Menu Digital QR */}
+          {selected && (
+            <>
+              <SectionHeader id="menu-digital" icon={QrCode} title="Menu Digital QR" />
+              {expandedSection === 'menu-digital' && (
+                <div className="card space-y-5">
+                  {/* Estado y toggle */}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <h4 className="font-bold text-sm mb-1">Menu publico para clientes</h4>
+                      <p className="text-xs" style={{ color: 'rgb(var(--c-text-sub))' }}>
+                        El cliente escanea el QR con su celular y ve el menu desde internet, sin necesitar estar en tu red.
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={mdCfgForm.is_active ?? false}
+                        onChange={e => setMdCfgForm({ ...mdCfgForm, is_active: e.target.checked })}
+                      />
+                      <div className="w-11 h-6 bg-slate-700 peer-checked:bg-iados-secondary rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all" />
+                    </label>
+                  </div>
+
+                  {/* Cloud URL (requerida) */}
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1 flex items-center gap-1"><Globe size={12} /> URL del servidor cloud</label>
+                    <input
+                      value={mdCfgForm.cloud_url ?? ''}
+                      onChange={e => setMdCfgForm({ ...mdCfgForm, cloud_url: e.target.value })}
+                      placeholder="http://34.71.132.26:3000"
+                      className="input-touch text-sm font-mono"
+                    />
+                    {!mdCfgForm.cloud_url && (
+                      <p className="text-xs text-amber-400 mt-1 flex items-center gap-1">
+                        <AlertTriangle size={11} /> Requerida para publicar el menu
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Slug */}
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1 block">Enlace del menu (slug)</label>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        value={mdCfgForm.slug ?? ''}
+                        onChange={e => setMdCfgForm({ ...mdCfgForm, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
+                        placeholder="mi-restaurante"
+                        className="input-touch text-sm font-mono flex-1"
+                      />
+                    </div>
+                    {mdCfgForm.cloud_url && mdCfgForm.slug && (
+                      <p className="text-xs mt-1 text-slate-500 font-mono break-all">
+                        {mdCfgForm.cloud_url}/menu/<span className="text-iados-accent">{mdCfgForm.slug}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Modo y Sync - 2 columnas */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">Modo del menu</label>
+                      <select
+                        value={mdCfgForm.modo_menu ?? 'consulta'}
+                        onChange={e => setMdCfgForm({ ...mdCfgForm, modo_menu: e.target.value })}
+                        className="input-touch text-sm"
+                      >
+                        <option value="consulta">Solo consulta</option>
+                        <option value="pedidos">Permite pedidos</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">Sincronizacion</label>
+                      <select
+                        value={mdCfgForm.sync_mode ?? 'manual'}
+                        onChange={e => setMdCfgForm({ ...mdCfgForm, sync_mode: e.target.value })}
+                        className="input-touch text-sm"
+                      >
+                        <option value="manual">Manual</option>
+                        <option value="auto">Automatica</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {mdCfgForm.sync_mode === 'auto' && (
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">Intervalo de auto-publicacion</label>
+                      <select
+                        value={mdCfgForm.sync_interval ?? 30}
+                        onChange={e => setMdCfgForm({ ...mdCfgForm, sync_interval: Number(e.target.value) })}
+                        className="input-touch text-sm"
+                      >
+                        <option value={15}>Cada 15 minutos</option>
+                        <option value={30}>Cada 30 minutos</option>
+                        <option value={60}>Cada hora</option>
+                        <option value={120}>Cada 2 horas</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Botones guardar config + publicar */}
+                  <div className="flex gap-2">
+                    <button onClick={saveMdConfig} className="btn-secondary text-xs flex-1 flex items-center justify-center gap-1">
+                      <Save size={14} /> Guardar config
+                    </button>
+                    <button
+                      onClick={() => handleMdPublish(selected.id)}
+                      disabled={mdPublishing || !mdCfgForm.cloud_url}
+                      className="btn-primary text-xs flex-1 flex items-center justify-center gap-1 disabled:opacity-50"
+                    >
+                      {mdPublishing
+                        ? <><Loader2 size={14} className="animate-spin" /> Publicando...</>
+                        : <><RefreshCw size={14} /> Publicar Menu</>}
+                    </button>
+                  </div>
+
+                  {/* Estado actual */}
+                  {mdStatus?.config && (
+                    <div className="p-3 rounded-xl border border-iados-card space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-slate-400">Estado</span>
+                        {mdStatus.config.last_publish_status === 'success' ? (
+                          <span className="text-xs text-green-400 flex items-center gap-1"><Check size={11} /> Publicado</span>
+                        ) : mdStatus.config.last_publish_status === 'error' ? (
+                          <span className="text-xs text-red-400 flex items-center gap-1"><AlertTriangle size={11} /> Error</span>
+                        ) : (
+                          <span className="text-xs text-slate-500">Sin publicar</span>
+                        )}
+                      </div>
+                      {mdStatus.config.last_published_at && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-slate-400">Ultima publicacion</span>
+                          <span className="text-xs text-slate-300 flex items-center gap-1">
+                            <Clock size={11} />
+                            {new Date(mdStatus.config.last_published_at).toLocaleString('es-MX')}
+                          </span>
+                        </div>
+                      )}
+                      {mdStatus.pending_changes > 0 && (
+                        <div className="flex items-center gap-2 mt-1 p-2 rounded-lg bg-amber-900/20 border border-amber-700/30">
+                          <AlertTriangle size={13} className="text-amber-400 flex-shrink-0" />
+                          <p className="text-xs text-amber-300">
+                            {mdStatus.pending_changes === -1
+                              ? 'Menu nunca publicado'
+                              : `${mdStatus.pending_changes} cambio${mdStatus.pending_changes !== 1 ? 's' : ''} sin publicar`}
+                          </p>
+                        </div>
+                      )}
+                      {mdStatus.config.last_publish_error && (
+                        <p className="text-xs text-red-400 break-all">{mdStatus.config.last_publish_error}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* QR + enlace */}
+                  {mdQr && mdCfgForm.is_active && (
+                    <div className="flex gap-4 items-center">
+                      <div className="bg-white p-2 rounded-xl flex-shrink-0">
+                        <img src={mdQr} alt="QR Menu" className="w-28 h-28" />
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        <p className="text-xs text-slate-400">Comparte este QR con tus clientes</p>
+                        <code className="text-xs text-iados-accent break-all block">
+                          {mdCfgForm.cloud_url}/menu/{mdCfgForm.slug}
+                        </code>
+                        <a
+                          href={`${mdCfgForm.cloud_url}/menu/${mdCfgForm.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-slate-400 hover:text-iados-accent flex items-center gap-1 transition-colors"
+                        >
+                          <ExternalLink size={11} /> Abrir menu en navegador
+                        </a>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* API Key */}
+                  {mdStatus?.config?.api_key && (
+                    <div className="border-t border-iados-card pt-4">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs text-slate-400 flex items-center gap-1"><Key size={11} /> API Key</label>
+                        <button onClick={handleMdRegenKey} className="text-xs text-slate-500 hover:text-red-400 transition-colors">
+                          Regenerar
+                        </button>
+                      </div>
+                      <code className="text-xs text-slate-600 break-all block">{mdStatus.config.api_key}</code>
+                    </div>
+                  )}
+
+                  {/* Historial de publicaciones */}
+                  {mdLogs.length > 0 && (
+                    <div className="border-t border-iados-card pt-4">
+                      <h5 className="text-xs font-bold text-slate-400 mb-2">Historial de publicaciones</h5>
+                      <div className="space-y-1.5">
+                        {mdLogs.map((log, i) => (
+                          <div key={i} className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2">
+                              {log.status === 'success'
+                                ? <Check size={12} className="text-green-400" />
+                                : <AlertTriangle size={12} className="text-red-400" />}
+                              <span className="text-slate-400">
+                                {new Date(log.created_at).toLocaleDateString('es-MX')}
+                              </span>
+                              {log.status === 'success' && (
+                                <span className="text-slate-500">{log.productos_count} prod · {log.images_uploaded} img</span>
+                              )}
+                            </div>
+                            <span className="text-slate-600">{(log.duration_ms / 1000).toFixed(1)}s</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
 
           {(selected || editingNew) ? (
