@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Put, Patch, Param, Body, Headers, UseGuards, Request, ParseIntPipe } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AuthGuard } from '@nestjs/passport';
 import { MenuDigitalService } from './menu-digital.service';
 
 @Controller('menu-digital')
@@ -10,13 +10,13 @@ export class MenuDigitalController {
   // Authenticated endpoints (admin/manager)
   // =========================================================================
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AuthGuard('jwt'))
   @Get('config/:tienda_id')
   getStatus(@Param('tienda_id', ParseIntPipe) tiendaId: number, @Request() req: any) {
     return this.service.getStatus(tiendaId, req.user);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AuthGuard('jwt'))
   @Put('config/:tienda_id')
   updateConfig(
     @Param('tienda_id', ParseIntPipe) tiendaId: number,
@@ -26,13 +26,13 @@ export class MenuDigitalController {
     return this.service.updateConfig(tiendaId, dto, req.user);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AuthGuard('jwt'))
   @Post('config/:tienda_id/regenerate-key')
   regenerateKey(@Param('tienda_id', ParseIntPipe) tiendaId: number, @Request() req: any) {
     return this.service.regenerateApiKey(tiendaId, req.user);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AuthGuard('jwt'))
   @Post('publish/:tienda_id')
   async publish(@Param('tienda_id', ParseIntPipe) tiendaId: number, @Request() req: any) {
     try {
@@ -42,13 +42,13 @@ export class MenuDigitalController {
     }
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AuthGuard('jwt'))
   @Get('logs/:tienda_id')
   getLogs(@Param('tienda_id', ParseIntPipe) tiendaId: number) {
     return this.service.getLogs(tiendaId);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AuthGuard('jwt'))
   @Get('orders/:tienda_id')
   getPendingOrders(
     @Param('tienda_id', ParseIntPipe) tiendaId: number,
@@ -57,7 +57,7 @@ export class MenuDigitalController {
     return this.service.getPendingOrders(tiendaId, apiKey);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AuthGuard('jwt'))
   @Patch('orders/:order_id/status')
   updateOrderStatus(
     @Param('order_id', ParseIntPipe) orderId: number,

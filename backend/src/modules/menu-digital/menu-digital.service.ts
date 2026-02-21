@@ -213,7 +213,7 @@ export class MenuDigitalService {
       // 8. Update config
       cfg.last_published_at = new Date();
       cfg.last_publish_status = 'success';
-      cfg.last_publish_error = null;
+      (cfg as any).last_publish_error = null;
       await this.configRepo.save(cfg);
 
       // 9. Save log

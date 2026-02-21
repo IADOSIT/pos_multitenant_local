@@ -1,11 +1,11 @@
 ; =============================================================================
 ; POS-iaDoS - Inno Setup 6 Script
 ; Instalador profesional para Windows
-; Versión: 1.1.0
+; Versión: 2.0.0
 ; =============================================================================
 
 #define MyAppName      "POS-iaDoS"
-#define MyAppVersion   "1.1.0"
+#define MyAppVersion   "2.0.0"
 #define MyAppPublisher "iaDoS"
 #define MyAppURL       "https://iados.mx"
 #define MyInstallDir   "C:\POS-iaDoS"

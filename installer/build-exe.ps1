@@ -7,9 +7,9 @@
 #   online  - BD en la nube (my.bodegadigital.com.mx), usa ext.env
 #
 # Uso desde PowerShell:
-#   .\build-exe.ps1                        # local v1.1.0
-#   .\build-exe.ps1 -Mode online           # online v1.1.0
-#   .\build-exe.ps1 -Mode local -Version 1.2.0
+#   .\build-exe.ps1                        # local v2.0.0
+#   .\build-exe.ps1 -Mode online           # online v2.0.0
+#   .\build-exe.ps1 -Mode local -Version 2.1.0
 #
 # Requiere: Inno Setup 6  (https://jrsoftware.org/isdl.php)
 # =============================================================================
@@ -17,7 +17,7 @@
 param(
     [ValidateSet("local","online")]
     [string]$Mode          = "local",
-    [string]$Version       = "1.1.0",
+    [string]$Version       = "2.0.0",
     [string]$OutputDir     = "output",
     [string]$InnoSetupPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
     [string]$RuntimeSource = "v1.0.0"
