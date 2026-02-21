@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@types/qrcode": "^1.5.6",
     "axios": "^1.6.2",
     "dexie": "^3.2.4",
     "dexie-react-hooks": "^1.1.7",
@@ -16,6 +17,7 @@
     "jspdf": "^4.1.0",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.294.0",
+    "qrcode": "^1.5.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hot-toast": "^2.4.1",

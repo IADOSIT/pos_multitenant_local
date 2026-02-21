@@ -9,7 +9,17 @@
 #define MyAppPublisher "iaDoS"
 #define MyAppURL       "https://iados.mx"
 #define MyInstallDir   "C:\POS-iaDoS"
-#define SourceDir      "output\POS-iaDoS-v1.1.0"
+
+; Estos valores los inyecta build-exe.ps1 via /D al compilar
+#ifndef InstallMode
+  #define InstallMode "local"
+#endif
+#ifndef OutputName
+  #define OutputName "POS-iaDoS-Local-v" + MyAppVersion
+#endif
+#ifndef SourceDir
+  #define SourceDir "output\POS-iaDoS-Local-v" + MyAppVersion + "-src"
+#endif
 
 [Setup]
 ; Identificador único de la aplicación (no cambiar entre versiones)
@@ -32,7 +42,7 @@ DisableProgramGroupPage=no
 
 ; Salida
 OutputDir=output
-OutputBaseFilename=POS-iaDoS-Setup-v{#MyAppVersion}
+OutputBaseFilename={#OutputName}
 
 ; Compresión máxima
 Compression=lzma2/ultra64

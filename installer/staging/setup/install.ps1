@@ -67,10 +67,21 @@ if (Test-Path "$InstallDir\version.json") {
 
 $InstallerPath = $InstallerPath.Trim('"').TrimEnd('\')
 
+# Detectar modo de instalacion (local o online)
+$InstallMode = "local"
+$ModeFile = Join-Path $InstallerPath "install-mode.txt"
+if (Test-Path $ModeFile) {
+    $InstallMode = (Get-Content $ModeFile -Raw).Trim().ToLower()
+}
+Write-Log "Modo de instalacion: $InstallMode" "Cyan"
+
+# Numero de pasos segun modo
+$TotalPasos = if ($InstallMode -eq "local") { 8 } else { 6 }
+
 # =============================================================================
 # PASO 1: Copiar archivos
 # =============================================================================
-Write-Log "Paso 1/8: Copiando archivos a $InstallDir..." "Yellow"
+Write-Log "Paso 1/$TotalPasos`: Copiando archivos a $InstallDir..." "Yellow"
 
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 New-Item -ItemType Directory -Force -Path "$InstallDir\logs" | Out-Null
@@ -79,8 +90,10 @@ New-Item -ItemType Directory -Force -Path "$InstallDir\logs" | Out-Null
 Write-Log "  Copiando Node.js..." "Gray"
 Copy-Item -Path "$InstallerPath\runtime\node" -Destination "$InstallDir\node" -Recurse -Force
 
-Write-Log "  Copiando MariaDB..." "Gray"
-Copy-Item -Path "$InstallerPath\runtime\mariadb" -Destination "$InstallDir\mariadb" -Recurse -Force
+if ($InstallMode -eq "local") {
+    Write-Log "  Copiando MariaDB..." "Gray"
+    Copy-Item -Path "$InstallerPath\runtime\mariadb" -Destination "$InstallDir\mariadb" -Recurse -Force
+}
 
 Write-Log "  Copiando nssm..." "Gray"
 New-Item -ItemType Directory -Force -Path "$InstallDir\tools" | Out-Null
@@ -122,8 +135,12 @@ pause
 Write-Log "Archivos copiados" "Green"
 
 # =============================================================================
-# PASO 2: Configurar MariaDB
+# PASO 2: Configurar MariaDB  (solo modo local)
 # =============================================================================
+if ($InstallMode -ne "local") {
+    Write-Log "Modo online: omitiendo instalacion de MariaDB" "Cyan"
+}
+if ($InstallMode -eq "local") {
 Write-Log "Paso 2/8: Configurando MariaDB..." "Yellow"
 
 $MARIADB_DIR = "$InstallDir\mariadb"
@@ -254,13 +271,34 @@ $ErrorActionPreference = "Stop"
 
 Write-Log "Base de datos '$DB_NAME' creada" "Green"
 
+} # fin bloque local (MariaDB)
+
 # =============================================================================
 # PASO 5: Generar .env del backend
 # =============================================================================
-Write-Log "Paso 5/8: Configurando backend..." "Yellow"
+Write-Log "Paso 5/$TotalPasos`: Configurando backend..." "Yellow"
 
 # Generar JWT secret aleatorio
 $jwtSecret = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 48 | ForEach-Object { [char]$_ })
+
+if ($InstallMode -eq "online") {
+    # Modo online: usar el template de ext.env como base y agregar/sobreescribir valores necesarios
+    $templateFile = Join-Path $InstallerPath "backend.env.template"
+    if (Test-Path $templateFile) {
+        $envContent = Get-Content $templateFile -Raw
+        # Forzar produccion y actualizar JWT con uno generado
+        $envContent = $envContent -replace 'NODE_ENV=.*', 'NODE_ENV=production'
+        $envContent = $envContent -replace 'JWT_SECRET=.*', "JWT_SECRET=$jwtSecret"
+        $envContent = $envContent -replace 'APP_PORT=.*', "APP_PORT=$BackendPort"
+        $envContent = $envContent -replace 'APP_HOST=.*', 'APP_HOST=0.0.0.0'
+        $envContent += "`nINSTALL_MODE=online"
+        $envContent | Set-Content "$InstallDir\backend\.env" -Encoding UTF8
+        Write-Log "  .env generado desde template online" "Gray"
+    } else {
+        Write-Log "ERROR: No se encontro backend.env.template para modo online" "Red"
+        exit 1
+    }
+} else {
 
 $envContent = @"
 NODE_ENV=production
@@ -274,10 +312,12 @@ DB_DATABASE=$DB_NAME
 JWT_SECRET=$jwtSecret
 JWT_EXPIRES_IN=8h
 FRONTEND_URL=http://localhost:$BackendPort
+INSTALL_MODE=local
 "@
 $envContent | Set-Content "$InstallDir\backend\.env"
-
 Write-Log "Backend configurado (.env generado)" "Green"
+
+} # fin bloque local (.env)
 
 # =============================================================================
 # PASO 6: Instalar servicio Backend
@@ -321,34 +361,35 @@ Start-Sleep -Seconds 5
 Write-Log "Backend corriendo en puerto $BackendPort" "Green"
 
 # =============================================================================
-# PASO 7: Ejecutar seeds
+# PASO 7: Ejecutar seeds (solo modo local)
 # =============================================================================
-Write-Log "Paso 7/8: Cargando datos iniciales..." "Yellow"
-
-# Verificar si ya tiene datos (tabla tenants existe y tiene registros)
-$ErrorActionPreference = "SilentlyContinue"
-$checkResult = & $MYSQL -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME -N -e "SELECT COUNT(*) FROM tenants;" 2>&1
-$ErrorActionPreference = "Stop"
-if ($checkResult -match "^0$" -or $checkResult -match "doesn't exist" -or $LASTEXITCODE -ne 0) {
-    # Ejecutar seed
-    $seedFile = "$InstallDir\database\03_seed_datos_iniciales.sql"
-    if (Test-Path $seedFile) {
-        Write-Log "  Ejecutando seeds..." "Gray"
-        $ErrorActionPreference = "SilentlyContinue"
-        Get-Content $seedFile -Raw | & $MYSQL -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME 2>&1
-        $ErrorActionPreference = "Stop"
-        Write-Log "Datos iniciales cargados" "Green"
+if ($InstallMode -eq "local") {
+    Write-Log "Paso 7/$TotalPasos`: Cargando datos iniciales..." "Yellow"
+    $ErrorActionPreference = "SilentlyContinue"
+    $checkResult = & $MYSQL -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME -N -e "SELECT COUNT(*) FROM tenants;" 2>&1
+    $ErrorActionPreference = "Stop"
+    if ($checkResult -match "^0$" -or $checkResult -match "doesn't exist" -or $LASTEXITCODE -ne 0) {
+        $seedFile = "$InstallDir\database\03_seed_datos_iniciales.sql"
+        if (Test-Path $seedFile) {
+            Write-Log "  Ejecutando seeds..." "Gray"
+            $ErrorActionPreference = "SilentlyContinue"
+            Get-Content $seedFile -Raw | & $MYSQL -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME 2>&1
+            $ErrorActionPreference = "Stop"
+            Write-Log "Datos iniciales cargados" "Green"
+        } else {
+            Write-Log "ADVERTENCIA: No se encontro archivo de seeds" "Yellow"
+        }
     } else {
-        Write-Log "ADVERTENCIA: No se encontro archivo de seeds" "Yellow"
+        Write-Log "Base de datos ya tiene datos, saltando seeds" "Gray"
     }
 } else {
-    Write-Log "Base de datos ya tiene datos, saltando seeds" "Gray"
+    Write-Log "Modo online: seeds omitidos (BD en nube ya tiene datos)" "Cyan"
 }
 
 # =============================================================================
-# PASO 8: Firewall
+# PASO 8 (local) / PASO 6 (online): Firewall
 # =============================================================================
-Write-Log "Paso 8/8: Configurando firewall..." "Yellow"
+Write-Log "Paso $TotalPasos/$TotalPasos`: Configurando firewall..." "Yellow"
 
 # Remover reglas existentes (ignorar si no existen)
 $ErrorActionPreference = "SilentlyContinue"
@@ -366,23 +407,35 @@ Write-Log "Firewall configurado" "Green"
 # Finalizado
 # =============================================================================
 Write-Host ""
+# Obtener nombre e IP del servidor para mostrar a otros equipos
+$ServerHostname = $env:COMPUTERNAME
+$ServerIP = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+    Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.*" } |
+    Select-Object -First 1 -ExpandProperty IPAddress)
+if (-not $ServerIP) { $ServerIP = "VER-IP-DEL-SERVIDOR" }
+
 Write-Host "  ============================================" -ForegroundColor Green
 Write-Host "   INSTALACION COMPLETADA!" -ForegroundColor Green
 Write-Host "  ============================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "  URL:     http://localhost:$BackendPort" -ForegroundColor White
-Write-Host "  Usuario: admin@iados.mx" -ForegroundColor White
-Write-Host "  Clave:   admin123" -ForegroundColor White
-Write-Host "  PIN:     0000" -ForegroundColor White
+Write-Host "  Modo: $InstallMode" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "  ACCESO DESDE ESTE EQUIPO:" -ForegroundColor White
+Write-Host "    http://localhost:$BackendPort" -ForegroundColor Green
+Write-Host ""
+Write-Host "  ACCESO DESDE OTROS EQUIPOS EN LA RED:" -ForegroundColor White
+Write-Host "    Por nombre:  http://$ServerHostname`:$BackendPort" -ForegroundColor Yellow
+Write-Host "    Por IP:      http://$ServerIP`:$BackendPort" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "  Credenciales iniciales:" -ForegroundColor White
+Write-Host "    Usuario: admin@iados.mx" -ForegroundColor Gray
+Write-Host "    Clave:   admin123    PIN: 0000" -ForegroundColor Gray
 Write-Host ""
 Write-Host "  Carpeta: $InstallDir" -ForegroundColor Gray
 Write-Host "  Logs:    $InstallDir\logs\" -ForegroundColor Gray
 Write-Host ""
-Write-Host "  Archivos de gestion en $InstallDir\:" -ForegroundColor Gray
-Write-Host "    INICIAR.bat    - Iniciar servicios" -ForegroundColor Gray
-Write-Host "    DETENER.bat    - Detener servicios" -ForegroundColor Gray
-Write-Host "    ESTADO.bat     - Ver estado" -ForegroundColor Gray
-Write-Host "    DESINSTALAR.bat - Desinstalar" -ForegroundColor Gray
+Write-Host "  Gestion de servicios:" -ForegroundColor Gray
+Write-Host "    INICIAR.bat | DETENER.bat | ESTADO.bat | DESINSTALAR.bat" -ForegroundColor Gray
 Write-Host ""
 
 # Abrir navegador

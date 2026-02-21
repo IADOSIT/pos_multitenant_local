@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { tiendasApi, empresasApi } from '../../api/endpoints';
-import { resolveUploadUrl } from '../../api/client';
+import api, { resolveUploadUrl } from '../../api/client';
 import { useAuthStore } from '../../store/auth.store';
 import { useThemeStore, ThemeName, PaletteName } from '../../store/theme.store';
 import toast from 'react-hot-toast';
-import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid } from 'lucide-react';
+import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check } from 'lucide-react';
+import QRCode from 'qrcode';
 
 const THEMES: { key: ThemeName; name: string; desc: string; previewStyle: React.CSSProperties }[] = [
   { key: 'default', name: 'Default', desc: 'Redondeado clasico', previewStyle: { borderRadius: '1rem', border: '1px solid rgba(100,116,139,0.4)' } },
@@ -36,6 +37,9 @@ export default function ConfiguracionPage() {
   const [empresaLogo, setEmpresaLogo] = useState<string>('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const logoRef = useRef<HTMLInputElement>(null);
+  const [systemInfo, setSystemInfo] = useState<any>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
+  const [copiedUrl, setCopiedUrl] = useState<string>('');
 
   // Form state
   const [form, setForm] = useState({
@@ -59,7 +63,7 @@ export default function ConfiguracionPage() {
     impresora_copias: 1,
   });
 
-  useEffect(() => { load(); loadEmpresa(); }, []);
+  useEffect(() => { load(); loadEmpresa(); fetchSystemInfo(); }, []);
 
   const loadEmpresa = async () => {
     if (!user?.empresa_id) return;
@@ -217,6 +221,25 @@ export default function ConfiguracionPage() {
     } catch {
       toast.error('Error al guardar apariencia en servidor');
     }
+  };
+
+  const fetchSystemInfo = async () => {
+    try {
+      const { data } = await api.get('/health/info');
+      setSystemInfo(data);
+      const primaryUrl = data.urls?.network?.[0] || data.urls?.hostname;
+      if (primaryUrl) {
+        const dataUrl = await QRCode.toDataURL(primaryUrl, { width: 200, margin: 2 });
+        setQrDataUrl(dataUrl);
+      }
+    } catch {}
+  };
+
+  const handleCopyUrl = (url: string) => {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedUrl(url);
+      setTimeout(() => setCopiedUrl(''), 2000);
+    }).catch(() => toast.error('No se pudo copiar'));
   };
 
   const toggleSection = (s: string) => setExpandedSection(expandedSection === s ? '' : s);
@@ -383,6 +406,93 @@ export default function ConfiguracionPage() {
                   ))}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Seccion: Conexion y Red */}
+          <SectionHeader id="red" icon={Wifi} title="Conexion y Red" />
+          {expandedSection === 'red' && (
+            <div className="card space-y-4">
+              <p className="text-xs" style={{ color: 'rgb(var(--c-text-sub))' }}>
+                URLs para acceder al sistema desde otros equipos en la misma red local.
+              </p>
+
+              {systemInfo ? (
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {/* Lista de URLs */}
+                  <div className="space-y-2">
+                    {/* Local */}
+                    <div className="p-3 rounded-xl bg-iados-card/50 border border-iados-card">
+                      <p className="text-xs text-slate-400 mb-1">Este equipo (local)</p>
+                      <div className="flex items-center gap-2">
+                        <code className="text-sm text-green-400 flex-1 break-all">{systemInfo.urls?.local}</code>
+                        <button
+                          onClick={() => handleCopyUrl(systemInfo.urls?.local)}
+                          className="p-1.5 hover:bg-iados-card rounded-lg flex-shrink-0 transition-colors"
+                          title="Copiar URL"
+                        >
+                          {copiedUrl === systemInfo.urls?.local ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Hostname */}
+                    <div className="p-3 rounded-xl bg-iados-card/50 border border-iados-card">
+                      <p className="text-xs text-slate-400 mb-1">Por nombre de equipo</p>
+                      <div className="flex items-center gap-2">
+                        <code className="text-sm text-blue-400 flex-1 break-all">{systemInfo.urls?.hostname}</code>
+                        <button
+                          onClick={() => handleCopyUrl(systemInfo.urls?.hostname)}
+                          className="p-1.5 hover:bg-iados-card rounded-lg flex-shrink-0 transition-colors"
+                          title="Copiar URL"
+                        >
+                          {copiedUrl === systemInfo.urls?.hostname ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Network IPs */}
+                    {systemInfo.urls?.network?.map((url: string, i: number) => (
+                      <div key={i} className="p-3 rounded-xl bg-iados-card/50 border border-iados-card">
+                        <p className="text-xs text-slate-400 mb-1">Por IP de red {systemInfo.ips?.[i] ? `(${systemInfo.ips[i]})` : ''}</p>
+                        <div className="flex items-center gap-2">
+                          <code className="text-sm text-amber-400 flex-1 break-all">{url}</code>
+                          <button
+                            onClick={() => handleCopyUrl(url)}
+                            className="p-1.5 hover:bg-iados-card rounded-lg flex-shrink-0 transition-colors"
+                            title="Copiar URL"
+                          >
+                            {copiedUrl === url ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="pt-1 text-xs text-slate-500">
+                      Servidor: <span className="text-slate-300">{systemInfo.hostname}</span>
+                      {' · '}Modo: <span className={systemInfo.mode === 'online' ? 'text-blue-400' : 'text-green-400'}>{systemInfo.mode}</span>
+                    </div>
+                  </div>
+
+                  {/* QR Code */}
+                  {qrDataUrl && (
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <p className="text-xs text-slate-400">Escanea para abrir en otro dispositivo</p>
+                      <div className="bg-white p-2 rounded-xl inline-block">
+                        <img src={qrDataUrl} alt="QR acceso red" className="w-44 h-44" />
+                      </div>
+                      <p className="text-xs text-slate-500 text-center max-w-[180px] break-all">
+                        {systemInfo.urls?.network?.[0] || systemInfo.urls?.hostname}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-slate-500 text-sm">
+                  <Wifi size={16} className="animate-pulse" />
+                  Obteniendo informacion de red...
+                </div>
+              )}
             </div>
           )}
 
