@@ -31,7 +31,7 @@ services:
     container_name: pos-iados-web
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "8081:80"
     networks:
       - web_network
 
