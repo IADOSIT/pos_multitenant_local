@@ -1,11 +1,11 @@
 ; =============================================================================
 ; POS-iaDoS - Inno Setup 6 Script
 ; Instalador profesional para Windows
-; Versión: 2.0.0
+; Versión: 2.0.1
 ; =============================================================================
 
 #define MyAppName      "POS-iaDoS"
-#define MyAppVersion   "2.0.0"
+#define MyAppVersion   "2.0.1"
 #define MyAppPublisher "iaDoS"
 #define MyAppURL       "https://iados.mx"
 #define MyInstallDir   "C:\POS-iaDoS"
@@ -102,13 +102,18 @@ spanish.UninstallAppFullTitle=Desinstalación de {#MyAppName}
 Source: "{#SourceDir}\*"; DestDir: "{tmp}\POS-iaDoS-Src"; \
   Flags: ignoreversion recursesubdirs createallsubdirs
 
+; Icono instalado en la carpeta de la aplicación para accesos directos
+#if FileExists(IconFile)
+Source: "{#IconFile}"; DestDir: "{app}"; Flags: ignoreversion
+#endif
+
 [Icons]
 ; Menú inicio
 Name: "{group}\Abrir POS-iaDoS (Navegador)"; \
   Filename: "{sys}\cmd.exe"; \
   Parameters: "/c start """" http://localhost:3000"; \
   WorkingDir: "{#MyInstallDir}"; \
-  IconFilename: "{#IconFile}"; \
+  IconFilename: "{app}\pos-iados.ico"; \
   Comment: "Abre POS-iaDoS en el navegador predeterminado"
 
 Name: "{group}\Administrador de Servicios"; \
@@ -123,7 +128,7 @@ Name: "{commondesktop}\POS-iaDoS"; \
   Filename: "{sys}\cmd.exe"; \
   Parameters: "/c start """" http://localhost:3000"; \
   WorkingDir: "{#MyInstallDir}"; \
-  IconFilename: "{#IconFile}"; \
+  IconFilename: "{app}\pos-iados.ico"; \
   Comment: "Abre POS-iaDoS en el navegador predeterminado"; \
   Tasks: desktopicon
 
@@ -132,10 +137,14 @@ Name: "desktopicon"; \
   Description: "Crear acceso directo en el &escritorio"; \
   GroupDescription: "Accesos directos adicionales:"
 
+Name: "demodata"; \
+  Description: "Instalar datos de demostración (categorías, productos y menú digital QR)"; \
+  GroupDescription: "Datos iniciales:"
+
 [Run]
 ; Ejecutar install.ps1 con los archivos extraídos al directorio temporal
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
-  Parameters: "-ExecutionPolicy Bypass -NoProfile -NonInteractive -File ""{tmp}\POS-iaDoS-Src\setup\install.ps1"" -InstallerPath ""{tmp}\POS-iaDoS-Src"""; \
+  Parameters: "-ExecutionPolicy Bypass -NoProfile -NonInteractive -File ""{tmp}\POS-iaDoS-Src\setup\install.ps1"" -InstallerPath ""{tmp}\POS-iaDoS-Src"" -InstallDemoData {code:GetDemoDataFlag}"; \
   StatusMsg: "Instalando POS-iaDoS... (esto puede tardar varios minutos)"; \
   Flags: runhidden waituntilterminated
 
@@ -150,6 +159,11 @@ Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
 // =============================================================================
 // Código Pascal para personalizar el instalador
 // =============================================================================
+
+function GetDemoDataFlag(Param: String): String;
+begin
+  if IsTaskSelected('demodata') then Result := '1' else Result := '0';
+end;
 
 procedure InitializeWizard();
 var

@@ -17,7 +17,7 @@
 param(
     [ValidateSet("local","online")]
     [string]$Mode          = "local",
-    [string]$Version       = "2.0.0",
+    [string]$Version       = "2.0.1",
     [string]$OutputDir     = "output",
     [string]$InnoSetupPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
     [string]$RuntimeSource = "v1.0.0"
@@ -59,7 +59,7 @@ if (-not (Test-Path "$FrontendSrcDir\package.json")) {
     Write-Fail "No se encontro frontend en: $FrontendSrcDir"
 }
 
-$env:VITE_API_URL = ""
+$env:VITE_API_URL = "/api"
 $buildResult = & cmd /c "cd /d `"$FrontendSrcDir`" && npm run build 2>&1"
 if ($LASTEXITCODE -ne 0) {
     Write-Host $buildResult
@@ -75,46 +75,84 @@ Write-Step "Generando icono pos-iados.ico..."
 $LogoPng = Join-Path $ProjectDir "frontend\public\logo-iados.png"
 $IcoOut  = Join-Path $ScriptDir "assets\pos-iados.ico"
 
-if (Test-Path $LogoPng) {
-    try {
-        Add-Type -AssemblyName System.Drawing
-        $sizes = @(16, 32, 48, 256)
-        $pngDataList = @()
-        $src = [System.Drawing.Bitmap]::FromFile($LogoPng)
-        foreach ($size in $sizes) {
-            $bmp = New-Object System.Drawing.Bitmap($size, $size)
-            $g   = [System.Drawing.Graphics]::FromImage($bmp)
-            $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-            $g.DrawImage($src, 0, 0, $size, $size)
-            $g.Dispose()
-            $ms = New-Object System.IO.MemoryStream
-            $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
-            $pngDataList += ,($ms.ToArray())
-            $ms.Dispose(); $bmp.Dispose()
-        }
-        $src.Dispose()
-        $icoStream = New-Object System.IO.FileStream($IcoOut, [System.IO.FileMode]::Create)
-        $w = New-Object System.IO.BinaryWriter($icoStream)
-        $count  = $sizes.Count
-        $offset = 6 + $count * 16
-        $w.Write([uint16]0); $w.Write([uint16]1); $w.Write([uint16]$count)
-        for ($i = 0; $i -lt $count; $i++) {
-            $sz = $sizes[$i]; $len = $pngDataList[$i].Length
-            $w.Write([byte]$(if ($sz -eq 256) { 0 } else { $sz }))
-            $w.Write([byte]$(if ($sz -eq 256) { 0 } else { $sz }))
-            $w.Write([byte]0); $w.Write([byte]0)
-            $w.Write([uint16]1); $w.Write([uint16]32)
-            $w.Write([uint32]$len); $w.Write([uint32]$offset)
-            $offset += $len
-        }
-        foreach ($png in $pngDataList) { $w.Write($png) }
-        $w.Close(); $icoStream.Close()
-        Write-OK "Icono generado (16, 32, 48, 256px)"
-    } catch {
-        Write-Warn "No se pudo generar el ICO: $_"
+try {
+    Add-Type -AssemblyName System.Drawing
+    $sizes = @(16, 32, 48, 256)
+    $pngDataList = @()
+
+    foreach ($size in $sizes) {
+        $s = [float]$size / 100.0   # escala: viewbox es 100x100
+        $bmp = New-Object System.Drawing.Bitmap($size, $size)
+        $g   = [System.Drawing.Graphics]::FromImage($bmp)
+        $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+
+        # Fondo oscuro igual al login
+        $g.Clear([System.Drawing.Color]::FromArgb(255, 15, 23, 42))
+
+        $green      = [System.Drawing.Color]::FromArgb(255, 92, 184, 130)
+        $greenLight = [System.Drawing.Color]::FromArgb(179, 126, 200, 160)
+        $dark       = [System.Drawing.Color]::FromArgb(255, 15, 23, 42)
+        $cx = 50.0 * $s; $cy = 50.0 * $s
+
+        # Hexagono exterior
+        $hex = @(
+            [System.Drawing.PointF]::new(50*$s,  4*$s),
+            [System.Drawing.PointF]::new(88*$s, 26*$s),
+            [System.Drawing.PointF]::new(88*$s, 74*$s),
+            [System.Drawing.PointF]::new(50*$s, 96*$s),
+            [System.Drawing.PointF]::new(12*$s, 74*$s),
+            [System.Drawing.PointF]::new(12*$s, 26*$s)
+        )
+        $penHex = New-Object System.Drawing.Pen($green, [float](4*$s))
+        $penHex.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
+        $g.DrawPolygon($penHex, $hex)
+
+        # Lineas primarias al centro
+        $penPrim = New-Object System.Drawing.Pen($green, [float](2.5*$s))
+        $g.DrawLine($penPrim, [float](50*$s), [float](4*$s),  $cx, $cy)
+        $g.DrawLine($penPrim, [float](88*$s), [float](74*$s), $cx, $cy)
+        $g.DrawLine($penPrim, [float](12*$s), [float](74*$s), $cx, $cy)
+
+        # Lineas secundarias
+        $penSec = New-Object System.Drawing.Pen($greenLight, [float](1.5*$s))
+        $g.DrawLine($penSec, [float](88*$s), [float](26*$s), $cx, $cy)
+        $g.DrawLine($penSec, [float](12*$s), [float](26*$s), $cx, $cy)
+        $g.DrawLine($penSec, [float](50*$s), [float](96*$s), $cx, $cy)
+
+        # Circulo exterior verde
+        $r1 = [float](9*$s)
+        $g.FillEllipse((New-Object System.Drawing.SolidBrush($green)), ($cx-$r1), ($cy-$r1), 2*$r1, 2*$r1)
+
+        # Circulo interior oscuro
+        $r2 = [float](5*$s)
+        $g.FillEllipse((New-Object System.Drawing.SolidBrush($dark)), ($cx-$r2), ($cy-$r2), 2*$r2, 2*$r2)
+
+        $g.Dispose()
+        $ms = New-Object System.IO.MemoryStream
+        $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
+        $pngDataList += ,($ms.ToArray())
+        $ms.Dispose(); $bmp.Dispose()
     }
-} else {
-    Write-Warn "No se encontro logo-iados.png - sin icono personalizado"
+
+    $icoStream = New-Object System.IO.FileStream($IcoOut, [System.IO.FileMode]::Create)
+    $w = New-Object System.IO.BinaryWriter($icoStream)
+    $count  = $sizes.Count
+    $offset = 6 + $count * 16
+    $w.Write([uint16]0); $w.Write([uint16]1); $w.Write([uint16]$count)
+    for ($i = 0; $i -lt $count; $i++) {
+        $sz = $sizes[$i]; $len = $pngDataList[$i].Length
+        $w.Write([byte]$(if ($sz -eq 256) { 0 } else { $sz }))
+        $w.Write([byte]$(if ($sz -eq 256) { 0 } else { $sz }))
+        $w.Write([byte]0); $w.Write([byte]0)
+        $w.Write([uint16]1); $w.Write([uint16]32)
+        $w.Write([uint32]$len); $w.Write([uint32]$offset)
+        $offset += $len
+    }
+    foreach ($png in $pngDataList) { $w.Write($png) }
+    $w.Close(); $icoStream.Close()
+    Write-OK "Icono generado con logo hexagono (16, 32, 48, 256px)"
+} catch {
+    Write-Warn "No se pudo generar el ICO: $_"
 }
 
 # =============================================================================
@@ -137,7 +175,7 @@ if (-not (Test-Path $RuntimeDir)) {
 Write-OK "Runtimes base encontrados ($RuntimeSource)"
 
 $StagingDir  = Join-Path $ScriptDir "staging"
-$FrontendDir = Join-Path $ProjectDir "frontend\dist"
+$FrontendDir = Join-Path $ProjectDir "frontend\dist-prod"
 if (-not (Test-Path $StagingDir)) { Write-Fail "Staging no encontrado: $StagingDir" }
 Write-OK "Staging encontrado"
 

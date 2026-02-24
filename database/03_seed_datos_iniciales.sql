@@ -37,22 +37,22 @@ INSERT INTO tiendas (id, tenant_id, empresa_id, nombre, direccion, zona_horaria,
 -- superadmin (password: admin123)
 INSERT INTO users (id, tenant_id, empresa_id, tienda_id, nombre, email, password, rol, pin, activo) VALUES
 (1, NULL, NULL, NULL, 'Super Admin', 'admin@iados.mx',
- '$2a$10$kuJXxDekvxd1jA4Wo3A/9.7BAanJPL//gHhGZnVajhLUw8MXbfz2e', 'superadmin', '0000', 1);
+ '$2a$10$vDqSmFIFDlTHlsKEmX7m.OR4rhwWiKGSdrzR0OwFTIWP4EUO.HR..', 'superadmin', '0000', 1);
 
 -- admin (password: admin123)
 INSERT INTO users (id, tenant_id, empresa_id, tienda_id, nombre, email, password, rol, pin, activo) VALUES
 (2, 1, 1, 1, 'Administrador', 'admin2@iados.mx',
- '$2a$10$kuJXxDekvxd1jA4Wo3A/9.7BAanJPL//gHhGZnVajhLUw8MXbfz2e', 'admin', '1111', 1);
+ '$2a$10$vDqSmFIFDlTHlsKEmX7m.OR4rhwWiKGSdrzR0OwFTIWP4EUO.HR..', 'admin', '1111', 1);
 
 -- cajero (password: cajero123)
 INSERT INTO users (id, tenant_id, empresa_id, tienda_id, nombre, email, password, rol, pin, activo) VALUES
 (3, 1, 1, 1, 'Cajero Demo', 'cajero@iados.mx',
- '$2a$10$zMdwooeIFykt8F5Q.2olmO.gefFcJ9fgSaRFOtvwbfx7EDACdZ/5W', 'cajero', '1234', 1);
+ '$2a$10$PRr34LXQQASoyqkGOT9RB.XhKvpLe.4RQuAY0JgEf6rGw4s4k9HN6', 'cajero', '1234', 1);
 
 -- mesero (password: cajero123)
 INSERT INTO users (id, tenant_id, empresa_id, tienda_id, nombre, email, password, rol, pin, activo) VALUES
 (4, 1, 1, 1, 'Mesero Demo', 'mesero@iados.mx',
- '$2a$10$zMdwooeIFykt8F5Q.2olmO.gefFcJ9fgSaRFOtvwbfx7EDACdZ/5W', 'mesero', '5678', 1);
+ '$2a$10$PRr34LXQQASoyqkGOT9RB.XhKvpLe.4RQuAY0JgEf6rGw4s4k9HN6', 'mesero', '5678', 1);
 
 -- ============================================================
 -- LICENCIA trial
