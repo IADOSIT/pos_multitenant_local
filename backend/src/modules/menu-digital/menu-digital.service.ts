@@ -35,11 +35,14 @@ export class MenuDigitalService {
     if (!cfg) {
       const tienda = await this.tiendaRepo.findOne({ where: { id: tiendaId } });
       if (!tienda) throw new NotFoundException('Tienda no encontrada');
+      // Superadmin tiene tenant_id=null — usar el tenant de la tienda como fallback
+      const tenantId  = scope.tenant_id  ?? tienda.tenant_id;
+      const empresaId = scope.empresa_id ?? tienda.empresa_id;
       // Default cloud_url = this same backend (self-publish works out of the box)
       const defaultCloudUrl = `http://localhost:${process.env.APP_PORT || 3000}`;
       cfg = this.configRepo.create({
-        tenant_id: scope.tenant_id,
-        empresa_id: scope.empresa_id,
+        tenant_id: tenantId,
+        empresa_id: empresaId,
         tienda_id: tiendaId,
         slug: this.generateSlug(tienda.nombre),
         api_key: randomBytes(32).toString('hex'),
@@ -117,15 +120,18 @@ export class MenuDigitalService {
 
     try {
       const tienda  = await this.tiendaRepo.findOne({ where: { id: tiendaId } });
-      const empresa = await this.empresaRepo.findOne({ where: { id: scope.empresa_id } });
       if (!tienda) throw new Error('Tienda no encontrada');
+      // Superadmin tiene scope.tenant_id=null — usar tenant/empresa de la tienda como fallback
+      const tenantId  = scope.tenant_id  ?? tienda.tenant_id;
+      const empresaId = scope.empresa_id ?? tienda.empresa_id;
+      const empresa = await this.empresaRepo.findOne({ where: { id: empresaId } });
 
       const categorias = await this.categoriaRepo.find({
-        where: { tenant_id: scope.tenant_id, empresa_id: scope.empresa_id, activo: true },
+        where: { tenant_id: tenantId, empresa_id: empresaId, activo: true },
         order: { orden: 'ASC', nombre: 'ASC' },
       });
       const productos = await this.productoRepo.find({
-        where: { tenant_id: scope.tenant_id, empresa_id: scope.empresa_id, activo: true, disponible: true },
+        where: { tenant_id: tenantId, empresa_id: empresaId, activo: true, disponible: true },
         order: { categoria_id: 'ASC', orden: 'ASC', nombre: 'ASC' },
       });
 
@@ -163,7 +169,7 @@ export class MenuDigitalService {
 
       const duration = Date.now() - start;
       await this.logRepo.save(this.logRepo.create({
-        tienda_id: tiendaId, tenant_id: scope.tenant_id,
+        tienda_id: tiendaId, tenant_id: cfg.tenant_id,
         productos_count: productos.length, images_uploaded: 0,
         status: 'success', duration_ms: duration,
       }));
@@ -185,7 +191,7 @@ export class MenuDigitalService {
       cfg.last_publish_error  = err.message;
       await this.configRepo.save(cfg);
       await this.logRepo.save(this.logRepo.create({
-        tienda_id: tiendaId, tenant_id: scope.tenant_id,
+        tienda_id: tiendaId, tenant_id: cfg.tenant_id,
         productos_count: 0, images_uploaded: 0,
         status: 'error', error_message: err.message, duration_ms: Date.now() - start,
       }));

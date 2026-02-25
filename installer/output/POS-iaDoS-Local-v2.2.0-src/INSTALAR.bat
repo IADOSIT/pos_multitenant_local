@@ -1,9 +1,9 @@
-@echo off
+﻿@echo off
 chcp 65001 >nul 2>&1
-title POS-iaDoS - Instalador v2.1.0
+title POS-iaDoS - Instalador v2.2.0
 echo.
 echo  ==========================================
-echo    POS-iaDoS - Instalador v2.1.0
+echo    POS-iaDoS - Instalador v2.2.0
 echo    Sistema Punto de Venta
 echo  ==========================================
 echo.

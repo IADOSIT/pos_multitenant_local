@@ -81,7 +81,11 @@
       "Bash(which python:*)",
       "Bash(cat:*)",
       "Bash(taskkill:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(mysqldump:*)",
+      "Bash(echo exit: $?:*)",
+      "Bash(\"$MYSQLDUMP\":*)",
+      "Bash(awk:*)"
     ]
   }
 }

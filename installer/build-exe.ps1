@@ -50,6 +50,17 @@ Write-Host "  +==========================================+" -ForegroundColor Cya
 Write-Host ""
 
 # =============================================================================
+# 0. Excluir carpeta output de Windows Defender (evita error 110 en Inno Setup)
+# =============================================================================
+$OutputFullPath = Join-Path $ScriptDir $OutputDir
+try {
+    Add-MpPreference -ExclusionPath $OutputFullPath -ErrorAction SilentlyContinue
+    Write-OK "Exclusion Defender agregada: $OutputFullPath"
+} catch {
+    Write-Warn "No se pudo agregar exclusion Defender (requiere admin) - continua de todas formas"
+}
+
+# =============================================================================
 # 1. Build frontend
 # =============================================================================
 Write-Step "Compilando frontend (npm run build)..."
