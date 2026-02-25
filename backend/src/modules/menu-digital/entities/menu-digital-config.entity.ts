@@ -1,7 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, Unique } from 'typeorm';
 
 @Entity('menu_digital_config')
-@Index(['tenant_id', 'empresa_id'])
+@Index('IDX_mdc_tenant_empresa', ['tenant_id', 'empresa_id'])
+@Unique('UQ_mdc_tienda', ['tienda_id'])
+@Unique('UQ_mdc_slug', ['slug'])
 export class MenuDigitalConfig {
   @PrimaryGeneratedColumn()
   id: number;
@@ -12,10 +14,10 @@ export class MenuDigitalConfig {
   @Column()
   empresa_id: number;
 
-  @Column({ unique: true })
+  @Column()
   tienda_id: number;
 
-  @Column({ length: 120, unique: true })
+  @Column({ length: 120 })
   slug: string;
 
   @Column({ default: false })
@@ -41,6 +43,9 @@ export class MenuDigitalConfig {
 
   @Column({ length: 20, nullable: true })
   last_publish_status: string; // 'success' | 'error'
+
+  @Column({ length: 20, default: 'oscuro' })
+  plantilla: string; // 'oscuro' | 'claro' | 'mar'
 
   @Column({ type: 'text', nullable: true })
   last_publish_error: string;

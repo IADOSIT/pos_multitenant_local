@@ -1,12 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Unique } from 'typeorm';
 
 @Entity('menu_digital_snapshot')
-@Index(['slug'])
+@Unique('UQ_mds_slug', ['slug'])
 export class MenuDigitalSnapshot {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ unique: true, length: 120 })
+  @Column({ length: 120 })
   slug: string;
 
   @Column()
@@ -20,6 +20,9 @@ export class MenuDigitalSnapshot {
 
   @Column({ length: 20, default: 'consulta' })
   modo_menu: string;
+
+  @Column({ length: 20, default: 'oscuro' })
+  plantilla: string; // 'oscuro' | 'claro' | 'mar'
 
   @Column({ default: true })
   is_active: boolean;
