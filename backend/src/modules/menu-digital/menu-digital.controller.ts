@@ -80,6 +80,13 @@ export class MenuDigitalController {
     return this.service.receiveImage(dto);
   }
 
+  // Returns the server's own backend and frontend URLs (for UI config suggestions)
+  @UseGuards(AuthGuard('jwt'))
+  @Get('server-info')
+  getServerInfo() {
+    return this.service.getServerInfo();
+  }
+
   // =========================================================================
   // Public endpoints (no auth)
   // =========================================================================

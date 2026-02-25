@@ -47,6 +47,14 @@ export default function ConfiguracionPage() {
   const [mdQr, setMdQr]               = useState<string>('');
   const [mdCfgForm, setMdCfgForm]     = useState<any>({});
 
+  // Compute the public menu URL: if cloud_url is localhost/127.0.0.1, use the
+  // current browser origin (Vite dev server or same server), otherwise use cloud_url.
+  const getMenuUrl = (cloudUrl: string, slug: string): string => {
+    const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/.test(cloudUrl || '');
+    const base = isLocal ? window.location.origin : (cloudUrl || '').replace(/\/$/, '');
+    return `${base}/menu/${slug}`;
+  };
+
   // Form state
   const [form, setForm] = useState({
     nombre: '',
@@ -250,10 +258,11 @@ export default function ConfiguracionPage() {
         sync_interval: status.config?.sync_interval ?? 30,
         cloud_url:     status.config?.cloud_url    ?? '',
         slug:          status.config?.slug         ?? '',
+        plantilla:     status.config?.plantilla    ?? 'oscuro',
       });
-      // Generate QR if active and has cloud URL
-      if (status.config?.is_active && status.config?.cloud_url && status.config?.slug) {
-        const menuUrl = `${status.config.cloud_url}/menu/${status.config.slug}`;
+      // Generate QR if active and has slug
+      if (status.config?.is_active && status.config?.slug) {
+        const menuUrl = getMenuUrl(status.config.cloud_url || '', status.config.slug);
         const qr = await QRCode.toDataURL(menuUrl, { width: 200, margin: 2 });
         setMdQr(qr);
       } else {
@@ -600,18 +609,38 @@ export default function ConfiguracionPage() {
                     </label>
                   </div>
 
-                  {/* Cloud URL (requerida) */}
+                  {/* Cloud URL */}
                   <div>
-                    <label className="text-xs text-slate-400 mb-1 flex items-center gap-1"><Globe size={12} /> URL del servidor cloud</label>
-                    <input
-                      value={mdCfgForm.cloud_url ?? ''}
-                      onChange={e => setMdCfgForm({ ...mdCfgForm, cloud_url: e.target.value })}
-                      placeholder="http://34.71.132.26:3000"
-                      className="input-touch text-sm font-mono"
-                    />
+                    <label className="text-xs text-slate-400 mb-1 flex items-center gap-1"><Globe size={12} /> URL del servidor</label>
+                    <div className="flex gap-2">
+                      <input
+                        value={mdCfgForm.cloud_url ?? ''}
+                        onChange={e => setMdCfgForm({ ...mdCfgForm, cloud_url: e.target.value })}
+                        placeholder="http://localhost:3000"
+                        className="input-touch text-sm font-mono flex-1"
+                      />
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const { data } = await menuDigitalApi.getServerInfo();
+                            setMdCfgForm((f: any) => ({ ...f, cloud_url: data.backendUrl }));
+                          } catch { toast.error('No se pudo obtener la URL del servidor'); }
+                        }}
+                        className="btn-secondary text-xs px-2 whitespace-nowrap"
+                        title="Usar la URL de este servidor"
+                      >
+                        Este servidor
+                      </button>
+                    </div>
                     {!mdCfgForm.cloud_url && (
                       <p className="text-xs text-amber-400 mt-1 flex items-center gap-1">
-                        <AlertTriangle size={11} /> Requerida para publicar el menu
+                        <AlertTriangle size={11} /> Requerida para publicar. Usa "Este servidor" si publicas en LOCAL.
+                      </p>
+                    )}
+                    {mdCfgForm.cloud_url && !/^https?:\/\/(\d{1,3}\.){3}\d{1,3}|localhost|127\.0\.0\.1/.test(mdCfgForm.cloud_url) && (
+                      <p className="text-xs text-amber-400 mt-1 flex items-center gap-1">
+                        <AlertTriangle size={11} /> La URL parece un hostname interno. Usa IP o "Este servidor".
                       </p>
                     )}
                   </div>
@@ -627,9 +656,9 @@ export default function ConfiguracionPage() {
                         className="input-touch text-sm font-mono flex-1"
                       />
                     </div>
-                    {mdCfgForm.cloud_url && mdCfgForm.slug && (
+                    {mdCfgForm.slug && (
                       <p className="text-xs mt-1 text-slate-500 font-mono break-all">
-                        {mdCfgForm.cloud_url}/menu/<span className="text-iados-accent">{mdCfgForm.slug}</span>
+                        {getMenuUrl(mdCfgForm.cloud_url || '', mdCfgForm.slug).replace(/\/menu\/.*/, '')}/menu/<span className="text-iados-accent">{mdCfgForm.slug}</span>
                       </p>
                     )}
                   </div>
@@ -675,6 +704,52 @@ export default function ConfiguracionPage() {
                       </select>
                     </div>
                   )}
+
+                  {/* Plantilla visual del menu */}
+                  <div>
+                    <label className="text-xs text-slate-400 mb-2 block">Plantilla visual del menu</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {([
+                        { key: 'oscuro', label: 'Oscuro', bg: '#0d0d0d', accent: '#f59e0b' },
+                        { key: 'claro',  label: 'Claro',  bg: '#f4f4f5', accent: '#ea580c' },
+                        { key: 'mar',    label: 'Mar',    bg: '#061628', accent: '#06b6d4' },
+                      ] as const).map(tpl => {
+                        const isSelected = (mdCfgForm.plantilla ?? 'oscuro') === tpl.key;
+                        return (
+                          <button
+                            key={tpl.key}
+                            type="button"
+                            onClick={() => setMdCfgForm({ ...mdCfgForm, plantilla: tpl.key })}
+                            className="relative rounded-xl overflow-hidden transition-all"
+                            style={{
+                              border: isSelected ? `2px solid var(--c-accent, #6366f1)` : '2px solid rgba(255,255,255,0.08)',
+                              transform: isSelected ? 'scale(1.03)' : 'scale(1)',
+                              opacity: isSelected ? 1 : 0.65,
+                            }}
+                          >
+                            {/* Mini preview */}
+                            <div style={{ background: tpl.bg, padding: '10px 6px 6px' }}>
+                              <div className="flex flex-col items-center gap-1">
+                                <div className="w-10 h-2 rounded-full" style={{ background: tpl.accent }} />
+                                <div className="w-6 h-1 rounded-full" style={{ background: tpl.accent, opacity: 0.4 }} />
+                                <div className="w-8 h-1 rounded-full mt-1" style={{ background: tpl.accent, opacity: 0.2 }} />
+                              </div>
+                            </div>
+                            <div className="py-1.5 text-center" style={{ background: tpl.bg }}>
+                              <span className="text-xs font-semibold" style={{ color: tpl.accent }}>{tpl.label}</span>
+                            </div>
+                            {isSelected && (
+                              <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center"
+                                style={{ background: tpl.accent }}>
+                                <Check size={9} style={{ color: tpl.bg }} />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-slate-600 mt-1">El diseño se aplica al publicar.</p>
+                  </div>
 
                   {/* Botones guardar config + publicar */}
                   <div className="flex gap-2">
@@ -739,10 +814,10 @@ export default function ConfiguracionPage() {
                       <div className="flex-1 space-y-2">
                         <p className="text-xs text-slate-400">Comparte este QR con tus clientes</p>
                         <code className="text-xs text-iados-accent break-all block">
-                          {mdCfgForm.cloud_url}/menu/{mdCfgForm.slug}
+                          {getMenuUrl(mdCfgForm.cloud_url || '', mdCfgForm.slug || '')}
                         </code>
                         <a
-                          href={`${mdCfgForm.cloud_url}/menu/${mdCfgForm.slug}`}
+                          href={getMenuUrl(mdCfgForm.cloud_url || '', mdCfgForm.slug || '')}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs text-slate-400 hover:text-iados-accent flex items-center gap-1 transition-colors"

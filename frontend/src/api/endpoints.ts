@@ -193,6 +193,7 @@ export const menuDigitalApi = {
   updateConfig:    (tiendaId: number, data: any) => api.put(`/menu-digital/config/${tiendaId}`, data),
   regenerateKey:   (tiendaId: number) => api.post(`/menu-digital/config/${tiendaId}/regenerate-key`),
   publish:         (tiendaId: number) => api.post(`/menu-digital/publish/${tiendaId}`),
+  getServerInfo:   () => api.get('/menu-digital/server-info'),
   getLogs:         (tiendaId: number) => api.get(`/menu-digital/logs/${tiendaId}`),
   getPendingOrders:(tiendaId: number) => api.get(`/menu-digital/orders/${tiendaId}`),
   updateOrder:     (orderId: number, status: string, tiendaId: number) =>

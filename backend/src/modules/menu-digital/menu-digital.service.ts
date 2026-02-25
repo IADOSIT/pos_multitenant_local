@@ -1,8 +1,7 @@
 import { Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { randomBytes, createHash } from 'crypto';
-import { join } from 'path';
+import { randomBytes } from 'crypto';
 import { MenuDigitalConfig } from './entities/menu-digital-config.entity';
 import { MenuDigitalSnapshot } from './entities/menu-digital-snapshot.entity';
 import { MenuDigitalLog } from './entities/menu-digital-log.entity';
@@ -36,6 +35,8 @@ export class MenuDigitalService {
     if (!cfg) {
       const tienda = await this.tiendaRepo.findOne({ where: { id: tiendaId } });
       if (!tienda) throw new NotFoundException('Tienda no encontrada');
+      // Default cloud_url = this same backend (self-publish works out of the box)
+      const defaultCloudUrl = `http://localhost:${process.env.APP_PORT || 3000}`;
       cfg = this.configRepo.create({
         tenant_id: scope.tenant_id,
         empresa_id: scope.empresa_id,
@@ -46,10 +47,18 @@ export class MenuDigitalService {
         modo_menu: 'consulta',
         sync_mode: 'manual',
         sync_interval: 30,
+        cloud_url: defaultCloudUrl,
       });
       cfg = await this.configRepo.save(cfg);
     }
     return cfg;
+  }
+
+  // Returns URLs of this server (backend + frontend) for the UI to suggest
+  getServerInfo(): { backendUrl: string; frontendUrl: string } {
+    const backendUrl = `http://localhost:${process.env.APP_PORT || 3000}`;
+    const frontendUrl = (process.env.FRONTEND_URL || backendUrl).replace(/\/$/, '');
+    return { backendUrl, frontendUrl };
   }
 
   async updateConfig(tiendaId: number, dto: Partial<MenuDigitalConfig>, scope: any): Promise<MenuDigitalConfig> {
@@ -61,7 +70,7 @@ export class MenuDigitalService {
         dto.slug = dto.slug + '-' + Date.now().toString(36);
       }
     }
-    const allowed = ['is_active', 'modo_menu', 'sync_mode', 'sync_interval', 'cloud_url', 'slug'];
+    const allowed = ['is_active', 'modo_menu', 'sync_mode', 'sync_interval', 'cloud_url', 'slug', 'plantilla'];
     for (const key of allowed) {
       if (dto[key] !== undefined) (cfg as any)[key] = dto[key];
     }
@@ -99,157 +108,87 @@ export class MenuDigitalService {
     const start = Date.now();
     const cfg = await this.getOrCreateConfig(tiendaId, scope);
 
-    if (!cfg.cloud_url) {
-      throw new Error('No hay URL de servidor cloud configurada');
-    }
+    // cloud_url es la URL pública del menú (puede ser localhost, IP externa, dominio).
+    // Frontend + backend siempre están en el mismo servidor, por lo que el snapshot
+    // siempre se guarda directo en la BD local. cloud_url solo define la URL del QR.
+    const backendUrl  = `http://localhost:${process.env.APP_PORT || 3000}`;
+    const frontendUrl = (process.env.FRONTEND_URL || backendUrl).replace(/\/$/, '');
+    const cloudUrl    = (cfg.cloud_url || '').replace(/\/$/, '');
 
     try {
-      // 1. Gather tienda + empresa data
-      const tienda = await this.tiendaRepo.findOne({ where: { id: tiendaId } });
+      const tienda  = await this.tiendaRepo.findOne({ where: { id: tiendaId } });
       const empresa = await this.empresaRepo.findOne({ where: { id: scope.empresa_id } });
       if (!tienda) throw new Error('Tienda no encontrada');
 
-      // 2. Resolve tienda logo: use empresa logo
-      const tiendaLogoUrl = empresa?.logo_url || null;
-
-      // 3. Get categorias
       const categorias = await this.categoriaRepo.find({
         where: { tenant_id: scope.tenant_id, empresa_id: scope.empresa_id, activo: true },
         order: { orden: 'ASC', nombre: 'ASC' },
       });
-
-      // 4. Get productos activos y disponibles
       const productos = await this.productoRepo.find({
-        where: {
-          tenant_id: scope.tenant_id,
-          empresa_id: scope.empresa_id,
-          activo: true,
-          disponible: true,
-        },
+        where: { tenant_id: scope.tenant_id, empresa_id: scope.empresa_id, activo: true, disponible: true },
         order: { categoria_id: 'ASC', orden: 'ASC', nombre: 'ASC' },
       });
 
-      // 5. Upload images to cloud
-      let imagesUploaded = 0;
-      const imageUrlMap: Map<string, string> = new Map();
-
-      for (const prod of productos) {
-        if (!prod.imagen_url) continue;
-        try {
-          const cloudUrl = await this.uploadImageToCloud(prod.imagen_url, cfg.cloud_url, cfg.api_key, cfg.slug);
-          if (cloudUrl) {
-            imageUrlMap.set(prod.imagen_url, cloudUrl);
-            imagesUploaded++;
-          }
-        } catch (e) {
-          this.logger.warn(`No se pudo subir imagen del producto ${prod.id}: ${e.message}`);
-        }
-      }
-
-      // Upload empresa logo if exists
-      let cloudLogoUrl = tiendaLogoUrl;
-      if (tiendaLogoUrl && !tiendaLogoUrl.startsWith('http')) {
-        try {
-          const logoCloud = await this.uploadImageToCloud(tiendaLogoUrl, cfg.cloud_url, cfg.api_key, cfg.slug);
-          if (logoCloud) cloudLogoUrl = logoCloud;
-        } catch {}
-      }
-
-      // 6. Build snapshot payload
       const tiendaData = {
-        nombre: tienda.nombre,
-        direccion: tienda.direccion || '',
-        telefono: tienda.telefono || '',
-        email: tienda.email || '',
-        logo_url: cloudLogoUrl || '',
-        empresa_nombre: empresa?.nombre || '',
+        nombre: tienda.nombre, direccion: tienda.direccion || '',
+        telefono: tienda.telefono || '', email: tienda.email || '',
+        logo_url: empresa?.logo_url || '', empresa_nombre: empresa?.nombre || '',
       };
-
       const categoriasData = categorias.map(c => ({
-        id: c.id,
-        nombre: c.nombre,
-        color: c.color || null,
-        icono: c.icono || null,
-        orden: c.orden,
+        id: c.id, nombre: c.nombre, color: c.color || null, icono: c.icono || null, orden: c.orden,
       }));
-
+      // Las URLs de imagen son relativas (/api/uploads/...) y quedan correctas
+      // tanto desde localhost como desde cualquier IP externa, ya que es el mismo servidor.
       const productosData = productos.map(p => ({
-        id: p.id,
-        nombre: p.nombre,
-        descripcion: p.descripcion || '',
-        precio: Number(p.precio),
-        categoria_id: p.categoria_id,
-        imagen_url: imageUrlMap.get(p.imagen_url) || null,
-        disponible: p.disponible,
-        orden: p.orden,
+        id: p.id, nombre: p.nombre, descripcion: p.descripcion || '', precio: Number(p.precio),
+        categoria_id: p.categoria_id, imagen_url: p.imagen_url || null,
+        disponible: p.disponible, orden: p.orden,
       }));
 
-      // 7. Send snapshot to cloud
-      const payload = {
-        api_key: cfg.api_key,
-        slug: cfg.slug,
-        tenant_id: cfg.tenant_id,
-        empresa_id: cfg.empresa_id,
-        tienda_id: tiendaId,
-        modo_menu: cfg.modo_menu,
-        is_active: cfg.is_active,
-        tienda_json: JSON.stringify(tiendaData),
-        categorias_json: JSON.stringify(categoriasData),
-        productos_json: JSON.stringify(productosData),
-      };
+      this.logger.log(`Publicando menu "${cfg.slug}" → BD local (${productos.length} productos)`);
 
-      const response = await fetch(`${cfg.cloud_url}/api/menu-digital/receive`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(30000),
+      await this.saveSnapshotDirect({
+        slug: cfg.slug, tenant_id: cfg.tenant_id, empresa_id: cfg.empresa_id,
+        tienda_id: tiendaId, modo_menu: cfg.modo_menu, is_active: cfg.is_active,
+        plantilla: cfg.plantilla || 'oscuro',
+        tienda_json:      JSON.stringify(tiendaData),
+        categorias_json:  JSON.stringify(categoriasData),
+        productos_json:   JSON.stringify(productosData),
       });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Cloud respondio ${response.status}: ${errText}`);
-      }
-
-      // 8. Update config
-      cfg.last_published_at = new Date();
+      cfg.last_published_at  = new Date();
       cfg.last_publish_status = 'success';
       (cfg as any).last_publish_error = null;
       await this.configRepo.save(cfg);
 
-      // 9. Save log
       const duration = Date.now() - start;
       await this.logRepo.save(this.logRepo.create({
-        tienda_id: tiendaId,
-        tenant_id: scope.tenant_id,
-        productos_count: productos.length,
-        images_uploaded: imagesUploaded,
-        status: 'success',
-        duration_ms: duration,
+        tienda_id: tiendaId, tenant_id: scope.tenant_id,
+        productos_count: productos.length, images_uploaded: 0,
+        status: 'success', duration_ms: duration,
       }));
+
+      // URL del menú: usa cloud_url si está configurado (para el QR),
+      // si no, usa frontendUrl como fallback.
+      const menuUrl = cloudUrl
+        ? `${cloudUrl}/menu/${cfg.slug}`
+        : `${frontendUrl}/menu/${cfg.slug}`;
 
       return {
         success: true,
         productos: productos.length,
-        images_uploaded: imagesUploaded,
         duration_ms: duration,
-        menu_url: `${cfg.cloud_url}/menu/${cfg.slug}`,
+        menu_url: menuUrl,
       };
     } catch (err) {
-      // Save error
       cfg.last_publish_status = 'error';
-      cfg.last_publish_error = err.message;
+      cfg.last_publish_error  = err.message;
       await this.configRepo.save(cfg);
-
       await this.logRepo.save(this.logRepo.create({
-        tienda_id: tiendaId,
-        tenant_id: scope.tenant_id,
-        productos_count: 0,
-        images_uploaded: 0,
-        status: 'error',
-        error_message: err.message,
-        duration_ms: Date.now() - start,
+        tienda_id: tiendaId, tenant_id: scope.tenant_id,
+        productos_count: 0, images_uploaded: 0,
+        status: 'error', error_message: err.message, duration_ms: Date.now() - start,
       }));
-
       throw err;
     }
   }
@@ -260,7 +199,23 @@ export class MenuDigitalService {
 
   async receiveSnapshot(dto: any): Promise<{ ok: boolean }> {
     const { api_key, slug, ...data } = dto;
-    await this.validateApiKey(api_key, slug);
+
+    // Upsert config: LOCAL is authoritative — create if new, sync api_key if exists.
+    // This ensures receive-image (called later) can validate against the correct api_key.
+    let cfg = await this.configRepo.findOne({ where: { slug } });
+    if (!cfg) {
+      cfg = this.configRepo.create({
+        slug, api_key,
+        tenant_id: data.tenant_id, empresa_id: data.empresa_id, tienda_id: data.tienda_id,
+        modo_menu: data.modo_menu, is_active: data.is_active,
+        sync_mode: 'manual', sync_interval: 30,
+      });
+    } else {
+      cfg.api_key   = api_key;   // sync LOCAL api_key so future image uploads validate
+      cfg.modo_menu = data.modo_menu;
+      cfg.is_active = data.is_active;
+    }
+    await this.configRepo.save(cfg);
 
     let snap = await this.snapshotRepo.findOne({ where: { slug } });
     if (!snap) snap = this.snapshotRepo.create({ slug });
@@ -270,6 +225,7 @@ export class MenuDigitalService {
     snap.tienda_id   = data.tienda_id;
     snap.modo_menu   = data.modo_menu;
     snap.is_active   = data.is_active;
+    snap.plantilla   = data.plantilla || 'oscuro';
     snap.tienda_json      = data.tienda_json;
     snap.categorias_json  = data.categorias_json;
     snap.productos_json   = data.productos_json;
@@ -281,7 +237,12 @@ export class MenuDigitalService {
 
   async receiveImage(dto: any): Promise<{ url: string }> {
     const { api_key, slug, filename, hash, data: b64data } = dto;
-    await this.validateApiKey(api_key, slug);
+
+    // Allow upload if slug is new (no config yet); reject only if config exists with wrong api_key.
+    const existingCfg = await this.configRepo.findOne({ where: { slug } });
+    if (existingCfg && existingCfg.api_key !== api_key) {
+      throw new UnauthorizedException('API key inválida');
+    }
 
     const fs = await import('fs/promises');
     const path = await import('path');
@@ -317,6 +278,7 @@ export class MenuDigitalService {
     return {
       slug: snap.slug,
       modo_menu: snap.modo_menu,
+      plantilla: snap.plantilla || 'oscuro',
       tienda: JSON.parse(snap.tienda_json || '{}'),
       categorias: JSON.parse(snap.categorias_json || '[]'),
       productos: JSON.parse(snap.productos_json || '[]'),
@@ -374,6 +336,27 @@ export class MenuDigitalService {
   // Helpers
   // =========================================================================
 
+  // Save snapshot directly to local DB
+  private async saveSnapshotDirect(data: {
+    slug: string; tenant_id: number; empresa_id: number; tienda_id: number;
+    modo_menu: string; is_active: boolean; plantilla: string;
+    tienda_json: string; categorias_json: string; productos_json: string;
+  }): Promise<void> {
+    let snap = await this.snapshotRepo.findOne({ where: { slug: data.slug } });
+    if (!snap) snap = this.snapshotRepo.create({ slug: data.slug });
+    snap.tenant_id       = data.tenant_id;
+    snap.empresa_id      = data.empresa_id;
+    snap.tienda_id       = data.tienda_id;
+    snap.modo_menu       = data.modo_menu;
+    snap.is_active       = data.is_active;
+    snap.plantilla       = data.plantilla;
+    snap.tienda_json     = data.tienda_json;
+    snap.categorias_json = data.categorias_json;
+    snap.productos_json  = data.productos_json;
+    snap.published_at    = new Date();
+    await this.snapshotRepo.save(snap);
+  }
+
   private generateSlug(name: string): string {
     const base = name
       .toLowerCase()
@@ -383,53 +366,6 @@ export class MenuDigitalService {
       .trim()
       .replace(/\s+/g, '-');
     return `${base}-${Date.now().toString(36)}`;
-  }
-
-  private async uploadImageToCloud(
-    imagenUrl: string,
-    cloudUrl: string,
-    apiKey: string,
-    slug: string,
-  ): Promise<string | null> {
-    if (!imagenUrl) return null;
-
-    const fs = await import('fs/promises');
-    const path = await import('path');
-
-    // Extract filename from URL like /api/uploads/filename.jpg or /api/uploads/menu/file.jpg
-    const parts = imagenUrl.split('/uploads/');
-    if (parts.length < 2) return null;
-    const relativePath = parts[1]; // e.g. "filename.jpg" or "menu/file.jpg"
-    const filePath = path.join(process.cwd(), 'uploads', relativePath);
-
-    let buffer: Buffer;
-    try {
-      buffer = await fs.readFile(filePath);
-    } catch {
-      this.logger.warn(`Imagen no encontrada en disco: ${filePath}`);
-      return null;
-    }
-
-    const hash = createHash('md5').update(buffer).digest('hex');
-    const filename = path.basename(relativePath);
-    const b64 = buffer.toString('base64');
-
-    const res = await fetch(`${cloudUrl}/api/menu-digital/receive-image`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ api_key: apiKey, slug, filename, hash, data: b64 }),
-      signal: AbortSignal.timeout(15000),
-    });
-
-    if (!res.ok) return null;
-    const result: any = await res.json();
-
-    // If cloud_url is external, return full URL; if local, return relative
-    const url: string = result.url;
-    if (url.startsWith('/')) {
-      return `${cloudUrl}${url}`;
-    }
-    return url;
   }
 
   private async countPendingChanges(tiendaId: number, cfg: MenuDigitalConfig, scope: any): Promise<number> {

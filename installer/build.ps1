@@ -111,11 +111,15 @@ if (-not $SkipCompile) {
 
     # Instalar dependencias completas para compilar
     Write-Host "  npm install..." -ForegroundColor Gray
+    $ErrorActionPreference = "SilentlyContinue"
     & npm install --silent 2>&1 | Out-Null
+    $ErrorActionPreference = "Stop"
 
     # Compilar TypeScript
     Write-Host "  npm run build..." -ForegroundColor Gray
+    $ErrorActionPreference = "SilentlyContinue"
     & npm run build 2>&1 | Out-Null
+    $ErrorActionPreference = "Stop"
 
     if (-not (Test-Path "dist\main.js")) {
         Write-Host "  ERROR: No se genero dist/main.js" -ForegroundColor Red
@@ -134,7 +138,9 @@ if (-not $SkipCompile) {
     # Instalar solo dependencias de produccion
     Write-Host "  npm install --production..." -ForegroundColor Gray
     Push-Location "$OUTPUT\app\backend"
+    $ErrorActionPreference = "SilentlyContinue"
     & npm install --production --silent 2>&1 | Out-Null
+    $ErrorActionPreference = "Stop"
     Pop-Location
 
     Pop-Location
@@ -148,15 +154,19 @@ if (-not $SkipCompile) {
     Push-Location "$ROOT\frontend"
 
     Write-Host "  npm install..." -ForegroundColor Gray
+    $ErrorActionPreference = "SilentlyContinue"
     & npm install --silent 2>&1 | Out-Null
+    $ErrorActionPreference = "Stop"
 
     # Build con base URL correcta para produccion
     Write-Host "  npm run build..." -ForegroundColor Gray
     $env:VITE_API_URL = "/api"
+    $ErrorActionPreference = "SilentlyContinue"
     & npm run build 2>&1 | Out-Null
+    $ErrorActionPreference = "Stop"
 
-    if (-not (Test-Path "dist\index.html")) {
-        Write-Host "  ERROR: No se genero dist/index.html" -ForegroundColor Red
+    if (-not (Test-Path "dist-prod\index.html")) {
+        Write-Host "  ERROR: No se genero dist-prod/index.html" -ForegroundColor Red
         Pop-Location
         exit 1
     }
@@ -164,7 +174,7 @@ if (-not $SkipCompile) {
     # Copiar frontend build a backend/public
     Write-Host "  Copiando frontend a backend/public..." -ForegroundColor Gray
     New-Item -ItemType Directory -Force -Path "$OUTPUT\app\backend\public" | Out-Null
-    Copy-Item -Path "dist\*" -Destination "$OUTPUT\app\backend\public" -Recurse -Force
+    Copy-Item -Path "dist-prod\*" -Destination "$OUTPUT\app\backend\public" -Recurse -Force
 
     Pop-Location
     Write-Host "  Frontend compilado" -ForegroundColor Green
