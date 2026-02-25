@@ -5,7 +5,7 @@
 -- (para que TypeORM haya creado todas las tablas)
 --
 -- En equipo aislado (C:\POS-iaDoS):
---   mariadb\bin\mysql.exe -u pos_iados -ppos_iados_2024 pos_iados < 04_seed_pruebas.sql
+--   mariadb\bin\mysql.exe -u pos_iados -ppos_iados_2024 pos_iados < C:\POS-iaDoS\database\04_seed_pruebas.sql
 -- ============================================================
 
 USE pos_iados;
@@ -42,50 +42,60 @@ INSERT IGNORE INTO categorias (id, tenant_id, empresa_id, nombre, color, orden) 
 (15, 1, 1, 'Postres',             '#ec4899', 6);
 
 -- ============================================================
--- PRODUCTOS (INSERT IGNORE = seguro si ya existen)
+-- PRODUCTOS (sin tienda_id — se enlaza via producto_tienda)
 -- ============================================================
-INSERT IGNORE INTO productos (id, tenant_id, empresa_id, tienda_id, categoria_id, nombre, descripcion, precio, activo, disponible, orden) VALUES
+INSERT IGNORE INTO productos (id, tenant_id, empresa_id, sku, categoria_id, nombre, descripcion, precio, activo, disponible, orden) VALUES
 -- Entradas
-(100, 1, 1, 1, 10, 'Ceviche de Camarón',  'Camarón fresco marinado en limón con chile y cebolla', 95.00,  1, 1, 1),
-(101, 1, 1, 1, 10, 'Aguachile Verde',      'Camarón crudo en salsa de chile serrano y limón',       110.00, 1, 1, 2),
-(102, 1, 1, 1, 10, 'Tostadas de Atún',    '3 tostadas con atún fresco, aguacate y sriracha',        85.00,  1, 1, 3),
-(103, 1, 1, 1, 10, 'Sopa de Lima',         'Sopa tradicional yucateca con pollo y tortilla',         75.00,  1, 1, 4),
+(100, 1, 1, 'ENT-001', 10, 'Ceviche de Camaron',  'Camaron fresco marinado en limon con chile y cebolla', 95.00,  1, 1, 1),
+(101, 1, 1, 'ENT-002', 10, 'Aguachile Verde',      'Camaron crudo en salsa de chile serrano y limon',       110.00, 1, 1, 2),
+(102, 1, 1, 'ENT-003', 10, 'Tostadas de Atun',    '3 tostadas con atun fresco, aguacate y sriracha',        85.00,  1, 1, 3),
+(103, 1, 1, 'ENT-004', 10, 'Sopa de Lima',         'Sopa tradicional yucateca con pollo y tortilla',         75.00,  1, 1, 4),
 
 -- Mariscos
-(110, 1, 1, 1, 11, 'Camarones al Mojo',   'Camarones jumbo salteados con ajo, mantequilla y limón', 185.00, 1, 1, 1),
-(111, 1, 1, 1, 11, 'Filete de Pescado',   'Filete al gusto: empanizado, asado o a la veracruzana',  160.00, 1, 1, 2),
-(112, 1, 1, 1, 11, 'Pulpo a la Gallega',  'Pulpo cocido con paprika, aceite de oliva y sal de mar',  220.00, 1, 1, 3),
-(113, 1, 1, 1, 11, 'Camarones Diabla',    'Camarones en salsa roja picante estilo Sinaloa',          195.00, 1, 1, 4),
-(114, 1, 1, 1, 11, 'Coctel de Mariscos',  'Mix de camarón, pulpo y pepino en salsa coctel',          145.00, 1, 1, 5),
-(115, 1, 1, 1, 11, 'Ostiones al Gratín', '6 ostiones con queso fundido y pimientos',                165.00, 1, 1, 6),
+(110, 1, 1, 'MAR-001', 11, 'Camarones al Mojo',   'Camarones jumbo salteados con ajo, mantequilla y limon', 185.00, 1, 1, 1),
+(111, 1, 1, 'MAR-002', 11, 'Filete de Pescado',   'Filete al gusto: empanizado, asado o a la veracruzana',  160.00, 1, 1, 2),
+(112, 1, 1, 'MAR-003', 11, 'Pulpo a la Gallega',  'Pulpo cocido con paprika, aceite de oliva y sal de mar',  220.00, 1, 1, 3),
+(113, 1, 1, 'MAR-004', 11, 'Camarones Diabla',    'Camarones en salsa roja picante estilo Sinaloa',          195.00, 1, 1, 4),
+(114, 1, 1, 'MAR-005', 11, 'Coctel de Mariscos',  'Mix de camaron, pulpo y pepino en salsa coctel',          145.00, 1, 1, 5),
+(115, 1, 1, 'MAR-006', 11, 'Ostiones al Gratin',  '6 ostiones con queso fundido y pimientos',                165.00, 1, 1, 6),
 
 -- Carnes y Aves
-(120, 1, 1, 1, 12, 'Arrachera 300g',      'Arrachera marinada a las brasas con guacamole',           210.00, 1, 1, 1),
-(121, 1, 1, 1, 12, 'Pollo a la Plancha',  'Pechuga de pollo con hierbas y verduras al vapor',        140.00, 1, 1, 2),
-(122, 1, 1, 1, 12, 'Costillas BBQ',       'Costillas de cerdo con salsa barbecue ahumada',            225.00, 1, 1, 3),
+(120, 1, 1, 'CAR-001', 12, 'Arrachera 300g',      'Arrachera marinada a las brasas con guacamole',           210.00, 1, 1, 1),
+(121, 1, 1, 'CAR-002', 12, 'Pollo a la Plancha',  'Pechuga de pollo con hierbas y verduras al vapor',        140.00, 1, 1, 2),
+(122, 1, 1, 'CAR-003', 12, 'Costillas BBQ',       'Costillas de cerdo con salsa barbecue ahumada',            225.00, 1, 1, 3),
 
 -- Bebidas Sin Alcohol
-(130, 1, 1, 1, 13, 'Agua Fresca',         'Del día: jamaica, horchata o tamarindo',                   35.00, 1, 1, 1),
-(131, 1, 1, 1, 13, 'Refresco',            'Coca-Cola, Sprite o Fanta',                                30.00, 1, 1, 2),
-(132, 1, 1, 1, 13, 'Limonada Natural',    'Limonada fresca con o sin chile',                          45.00, 1, 1, 3),
-(133, 1, 1, 1, 13, 'Jugo de Naranja',     'Jugo natural exprimido al momento',                        50.00, 1, 1, 4),
-(134, 1, 1, 1, 13, 'Agua Mineral',        'Agua mineral 600ml',                                       25.00, 1, 1, 5),
+(130, 1, 1, 'BSA-001', 13, 'Agua Fresca',         'Del dia: jamaica, horchata o tamarindo',                   35.00, 1, 1, 1),
+(131, 1, 1, 'BSA-002', 13, 'Refresco',            'Coca-Cola, Sprite o Fanta',                                30.00, 1, 1, 2),
+(132, 1, 1, 'BSA-003', 13, 'Limonada Natural',    'Limonada fresca con o sin chile',                          45.00, 1, 1, 3),
+(133, 1, 1, 'BSA-004', 13, 'Jugo de Naranja',     'Jugo natural exprimido al momento',                        50.00, 1, 1, 4),
+(134, 1, 1, 'BSA-005', 13, 'Agua Mineral',        'Agua mineral 600ml',                                       25.00, 1, 1, 5),
 
 -- Bebidas Con Alcohol
-(140, 1, 1, 1, 14, 'Chelada',             'Cerveza con limón, sal y chamoy',                          65.00, 1, 1, 1),
-(141, 1, 1, 1, 14, 'Michelada',           'Cerveza con clamato, limón y salsas',                      75.00, 1, 1, 2),
-(142, 1, 1, 1, 14, 'Margarita',           'Tequila, triple sec y limón. Sal o sin sal',               95.00, 1, 1, 3),
-(143, 1, 1, 1, 14, 'Piña Colada',         'Ron, crema de coco y piña',                                90.00, 1, 1, 4),
-(144, 1, 1, 1, 14, 'Cerveza Importada',   'Corona, Modelo Especial o XX Lager',                       60.00, 1, 1, 5),
+(140, 1, 1, 'BCA-001', 14, 'Chelada',             'Cerveza con limon, sal y chamoy',                          65.00, 1, 1, 1),
+(141, 1, 1, 'BCA-002', 14, 'Michelada',           'Cerveza con clamato, limon y salsas',                      75.00, 1, 1, 2),
+(142, 1, 1, 'BCA-003', 14, 'Margarita',           'Tequila, triple sec y limon. Sal o sin sal',               95.00, 1, 1, 3),
+(143, 1, 1, 'BCA-004', 14, 'Pina Colada',         'Ron, crema de coco y pina',                                90.00, 1, 1, 4),
+(144, 1, 1, 'BCA-005', 14, 'Cerveza Importada',   'Corona, Modelo Especial o XX Lager',                       60.00, 1, 1, 5),
 
 -- Postres
-(150, 1, 1, 1, 15, 'Flan Napolitano',     'Flan casero de vainilla con cajeta',                       65.00, 1, 1, 1),
-(151, 1, 1, 1, 15, 'Helado 2 Bolas',      'Helado artesanal: vainilla, chocolate o fresa',            55.00, 1, 1, 2),
-(152, 1, 1, 1, 15, 'Pay de Queso',        'Pay de queso crema con frutos rojos',                      70.00, 1, 1, 3);
+(150, 1, 1, 'POS-001', 15, 'Flan Napolitano',     'Flan casero de vainilla con cajeta',                       65.00, 1, 1, 1),
+(151, 1, 1, 'POS-002', 15, 'Helado 2 Bolas',      'Helado artesanal: vainilla, chocolate o fresa',            55.00, 1, 1, 2),
+(152, 1, 1, 'POS-003', 15, 'Pay de Queso',        'Pay de queso crema con frutos rojos',                      70.00, 1, 1, 3);
+
+-- ============================================================
+-- PRODUCTO_TIENDA: disponibilidad en tienda 1
+-- ============================================================
+INSERT IGNORE INTO producto_tienda (tenant_id, tienda_id, producto_id, disponible) VALUES
+(1, 1, 100, 1),(1, 1, 101, 1),(1, 1, 102, 1),(1, 1, 103, 1),
+(1, 1, 110, 1),(1, 1, 111, 1),(1, 1, 112, 1),(1, 1, 113, 1),(1, 1, 114, 1),(1, 1, 115, 1),
+(1, 1, 120, 1),(1, 1, 121, 1),(1, 1, 122, 1),
+(1, 1, 130, 1),(1, 1, 131, 1),(1, 1, 132, 1),(1, 1, 133, 1),(1, 1, 134, 1),
+(1, 1, 140, 1),(1, 1, 141, 1),(1, 1, 142, 1),(1, 1, 143, 1),(1, 1, 144, 1),
+(1, 1, 150, 1),(1, 1, 151, 1),(1, 1, 152, 1);
 
 -- ============================================================
 -- MENU DIGITAL CONFIG (tabla: menu_digital_config sin 's')
--- Columnas segun entidad v2.0.1
 -- ============================================================
 INSERT IGNORE INTO menu_digital_config
   (tenant_id, empresa_id, tienda_id, slug, is_active, modo_menu, sync_mode, sync_interval, cloud_url, api_key, plantilla)
@@ -112,5 +122,7 @@ WHERE tienda_id = 1 AND tenant_id = 1;
 SELECT 'Categorias activas:' AS info, COUNT(*) AS total FROM categorias WHERE activo = 1 AND tenant_id = 1
 UNION ALL
 SELECT 'Productos activos:', COUNT(*) FROM productos WHERE activo = 1 AND tenant_id = 1
+UNION ALL
+SELECT 'Producto-tienda:', COUNT(*) FROM producto_tienda WHERE tienda_id = 1 AND tenant_id = 1
 UNION ALL
 SELECT 'Menu digital config:', COUNT(*) FROM menu_digital_config WHERE tenant_id = 1;

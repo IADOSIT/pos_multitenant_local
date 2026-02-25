@@ -5,7 +5,7 @@
 ; =============================================================================
 
 #define MyAppName      "POS-iaDoS"
-#define MyAppVersion   "2.0.1"
+#define MyAppVersion   "2.1.0"
 #define MyAppPublisher "iaDoS"
 #define MyAppURL       "https://iados.mx"
 #define MyInstallDir   "C:\POS-iaDoS"
