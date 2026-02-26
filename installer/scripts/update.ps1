@@ -111,16 +111,47 @@ if (Test-Path $migrationFile) {
 Copy-Item -Path "$PatchPath\version.json" -Destination "$InstallDir\version.json" -Force
 Write-Host "  Archivos actualizados" -ForegroundColor Green
 
-# --- Reiniciar backend ---
+# --- Reiniciar backend (TypeORM sincronizara schema automaticamente) ---
 Write-Host "  [4/4] Reiniciando backend..." -ForegroundColor Yellow
+Write-Host "        TypeORM aplicara schema sync al arrancar..." -ForegroundColor Gray
+
+# Limpiar log anterior para poder leer solo el de este arranque
+$backendLog = "$InstallDir\logs\backend-stdout.log"
+if (Test-Path $backendLog) {
+    $logSnapshot = Get-Content $backendLog -Raw -ErrorAction SilentlyContinue
+} else {
+    $logSnapshot = ""
+}
+
 $ErrorActionPreference = "SilentlyContinue"
 & $NSSM start "PosIaDos-Backend" 2>&1 | Out-Null
 $ErrorActionPreference = "Stop"
 
-if (Wait-ForPort -Port 3000 -TimeoutSeconds 30) {
-    Write-Host "  Backend reiniciado" -ForegroundColor Green
+if (Wait-ForPort -Port 3000 -TimeoutSeconds 60) {
+    Write-Host "  Backend reiniciado correctamente" -ForegroundColor Green
+
+    # Leer log y mostrar lineas de schema sync
+    Start-Sleep -Seconds 3
+    $logNuevo = Get-Content $backendLog -Raw -ErrorAction SilentlyContinue
+    if ($logNuevo -and $logNuevo.Length -gt $logSnapshot.Length) {
+        $logDelta = $logNuevo.Substring($logSnapshot.Length)
+        $schemaLines = $logDelta -split "`n" | Where-Object {
+            $_ -match "SchemaSync|CREATE TABLE|ALTER TABLE|schema.*OK|Ambiente|Tablas|Columnas"
+        }
+        if ($schemaLines.Count -gt 0) {
+            Write-Host ""
+            Write-Host "  --- Schema Sync ---" -ForegroundColor Cyan
+            foreach ($line in $schemaLines) {
+                $trimmed = $line.Trim()
+                if ($trimmed) { Write-Host "    $trimmed" -ForegroundColor Gray }
+            }
+            Write-Host "  -------------------" -ForegroundColor Cyan
+        }
+    }
 } else {
-    Write-Host "  ADVERTENCIA: Backend tardo en iniciar. Revise logs." -ForegroundColor Yellow
+    Write-Host "  ERROR: Backend no inicio en el tiempo esperado." -ForegroundColor Red
+    Write-Host "  Revise los logs en: $InstallDir\logs\" -ForegroundColor Red
+    exit 1
 }
 
 Write-Host ""

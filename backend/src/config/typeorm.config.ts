@@ -13,11 +13,13 @@ export const dataSourceOptions: DataSourceOptions = {
   migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
   // synchronize = false: usamos init SQL en Docker o migraciones manuales
   synchronize: true,
-  logging: process.env.NODE_ENV === 'development',
-  // Pool para estabilidad en Docker
+  // En desarrollo: log completo. En producción: solo DDL + errores (visible en logs del instalador)
+  logging: process.env.NODE_ENV === 'development' ? true : ['schema', 'warn', 'error'],
+  // Pool para estabilidad en Docker/MariaDB
   extra: {
     connectionLimit: 10,
     connectTimeout: 30000,
+    ssl: false,
   },
 };
 

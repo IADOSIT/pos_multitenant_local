@@ -83,6 +83,18 @@ export class UsersService {
       // Admin solo puede dentro de su tenant
       tenant_id = scope.tenant_id;
       if (!empresa_id) empresa_id = scope.empresa_id;
+
+      // Admin también puede crear una nueva tienda dentro de su tenant/empresa
+      if (dto.nueva_tienda && tenant_id && empresa_id) {
+        const tienda = this.tiendasRepo.create({
+          tenant_id,
+          empresa_id,
+          nombre: dto.nueva_tienda.nombre,
+          direccion: dto.nueva_tienda.direccion,
+        });
+        const saved = await this.tiendasRepo.save(tienda);
+        tienda_id = saved.id;
+      }
     }
 
     const exists = await this.usersRepo.findOne({ where: { email: dto.email } });

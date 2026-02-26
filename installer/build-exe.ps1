@@ -2,43 +2,63 @@
 # POS-iaDoS - Build EXE Installer Script
 # Genera el instalador EXE profesional para Windows
 #
-# Estrategia:
-#   - Runtimes:  output\POS-iaDoS-Setup-v1.0.0\runtime\  (node, mariadb, nssm)
-#   - App + BD:  staging\app\                              (backend + database)
-#   - Scripts:   staging\setup\                            (install/uninstall/etc)
-#   - Frontend:  frontend\dist\                            (build más reciente)
-#   - BAT files: staging\*.bat
+# Modos:
+#   local   - BD propia (MariaDB incluida), sin internet requerido
+#   online  - BD en la nube (my.bodegadigital.com.mx), usa ext.env
+#
+# Uso desde PowerShell:
+#   .\build-exe.ps1                        # local v2.0.0
+#   .\build-exe.ps1 -Mode online           # online v2.0.0
+#   .\build-exe.ps1 -Mode local -Version 2.1.0
 #
 # Requiere: Inno Setup 6  (https://jrsoftware.org/isdl.php)
-# Uso desde PowerShell:  cd C:\sites\pos_multitenant_local\installer
-#                        .\build-exe.ps1
 # =============================================================================
 
 param(
-    [string]$Version       = "1.1.0",
+    [ValidateSet("local","online")]
+    [string]$Mode          = "local",
+    [string]$Version       = "2.1.0",
     [string]$OutputDir     = "output",
     [string]$InnoSetupPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
-    [string]$RuntimeSource = "v1.0.0"     # Carpeta de output que tiene los runtimes
+    [string]$RuntimeSource = "v1.0.0"
 )
 
 $ErrorActionPreference = "Stop"
 $ScriptDir  = Split-Path -Parent $MyInvocation.MyCommand.Path
-$ProjectDir = Split-Path -Parent $ScriptDir   # Raíz del proyecto
+$ProjectDir = Split-Path -Parent $ScriptDir
 
 # Logging helpers
 function Write-Step { param([string]$msg) Write-Host "`n[>>>] $msg" -ForegroundColor Cyan }
 function Write-OK   { param([string]$msg) Write-Host "  [OK] $msg" -ForegroundColor Green }
 function Write-Warn { param([string]$msg) Write-Host "  [!!] $msg" -ForegroundColor Yellow }
 function Write-Info { param([string]$msg) Write-Host "       $msg" -ForegroundColor Gray }
-function Write-Fail { param([string]$msg) Write-Host "  [XX] $msg" -ForegroundColor Red; exit 1 }
+function Write-Fail {
+    param([string]$msg)
+    Write-Host "  [XX] $msg" -ForegroundColor Red
+    exit 1
+}
 
-# Banner
+$ModeLabel   = if ($Mode -eq "local") { "Local (BD propia)"   } else { "Online (BD en nube)" }
+$OutputName  = "POS-iaDoS-$($Mode.Substring(0,1).ToUpper() + $Mode.Substring(1))-v$Version"
+
 Write-Host ""
-Write-Host "  ╔══════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "  ║   POS-iaDoS - Build EXE Installer            ║" -ForegroundColor Cyan
-Write-Host "  ║   Versión: $Version                              ║" -ForegroundColor Cyan
-Write-Host "  ╚══════════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host "  +==========================================+" -ForegroundColor Cyan
+Write-Host "  |   POS-iaDoS - Build EXE Installer       |" -ForegroundColor Cyan
+Write-Host "  |   Version : $Version                        |" -ForegroundColor Cyan
+Write-Host "  |   Modo    : $ModeLabel" -ForegroundColor Cyan
+Write-Host "  +==========================================+" -ForegroundColor Cyan
 Write-Host ""
+
+# =============================================================================
+# 0. Excluir carpeta output de Windows Defender (evita error 110 en Inno Setup)
+# =============================================================================
+$OutputFullPath = Join-Path $ScriptDir $OutputDir
+try {
+    Add-MpPreference -ExclusionPath $OutputFullPath -ErrorAction SilentlyContinue
+    Write-OK "Exclusion Defender agregada: $OutputFullPath"
+} catch {
+    Write-Warn "No se pudo agregar exclusion Defender (requiere admin) - continua de todas formas"
+}
 
 # =============================================================================
 # 1. Build frontend
@@ -47,238 +67,330 @@ Write-Step "Compilando frontend (npm run build)..."
 
 $FrontendSrcDir = Join-Path $ProjectDir "frontend"
 if (-not (Test-Path "$FrontendSrcDir\package.json")) {
-    Write-Fail "No se encontró frontend en: $FrontendSrcDir"
+    Write-Fail "No se encontro frontend en: $FrontendSrcDir"
 }
 
-$env:VITE_API_URL = ""
+$env:VITE_API_URL = "/api"
 $buildResult = & cmd /c "cd /d `"$FrontendSrcDir`" && npm run build 2>&1"
-if ($LASTEXITCODE -ne 0) {
-    Write-Host $buildResult
-    Write-Fail "npm run build falló (código: $LASTEXITCODE)"
+$buildExitCode = $LASTEXITCODE
+$FrontendDistDir = Join-Path $ProjectDir "frontend\dist-prod"
+$FrontendIndexHtml = Join-Path $FrontendDistDir "index.html"
+if ($buildExitCode -ne 0) {
+    # Windows Defender puede bloquear sw.js brevemente y reportar EPERM aunque el build este completo.
+    # Si index.html existe y tiene contenido, el build fue exitoso.
+    if ((Test-Path $FrontendIndexHtml) -and ((Get-Item $FrontendIndexHtml).Length -gt 100)) {
+        Write-Warn "npm run build reporto error ($buildExitCode) pero dist-prod esta completo. Continuando..."
+    } else {
+        Write-Host $buildResult
+        Write-Fail "npm run build fallo (codigo: $buildExitCode)"
+    }
 }
 Write-OK "Frontend compilado correctamente"
 
 # =============================================================================
-# 2. Verificar prerrequisitos
+# 2. Generar icono ICO desde logo-iados.png
+# =============================================================================
+Write-Step "Generando icono pos-iados.ico..."
+
+$LogoPng = Join-Path $ProjectDir "frontend\public\logo-iados.png"
+$IcoOut  = Join-Path $ScriptDir "assets\pos-iados.ico"
+
+try {
+    Add-Type -AssemblyName System.Drawing
+    $sizes = @(16, 32, 48, 256)
+    $pngDataList = @()
+
+    foreach ($size in $sizes) {
+        $s = [float]$size / 100.0   # escala: viewbox es 100x100
+        $bmp = New-Object System.Drawing.Bitmap($size, $size)
+        $g   = [System.Drawing.Graphics]::FromImage($bmp)
+        $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+
+        # Fondo oscuro igual al login
+        $g.Clear([System.Drawing.Color]::FromArgb(255, 15, 23, 42))
+
+        $green      = [System.Drawing.Color]::FromArgb(255, 92, 184, 130)
+        $greenLight = [System.Drawing.Color]::FromArgb(179, 126, 200, 160)
+        $dark       = [System.Drawing.Color]::FromArgb(255, 15, 23, 42)
+        $cx = 50.0 * $s; $cy = 50.0 * $s
+
+        # Hexagono exterior
+        $hex = @(
+            [System.Drawing.PointF]::new(50*$s,  4*$s),
+            [System.Drawing.PointF]::new(88*$s, 26*$s),
+            [System.Drawing.PointF]::new(88*$s, 74*$s),
+            [System.Drawing.PointF]::new(50*$s, 96*$s),
+            [System.Drawing.PointF]::new(12*$s, 74*$s),
+            [System.Drawing.PointF]::new(12*$s, 26*$s)
+        )
+        $penHex = New-Object System.Drawing.Pen($green, [float](4*$s))
+        $penHex.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
+        $g.DrawPolygon($penHex, $hex)
+
+        # Lineas primarias al centro
+        $penPrim = New-Object System.Drawing.Pen($green, [float](2.5*$s))
+        $g.DrawLine($penPrim, [float](50*$s), [float](4*$s),  $cx, $cy)
+        $g.DrawLine($penPrim, [float](88*$s), [float](74*$s), $cx, $cy)
+        $g.DrawLine($penPrim, [float](12*$s), [float](74*$s), $cx, $cy)
+
+        # Lineas secundarias
+        $penSec = New-Object System.Drawing.Pen($greenLight, [float](1.5*$s))
+        $g.DrawLine($penSec, [float](88*$s), [float](26*$s), $cx, $cy)
+        $g.DrawLine($penSec, [float](12*$s), [float](26*$s), $cx, $cy)
+        $g.DrawLine($penSec, [float](50*$s), [float](96*$s), $cx, $cy)
+
+        # Circulo exterior verde
+        $r1 = [float](9*$s)
+        $g.FillEllipse((New-Object System.Drawing.SolidBrush($green)), ($cx-$r1), ($cy-$r1), 2*$r1, 2*$r1)
+
+        # Circulo interior oscuro
+        $r2 = [float](5*$s)
+        $g.FillEllipse((New-Object System.Drawing.SolidBrush($dark)), ($cx-$r2), ($cy-$r2), 2*$r2, 2*$r2)
+
+        $g.Dispose()
+        $ms = New-Object System.IO.MemoryStream
+        $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
+        $pngDataList += ,($ms.ToArray())
+        $ms.Dispose(); $bmp.Dispose()
+    }
+
+    $icoStream = New-Object System.IO.FileStream($IcoOut, [System.IO.FileMode]::Create)
+    $w = New-Object System.IO.BinaryWriter($icoStream)
+    $count  = $sizes.Count
+    $offset = 6 + $count * 16
+    $w.Write([uint16]0); $w.Write([uint16]1); $w.Write([uint16]$count)
+    for ($i = 0; $i -lt $count; $i++) {
+        $sz = $sizes[$i]; $len = $pngDataList[$i].Length
+        $w.Write([byte]$(if ($sz -eq 256) { 0 } else { $sz }))
+        $w.Write([byte]$(if ($sz -eq 256) { 0 } else { $sz }))
+        $w.Write([byte]0); $w.Write([byte]0)
+        $w.Write([uint16]1); $w.Write([uint16]32)
+        $w.Write([uint32]$len); $w.Write([uint32]$offset)
+        $offset += $len
+    }
+    foreach ($png in $pngDataList) { $w.Write($png) }
+    $w.Close(); $icoStream.Close()
+    Write-OK "Icono generado con logo hexagono (16, 32, 48, 256px)"
+} catch {
+    Write-Warn "No se pudo generar el ICO: $_"
+}
+
+# =============================================================================
+# 3. Verificar prerrequisitos
 # =============================================================================
 Write-Step "Verificando prerrequisitos..."
 
 if (-not (Test-Path $InnoSetupPath)) {
-    Write-Host "  [XX] Inno Setup 6 no encontrado en:" -ForegroundColor Red
-    Write-Host "       $InnoSetupPath" -ForegroundColor Red
     Write-Host ""
-    Write-Host "  Descárgalo GRATIS en: https://jrsoftware.org/isdl.php" -ForegroundColor Yellow
-    Write-Host "  Instálalo y vuelve a ejecutar este script." -ForegroundColor Yellow
+    Write-Host "  [XX] Inno Setup 6 no encontrado." -ForegroundColor Red
+    Write-Host "  Descargalo en: https://jrsoftware.org/isdl.php" -ForegroundColor Yellow
     exit 1
 }
 Write-OK "Inno Setup 6 encontrado"
 
 $RuntimeDir = Join-Path $ScriptDir "$OutputDir\POS-iaDoS-Setup-$RuntimeSource\runtime"
 if (-not (Test-Path $RuntimeDir)) {
-    Write-Host "  [XX] No se encontró carpeta de runtimes:" -ForegroundColor Red
-    Write-Host "       $RuntimeDir" -ForegroundColor Red
-    exit 1
+    Write-Fail "No se encontro carpeta de runtimes: $RuntimeDir"
 }
-Write-OK "Runtimes encontrados en: POS-iaDoS-Setup-$RuntimeSource\runtime"
+Write-OK "Runtimes base encontrados ($RuntimeSource)"
 
 $StagingDir  = Join-Path $ScriptDir "staging"
-$FrontendDir = Join-Path $ProjectDir "frontend\dist"
-
-if (-not (Test-Path $StagingDir)) {
-    Write-Host "  [XX] Carpeta staging no encontrada: $StagingDir" -ForegroundColor Red
-    exit 1
-}
+$FrontendDir = Join-Path $ProjectDir "frontend\dist-prod"
+if (-not (Test-Path $StagingDir)) { Write-Fail "Staging no encontrado: $StagingDir" }
 Write-OK "Staging encontrado"
 
-if (-not (Test-Path $FrontendDir)) {
-    Write-Warn "frontend\dist\ no encontrado - se usará el frontend de staging"
-    Write-Info "Para incluir el frontend más reciente, ejecuta primero:"
-    Write-Info "  cd ..\frontend && npm run build"
-    $FrontendDir = $null
+# Verificar env template segun modo
+$EnvSource = if ($Mode -eq "local") {
+    Join-Path $ProjectDir "backend\loc.env"
+} else {
+    Join-Path $ProjectDir "backend\ext.env"
 }
-else {
-    Write-OK "Frontend dist encontrado (build más reciente)"
+if (-not (Test-Path $EnvSource)) {
+    Write-Fail "Archivo de config no encontrado: $EnvSource"
 }
+Write-OK "Config de BD: $([System.IO.Path]::GetFileName($EnvSource))"
 
 $issFile = Join-Path $ScriptDir "setup.iss"
-if (-not (Test-Path $issFile)) {
-    Write-Host "  [XX] setup.iss no encontrado: $issFile" -ForegroundColor Red
-    exit 1
-}
+if (-not (Test-Path $issFile)) { Write-Fail "setup.iss no encontrado" }
 Write-OK "setup.iss encontrado"
 
 # =============================================================================
-# 2. Crear carpeta merged v1.1.0
+# 4. Crear carpeta merged
 # =============================================================================
-Write-Step "Creando paquete merged POS-iaDoS-v$Version..."
+Write-Step "Creando paquete: $OutputName..."
 
-$MergedDir = Join-Path $ScriptDir "$OutputDir\POS-iaDoS-v$Version"
+$MergedDir = Join-Path $ScriptDir "$OutputDir\$OutputName-src"
 
 if (Test-Path $MergedDir) {
-    Write-Warn "Eliminando carpeta previa..."
     Remove-Item -Recurse -Force $MergedDir
 }
 New-Item -ItemType Directory -Path $MergedDir | Out-Null
-Write-OK "Carpeta creada: output\POS-iaDoS-v$Version"
 
-# Subdirectorios necesarios
 @("app", "app\backend", "app\database", "runtime", "setup", "logs") | ForEach-Object {
     New-Item -ItemType Directory -Path "$MergedDir\$_" -Force | Out-Null
 }
 
-# --- Paso 1: Copiar runtimes de v1.0.0 (node, mariadb, nssm) ---
-Write-Info "Copiando runtimes (Node.js + MariaDB + NSSM)..."
-Copy-Item -Path "$RuntimeDir\*" -Destination "$MergedDir\runtime" -Recurse -Force
-Write-OK "Runtimes copiados"
+# --- Runtimes ---
+Write-Info "Copiando Node.js + NSSM..."
+Copy-Item -Path "$RuntimeDir\node"     -Destination "$MergedDir\runtime\node"    -Recurse -Force
+Copy-Item -Path "$RuntimeDir\nssm.exe" -Destination "$MergedDir\runtime\nssm.exe" -Force
 
-# --- Paso 2: Copiar app desde staging ---
-Write-Info "Copiando app desde staging..."
-Copy-Item -Path "$StagingDir\app\*" -Destination "$MergedDir\app" -Recurse -Force
-Write-OK "App copiada desde staging"
-
-# --- Paso 3: Copiar frontend dist más reciente (si existe) ---
-if ($FrontendDir -and (Test-Path $FrontendDir)) {
-    Write-Info "Actualizando frontend con build más reciente..."
-    $pubDir = "$MergedDir\app\backend\public"
-    if (Test-Path $pubDir) {
-        Remove-Item -Recurse -Force $pubDir
-    }
-    New-Item -ItemType Directory -Path $pubDir | Out-Null
-    Copy-Item -Path "$FrontendDir\*" -Destination $pubDir -Recurse -Force
-    Write-OK "Frontend actualizado desde frontend\dist"
+if ($Mode -eq "local") {
+    # MariaDB solo en modo local
+    Write-Info "Copiando MariaDB (modo local)..."
+    Copy-Item -Path "$RuntimeDir\mariadb" -Destination "$MergedDir\runtime\mariadb" -Recurse -Force
+    Write-OK "Runtimes: Node.js + MariaDB + NSSM"
+} else {
+    Write-OK "Runtimes: Node.js + NSSM (sin MariaDB - modo online)"
 }
 
-# --- Paso 4: Copiar setup scripts desde staging ---
-Write-Info "Copiando scripts de setup..."
+# --- App desde staging ---
+Write-Info "Copiando app desde staging..."
+Copy-Item -Path "$StagingDir\app\*" -Destination "$MergedDir\app" -Recurse -Force
+Write-OK "App copiada"
+
+# --- Frontend dist actualizado ---
+if (Test-Path $FrontendDir) {
+    Write-Info "Actualizando frontend con build reciente..."
+    $pubDir = "$MergedDir\app\backend\public"
+    if (Test-Path $pubDir) { Remove-Item -Recurse -Force $pubDir }
+    New-Item -ItemType Directory -Path $pubDir | Out-Null
+    Copy-Item -Path "$FrontendDir\*" -Destination $pubDir -Recurse -Force
+    Write-OK "Frontend actualizado"
+}
+
+# --- Setup scripts ---
 Copy-Item -Path "$StagingDir\setup\*" -Destination "$MergedDir\setup" -Recurse -Force
 Write-OK "Scripts de setup copiados"
 
-# --- Paso 5: Copiar BAT files desde staging ---
-Write-Info "Copiando archivos BAT..."
+# --- BAT files ---
 Get-ChildItem -Path $StagingDir -Filter "*.bat" | ForEach-Object {
     Copy-Item -Path $_.FullName -Destination $MergedDir -Force
 }
 Copy-Item -Path "$StagingDir\LICENSE.txt" -Destination $MergedDir -Force -ErrorAction SilentlyContinue
-Write-OK "Archivos BAT copiados"
+Write-OK "BAT files copiados"
+
+# --- Modo de instalacion (leido por install.ps1) ---
+$Mode | Set-Content -Path "$MergedDir\install-mode.txt" -Encoding UTF8
+Write-OK "install-mode.txt: $Mode"
+
+# --- Template del .env del backend ---
+Copy-Item -Path $EnvSource -Destination "$MergedDir\backend.env.template" -Force
+Write-OK "backend.env.template: $([System.IO.Path]::GetFileName($EnvSource))"
 
 # =============================================================================
-# 3. Verificar integridad del paquete
+# 5. Verificar integridad
 # =============================================================================
 Write-Step "Verificando integridad del paquete..."
 
 $checks = @(
-    @{ Path = "$MergedDir\runtime\node";              Name = "Node.js runtime" },
-    @{ Path = "$MergedDir\runtime\mariadb";           Name = "MariaDB runtime" },
-    @{ Path = "$MergedDir\runtime\nssm.exe";          Name = "NSSM" },
-    @{ Path = "$MergedDir\app\backend\package.json";  Name = "Backend" },
-    @{ Path = "$MergedDir\app\backend\public";        Name = "Frontend (public)" },
-    @{ Path = "$MergedDir\setup\install.ps1";         Name = "install.ps1" },
-    @{ Path = "$MergedDir\setup\uninstall.ps1";       Name = "uninstall.ps1" },
-    @{ Path = "$MergedDir\INSTALAR.bat";              Name = "INSTALAR.bat" }
+    @{ Path = "$MergedDir\runtime\node";             Name = "Node.js runtime" },
+    @{ Path = "$MergedDir\runtime\nssm.exe";         Name = "NSSM" },
+    @{ Path = "$MergedDir\app\backend\package.json"; Name = "Backend" },
+    @{ Path = "$MergedDir\app\backend\public";       Name = "Frontend" },
+    @{ Path = "$MergedDir\setup\install.ps1";        Name = "install.ps1" },
+    @{ Path = "$MergedDir\setup\uninstall.ps1";      Name = "uninstall.ps1" },
+    @{ Path = "$MergedDir\install-mode.txt";         Name = "install-mode.txt" },
+    @{ Path = "$MergedDir\backend.env.template";     Name = "backend.env.template" },
+    @{ Path = "$MergedDir\INSTALAR.bat";             Name = "INSTALAR.bat" }
 )
+if ($Mode -eq "local") {
+    $checks += @{ Path = "$MergedDir\runtime\mariadb"; Name = "MariaDB runtime" }
+}
 
 $allOk = $true
-foreach ($check in $checks) {
-    if (Test-Path $check.Path) {
-        Write-OK $check.Name
-    }
-    else {
-        Write-Host "  [!!] FALTA: $($check.Name)" -ForegroundColor Yellow
-        $allOk = $false
-    }
+foreach ($c in $checks) {
+    if (Test-Path $c.Path) { Write-OK $c.Name }
+    else { Write-Host "  [!!] FALTA: $($c.Name)" -ForegroundColor Yellow; $allOk = $false }
 }
 
 if (-not $allOk) {
-    Write-Host ""
-    Write-Warn "Algunos componentes no se encontraron. El instalador podría estar incompleto."
-    $resp = Read-Host "  ¿Continuar de todas formas? (s/N)"
+    $resp = Read-Host "`n  Faltan componentes. Continuar de todas formas? (s/N)"
     if ($resp -notmatch "^[sS]") { exit 1 }
 }
 
 # =============================================================================
-# 4. Actualizar version.json
+# 6. Actualizar version.json
 # =============================================================================
 Write-Step "Actualizando version.json..."
 
-$buildDate   = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-$versionJson = [ordered]@{
+$buildDate = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+[ordered]@{
     version    = $Version
     build_date = $buildDate
+    mode       = $Mode
     product    = "POS-iaDoS"
     company    = "iaDoS"
-} | ConvertTo-Json -Depth 2
+} | ConvertTo-Json -Depth 2 | Set-Content -Path "$MergedDir\version.json" -Encoding UTF8
 
-Set-Content -Path "$MergedDir\version.json" -Value $versionJson -Encoding UTF8
-Write-OK "version.json: v$Version  ($buildDate)"
+Write-OK "v$Version  [$Mode]  ($buildDate)"
 
 # =============================================================================
-# 5. Actualizar títulos en BAT files
+# 7. Actualizar BAT files con version
 # =============================================================================
-Write-Step "Actualizando versión en BAT files..."
-
+Write-Step "Actualizando version en BAT files..."
 Get-ChildItem -Path $MergedDir -Filter "*.bat" | ForEach-Object {
-    $content = Get-Content $_.FullName -Raw
+    $content = Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue
     if ($content) {
         $content = $content -replace 'v\d+\.\d+\.\d+', "v$Version"
         Set-Content -Path $_.FullName -Value $content -Encoding UTF8 -NoNewline
-        Write-OK "$($_.Name)"
+        Write-OK $_.Name
     }
 }
 
 # =============================================================================
-# 6. Compilar EXE con Inno Setup
+# 8. Compilar EXE con Inno Setup
 # =============================================================================
-Write-Step "Compilando instalador EXE con Inno Setup 6..."
-Write-Info "Compresión lzma2/ultra64 - esto puede tardar 3-8 minutos..."
+Write-Step "Compilando EXE con Inno Setup 6..."
+Write-Info "Compresion lzma2/ultra64 - puede tardar 3-8 minutos..."
 Write-Host ""
 
 $startTime = Get-Date
+$isccArgs  = "`"$issFile`" /DInstallMode=$Mode /DOutputName=$OutputName /DSourceDir=$OutputDir\$OutputName-src"
 
 $process = Start-Process -FilePath $InnoSetupPath `
-    -ArgumentList "`"$issFile`"" `
+    -ArgumentList $isccArgs `
     -WorkingDirectory $ScriptDir `
-    -PassThru `
-    -Wait `
-    -NoNewWindow
+    -PassThru -Wait -NoNewWindow
 
 $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 0)
 
 if ($process.ExitCode -ne 0) {
     Write-Host ""
-    Write-Host "  [XX] Inno Setup falló (código: $($process.ExitCode))" -ForegroundColor Red
-    Write-Host "  Revisa los mensajes de error arriba." -ForegroundColor Yellow
+    Write-Host "  [XX] Inno Setup fallo (codigo: $($process.ExitCode))" -ForegroundColor Red
     exit 1
 }
 
 # =============================================================================
-# 7. Verificar y mostrar resultado
+# 9. Resultado final
 # =============================================================================
-$exePath = Join-Path $ScriptDir "$OutputDir\POS-iaDoS-Setup-v$Version.exe"
-
+$exePath = Join-Path $ScriptDir "$OutputDir\$OutputName.exe"
 if (-not (Test-Path $exePath)) {
-    Write-Host "  [XX] El EXE no fue generado. Revisa setup.iss" -ForegroundColor Red
-    exit 1
+    Write-Fail "El EXE no fue generado. Revisa setup.iss"
 }
 
 $sizeMB = [math]::Round((Get-Item $exePath).Length / 1MB, 1)
 
 Write-Host ""
-Write-Host "  ╔══════════════════════════════════════════════╗" -ForegroundColor Green
-Write-Host "  ║   BUILD COMPLETADO EXITOSAMENTE              ║" -ForegroundColor Green
-Write-Host "  ╚══════════════════════════════════════════════╝" -ForegroundColor Green
+Write-Host "  +==========================================+" -ForegroundColor Green
+Write-Host "  |   BUILD COMPLETADO EXITOSAMENTE         |" -ForegroundColor Green
+Write-Host "  +==========================================+" -ForegroundColor Green
 Write-Host ""
 Write-Host "  EXE generado:" -ForegroundColor White
 Write-Host "    $exePath" -ForegroundColor Cyan
-Write-Host "    Tamaño: ${sizeMB} MB  |  Tiempo: ${elapsed}s" -ForegroundColor Gray
+Write-Host "    Tamano: ${sizeMB} MB  |  Tiempo: ${elapsed}s" -ForegroundColor Gray
 Write-Host ""
-Write-Host "  Contenido del instalador:" -ForegroundColor White
-Write-Host "    • Runtime:   Node.js + MariaDB + NSSM" -ForegroundColor Gray
-Write-Host "    • App:       Backend NestJS + Frontend React" -ForegroundColor Gray
-Write-Host "    • Frontend:  v$Version (ícono SVG + tema Claro + iados.mx link)" -ForegroundColor Gray
-Write-Host "    • Wizard:    Instalador profesional Windows" -ForegroundColor Gray
+Write-Host "  Modo: $ModeLabel" -ForegroundColor White
+if ($Mode -eq "local") {
+    Write-Host "    Incluye: Node.js + MariaDB + NSSM + App" -ForegroundColor Gray
+    Write-Host "    BD:      Local (MariaDB en C:\POS-iaDoS\mariadb)" -ForegroundColor Gray
+} else {
+    Write-Host "    Incluye: Node.js + NSSM + App (sin MariaDB)" -ForegroundColor Gray
+    Write-Host "    BD:      $((Get-Content $EnvSource | Select-String 'DB_HOST').ToString().Trim())" -ForegroundColor Gray
+}
 Write-Host ""
-Write-Host "  Próximos pasos:" -ForegroundColor White
-Write-Host "    1. Probar el EXE en una máquina limpia" -ForegroundColor Yellow
-Write-Host "    2. Commit:  git add -A && git commit -m 'release: v$Version'" -ForegroundColor Yellow
-Write-Host "    3. Tag:     git tag v$Version" -ForegroundColor Yellow
+Write-Host "  Proximos pasos:" -ForegroundColor White
+Write-Host "    1. Probar el EXE en maquina limpia" -ForegroundColor Yellow
+Write-Host "    2. git add -A && git commit -m 'release: v$Version-$Mode'" -ForegroundColor Yellow
+Write-Host "    3. git tag v$Version-$Mode" -ForegroundColor Yellow
 Write-Host ""

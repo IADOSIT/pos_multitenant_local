@@ -19,6 +19,7 @@ import LicenciasAdmin from './pages/admin/LicenciasAdmin';
 import KioscoPage from './pages/kiosk/KioscoPage';
 import InventarioPage from './pages/inventario/InventarioPage';
 import MateriaPrimaPage from './pages/admin/MateriaPrimaPage';
+import MenuDigitalPage from './pages/public/MenuDigitalPage';
 
 function PrivateRoute({ children, roles }: { children: JSX.Element; roles?: string[] }) {
   const { isAuthenticated, user } = useAuthStore();
@@ -42,6 +43,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/kiosco" element={<KioscoPage />} />
+        <Route path="/menu/:slug" element={<MenuDigitalPage />} />
 
         <Route path="/" element={<PrivateRoute><MainLayout /></PrivateRoute>}>
           <Route index element={<Navigate to="/pos" />} />

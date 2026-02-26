@@ -345,6 +345,28 @@ if ($checkResult -match "^0$" -or $checkResult -match "doesn't exist" -or $LASTE
     Write-Log "Base de datos ya tiene datos, saltando seeds" "Gray"
 }
 
+# --- Seeds de prueba (opcional) ---
+$seedPruebas = "$InstallDir\database\04_seed_pruebas.sql"
+if (Test-Path $seedPruebas) {
+    Write-Host ""
+    Write-Host "  ----------------------------------------------------------------" -ForegroundColor Cyan
+    Write-Host "   DATOS DE PRUEBA" -ForegroundColor Cyan
+    Write-Host "   Incluye categorias, productos demo y menu digital QR" -ForegroundColor Cyan
+    Write-Host "   (Recomendado para demo / capacitacion)" -ForegroundColor Cyan
+    Write-Host "  ----------------------------------------------------------------" -ForegroundColor Cyan
+    Write-Host ""
+    $respuesta = Read-Host "  Instalar datos de prueba? [S/N]"
+    if ($respuesta -match "^[Ss]$") {
+        Write-Log "  Instalando datos de prueba..." "Gray"
+        $ErrorActionPreference = "SilentlyContinue"
+        Get-Content $seedPruebas -Raw | & $MYSQL -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME 2>&1
+        $ErrorActionPreference = "Stop"
+        Write-Log "Datos de prueba instalados" "Green"
+    } else {
+        Write-Log "Datos de prueba omitidos" "Gray"
+    }
+}
+
 # =============================================================================
 # PASO 8: Firewall
 # =============================================================================

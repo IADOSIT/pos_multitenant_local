@@ -1,8 +1,10 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { SchemaSyncService } from './common/services/schema-sync.service';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
+import { existsSync } from 'fs';
 import { dataSourceOptions } from './config/typeorm.config';
 import { TenantScopeMiddleware } from './common/middleware/tenant-scope.middleware';
 import { AuthModule } from './modules/auth/auth.module';
@@ -23,6 +25,14 @@ import { NotificacionesModule } from './modules/notificaciones/notificaciones.mo
 import { LicenciasModule } from './modules/licencias/licencias.module';
 import { InventarioModule } from './modules/inventario/inventario.module';
 import { MateriaPrimaModule } from './modules/materia-prima/materia-prima.module';
+import { MenuDigitalModule } from './modules/menu-digital/menu-digital.module';
+
+// En SERVER LOCAL/EXTERNO: servir desde frontend/dist-prod (build con plantillas).
+// En SERVER OFFLINE (exe instalado): dist-prod no existe → cae a backend/public.
+const _distProd = join(process.cwd(), '..', 'frontend', 'dist-prod');
+const _staticRoot = existsSync(_distProd)
+  ? _distProd
+  : join(__dirname, '..', 'public');
 
 @Module({
   imports: [
@@ -32,7 +42,7 @@ import { MateriaPrimaModule } from './modules/materia-prima/materia-prima.module
       autoLoadEntities: true,
     }),
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'public'),
+      rootPath: _staticRoot,
       exclude: ['/api/(.*)'],
     }),
     HealthModule,
@@ -53,7 +63,9 @@ import { MateriaPrimaModule } from './modules/materia-prima/materia-prima.module
     LicenciasModule,
     InventarioModule,
     MateriaPrimaModule,
+    MenuDigitalModule,
   ],
+  providers: [SchemaSyncService],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
