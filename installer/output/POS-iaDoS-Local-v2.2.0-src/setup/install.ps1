@@ -102,7 +102,21 @@ Copy-Item -Path "$InstallerPath\runtime\nssm.exe" -Destination "$InstallDir\tool
 
 # Copiar app
 Write-Log "  Copiando backend..." "Gray"
+# Preservar uploads del cliente si ya existen (logos subidos en instalaciones previas)
+$existingUploads = "$InstallDir\backend\uploads"
+$hasExistingUploads = Test-Path $existingUploads
+if ($hasExistingUploads) {
+    $uploadsBackup = "$InstallDir\backend\_uploads_bak_$(Get-Date -Format 'yyyyMMddHHmm')"
+    Copy-Item -Path $existingUploads -Destination $uploadsBackup -Recurse -Force
+    Write-Log "  Uploads previos respaldados en: $uploadsBackup" "Gray"
+}
 Copy-Item -Path "$InstallerPath\app\backend" -Destination "$InstallDir\backend" -Recurse -Force
+# Restaurar uploads del cliente (sus logos tienen prioridad sobre los del instalador)
+if ($hasExistingUploads) {
+    Copy-Item -Path "$uploadsBackup\*" -Destination "$InstallDir\backend\uploads" -Recurse -Force
+    Remove-Item -Path $uploadsBackup -Recurse -Force
+    Write-Log "  Uploads del cliente restaurados" "Gray"
+}
 
 Write-Log "  Copiando base de datos seeds..." "Gray"
 Copy-Item -Path "$InstallerPath\app\database" -Destination "$InstallDir\database" -Recurse -Force
@@ -110,7 +124,10 @@ Copy-Item -Path "$InstallerPath\app\database" -Destination "$InstallDir\database
 # Copiar scripts y version
 Copy-Item -Path "$InstallerPath\setup\*.ps1" -Destination "$InstallDir\tools\" -Force
 Copy-Item -Path "$InstallerPath\version.json" -Destination "$InstallDir\" -Force
-Copy-Item -Path "$InstallerPath\DESINSTALAR.bat" -Destination "$InstallDir\" -Force
+Copy-Item -Path "$InstallerPath\DESINSTALAR.bat"   -Destination "$InstallDir\" -Force
+if (Test-Path "$InstallerPath\DIAGNOSTICO.bat") {
+    Copy-Item -Path "$InstallerPath\DIAGNOSTICO.bat" -Destination "$InstallDir\" -Force
+}
 
 # Copiar BATs de gestion
 @"
@@ -383,7 +400,12 @@ if ($InstallMode -eq "local") {
     $ErrorActionPreference = "SilentlyContinue"
     $checkResult = & $MYSQL -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME -N -e "SELECT COUNT(*) FROM tenants;" 2>&1
     $ErrorActionPreference = "Stop"
-    if ($checkResult -match "^0$" -or $checkResult -match "doesn't exist" -or $LASTEXITCODE -ne 0) {
+    # MariaDB incluye un Warning de password en stderr (mezclado con 2>&1).
+    # Extraer solo la linea numerica para evitar que el warning rompa la comparacion.
+    $countLine = $checkResult | Where-Object { "$_" -match '^\d+$' } | Select-Object -Last 1
+    $checkTrim = if ($countLine) { ("$countLine").Trim() } else { "" }
+    $checkStr  = [string]$checkResult
+    if ($checkTrim -eq "0" -or [string]::IsNullOrEmpty($checkTrim) -or $checkStr -match "doesn't exist" -or $checkStr -match "ERROR 1" -or $LASTEXITCODE -ne 0) {
         $seedFile = "$InstallDir\database\03_seed_datos_iniciales.sql"
         if (Test-Path $seedFile) {
             Write-Log "  Ejecutando seeds..." "Gray"

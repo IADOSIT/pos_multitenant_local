@@ -28,6 +28,9 @@ export class TicketsService {
     config.ancho_papel = 80;
     config.columnas = 42;
     config.mostrar_marca_iados = true;
+    config.fuente_familia = 'Courier New';
+    config.fuente_tamano = 9;
+    config.logo_posicion = 'centro';
     return config;
   }
 
@@ -40,17 +43,27 @@ export class TicketsService {
     return this.repo.findOne({ where: { id } });
   }
 
+  // Convierte texto con acentos/caracteres especiales a ASCII puro
+  // para compatibilidad con impresoras térmicas (evita simbolos ???)
+  private s(text: string): string {
+    if (!text) return '';
+    return text
+      .normalize('NFD')                      // descompone á → a + ́
+      .replace(/[\u0300-\u036f]/g, '')        // elimina diacríticos (tildes, diéresis, etc.)
+      .replace(/[^\x00-\x7F]/g, '?');         // cualquier otro no-ASCII → ?
+  }
+
   generateTicketData(venta: any, config: TicketConfig) {
     const lines: string[] = [];
     const w = config.columnas || 42;
 
-    if (config.encabezado_linea1) lines.push(this.center(config.encabezado_linea1, w));
-    if (config.encabezado_linea2) lines.push(this.center(config.encabezado_linea2, w));
-    if (config.encabezado_linea3) lines.push(this.center(config.encabezado_linea3, w));
+    if (config.encabezado_linea1) lines.push(this.center(this.s(config.encabezado_linea1), w));
+    if (config.encabezado_linea2) lines.push(this.center(this.s(config.encabezado_linea2), w));
+    if (config.encabezado_linea3) lines.push(this.center(this.s(config.encabezado_linea3), w));
     lines.push('='.repeat(w));
     lines.push(`Folio: ${venta.folio}`);
     lines.push(`Fecha: ${new Date(venta.created_at).toLocaleString('es-MX')}`);
-    if (config.mostrar_cajero) lines.push(`Cajero: ${venta.usuario_nombre || 'N/A'}`);
+    if (config.mostrar_cajero) lines.push(`Cajero: ${this.s(venta.usuario_nombre || 'N/A')}`);
     lines.push('-'.repeat(w));
 
     // Encabezado productos
@@ -59,7 +72,7 @@ export class TicketsService {
 
     venta.detalles?.forEach((d: any) => {
       lines.push(this.formatLine(
-        d.producto_nombre.substring(0, 20),
+        this.s(d.producto_nombre).substring(0, 20),
         d.cantidad.toString(),
         `$${Number(d.precio_unitario).toFixed(2)}`,
         `$${Number(d.subtotal).toFixed(2)}`,
@@ -79,7 +92,8 @@ export class TicketsService {
     if (venta.cambio > 0) lines.push(`Cambio: $${Number(venta.cambio).toFixed(2)}`);
 
     lines.push('');
-    if (config.pie_linea1) lines.push(this.center(config.pie_linea1, w));
+    if (config.pie_linea1) lines.push(this.center(this.s(config.pie_linea1), w));
+    if (config.pie_linea2) lines.push(this.center(this.s(config.pie_linea2), w));
     if (config.mostrar_marca_iados) lines.push(this.center('Desarrollado por iaDoS - iados.mx', w));
 
     return { lines, raw: lines.join('\n') };

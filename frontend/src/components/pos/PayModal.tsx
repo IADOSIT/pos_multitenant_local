@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { usePOSStore } from '../../store/pos.store';
 import { offlineActions } from '../../store/offline.store';
 import { ventasApi, ticketsApi } from '../../api/endpoints';
+import { resolveUploadUrl } from '../../api/client';
 import { printTicket } from '../../utils/printTicket';
 import toast from 'react-hot-toast';
 import { X, DollarSign, CreditCard, ArrowRightLeft, Banknote, Printer } from 'lucide-react';
@@ -26,7 +27,8 @@ export default function PayModal({ onClose, isOnline }: Props) {
 
   const cambio = metodo === 'efectivo' ? Math.max(0, Number(pagoEfectivo || 0) - total) : 0;
 
-  const quickAmounts = [50, 100, 200, 500, 1000].filter((a) => a >= total);
+  const addDenom = (d: number) =>
+    setPagoEfectivo((prev) => String(Math.round((Number(prev || 0) + d) * 100) / 100));
 
   const canPay = () => {
     if (metodo === 'efectivo') return Number(pagoEfectivo || 0) >= total;
@@ -37,11 +39,14 @@ export default function PayModal({ onClose, isOnline }: Props) {
     return false;
   };
 
+  const ticketConfigRef = useRef<any>(null);
+
   const generarEImprimir = async (ventaData: any) => {
     try {
       const { data: ticket } = await ticketsApi.preview(ventaData);
       ticketRawRef.current = ticket.raw;
-      printTicket(ticket.raw);
+      ticketConfigRef.current = ticket;
+      printTicket(ticket.raw, ticket.ancho_papel, ticket.fuente_familia, ticket.fuente_tamano, resolveUploadUrl(ticket.logo_url), ticket.logo_posicion);
     } catch {
       toast.error('No se pudo generar el ticket');
     }
@@ -49,7 +54,8 @@ export default function PayModal({ onClose, isOnline }: Props) {
 
   const handleReprint = () => {
     if (ticketRawRef.current) {
-      printTicket(ticketRawRef.current);
+      const t = ticketConfigRef.current;
+      printTicket(ticketRawRef.current, t?.ancho_papel, t?.fuente_familia, t?.fuente_tamano, resolveUploadUrl(t?.logo_url), t?.logo_posicion);
     }
   };
 
@@ -168,26 +174,60 @@ export default function PayModal({ onClose, isOnline }: Props) {
         {/* Campos de pago según método */}
         {(metodo === 'efectivo' || metodo === 'mixto') && (
           <div className="mb-4">
-            <label className="text-sm text-slate-400 mb-1 block">Efectivo</label>
-            <input
-              type="number"
-              value={pagoEfectivo}
-              onChange={(e) => setPagoEfectivo(e.target.value)}
-              className="input-touch text-2xl text-center"
-              placeholder="0.00"
-              autoFocus
-            />
-            {metodo === 'efectivo' && (
-              <div className="flex gap-2 mt-2">
-                <button onClick={() => setPagoEfectivo(total.toFixed(2))} className="btn-secondary flex-1 text-sm">
-                  Exacto
+            {/* Monto recibido + botón limpiar */}
+            <div className="flex gap-2 items-center mb-3">
+              <input
+                type="number"
+                value={pagoEfectivo}
+                onChange={(e) => setPagoEfectivo(e.target.value)}
+                className="input-touch text-2xl text-center flex-1"
+                placeholder="0.00"
+                autoFocus
+              />
+              {Number(pagoEfectivo) > 0 && (
+                <button
+                  onClick={() => setPagoEfectivo('')}
+                  className="p-3 rounded-xl bg-iados-card text-slate-400 hover:text-red-400 transition-colors"
+                  title="Limpiar"
+                >
+                  <X size={20} />
                 </button>
-                {quickAmounts.map((a) => (
-                  <button key={a} onClick={() => setPagoEfectivo(String(a))} className="btn-secondary flex-1 text-sm">
-                    ${a}
-                  </button>
-                ))}
-              </div>
+              )}
+            </div>
+
+            {/* Pad de denominaciones — toca cada billete/moneda recibido */}
+            {metodo === 'efectivo' && (
+              <>
+                <p className="text-xs text-slate-500 mb-2 text-center">Toca cada billete / moneda que entrega el cliente</p>
+                <div className="grid grid-cols-4 gap-2 mb-2">
+                  {([1000, 500, 200, 100] as const).map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => addDenom(d)}
+                      className="bg-iados-card border border-slate-700 hover:bg-iados-primary/30 hover:border-iados-primary text-white py-4 rounded-xl text-sm font-bold transition-colors active:scale-95"
+                    >
+                      ${d >= 1000 ? `${d / 1000}k` : d}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-4 gap-2 mb-3">
+                  {([50, 20, 10, 5] as const).map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => addDenom(d)}
+                      className="bg-iados-card border border-slate-700 hover:bg-iados-primary/30 hover:border-iados-primary text-white py-4 rounded-xl text-sm font-bold transition-colors active:scale-95"
+                    >
+                      ${d}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setPagoEfectivo(total.toFixed(2))}
+                  className="btn-secondary w-full text-sm py-3"
+                >
+                  Exacto — ${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                </button>
+              </>
             )}
           </div>
         )}

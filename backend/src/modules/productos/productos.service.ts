@@ -65,8 +65,23 @@ export class ProductosService {
   }
 
   private decodeCSV(buffer: Buffer): string {
+    // UTF-16LE BOM: FF FE (Excel "Unicode Text" / "CSV UTF-16")
+    if (buffer[0] === 0xFF && buffer[1] === 0xFE) {
+      return buffer.slice(2).toString('utf16le');
+    }
+    // UTF-16BE BOM: FE FF
+    if (buffer[0] === 0xFE && buffer[1] === 0xFF) {
+      const swapped = Buffer.alloc(buffer.length - 2);
+      for (let i = 2; i < buffer.length; i += 2) {
+        swapped[i - 2] = buffer[i + 1];
+        swapped[i - 1] = buffer[i];
+      }
+      return swapped.toString('utf16le');
+    }
     let str = buffer.toString('utf-8');
+    // UTF-8 BOM: EF BB BF
     if (str.charCodeAt(0) === 0xFEFF) str = str.slice(1);
+    // Si hay caracteres de reemplazo, intentar Latin-1 / Windows-1252
     if (str.includes('\ufffd')) str = buffer.toString('latin1');
     return str;
   }
@@ -82,19 +97,34 @@ export class ProductosService {
   }
 
   async importCSV(buffer: Buffer, scope: any, updateExisting: boolean = false) {
-    const csvStr = this.decodeCSV(buffer);
-    const delimiter = this.detectDelimiter(csvStr);
-    this.logger.log(`CSV import: delimiter='${delimiter === '\t' ? 'TAB' : delimiter}', tenant=${scope.tenant_id}, empresa=${scope.empresa_id}, updateExisting=${updateExisting}`);
-    // Normalize column names: lowercase, strip accents, underscores
-    const normalizeKey = (k: string) => k.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_');
-    const rawRecords = parse(csvStr, { columns: true, skip_empty_lines: true, trim: true, delimiter });
+    if (!buffer || buffer.length === 0) {
+      throw new BadRequestException('Archivo vacío o no recibido');
+    }
 
-    // Normalize all keys in each record
-    const records = rawRecords.map((r: any) => {
-      const norm: any = {};
-      for (const [k, v] of Object.entries(r)) norm[normalizeKey(k)] = v;
-      return norm;
-    });
+    // Detectar si es un archivo binario (xlsx, pdf, etc.) — primeros bytes son firma ZIP/Office
+    const magic = buffer.slice(0, 4).toString('hex');
+    if (magic === '504b0304') {
+      throw new BadRequestException('El archivo parece ser un Excel .xlsx. Exportalo como CSV (.csv) antes de importar');
+    }
+
+    let csvStr: string;
+    let rawRecords: any[];
+    try {
+      csvStr = this.decodeCSV(buffer);
+      const delimiter = this.detectDelimiter(csvStr);
+      this.logger.log(`CSV import: delimiter='${delimiter === '\t' ? 'TAB' : delimiter}', tenant=${scope.tenant_id}, empresa=${scope.empresa_id}, updateExisting=${updateExisting}`);
+      const normalizeKey = (k: string) => k.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_');
+      const rawRecordsRaw = parse(csvStr, { columns: true, skip_empty_lines: true, trim: true, delimiter });
+      rawRecords = rawRecordsRaw.map((r: any) => {
+        const norm: any = {};
+        for (const [k, v] of Object.entries(r)) norm[normalizeKey(k)] = v;
+        return norm;
+      });
+    } catch (e) {
+      throw new BadRequestException(`No se pudo leer el archivo CSV: ${e.message}`);
+    }
+
+    const records = rawRecords;
 
     const results = { success: 0, errors: [] as any[], updated: 0, total: records.length, columns: [] as string[] };
 

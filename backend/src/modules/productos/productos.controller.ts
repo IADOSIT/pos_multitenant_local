@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards, UseInterceptors, UploadedFile, Res, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards, UseInterceptors, UploadedFile, Res, ParseIntPipe, BadRequestException, Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
@@ -10,6 +10,7 @@ import { ProductosService } from './productos.service';
 @Controller('productos')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class ProductosController {
+  private logger = new Logger('ProductosController');
   constructor(private service: ProductosService) {}
 
   @Get()
@@ -51,12 +52,19 @@ export class ProductosController {
   @Post('csv/import')
   @Roles('superadmin', 'admin')
   @UseInterceptors(FileInterceptor('file'))
-  importCSV(
+  async importCSV(
     @UploadedFile() file: Express.Multer.File,
     @TenantScope() scope,
     @Query('update') update?: string,
   ) {
-    return this.service.importCSV(file.buffer, scope, update === 'true');
+    try {
+      if (!file) throw new BadRequestException('No se recibió ningún archivo');
+      return await this.service.importCSV(file.buffer, scope, update === 'true');
+    } catch (err) {
+      this.logger.error(`CSV import error: ${err?.message}`, err?.stack);
+      if (err instanceof BadRequestException) throw err;
+      throw new BadRequestException(err?.message || 'Error procesando el CSV');
+    }
   }
 
   @Post('upload-image')

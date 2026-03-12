@@ -3,6 +3,7 @@ import { usePOSStore } from '../../store/pos.store';
 import { cajaApi } from '../../api/endpoints';
 import toast from 'react-hot-toast';
 import { DollarSign, ArrowUpCircle, ArrowDownCircle, FileText, Lock } from 'lucide-react';
+import PinConfirmModal from '../../components/ui/PinConfirmModal';
 
 export default function CajaPage() {
   const { cajaActiva, setCajaActiva } = usePOSStore();
@@ -13,6 +14,7 @@ export default function CajaPage() {
   const [movConcepto, setMovConcepto] = useState('');
   const [corteX, setCorteX] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [showPinCerrar, setShowPinCerrar] = useState(false);
 
   useEffect(() => { loadCaja(); }, []);
 
@@ -44,6 +46,11 @@ export default function CajaPage() {
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Error');
     } finally { setLoading(false); }
+  };
+
+  const handleCerrarConPin = (_authUser: any) => {
+    setShowPinCerrar(false);
+    handleCerrar();
   };
 
   const handleMovimiento = async () => {
@@ -128,10 +135,18 @@ export default function CajaPage() {
       <div className="card border-red-900/50">
         <h3 className="font-bold mb-3 text-red-400">Cerrar Caja</h3>
         <input type="number" value={totalReal} onChange={(e) => setTotalReal(e.target.value)} placeholder="Total real en caja" className="input-touch mb-3 text-center text-xl" />
-        <button onClick={handleCerrar} disabled={loading} className="btn-danger w-full">
+        <button onClick={() => setShowPinCerrar(true)} disabled={loading} className="btn-danger w-full">
           {loading ? 'Cerrando...' : 'Cerrar Caja'}
         </button>
       </div>
+
+      <PinConfirmModal
+        open={showPinCerrar}
+        title="Confirmar cierre de caja"
+        description="Esta acción cerrará la caja del día. Ingresa tu PIN para continuar."
+        onConfirm={handleCerrarConPin}
+        onCancel={() => setShowPinCerrar(false)}
+      />
 
       {/* Corte X Modal */}
       {corteX && (

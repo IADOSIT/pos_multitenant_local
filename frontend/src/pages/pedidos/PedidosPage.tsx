@@ -4,8 +4,10 @@ import { usePOSStore } from '../../store/pos.store';
 import { useAuthStore } from '../../store/auth.store';
 import { useNotificaciones } from '../../hooks/useNotificaciones';
 import { printTicket } from '../../utils/printTicket';
+import { resolveUploadUrl } from '../../api/client';
 import toast from 'react-hot-toast';
 import { ClipboardList, Clock, ChefHat, PackageCheck, CreditCard, XCircle, RefreshCw } from 'lucide-react';
+import PinConfirmModal from '../../components/ui/PinConfirmModal';
 
 const estadoConfig: Record<string, { label: string; color: string; bg: string; icon: any }> = {
   recibido: { label: 'Recibido', color: 'text-yellow-300', bg: 'bg-yellow-900/50', icon: Clock },
@@ -31,6 +33,7 @@ export default function PedidosPage() {
   const [showCancelar, setShowCancelar] = useState(false);
   const [cancelMotivo, setCancelMotivo] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPinCancelar, setShowPinCancelar] = useState(false);
 
   // Payment state for cobrar
   const [metodo, setMetodo] = useState<'efectivo' | 'tarjeta' | 'transferencia'>('efectivo');
@@ -105,7 +108,7 @@ export default function PedidosPage() {
       // Print ticket
       try {
         const { data: ticketData } = await ticketsApi.preview(data.venta);
-        if (ticketData.raw) printTicket(ticketData.raw);
+        if (ticketData.raw) printTicket(ticketData.raw, ticketData.ancho_papel, ticketData.fuente_familia, ticketData.fuente_tamano, resolveUploadUrl(ticketData.logo_url), ticketData.logo_posicion);
       } catch {}
 
       setShowCobrar(false);
@@ -294,11 +297,19 @@ export default function PedidosPage() {
             <input value={cancelMotivo} onChange={(e) => setCancelMotivo(e.target.value)} placeholder="Motivo de cancelacion" className="input-touch" />
             <div className="flex gap-2">
               <button onClick={() => setShowCancelar(false)} className="btn-secondary flex-1">Volver</button>
-              <button onClick={handleCancelar} disabled={!cancelMotivo} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl flex-1">Cancelar Pedido</button>
+              <button onClick={() => setShowPinCancelar(true)} disabled={!cancelMotivo} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl flex-1">Cancelar Pedido</button>
             </div>
           </div>
         </div>
       )}
+
+      <PinConfirmModal
+        open={showPinCancelar}
+        title="Confirmar cancelación"
+        description={`Cancelar pedido ${selected?.folio || ''} — motivo: "${cancelMotivo}"`}
+        onConfirm={() => { setShowPinCancelar(false); handleCancelar(); }}
+        onCancel={() => setShowPinCancelar(false)}
+      />
     </div>
   );
 }

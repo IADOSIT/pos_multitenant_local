@@ -52,7 +52,7 @@ export class TenantsService {
       await qr.query('DELETE FROM auditoria WHERE tenant_id = ?', [id]);
       await qr.query('DELETE FROM licencias WHERE tenant_id = ?', [id]);
       await qr.query('DELETE FROM tiendas WHERE tenant_id = ?', [id]);
-      await qr.query('DELETE FROM users WHERE tenant_id = ?', [id]);
+      await qr.query("DELETE FROM users WHERE tenant_id = ? AND rol != 'superadmin'", [id]);
       await qr.query('DELETE FROM empresas WHERE tenant_id = ?', [id]);
       await qr.query('DELETE FROM tenants WHERE id = ?', [id]);
       await qr.commitTransaction();

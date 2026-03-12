@@ -2,9 +2,11 @@ import api from './client';
 
 // Auth
 export const authApi = {
-  login: (email: string, password: string) => api.post('/auth/login', { email, password }),
-  loginPin: (pin: string, tienda_id: number) => api.post('/auth/login-pin', { pin, tienda_id }),
-  me: () => api.get('/auth/me'),
+  login:          (email: string, password: string) => api.post('/auth/login', { email, password }),
+  loginPin:       (pin: string, tienda_id: number, user_id?: number) => api.post('/auth/login-pin', { pin, tienda_id, user_id }),
+  me:             () => api.get('/auth/me'),
+  tiendaUsers:    (tienda_id: number)               => api.get(`/auth/tienda-users?tienda_id=${tienda_id}`),
+  verifyPin:      (pin: string, tienda_id: number)  => api.post('/auth/verify-pin', { pin, tienda_id }),
 };
 
 // Users
@@ -201,4 +203,18 @@ export const menuDigitalApi = {
   // Public (no auth required - called directly)
   getPublicMenu:   (slug: string) => api.get(`/menu-digital/view/${slug}`),
   createOrder:     (slug: string, data: any) => api.post(`/menu-digital/view/${slug}/order`, data),
+};
+
+// Backup / Mantenimiento
+export const backupApi = {
+  getConfig:   () => api.get('/backup/config'),
+  updateConfig:(data: any) => api.put('/backup/config', data),
+  getLogs:     () => api.get('/backup/logs'),
+  listFiles:   () => api.get('/backup/files'),
+  ejecutar:    (tipo: 'db' | 'excel' | 'completo') => api.post('/backup/ejecutar', { tipo }),
+  download:    (filename: string) => api.get(`/backup/download/${filename}`, { responseType: 'blob' }),
+  deleteLog:    (id: number) => api.delete(`/backup/${id}`),
+  limpiarDemo:  (data: { ventas: boolean; pedidos: boolean; caja: boolean; inventario: boolean; productos?: boolean; categorias?: boolean }) =>
+    api.post('/backup/limpiar-demo', data),
+  restaurar:    (filename: string) => api.post('/backup/restaurar', { filename }),
 };

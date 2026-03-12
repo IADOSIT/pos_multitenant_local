@@ -4,6 +4,16 @@ import { resolveUploadUrl } from '../../api/client';
 import toast from 'react-hot-toast';
 import { Receipt, Upload, Image, X } from 'lucide-react';
 
+const FUENTES = [
+  'Courier New',
+  'Consolas',
+  'Lucida Console',
+  'Courier',
+  'monospace',
+];
+
+const TAMANOS = [7, 8, 9, 10, 11, 12];
+
 export default function TicketsConfig() {
   const [config, setConfig] = useState<any>(null);
   const [preview, setPreview] = useState('');
@@ -15,6 +25,8 @@ export default function TicketsConfig() {
   const load = async () => {
     try { const { data } = await ticketsApi.getConfig(); setConfig(data); } catch {}
   };
+
+  const update = (field: string, value: any) => setConfig((c: any) => ({ ...c, [field]: value }));
 
   const handleSave = async () => {
     try {
@@ -54,20 +66,28 @@ export default function TicketsConfig() {
 
   if (!config) return <div className="p-4 text-center text-slate-400">Cargando...</div>;
 
-  const update = (field: string, value: any) => setConfig({ ...config, [field]: value });
+  const logoUrl = config.logo_url ? resolveUploadUrl(config.logo_url) : null;
+  const showLogo = config.mostrar_logo && logoUrl;
+  const logoCentrado = (config.logo_posicion || 'centro') === 'centro';
+  const fontStyle = {
+    fontFamily: config.fuente_familia || 'Courier New',
+    fontSize: `${config.fuente_tamano || 9}pt`,
+  };
 
   return (
-    <div className="p-4 max-w-4xl mx-auto">
+    <div className="p-4 max-w-5xl mx-auto">
       <h1 className="text-2xl font-bold flex items-center gap-2 mb-4"><Receipt size={24} /> Config. Ticket</h1>
 
       <div className="grid lg:grid-cols-2 gap-4">
+        {/* ── Formulario ── */}
         <div className="card space-y-3">
+
           {/* Logo */}
           <h3 className="font-bold">Logo del Ticket</h3>
           <div className="flex items-center gap-4">
-            {config.logo_url ? (
+            {logoUrl ? (
               <div className="relative">
-                <img src={resolveUploadUrl(config.logo_url)} alt="Logo" className="w-20 h-20 rounded-xl object-contain border border-slate-700 bg-white p-1" />
+                <img src={logoUrl} alt="Logo" className="w-20 h-20 rounded-xl object-contain border border-slate-700 bg-white p-1" />
                 <button onClick={() => update('logo_url', null)} className="absolute -top-2 -right-2 bg-red-600 rounded-full p-0.5"><X size={12} /></button>
               </div>
             ) : (
@@ -84,15 +104,58 @@ export default function TicketsConfig() {
             </div>
           </div>
 
+          {/* Posición del logo */}
+          <div>
+            <label className="text-xs text-slate-400 block mb-1">Posición del logo</label>
+            <div className="flex gap-3">
+              {[
+                { value: 'centro', label: 'Centrado (sin justificar)' },
+                { value: 'izquierda', label: 'Izquierda (con el texto)' },
+              ].map(opt => (
+                <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer text-sm">
+                  <input
+                    type="radio"
+                    name="logo_posicion"
+                    value={opt.value}
+                    checked={(config.logo_posicion || 'centro') === opt.value}
+                    onChange={() => update('logo_posicion', opt.value)}
+                    className="accent-iados-accent"
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Tipografía */}
+          <h3 className="font-bold pt-2">Tipografía</h3>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-slate-400">Fuente</label>
+              <select value={config.fuente_familia || 'Courier New'} onChange={(e) => update('fuente_familia', e.target.value)} className="input-touch">
+                {FUENTES.map(f => <option key={f} value={f}>{f}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-slate-400">Tamaño (pt)</label>
+              <select value={config.fuente_tamano || 9} onChange={(e) => update('fuente_tamano', Number(e.target.value))} className="input-touch">
+                {TAMANOS.map(t => <option key={t} value={t}>{t} pt</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Encabezado */}
           <h3 className="font-bold pt-2">Encabezado</h3>
           <input value={config.encabezado_linea1 || ''} onChange={(e) => update('encabezado_linea1', e.target.value)} placeholder="Linea 1 (ej: nombre negocio)" className="input-touch" />
           <input value={config.encabezado_linea2 || ''} onChange={(e) => update('encabezado_linea2', e.target.value)} placeholder="Linea 2 (ej: direccion)" className="input-touch" />
           <input value={config.encabezado_linea3 || ''} onChange={(e) => update('encabezado_linea3', e.target.value)} placeholder="Linea 3 (ej: telefono)" className="input-touch" />
 
+          {/* Pie */}
           <h3 className="font-bold pt-2">Pie</h3>
           <input value={config.pie_linea1 || ''} onChange={(e) => update('pie_linea1', e.target.value)} placeholder="Pie linea 1" className="input-touch" />
           <input value={config.pie_linea2 || ''} onChange={(e) => update('pie_linea2', e.target.value)} placeholder="Pie linea 2" className="input-touch" />
 
+          {/* Papel */}
           <h3 className="font-bold pt-2">Papel</h3>
           <div className="grid grid-cols-2 gap-2">
             <div>
@@ -107,16 +170,17 @@ export default function TicketsConfig() {
             </div>
           </div>
 
+          {/* Opciones */}
           <h3 className="font-bold pt-2">Opciones</h3>
           {[
-            ['mostrar_logo', 'Imprimir logo en ticket'],
-            ['mostrar_fecha', 'Mostrar fecha'],
-            ['mostrar_cajero', 'Mostrar cajero'],
-            ['mostrar_folio', 'Mostrar folio'],
+            ['mostrar_logo',        'Imprimir logo en ticket'],
+            ['mostrar_fecha',       'Mostrar fecha'],
+            ['mostrar_cajero',      'Mostrar cajero'],
+            ['mostrar_folio',       'Mostrar folio'],
             ['mostrar_marca_iados', 'Mostrar "Desarrollado por iaDoS"'],
           ].map(([field, label]) => (
             <label key={field} className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={config[field]} onChange={(e) => update(field, e.target.checked)} className="w-5 h-5 rounded" />
+              <input type="checkbox" checked={!!config[field]} onChange={(e) => update(field, e.target.checked)} className="w-5 h-5 rounded" />
               <span className="text-sm">{label}</span>
             </label>
           ))}
@@ -127,18 +191,20 @@ export default function TicketsConfig() {
           </div>
         </div>
 
-        {/* Preview */}
+        {/* ── Preview ── */}
         <div className="card">
           <h3 className="font-bold mb-3">Vista Previa</h3>
           <div className="bg-white text-black p-4 rounded-xl min-h-[300px]">
-            {config.mostrar_logo && config.logo_url && (
-              <div className="text-center mb-2">
-                <img src={resolveUploadUrl(config.logo_url)} alt="Logo" className="h-12 mx-auto object-contain" />
+            {showLogo && (
+              <div className={`mb-1 ${logoCentrado ? 'text-center' : 'text-left'}`}>
+                <img
+                  src={logoUrl!}
+                  alt="Logo"
+                  className={`h-12 object-contain ${logoCentrado ? 'mx-auto' : ''}`}
+                />
               </div>
             )}
-            <pre className="font-mono text-xs whitespace-pre-wrap">
-              {preview || 'Haz clic en "Preview" para ver el ticket'}
-            </pre>
+            <pre style={fontStyle} className="whitespace-pre-wrap leading-tight">{preview || 'Haz clic en "Preview" para ver el ticket'}</pre>
           </div>
         </div>
       </div>

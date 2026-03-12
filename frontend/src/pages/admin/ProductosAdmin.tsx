@@ -99,7 +99,7 @@ export default function ProductosAdmin() {
       setImportResult(data);
       toast.success(`Importados: ${data.success}, Actualizados: ${data.updated}`);
       load();
-    } catch (err: any) { toast.error('Error en importacion'); }
+    } catch (err: any) { toast.error(err.response?.data?.message || 'Error en importacion'); }
     if (fileRef.current) fileRef.current.value = '';
   };
 

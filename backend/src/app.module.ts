@@ -1,6 +1,7 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ScheduleModule } from '@nestjs/schedule';
 import { SchemaSyncService } from './common/services/schema-sync.service';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
@@ -26,6 +27,7 @@ import { LicenciasModule } from './modules/licencias/licencias.module';
 import { InventarioModule } from './modules/inventario/inventario.module';
 import { MateriaPrimaModule } from './modules/materia-prima/materia-prima.module';
 import { MenuDigitalModule } from './modules/menu-digital/menu-digital.module';
+import { BackupModule } from './modules/backup/backup.module';
 
 // En SERVER LOCAL/EXTERNO: servir desde frontend/dist-prod (build con plantillas).
 // En SERVER OFFLINE (exe instalado): dist-prod no existe → cae a backend/public.
@@ -37,6 +39,7 @@ const _staticRoot = existsSync(_distProd)
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRoot({
       ...dataSourceOptions,
       autoLoadEntities: true,
@@ -64,6 +67,7 @@ const _staticRoot = existsSync(_distProd)
     InventarioModule,
     MateriaPrimaModule,
     MenuDigitalModule,
+    BackupModule,
   ],
   providers: [SchemaSyncService],
 })

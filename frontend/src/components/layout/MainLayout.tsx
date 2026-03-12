@@ -8,9 +8,10 @@ import apiClient from '../../api/client';
 import toast from 'react-hot-toast';
 import {
   ShoppingCart, LayoutDashboard, CreditCard, Package, Tag,
-  Users, Building2, Settings, LogOut, Menu, X, Receipt, ClipboardList, FileBarChart, Shield, Warehouse, Beef, Database
+  Users, Building2, Settings, LogOut, Menu, X, Receipt, ClipboardList, FileBarChart, Shield, Warehouse, Beef, Database, HardDrive, Lock
 } from 'lucide-react';
 import LicenciaBanner from './LicenciaBanner';
+import LockScreen from '../ui/LockScreen';
 
 // Connection info from env
 const apiUrl = import.meta.env.VITE_API_URL || '/api';
@@ -33,12 +34,13 @@ const navItems = [
   { to: '/admin/tickets', icon: Receipt, label: 'Tickets', roles: ['superadmin', 'admin'] },
   { to: '/admin/usuarios', icon: Users, label: 'Usuarios', roles: ['superadmin', 'admin'] },
   { to: '/admin/configuracion', icon: Settings, label: 'Config', roles: ['superadmin', 'admin'] },
+  { to: '/admin/mantenimiento', icon: HardDrive, label: 'Mant.', roles: ['superadmin', 'admin'] },
   { to: '/admin/licencias', icon: Shield, label: 'Licencias', roles: ['superadmin'] },
   { to: '/admin/tenants', icon: Building2, label: 'Tenants', roles: ['superadmin'] },
 ];
 
 export default function MainLayout() {
-  const { user, logout } = useAuthStore();
+  const { user, logout, lock, isLocked } = useAuthStore();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dbHost, setDbHost] = useState('...');
@@ -128,6 +130,9 @@ export default function MainLayout() {
             </div>
           </div>
           <div className="hidden lg:block text-xs text-slate-500 mb-2 truncate">{user?.nombre}</div>
+          <button onClick={lock} className="flex items-center gap-2 text-slate-400 hover:text-yellow-400 w-full px-3 py-2 rounded-xl hover:bg-iados-card mb-1">
+            <Lock size={18} /> <span className="hidden lg:block text-sm">Bloquear</span>
+          </button>
           <button onClick={handleLogout} className="flex items-center gap-2 text-slate-400 hover:text-red-400 w-full px-3 py-2 rounded-xl hover:bg-iados-card">
             <LogOut size={18} /> <span className="hidden lg:block text-sm">Salir</span>
           </button>
@@ -141,7 +146,10 @@ export default function MainLayout() {
           {user?.empresa_logo && <img src={resolveUploadUrl(user.empresa_logo)} alt="" className="w-6 h-6 rounded object-cover" />}
           <span className="font-bold text-sm">{user?.empresa_nombre || 'POS-iaDoS'}</span>
         </div>
-        <button onClick={handleLogout} className="p-1 text-slate-400"><LogOut size={20} /></button>
+        <div className="flex items-center gap-1">
+          <button onClick={lock} className="p-1 text-slate-400 hover:text-yellow-400"><Lock size={20} /></button>
+          <button onClick={handleLogout} className="p-1 text-slate-400 hover:text-red-400"><LogOut size={20} /></button>
+        </div>
       </div>
 
       {/* Mobile sidebar overlay */}
@@ -191,10 +199,16 @@ export default function MainLayout() {
                 <div>API: {backendHost}</div>
                 <div>Front: {window.location.host}</div>
               </div>
-              <div className="text-xs text-slate-500">
+              <div className="text-xs text-slate-500 mb-3">
                 {user?.nombre} | {user?.rol} <br />
                 iaDoS - iados.mx
               </div>
+              <button
+                onClick={() => { setSidebarOpen(false); lock(); }}
+                className="flex items-center gap-2 text-slate-400 hover:text-yellow-400 w-full px-3 py-2 rounded-xl hover:bg-iados-card mb-1 text-sm"
+              >
+                <Lock size={16} /> Bloquear sesión
+              </button>
             </div>
           </aside>
         </div>
@@ -207,6 +221,9 @@ export default function MainLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Lock screen overlay */}
+      {isLocked && <LockScreen />}
     </div>
   );
 }

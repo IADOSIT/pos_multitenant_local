@@ -55,10 +55,10 @@ export class AuthService {
     };
   }
 
-  async loginPin(pin: string, tienda_id: number) {
-    const user = await this.usersRepo.findOne({
-      where: { pin, tienda_id, activo: true },
-    });
+  async loginPin(pin: string, tienda_id: number, user_id?: number) {
+    const where: any = { pin, tienda_id, activo: true };
+    if (user_id) where.id = user_id;
+    const user = await this.usersRepo.findOne({ where });
     if (!user) throw new UnauthorizedException('PIN inválido');
 
     user.ultimo_login = new Date();
@@ -91,6 +91,23 @@ export class AuthService {
         config_apariencia: empresa2?.config_apariencia || null,
       },
     };
+  }
+
+  async getUsersByTienda(tienda_id: number) {
+    const users = await this.usersRepo.find({
+      where: { tienda_id, activo: true },
+      select: ['id', 'nombre', 'rol'],
+      order: { nombre: 'ASC' },
+    });
+    return users;
+  }
+
+  async verifyPin(pin: string, tienda_id: number) {
+    const user = await this.usersRepo.findOne({
+      where: { pin, tienda_id, activo: true },
+    });
+    if (!user) return { ok: false, user: null };
+    return { ok: true, user: { id: user.id, nombre: user.nombre, rol: user.rol } };
   }
 
   async validateUser(payload: any) {

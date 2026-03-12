@@ -20,6 +20,7 @@ import KioscoPage from './pages/kiosk/KioscoPage';
 import InventarioPage from './pages/inventario/InventarioPage';
 import MateriaPrimaPage from './pages/admin/MateriaPrimaPage';
 import MenuDigitalPage from './pages/public/MenuDigitalPage';
+import MantenimientoPage from './pages/admin/MantenimientoPage';
 
 function PrivateRoute({ children, roles }: { children: JSX.Element; roles?: string[] }) {
   const { isAuthenticated, user } = useAuthStore();
@@ -73,6 +74,9 @@ export default function App() {
           } />
           <Route path="admin/configuracion" element={
             <PrivateRoute roles={['superadmin', 'admin']}><ConfiguracionPage /></PrivateRoute>
+          } />
+          <Route path="admin/mantenimiento" element={
+            <PrivateRoute roles={['superadmin', 'admin']}><MantenimientoPage /></PrivateRoute>
           } />
           <Route path="admin/usuarios" element={
             <PrivateRoute roles={['superadmin', 'admin']}><UsuariosAdmin /></PrivateRoute>

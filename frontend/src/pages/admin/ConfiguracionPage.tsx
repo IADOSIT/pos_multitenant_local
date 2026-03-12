@@ -205,6 +205,7 @@ export default function ConfiguracionPage() {
     setEditingNew(true);
     setSelected(null);
     setShowForm(true);
+    setExpandedSection('general');
     setForm({
       nombre: '', direccion: '', telefono: '', email: '',
       zona_horaria: 'America/Mexico_City',

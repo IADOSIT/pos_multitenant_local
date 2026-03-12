@@ -43,8 +43,16 @@ export class TicketsController {
   }
 
   @Post('preview')
-  preview(@Body() data: any, @TenantScope() scope) {
-    return this.service.getConfig(scope.tenant_id, scope.empresa_id, scope.tienda_id)
-      .then(config => this.service.generateTicketData(data.venta, config));
+  async preview(@Body() data: any, @TenantScope() scope) {
+    const config = await this.service.getConfig(scope.tenant_id, scope.empresa_id, scope.tienda_id);
+    const ticket = this.service.generateTicketData(data.venta, config);
+    return {
+      ...ticket,
+      ancho_papel:    config.ancho_papel    ?? 80,
+      fuente_familia: config.fuente_familia ?? 'Courier New',
+      fuente_tamano:  config.fuente_tamano  ?? 9,
+      logo_posicion:  config.logo_posicion  ?? 'centro',
+      logo_url:       config.mostrar_logo ? config.logo_url : null,
+    };
   }
 }

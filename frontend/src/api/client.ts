@@ -19,9 +19,10 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     const url = err.config?.url || '';
-    const isLoginEndpoint = url.includes('/auth/login');
+    // Excluir endpoints de auth que legítimamente devuelven 401 (no son sesión expirada)
+    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/verify-pin');
     const hasToken = !!localStorage.getItem('pos_token');
-    if (err.response?.status === 401 && !isLoginEndpoint && hasToken) {
+    if (err.response?.status === 401 && !isAuthEndpoint && hasToken) {
       localStorage.removeItem('pos_token');
       localStorage.removeItem('pos_user');
       window.location.href = '/login';

@@ -124,19 +124,19 @@ export class UsersService {
       data.password = await bcrypt.hash(data.password, 10);
     }
 
-    // Validate scope changes
-    if (data.tenant_id !== undefined && scope.rol !== UserRole.SUPERADMIN) {
-      throw new ForbiddenException('Solo SuperAdmin puede cambiar el tenant');
-    }
-    if (data.empresa_id !== undefined && scope.rol !== UserRole.SUPERADMIN && scope.rol !== UserRole.ADMIN) {
-      throw new ForbiddenException('Solo SuperAdmin o Admin pueden cambiar la empresa');
-    }
-    // Admin can only assign within their own tenant
-    if (scope.rol === UserRole.ADMIN) {
-      if (data.tenant_id && data.tenant_id !== scope.tenant_id) {
-        throw new ForbiddenException('Admin solo puede asignar dentro de su tenant');
-      }
+    // SuperAdmin: puede mover usuario a cualquier tenant
+    // Admin: puede editar usuarios de su tenant pero no moverlos a otro tenant
+    // Otros roles: no pueden cambiar tenant/empresa/tienda
+    if (scope.rol === UserRole.SUPERADMIN) {
+      // Sin restricciones adicionales
+    } else if (scope.rol === UserRole.ADMIN) {
+      // Forzar tenant_id del admin — no puede mover a otro tenant
       data.tenant_id = scope.tenant_id;
+    } else {
+      // Manager y otros: solo datos básicos, sin cambiar asignación
+      if (data.tenant_id !== undefined || data.empresa_id !== undefined || data.tienda_id !== undefined) {
+        throw new ForbiddenException('No tienes permisos para cambiar la asignación de este usuario');
+      }
     }
 
     Object.assign(user, data);

@@ -16,4 +16,17 @@ export class LoginPinDto {
 
   @IsNumber()
   tienda_id: number;
+
+  @IsOptional()
+  @IsNumber()
+  user_id?: number;
+}
+
+export class VerifyPinDto {
+  @IsNotEmpty()
+  @IsString()
+  pin: string;
+
+  @IsNumber()
+  tienda_id: number;
 }

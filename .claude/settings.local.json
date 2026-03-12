@@ -85,7 +85,9 @@
       "Bash(mysqldump:*)",
       "Bash(echo exit: $?:*)",
       "Bash(\"$MYSQLDUMP\":*)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(cp -r /c/sites/pos_multitenant_local/backend/node_modules/@nestjs/schedule /c/sites/pos_multitenant_local/installer/staging/app/backend/node_modules/@nestjs/schedule 2>/dev/null && echo \"schedule OK\"\ncp -r /c/sites/pos_multitenant_local/backend/node_modules/exceljs /c/sites/pos_multitenant_local/installer/staging/app/backend/node_modules/exceljs 2>/dev/null && echo \"exceljs OK\")",
+      "Bash(cp -r \"C:/sites/pos_multitenant_local/backend/node_modules/cron\" \"C:/sites/pos_multitenant_local/installer/staging/app/backend/node_modules/cron\" && echo \"OK cron copiado a staging\")"
     ]
   }
 }

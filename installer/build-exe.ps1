@@ -215,6 +215,21 @@ if (-not (Test-Path $issFile)) { Write-Fail "setup.iss no encontrado" }
 Write-OK "setup.iss encontrado"
 
 # =============================================================================
+# 4a. Sincronizar seeds desde database/ → staging/app/database/
+# =============================================================================
+Write-Step "Sincronizando seeds..."
+$DbSrcDir  = Join-Path $ProjectDir "database"
+$DbDestDir = Join-Path $StagingDir "app\database"
+if (Test-Path $DbSrcDir) {
+    New-Item -ItemType Directory -Path $DbDestDir -Force | Out-Null
+    Copy-Item -Path "$DbSrcDir\*.sql" -Destination $DbDestDir -Force
+    $seedCount = (Get-ChildItem $DbDestDir -Filter "*.sql").Count
+    Write-OK "Seeds sincronizados: $seedCount archivos .sql"
+} else {
+    Write-Warn "Carpeta database/ no encontrada - seeds no actualizados"
+}
+
+# =============================================================================
 # 4. Crear carpeta merged
 # =============================================================================
 Write-Step "Creando paquete: $OutputName..."
@@ -247,7 +262,55 @@ if ($Mode -eq "local") {
 # --- App desde staging ---
 Write-Info "Copiando app desde staging..."
 Copy-Item -Path "$StagingDir\app\*" -Destination "$MergedDir\app" -Recurse -Force
-Write-OK "App copiada"
+Write-OK "App copiada (staging)"
+
+# --- Sincronizar node_modules desde backend real (TODOS, incluyendo deps transitivas) ---
+# Itera TODOS los directorios en backend/node_modules y copia los que falten en staging.
+# Esto incluye dependencias transitivas (ej. cron requerido por @nestjs/schedule).
+Write-Info "Sincronizando node_modules del backend (incluyendo deps transitivas)..."
+$SrcNM  = Join-Path $ProjectDir "backend\node_modules"
+$DestNM = "$MergedDir\app\backend\node_modules"
+$synced = 0
+if (Test-Path $SrcNM) {
+    Get-ChildItem -Path $SrcNM -Directory | ForEach-Object {
+        $pkgName = $_.Name
+        $src  = $_.FullName
+        $dest = Join-Path $DestNM $pkgName
+        if (-not (Test-Path $dest)) {
+            Copy-Item -Path $src -Destination $dest -Recurse -Force
+            $synced++
+        }
+    }
+    # Manejar paquetes con scope (@nestjs, @types, etc.)
+    Get-ChildItem -Path $SrcNM -Directory -Filter "@*" | ForEach-Object {
+        $scopeDir = $_.FullName
+        $scopeName = $_.Name
+        Get-ChildItem -Path $scopeDir -Directory | ForEach-Object {
+            $pkgName = "$scopeName\$($_.Name)"
+            $src  = $_.FullName
+            $dest = Join-Path $DestNM $pkgName
+            if (-not (Test-Path $dest)) {
+                New-Item -ItemType Directory -Path (Split-Path $dest) -Force | Out-Null
+                Copy-Item -Path $src -Destination $dest -Recurse -Force
+                $synced++
+            }
+        }
+    }
+}
+if ($synced -gt 0) { Write-OK "node_modules: $synced paquetes sincronizados (transitivas incluidas)" }
+else               { Write-OK "node_modules: al dia" }
+
+# --- Uploads: logos, imágenes de menú (viven en backend/uploads del proyecto, no en staging) ---
+$UploadsDir = Join-Path $ProjectDir "backend\uploads"
+$DestUploads = "$MergedDir\app\backend\uploads"
+New-Item -ItemType Directory -Path $DestUploads -Force | Out-Null
+if (Test-Path $UploadsDir) {
+    Copy-Item -Path "$UploadsDir\*" -Destination $DestUploads -Recurse -Force
+    $uploadCount = (Get-ChildItem $DestUploads -Recurse -File).Count
+    Write-OK "Uploads copiados: $uploadCount archivos (logos, menú)"
+} else {
+    Write-Warn "backend\uploads\ no existe - se creara carpeta vacia (logos se suben desde el admin)"
+}
 
 # --- Frontend dist actualizado ---
 if (Test-Path $FrontendDir) {

@@ -54,6 +54,17 @@ export class TicketConfig {
   @Column({ default: false })
   mostrar_marca_iados: boolean;
 
+  // Tipografia
+  @Column({ length: 100, default: 'Courier New' })
+  fuente_familia: string;
+
+  @Column({ type: 'int', default: 9 })
+  fuente_tamano: number;
+
+  // Logo: 'centro' | 'izquierda'
+  @Column({ length: 20, default: 'centro' })
+  logo_posicion: string;
+
   @CreateDateColumn()
   created_at: Date;
 

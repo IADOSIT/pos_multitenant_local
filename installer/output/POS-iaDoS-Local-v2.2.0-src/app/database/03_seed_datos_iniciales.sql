@@ -4,6 +4,7 @@
 -- ============================================================
 USE pos_iados;
 SET SESSION check_constraint_checks=OFF;
+SET FOREIGN_KEY_CHECKS=0;
 
 -- tenants (3 filas)
 INSERT IGNORE INTO `tenants` (`id`,`nombre`,`slug`,`razon_social`,`rfc`,`direccion`,`telefono`,`email`,`logo_url`,`activo`,`created_at`,`updated_at`) VALUES (1,'iaDoS Corp','iados-corp','iaDoS - Inteligencia Artificial DevOps Solutions',NULL,NULL,'555-IADOS','info@iados.mx',NULL,1,'2026-02-17 07:49:37.000000','2026-02-17 07:49:37.000000');
