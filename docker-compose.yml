@@ -10,14 +10,14 @@ services:
       - "3002:3000"
     environment:
       NODE_ENV: production
-      DB_HOST: 74.208.149.7
+      DB_HOST: mysql_local
       DB_PORT: 3306
       DB_USERNAME: root
       DB_PASSWORD: U191tl1ebFN2RJR0fld5QhC8U29AhdOQ
       DB_DATABASE: iados_mysql_prod
       JWT_SECRET: iados_jwt_secret_key_production_2024_cambiar
       JWT_EXPIRES_IN: 8h
-      FRONTEND_URL: http://localhost,http://localhost:8081,https://pos.iados.online
+      FRONTEND_URL: http://localhost,http://localhost:8081,https://posapi.iados.online
     networks:
       - web_network
 
@@ -27,7 +27,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: https://pos.iados.online/api
+        VITE_API_URL: https://posapi.iados.online/api
     container_name: pos-iados-web
     restart: unless-stopped
     ports:
