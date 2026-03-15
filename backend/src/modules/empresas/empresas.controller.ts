@@ -27,14 +27,8 @@ export class EmpresasController {
   @Post(':id/upload-logo')
   @UseInterceptors(FileInterceptor('logo'))
   async uploadLogo(@Param('id', ParseIntPipe) id: number, @UploadedFile() file: Express.Multer.File) {
-    const fs = await import('fs/promises');
-    const path = await import('path');
-    const uploadDir = path.join(process.cwd(), 'uploads');
-    await fs.mkdir(uploadDir, { recursive: true });
-    const ext = path.extname(file.originalname) || '.png';
-    const filename = `logo-empresa-${id}-${Date.now()}${ext}`;
-    await fs.writeFile(path.join(uploadDir, filename), file.buffer);
-    const logoUrl = `/api/uploads/${filename}`;
+    const { saveUploadedImage } = await import('../../common/utils/upload-image.util');
+    const logoUrl = await saveUploadedImage(file, `logo-empresa-${id}`);
     await this.service.update(id, { logo_url: logoUrl });
     return { logo_url: logoUrl };
   }

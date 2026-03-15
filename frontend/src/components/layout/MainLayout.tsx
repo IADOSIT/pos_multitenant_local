@@ -7,8 +7,8 @@ import { resolveUploadUrl } from '../../api/client';
 import apiClient from '../../api/client';
 import toast from 'react-hot-toast';
 import {
-  ShoppingCart, LayoutDashboard, CreditCard, Package, Tag,
-  Users, Building2, Settings, LogOut, Menu, X, Receipt, ClipboardList, FileBarChart, Shield, Warehouse, Beef, Database, HardDrive, Lock
+  ShoppingCart, LayoutDashboard, CreditCard, Package,
+  Users, Building2, Settings, LogOut, Menu, X, ClipboardList, FileBarChart, Shield, Warehouse, Database, HardDrive, Lock, BookOpen, Grid3X3
 } from 'lucide-react';
 import LicenciaBanner from './LicenciaBanner';
 import LockScreen from '../ui/LockScreen';
@@ -22,21 +22,19 @@ const backendHost = (() => {
 })();
 
 const navItems = [
-  { to: '/pos', icon: ShoppingCart, label: 'POS', roles: ['superadmin', 'admin', 'manager', 'cajero', 'mesero'] },
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['superadmin', 'admin', 'manager'] },
-  { to: '/pedidos', icon: ClipboardList, label: 'Pedidos', roles: ['superadmin', 'admin', 'manager', 'cajero', 'mesero'], badge: true },
-  { to: '/caja', icon: CreditCard, label: 'Caja', roles: ['superadmin', 'admin', 'manager', 'cajero'] },
-  { to: '/reportes', icon: FileBarChart, label: 'Reportes', roles: ['superadmin', 'admin', 'manager', 'cajero'] },
-  { to: '/inventario', icon: Warehouse, label: 'Inventario', roles: ['superadmin', 'admin', 'manager'] },
-  { to: '/admin/materia-prima', icon: Beef, label: 'Materia Prima', roles: ['superadmin', 'admin'] },
-  { to: '/admin/productos', icon: Package, label: 'Productos', roles: ['superadmin', 'admin'] },
-  { to: '/admin/categorias', icon: Tag, label: 'Categorias', roles: ['superadmin', 'admin'] },
-  { to: '/admin/tickets', icon: Receipt, label: 'Tickets', roles: ['superadmin', 'admin'] },
-  { to: '/admin/usuarios', icon: Users, label: 'Usuarios', roles: ['superadmin', 'admin'] },
-  { to: '/admin/configuracion', icon: Settings, label: 'Config', roles: ['superadmin', 'admin'] },
-  { to: '/admin/mantenimiento', icon: HardDrive, label: 'Mant.', roles: ['superadmin', 'admin'] },
-  { to: '/admin/licencias', icon: Shield, label: 'Licencias', roles: ['superadmin'] },
-  { to: '/admin/tenants', icon: Building2, label: 'Tenants', roles: ['superadmin'] },
+  { to: '/pos',                 icon: ShoppingCart,    label: 'POS',        roles: ['superadmin', 'admin', 'manager', 'cajero', 'mesero'] },
+  { to: '/dashboard',           icon: LayoutDashboard, label: 'Dashboard',  roles: ['superadmin', 'admin', 'manager'] },
+  { to: '/pedidos',             icon: ClipboardList,   label: 'Pedidos',    roles: ['superadmin', 'admin', 'manager', 'cajero', 'mesero'], badge: true },
+  { to: '/caja',                icon: CreditCard,      label: 'Caja',       roles: ['superadmin', 'admin', 'manager', 'cajero'] },
+  { to: '/reportes',            icon: FileBarChart,    label: 'Reportes',   roles: ['superadmin', 'admin', 'manager', 'cajero'] },
+  { to: '/inventario',          icon: Warehouse,       label: 'Inventario', roles: ['superadmin', 'admin', 'manager'] },
+  { to: '/catalogos',           icon: BookOpen,        label: 'Catalogos',  roles: ['superadmin', 'admin'] },
+  { to: '/admin/mesas',         icon: Grid3X3,         label: 'Mesas',      roles: ['superadmin', 'admin'] },
+  { to: '/admin/usuarios',      icon: Users,           label: 'Usuarios',   roles: ['superadmin', 'admin'] },
+  { to: '/admin/configuracion', icon: Settings,        label: 'Config',     roles: ['superadmin', 'admin'] },
+  { to: '/admin/mantenimiento', icon: HardDrive,       label: 'Mant.',      roles: ['superadmin', 'admin'] },
+  { to: '/admin/licencias',     icon: Shield,          label: 'Licencias',  roles: ['superadmin'] },
+  { to: '/admin/tenants',       icon: Building2,       label: 'Tenants',    roles: ['superadmin'] },
 ];
 
 export default function MainLayout() {

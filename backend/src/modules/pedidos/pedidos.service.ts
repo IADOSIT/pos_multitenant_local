@@ -1,9 +1,10 @@
-import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, Not } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Pedido, PedidoDetalle, PedidoEstado } from './pedido.entity';
 import { VentasService } from '../ventas/ventas.service';
 import { NotificacionesService } from '../notificaciones/notificaciones.service';
+import type { SelfOrderService } from '../self-order/self-order.service';
 
 @Injectable()
 export class PedidosService {
@@ -13,6 +14,7 @@ export class PedidosService {
     @InjectRepository(Pedido) private pedidosRepo: Repository<Pedido>,
     private ventasService: VentasService,
     private notificacionesService: NotificacionesService,
+    @Optional() private selfOrderService?: SelfOrderService,
   ) {}
 
   async crear(data: any, scope: any) {
@@ -182,11 +184,17 @@ export class PedidosService {
     pedido.estado = PedidoEstado.ENTREGADO;
     await this.pedidosRepo.save(pedido);
 
+    // Si es self-order, crear encuesta y notificar al cliente
+    if (pedido.self_order && this.selfOrderService) {
+      await this.selfOrderService.crearEncuestaAlCobrar(pedido);
+    }
+
     this.notificacionesService.emitToTienda(scope.tienda_id, 'pedido_cobrado', {
       pedido_id: pedido.id,
       venta_id: venta.id,
       folio: pedido.folio,
       mesa: pedido.mesa,
+      encuesta_token: pedido.self_order ? pedido.encuesta_token : undefined,
     });
 
     this.logger.log(`Pedido ${pedido.folio} cobrado - Venta ${venta.folio}`);

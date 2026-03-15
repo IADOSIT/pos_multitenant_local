@@ -100,7 +100,7 @@ export default function TicketsConfig() {
               <button onClick={() => logoRef.current?.click()} disabled={uploading} className="btn-secondary text-xs flex items-center gap-1">
                 <Upload size={14} /> {uploading ? 'Subiendo...' : 'Subir Logo'}
               </button>
-              <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+              <input ref={logoRef} type="file" accept=".jpg,.jpeg,.png,.webp,.gif,.heic,.heif" className="hidden" onChange={handleLogoUpload} />
             </div>
           </div>
 

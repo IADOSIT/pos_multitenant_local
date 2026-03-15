@@ -254,14 +254,7 @@ export class ProductosService {
   }
 
   async uploadImage(file: Express.Multer.File): Promise<string> {
-    const fs = await import('fs/promises');
-    const path = await import('path');
-    const uploadDir = path.join(process.cwd(), 'uploads');
-    await fs.mkdir(uploadDir, { recursive: true });
-    const ext = path.extname(file.originalname) || '.jpg';
-    const filename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}${ext}`;
-    const filepath = path.join(uploadDir, filename);
-    await fs.writeFile(filepath, file.buffer);
-    return `/api/uploads/${filename}`;
+    const { saveUploadedImage } = await import('../../common/utils/upload-image.util');
+    return saveUploadedImage(file, 'producto');
   }
 }

@@ -70,8 +70,16 @@ export class ProductosController {
   @Post('upload-image')
   @Roles('superadmin', 'admin')
   @UseInterceptors(FileInterceptor('image'))
-  uploadImage(@UploadedFile() file: Express.Multer.File) {
-    return this.service.uploadImage(file);
+  async uploadImage(@UploadedFile() file: Express.Multer.File) {
+    try {
+      if (!file) throw new BadRequestException('No se recibió ningún archivo');
+      const url = await this.service.uploadImage(file);
+      return url;
+    } catch (err) {
+      this.logger.error(`Image upload error: ${err?.message}`, err?.stack);
+      if (err instanceof BadRequestException) throw err;
+      throw new BadRequestException(err?.message || 'Error al subir imagen');
+    }
   }
 
   @Put(':id')

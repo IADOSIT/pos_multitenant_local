@@ -24,7 +24,7 @@ export class Pedido {
   @Column()
   tienda_id: number;
 
-  @Column()
+  @Column({ nullable: true })
   usuario_id: number;
 
   @Column({ length: 50 })
@@ -59,6 +59,21 @@ export class Pedido {
 
   @Column({ length: 100, nullable: true })
   usuario_nombre: string;
+
+  @Column({ default: false })
+  self_order: boolean;
+
+  @Column({ nullable: true })
+  mesero_id: number;
+
+  @Column({ length: 200, nullable: true })
+  mesero_nombre: string;
+
+  @Column({ default: false })
+  mesero_confirmado: boolean;
+
+  @Column({ length: 100, nullable: true })
+  encuesta_token: string;
 
   @CreateDateColumn()
   created_at: Date;

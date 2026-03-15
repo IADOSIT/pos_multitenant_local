@@ -205,6 +205,51 @@ export const menuDigitalApi = {
   createOrder:     (slug: string, data: any) => api.post(`/menu-digital/view/${slug}/order`, data),
 };
 
+// Mesas
+export const mesasApi = {
+  list: () => api.get('/mesas'),
+  create: (data: any) => api.post('/mesas', data),
+  update: (id: number, data: any) => api.put(`/mesas/${id}`, data),
+  remove: (id: number) => api.delete(`/mesas/${id}`),
+  getAsignaciones: () => api.get('/mesas/asignaciones'),
+  asignar: (mesa_id: number, user_id: number, user_nombre: string) =>
+    api.post(`/mesas/${mesa_id}/asignar`, { user_id, user_nombre }),
+  desasignar: (mesa_id: number) => api.delete(`/mesas/${mesa_id}/asignar`),
+  getJuntas: () => api.get('/mesas/juntas'),
+  juntar: (mesa_principal_id: number, mesa_secundaria_id: number) =>
+    api.post('/mesas/juntar', { mesa_principal_id, mesa_secundaria_id }),
+  separar: (mesa_principal_id: number, mesa_secundaria_id: number) =>
+    api.post('/mesas/separar', { mesa_principal_id, mesa_secundaria_id }),
+};
+
+// Self Order
+export const selfOrderApi = {
+  // Public (customer phone — no auth needed)
+  getTienda: (tienda_id: number, mesa_numero: number) =>
+    api.get(`/public/self-order/${tienda_id}/${mesa_numero}`),
+  getMenu: (tienda_id: number) =>
+    api.get(`/public/self-order/${tienda_id}/menu/productos`),
+  crearPedido: (tienda_id: number, mesa_numero: number, data: any) =>
+    api.post(`/public/self-order/${tienda_id}/${mesa_numero}/pedido`, data),
+  getStatus: (token: string) =>
+    api.get(`/public/self-order/status/${token}`),
+  responderEncuesta: (token: string, data: any) =>
+    api.post(`/public/self-order/encuesta/${token}`, data),
+  // Protected (mesero/admin in POS)
+  confirmar: (pedido_id: number) => api.post(`/self-order/pedidos/${pedido_id}/confirmar`),
+  rechazar: (pedido_id: number, motivo: string) =>
+    api.post(`/self-order/pedidos/${pedido_id}/rechazar`, { motivo }),
+  kpis: (desde?: string, hasta?: string) =>
+    api.get('/self-order/kpis', { params: { desde, hasta } }),
+};
+
+// Encuestas
+export const encuestasApi = {
+  list: (limit?: number) => api.get('/encuestas', { params: { limit } }),
+  kpis: (desde?: string, hasta?: string) =>
+    api.get('/encuestas/kpis', { params: { desde, hasta } }),
+};
+
 // Backup / Mantenimiento
 export const backupApi = {
   getConfig:   () => api.get('/backup/config'),

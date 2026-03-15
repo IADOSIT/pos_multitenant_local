@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { pedidosApi, ventasApi, ticketsApi } from '../../api/endpoints';
+import { pedidosApi, ventasApi, ticketsApi, selfOrderApi } from '../../api/endpoints';
 import { usePOSStore } from '../../store/pos.store';
 import { useAuthStore } from '../../store/auth.store';
 import { useNotificaciones } from '../../hooks/useNotificaciones';
 import { printTicket } from '../../utils/printTicket';
 import { resolveUploadUrl } from '../../api/client';
 import toast from 'react-hot-toast';
-import { ClipboardList, Clock, ChefHat, PackageCheck, CreditCard, XCircle, RefreshCw } from 'lucide-react';
+import { ClipboardList, Clock, ChefHat, PackageCheck, CreditCard, XCircle, RefreshCw, Smartphone, Check, Ban } from 'lucide-react';
 import PinConfirmModal from '../../components/ui/PinConfirmModal';
 
 const estadoConfig: Record<string, { label: string; color: string; bg: string; icon: any }> = {
@@ -34,6 +34,8 @@ export default function PedidosPage() {
   const [cancelMotivo, setCancelMotivo] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPinCancelar, setShowPinCancelar] = useState(false);
+  const [showRechazarSO, setShowRechazarSO] = useState(false);
+  const [rechazarMotivo, setRechazarMotivo] = useState('');
 
   // Payment state for cobrar
   const [metodo, setMetodo] = useState<'efectivo' | 'tarjeta' | 'transferencia'>('efectivo');
@@ -130,6 +132,27 @@ export default function PedidosPage() {
     } catch (e: any) { toast.error(e.response?.data?.message || 'Error'); }
   };
 
+  const handleConfirmarSO = async (pedido: any) => {
+    try {
+      await selfOrderApi.confirmar(pedido.id);
+      toast.success(`Pedido ${pedido.folio} confirmado al cliente`);
+      load();
+      setSelected(null);
+    } catch (e: any) { toast.error(e.response?.data?.message || 'Error'); }
+  };
+
+  const handleRechazarSO = async () => {
+    if (!selected) return;
+    try {
+      await selfOrderApi.rechazar(selected.id, rechazarMotivo || 'Sin motivo');
+      toast.success(`Pedido ${selected.folio} rechazado`);
+      setShowRechazarSO(false);
+      setRechazarMotivo('');
+      setSelected(null);
+      load();
+    } catch (e: any) { toast.error(e.response?.data?.message || 'Error'); }
+  };
+
   const canManage = ['cajero', 'admin', 'manager', 'superadmin'].includes(user?.rol || '');
 
   const timeAgo = (date: string) => {
@@ -179,8 +202,11 @@ export default function PedidosPage() {
                       {p.mesa}
                     </div>
                     <div>
-                      <p className="font-mono text-xs text-slate-400">{p.folio}</p>
-                      <p className="text-xs text-slate-500">{p.usuario_nombre || 'Mesero'}</p>
+                      <p className="font-mono text-xs text-slate-400 flex items-center gap-1">
+                        {p.folio}
+                        {p.self_order && <Smartphone size={11} className="text-iados-secondary" title="Self Order" />}
+                      </p>
+                      <p className="text-xs text-slate-500">{p.usuario_nombre || (p.self_order ? p.cliente_nombre || 'Cliente' : 'Mesero')}</p>
                     </div>
                   </div>
                   <span className={`px-2 py-1 rounded-lg text-xs flex items-center gap-1 ${cfg.bg} ${cfg.color}`}>
@@ -216,7 +242,24 @@ export default function PedidosPage() {
               <span className="text-slate-400 mx-2">|</span>
               <span className="text-green-400 font-bold">${Number(selected.total).toFixed(2)}</span>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              {/* Self-order: confirm/reject when received and not yet confirmed by mesero */}
+              {selected.self_order && selected.estado === 'recibido' && !selected.mesero_confirmado && (
+                <>
+                  <button
+                    onClick={() => handleConfirmarSO(selected)}
+                    className="bg-green-700 hover:bg-green-600 text-white px-3 py-2 rounded-xl text-sm flex items-center gap-1"
+                  >
+                    <Check size={15} /> Confirmar al cliente
+                  </button>
+                  <button
+                    onClick={() => { setShowRechazarSO(true); setRechazarMotivo(''); }}
+                    className="bg-red-800 hover:bg-red-700 text-white px-3 py-2 rounded-xl text-sm flex items-center gap-1"
+                  >
+                    <Ban size={15} /> Rechazar
+                  </button>
+                </>
+              )}
               {nextEstado[selected.estado] && selected.estado !== 'listo_para_entrega' && (
                 <button onClick={() => handleAvanzarEstado(selected)} className="btn-secondary text-sm">
                   {selected.estado === 'recibido' ? 'Iniciar Elaboracion' : 'Marcar Listo'}
@@ -298,6 +341,29 @@ export default function PedidosPage() {
             <div className="flex gap-2">
               <button onClick={() => setShowCancelar(false)} className="btn-secondary flex-1">Volver</button>
               <button onClick={() => setShowPinCancelar(true)} disabled={!cancelMotivo} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl flex-1">Cancelar Pedido</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Rechazar Self Order */}
+      {showRechazarSO && selected && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="card max-w-sm w-full space-y-4 text-center">
+            <Ban size={40} className="mx-auto text-red-400" />
+            <h3 className="text-lg font-bold">Rechazar Pedido Self Order</h3>
+            <p className="text-sm text-slate-400">{selected.folio} — el cliente será notificado</p>
+            <input
+              value={rechazarMotivo}
+              onChange={(e) => setRechazarMotivo(e.target.value)}
+              placeholder="Motivo (opcional)"
+              className="input-touch"
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setShowRechazarSO(false)} className="btn-secondary flex-1">Volver</button>
+              <button onClick={handleRechazarSO} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl flex-1">
+                Confirmar Rechazo
+              </button>
             </div>
           </div>
         </div>

@@ -79,7 +79,7 @@ export default function ProductosAdmin() {
       const { data } = await productosApi.uploadImage(file);
       setForm({ ...form, imagen_url: data });
       toast.success('Imagen subida');
-    } catch { toast.error('Error al subir imagen'); }
+    } catch (e: any) { toast.error(e.response?.data?.message || 'Error al subir imagen'); }
     finally { setUploadingImage(false); if (imageFileRef.current) imageFileRef.current.value = ''; }
   };
 
@@ -214,7 +214,7 @@ export default function ProductosAdmin() {
                 <button onClick={() => imageFileRef.current?.click()} disabled={uploadingImage} className="btn-secondary text-sm shrink-0" title="Subir imagen local">
                   <ImagePlus size={16} />
                 </button>
-                <input ref={imageFileRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                <input ref={imageFileRef} type="file" accept=".jpg,.jpeg,.png,.webp,.gif,.heic,.heif" className="hidden" onChange={handleImageUpload} />
               </div>
               {form.imagen_url && (
                 <img src={form.imagen_url} alt="Preview" className="w-20 h-20 object-cover rounded mt-2" />

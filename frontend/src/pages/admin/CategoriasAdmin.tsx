@@ -127,7 +127,7 @@ export default function CategoriasAdmin() {
                 <button onClick={() => imageFileRef.current?.click()} disabled={uploadingImage} className="btn-secondary text-sm shrink-0" title="Subir imagen local">
                   <ImagePlus size={16} />
                 </button>
-                <input ref={imageFileRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                <input ref={imageFileRef} type="file" accept=".jpg,.jpeg,.png,.webp,.gif,.heic,.heif" className="hidden" onChange={handleImageUpload} />
               </div>
               {form.imagen_url && (
                 <img src={form.imagen_url} alt="Preview" className="w-20 h-20 object-cover rounded mt-2" />

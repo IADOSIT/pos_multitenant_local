@@ -21,6 +21,10 @@ import InventarioPage from './pages/inventario/InventarioPage';
 import MateriaPrimaPage from './pages/admin/MateriaPrimaPage';
 import MenuDigitalPage from './pages/public/MenuDigitalPage';
 import MantenimientoPage from './pages/admin/MantenimientoPage';
+import MesasAdmin from './pages/admin/MesasAdmin';
+import SelfOrderDashboard from './pages/admin/SelfOrderDashboard';
+import SelfOrderPage from './pages/public/SelfOrderPage';
+import CatalogosPage from './pages/admin/CatalogosPage';
 
 function PrivateRoute({ children, roles }: { children: JSX.Element; roles?: string[] }) {
   const { isAuthenticated, user } = useAuthStore();
@@ -45,6 +49,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/kiosco" element={<KioscoPage />} />
         <Route path="/menu/:slug" element={<MenuDigitalPage />} />
+        <Route path="/self-order/:tienda_id/:mesa_numero" element={<SelfOrderPage />} />
 
         <Route path="/" element={<PrivateRoute><MainLayout /></PrivateRoute>}>
           <Route index element={<Navigate to="/pos" />} />
@@ -77,6 +82,15 @@ export default function App() {
           } />
           <Route path="admin/mantenimiento" element={
             <PrivateRoute roles={['superadmin', 'admin']}><MantenimientoPage /></PrivateRoute>
+          } />
+          <Route path="admin/mesas" element={
+            <PrivateRoute roles={['superadmin', 'admin']}><MesasAdmin /></PrivateRoute>
+          } />
+          <Route path="admin/self-order" element={
+            <PrivateRoute roles={['superadmin', 'admin']}><SelfOrderDashboard /></PrivateRoute>
+          } />
+          <Route path="catalogos" element={
+            <PrivateRoute roles={['superadmin', 'admin']}><CatalogosPage /></PrivateRoute>
           } />
           <Route path="admin/usuarios" element={
             <PrivateRoute roles={['superadmin', 'admin']}><UsuariosAdmin /></PrivateRoute>

@@ -6,6 +6,20 @@ title POS-iaDoS - Selector de Entorno
 set "ROOT=%~dp0"
 
 :: ============================================================
+:: CREDENCIALES BD (centralizadas para sincronizacion)
+:: ============================================================
+set "LOC_HOST=localhost"
+set "LOC_USER=pos_iados"
+set "LOC_PASS=pos_iados_2024"
+set "LOC_DB=pos_iados"
+
+set "VPS_SSH=root@74.208.149.7"
+set "VPS_CONT=mysql_local"
+set "VPS_USER=root"
+set "VPS_PASS=U191tl1ebFN2RJR0fld5QhC8U29AhdOQ"
+set "VPS_DB=pos_iados"
+
+:: ============================================================
 :: DETECTAR AMBIENTE ACTUAL
 :: ============================================================
 set "ENV_LABEL=SIN CONFIGURAR"
@@ -25,6 +39,7 @@ if exist "!BENV!" (
     )
     if "!ENV_DB!"=="localhost"               set "ENV_LABEL=LOCAL"
     if "!ENV_DB!"=="127.0.0.1"              set "ENV_LABEL=LOCAL"
+    if "!ENV_DB!"=="74.208.149.7"           set "ENV_LABEL=EXTERNO"
     if "!ENV_DB!"=="my.bodegadigital.com.mx" set "ENV_LABEL=EXTERNO"
 )
 call :set_urls
@@ -45,8 +60,8 @@ echo    API URL   :  !ENV_API!
 echo.
 echo  ----------------------------------------------------------------
 echo.
-echo    [1]  Cambiar a  LOCAL    (localhost)
-echo    [2]  Cambiar a  EXTERNO  (my.bodegadigital.com.mx)
+echo    [1]  Cambiar a  LOCAL    (BD en GCP localhost)
+echo    [2]  Cambiar a  EXTERNO  (BD en VPS 74.208.149.7)
 echo    [3]  Levantar servicios  (ambiente actual)
 echo    [4]  Info OFFLINE / EXE
 echo    [5]  Ver URLs de acceso
@@ -77,10 +92,37 @@ goto :MENU
 cls
 echo.
 echo  ================================================================
-echo    Cambiando a LOCAL y levantando servicios
+echo    Cambiando a LOCAL  (BD en GCP localhost)
 echo  ================================================================
 echo.
 
+:: Si ya estamos en LOCAL, no hay necesidad de cambiar BD
+if "!ENV_LABEL!"=="LOCAL" (
+    echo  Ya estas en modo LOCAL.
+    echo  Usa [3] para levantar servicios o continua para reiniciar.
+    echo.
+    set "CONT_OPT="
+    set /p "CONT_OPT=  Continuar de todas formas? (s/N): "
+    if /i not "!CONT_OPT!"=="s" goto :MENU
+    goto :APPLY_LOCAL
+)
+
+:: Venimos de EXTERNO: ofrecer sincronizacion VPS -> LOCAL
+echo  Modo actual : EXTERNO  (BD en VPS 74.208.149.7)
+echo  Modo nuevo  : LOCAL    (BD en GCP localhost)
+echo.
+echo  Deseas sincronizar la BD antes de cambiar?
+echo  Fuente  : VPS  (74.208.149.7 / !VPS_DB!)
+echo  Destino : LOCAL (localhost / !LOC_DB!)
+echo.
+set "SYNC_OPT="
+set /p "SYNC_OPT=  Sincronizar BD VPS -> LOCAL? (s/N): "
+if /i "!SYNC_OPT!"=="s" call :SYNC_EXT_TO_LOCAL
+
+:APPLY_LOCAL
+echo.
+
+echo.
 echo  [1/4] Copiando .env LOCAL...
 copy /Y "!ROOT!backend\loc.env"  "!ROOT!backend\.env"  >nul 2>&1
 copy /Y "!ROOT!frontend\loc.env" "!ROOT!frontend\.env" >nul 2>&1
@@ -127,10 +169,38 @@ goto :MENU
 cls
 echo.
 echo  ================================================================
-echo    Cambiando a EXTERNO y levantando servicios
+echo    Cambiando a EXTERNO  (BD en VPS 74.208.149.7)
 echo  ================================================================
 echo.
 
+:: Si ya estamos en EXTERNO, no hay necesidad de cambiar BD
+if "!ENV_LABEL!"=="EXTERNO" (
+    echo  Ya estas en modo EXTERNO.
+    echo  Usa [3] para levantar servicios o continua para reiniciar.
+    echo.
+    set "CONT_OPT="
+    set /p "CONT_OPT=  Continuar de todas formas? (s/N): "
+    if /i not "!CONT_OPT!"=="s" goto :MENU
+    goto :APPLY_EXTERNO
+)
+
+:: Venimos de LOCAL: ofrecer sincronizacion LOCAL -> VPS
+echo  Modo actual : LOCAL    (BD en GCP localhost)
+echo  Modo nuevo  : EXTERNO  (BD en VPS 74.208.149.7)
+echo.
+echo  Deseas sincronizar la BD antes de cambiar?
+echo  Fuente  : LOCAL (localhost / !LOC_DB!)
+echo  Destino : VPS   (74.208.149.7 / !VPS_DB!)
+echo.
+set "SYNC_OPT="
+set /p "SYNC_OPT=  Sincronizar BD LOCAL -> VPS? (s/N): "
+if /i "!SYNC_OPT!"=="s" call :SYNC_LOCAL_TO_EXT
+
+:APPLY_EXTERNO
+echo.
+echo  [0/4] Conexion directa a MySQL VPS (74.208.149.7:3306)...
+
+echo.
 echo  [1/4] Copiando .env EXTERNO...
 copy /Y "!ROOT!backend\ext.env"  "!ROOT!backend\.env"  >nul 2>&1
 copy /Y "!ROOT!frontend\ext.env" "!ROOT!frontend\.env" >nul 2>&1
@@ -157,7 +227,7 @@ start "POS Frontend [EXTERNO]" /D "!ROOT!frontend" cmd /k "npx vite --host 0.0.0
 echo         OK - ventana Frontend abierta
 
 set "ENV_LABEL=EXTERNO"
-set "ENV_DB=my.bodegadigital.com.mx"
+set "ENV_DB=74.208.149.7"
 call :set_urls
 
 echo.
@@ -189,17 +259,27 @@ if "!ENV_LABEL!"=="SIN CONFIGURAR" (
     goto :MENU
 )
 
-echo  [1/3] Liberando puertos...
+echo  [1/4] Sincronizando .env desde !ENV_LABEL!...
+if "!ENV_LABEL!"=="LOCAL" (
+    copy /Y "!ROOT!backend\loc.env"  "!ROOT!backend\.env"  >nul 2>&1
+    copy /Y "!ROOT!frontend\loc.env" "!ROOT!frontend\.env" >nul 2>&1
+) else (
+    copy /Y "!ROOT!backend\ext.env"  "!ROOT!backend\.env"  >nul 2>&1
+    copy /Y "!ROOT!frontend\ext.env" "!ROOT!frontend\.env" >nul 2>&1
+)
+echo         OK
+
+echo  [2/4] Liberando puertos...
 call :KILL_PORT 3000
 call :KILL_PORT 5173
 echo.
 
-echo  [2/3] Iniciando Backend...
+echo  [3/4] Iniciando Backend...
 start "POS Backend [!ENV_LABEL!]" /D "!ROOT!backend" cmd /k "npm run start:dev"
 echo         OK - ventana Backend abierta
 
 echo.
-echo  [3/3] Iniciando Frontend...
+echo  [4/4] Iniciando Frontend...
 start "POS Frontend [!ENV_LABEL!]" /D "!ROOT!frontend" cmd /k "npx vite --host 0.0.0.0"
 echo         OK - ventana Frontend abierta
 
@@ -259,7 +339,7 @@ if "!ENV_LABEL!"=="LOCAL" (
 ) else if "!ENV_LABEL!"=="EXTERNO" (
     echo    App  (frontend)  :  http://34.71.132.26:5173
     echo    API  (backend)   :  http://34.71.132.26:3000/api
-    echo    BD               :  my.bodegadigital.com.mx:3306
+    echo    BD               :  74.208.149.7:3306  (pos_iados - VPS)
 ) else (
     echo    No hay ambiente configurado.
     echo    Selecciona [1] LOCAL o [2] EXTERNO primero.
@@ -269,6 +349,123 @@ echo  ================================================================
 echo.
 pause
 goto :MENU
+
+
+:: ============================================================
+:SYNC_LOCAL_TO_EXT
+:: Sincroniza BD: LOCAL (GCP localhost) -> VPS (74.208.149.7)
+:: ============================================================
+echo.
+echo  ================================================================
+echo    Sincronizando BD:  LOCAL  -^>  VPS
+echo  ================================================================
+echo.
+
+set "DUMP_FILE=%TEMP%\pos_sync_local.sql"
+
+echo  [1/4] Exportando BD local...
+mysqldump -h !LOC_HOST! -u !LOC_USER! -p!LOC_PASS! !LOC_DB! ^
+  --no-tablespaces --skip-lock-tables --set-gtid-purged=OFF ^
+  > "!DUMP_FILE!" 2>nul
+if errorlevel 1 (
+    echo  ERROR: No se pudo exportar la BD local.
+    echo         Verifica que mysqldump este en PATH y la BD este activa.
+    echo         Continuando sin sincronizar...
+    echo.
+    exit /b
+)
+echo         OK
+
+echo  [2/4] Copiando dump al VPS...
+scp -o StrictHostKeyChecking=no -o BatchMode=yes "!DUMP_FILE!" !VPS_SSH!:/tmp/pos_sync.sql
+if errorlevel 1 (
+    echo  ERROR: No se pudo copiar el dump al VPS.
+    echo         Verifica conexion SSH con !VPS_SSH!
+    echo         Continuando sin sincronizar...
+    del "!DUMP_FILE!" >nul 2>&1
+    echo.
+    exit /b
+)
+echo         OK
+
+echo  [3/4] Importando en BD del VPS...
+ssh -o StrictHostKeyChecking=no -o BatchMode=yes !VPS_SSH! "docker exec -i !VPS_CONT! mysql -u !VPS_USER! -p!VPS_PASS! !VPS_DB! < /tmp/pos_sync.sql"
+if errorlevel 1 (
+    echo  ERROR: No se pudo importar en el VPS.
+    echo         Continuando sin sincronizar...
+    ssh -o StrictHostKeyChecking=no !VPS_SSH! "rm -f /tmp/pos_sync.sql" >nul 2>&1
+    del "!DUMP_FILE!" >nul 2>&1
+    echo.
+    exit /b
+)
+echo         OK
+
+echo  [4/4] Limpiando archivos temporales...
+ssh -o StrictHostKeyChecking=no !VPS_SSH! "rm -f /tmp/pos_sync.sql" >nul 2>&1
+del "!DUMP_FILE!" >nul 2>&1
+echo         OK
+
+echo.
+echo  Sincronizacion LOCAL -^> VPS completada.
+echo.
+exit /b
+
+
+:: ============================================================
+:SYNC_EXT_TO_LOCAL
+:: Sincroniza BD: VPS (74.208.149.7) -> LOCAL (GCP localhost)
+:: ============================================================
+echo.
+echo  ================================================================
+echo    Sincronizando BD:  VPS  -^>  LOCAL
+echo  ================================================================
+echo.
+
+set "DUMP_FILE=%TEMP%\pos_sync_vps.sql"
+
+echo  [1/4] Exportando BD del VPS...
+ssh -o StrictHostKeyChecking=no -o BatchMode=yes !VPS_SSH! "docker exec !VPS_CONT! mysqldump -u !VPS_USER! -p!VPS_PASS! !VPS_DB! --no-tablespaces --skip-lock-tables --set-gtid-purged=OFF > /tmp/pos_sync.sql"
+if errorlevel 1 (
+    echo  ERROR: No se pudo exportar la BD del VPS.
+    echo         Verifica conexion SSH con !VPS_SSH!
+    echo         Continuando sin sincronizar...
+    echo.
+    exit /b
+)
+echo         OK
+
+echo  [2/4] Descargando dump...
+scp -o StrictHostKeyChecking=no -o BatchMode=yes !VPS_SSH!:/tmp/pos_sync.sql "!DUMP_FILE!"
+if errorlevel 1 (
+    echo  ERROR: No se pudo descargar el dump del VPS.
+    echo         Continuando sin sincronizar...
+    ssh -o StrictHostKeyChecking=no !VPS_SSH! "rm -f /tmp/pos_sync.sql" >nul 2>&1
+    echo.
+    exit /b
+)
+echo         OK
+
+echo  [3/4] Importando en BD LOCAL...
+mysql -h !LOC_HOST! -u !LOC_USER! -p!LOC_PASS! !LOC_DB! < "!DUMP_FILE!"
+if errorlevel 1 (
+    echo  ERROR: No se pudo importar en la BD local.
+    echo         Continuando sin sincronizar...
+    ssh -o StrictHostKeyChecking=no !VPS_SSH! "rm -f /tmp/pos_sync.sql" >nul 2>&1
+    del "!DUMP_FILE!" >nul 2>&1
+    echo.
+    exit /b
+)
+echo         OK
+
+echo  [4/4] Limpiando archivos temporales...
+ssh -o StrictHostKeyChecking=no !VPS_SSH! "rm -f /tmp/pos_sync.sql" >nul 2>&1
+del "!DUMP_FILE!" >nul 2>&1
+echo         OK
+
+echo.
+echo  Sincronizacion VPS -^> LOCAL completada.
+echo.
+exit /b
 
 
 :: ============================================================

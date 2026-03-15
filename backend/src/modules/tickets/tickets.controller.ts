@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Param, Body, UseGuards, ParseIntPipe, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Put, Param, Body, UseGuards, ParseIntPipe, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -32,14 +32,9 @@ export class TicketsController {
   @Roles('superadmin', 'admin')
   @UseInterceptors(FileInterceptor('logo'))
   async uploadLogo(@UploadedFile() file: Express.Multer.File) {
-    const fs = await import('fs/promises');
-    const path = await import('path');
-    const uploadDir = path.join(process.cwd(), 'uploads');
-    await fs.mkdir(uploadDir, { recursive: true });
-    const ext = path.extname(file.originalname) || '.png';
-    const filename = `logo-ticket-${Date.now()}${ext}`;
-    await fs.writeFile(path.join(uploadDir, filename), file.buffer);
-    return { logo_url: `/api/uploads/${filename}` };
+    const { saveUploadedImage } = await import('../../common/utils/upload-image.util');
+    const logoUrl = await saveUploadedImage(file, 'logo-ticket');
+    return { logo_url: logoUrl };
   }
 
   @Post('preview')

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { tiendasApi, empresasApi, menuDigitalApi } from '../../api/endpoints';
 import api, { resolveUploadUrl } from '../../api/client';
 import { useAuthStore } from '../../store/auth.store';
+import TicketsConfig from './TicketsConfig';
 import { useThemeStore, ThemeName, PaletteName } from '../../store/theme.store';
 import toast from 'react-hot-toast';
 import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key } from 'lucide-react';
@@ -34,6 +35,7 @@ export default function ConfiguracionPage() {
   const [editingNew, setEditingNew] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<any>(null);
   const [expandedSection, setExpandedSection] = useState<string>('pos');
+  const [configTab, setConfigTab] = useState<'tienda' | 'tickets'>('tienda');
   const [empresaLogo, setEmpresaLogo] = useState<string>('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const logoRef = useRef<HTMLInputElement>(null);
@@ -70,6 +72,7 @@ export default function ConfiguracionPage() {
     modo_servicio: 'autoservicio' as 'autoservicio' | 'mesa',
     tipo_cobro_mesa: 'post_pago' as 'pago_inmediato' | 'post_pago',
     num_mesas: 20,
+    self_order_enabled: false,
     // Impresora config
     impresora_modelo: '',
     impresora_ancho: 80,
@@ -137,6 +140,7 @@ export default function ConfiguracionPage() {
       modo_servicio: cp.modo_servicio || 'autoservicio',
       tipo_cobro_mesa: cp.tipo_cobro_mesa || 'post_pago',
       num_mesas: cp.num_mesas || 20,
+      self_order_enabled: cp.self_order_enabled || false,
       impresora_modelo: ci.modelo || '',
       impresora_ancho: ci.ancho || 80,
       impresora_auto_print: ci.auto_print || false,
@@ -158,6 +162,7 @@ export default function ConfiguracionPage() {
           modo_servicio: form.modo_servicio,
           tipo_cobro_mesa: form.tipo_cobro_mesa,
           num_mesas: form.num_mesas,
+          self_order_enabled: form.self_order_enabled,
           iva_enabled: form.iva_enabled,
           iva_porcentaje: form.iva_porcentaje,
           iva_incluido: form.iva_incluido,
@@ -210,7 +215,7 @@ export default function ConfiguracionPage() {
       nombre: '', direccion: '', telefono: '', email: '',
       zona_horaria: 'America/Mexico_City',
       iva_enabled: false, iva_porcentaje: 16, iva_incluido: true,
-      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20,
+      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false,
       impresora_modelo: '', impresora_ancho: 80, impresora_auto_print: false, impresora_copias: 1,
     });
   };
@@ -344,12 +349,34 @@ export default function ConfiguracionPage() {
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <h1 className="text-2xl font-bold flex items-center gap-2"><Settings size={24} /> Configuracion</h1>
-        <button onClick={handleNew} className="btn-primary text-sm"><Plus size={16} className="mr-1" />Nueva Tienda</button>
+        {configTab === 'tienda' && (
+          <button onClick={handleNew} className="btn-primary text-sm"><Plus size={16} className="mr-1" />Nueva Tienda</button>
+        )}
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-4">
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-slate-700 mb-4">
+        {([
+          { id: 'tienda',  label: 'Tienda' },
+          { id: 'tickets', label: 'Tickets' },
+        ] as const).map(({ id, label }) => (
+          <button
+            key={id}
+            onClick={() => setConfigTab(id)}
+            className={`px-4 py-2 rounded-t-lg text-sm font-medium transition-colors ${
+              configTab === id ? 'bg-iados-primary text-white' : 'text-slate-400 hover:text-white hover:bg-iados-card'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {configTab === 'tickets' && <TicketsConfig />}
+
+      {configTab === 'tienda' && <div className="grid lg:grid-cols-3 gap-4">
         {/* Lista de tiendas */}
         <div className="space-y-2">
           <h3 className="text-sm font-bold text-slate-400 mb-2">Tiendas</h3>
@@ -405,7 +432,7 @@ export default function ConfiguracionPage() {
                 <button onClick={() => logoRef.current?.click()} disabled={uploadingLogo} className="btn-secondary text-xs flex items-center gap-1">
                   <Upload size={14} /> {uploadingLogo ? 'Subiendo...' : 'Subir Logo'}
                 </button>
-                <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                <input ref={logoRef} type="file" accept=".jpg,.jpeg,.png,.webp,.gif,.heic,.heif" className="hidden" onChange={handleLogoUpload} />
               </div>
             </div>
           </div>
@@ -1004,6 +1031,34 @@ export default function ConfiguracionPage() {
                         <label className="text-sm text-slate-400 mb-1 block">Numero de mesas</label>
                         <input type="number" min="1" max="200" value={form.num_mesas} onChange={(e) => setForm({ ...form, num_mesas: Number(e.target.value) })} className="input-touch w-32" />
                       </div>
+
+                      {/* Self Order QR */}
+                      <div className="border-t border-slate-700 pt-4">
+                        <label className="flex items-start gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={form.self_order_enabled}
+                            onChange={(e) => setForm({ ...form, self_order_enabled: e.target.checked })}
+                            className="w-5 h-5 accent-iados-primary rounded mt-0.5"
+                          />
+                          <div>
+                            <span className="text-sm font-medium flex items-center gap-1">
+                              <QrCode size={14} className="text-iados-secondary" /> Self Order (Pedido por QR)
+                            </span>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              El cliente escanea el QR de su mesa y hace su pedido desde el celular. El mesero confirma.
+                            </p>
+                            {form.self_order_enabled && selected && (
+                              <a
+                                href={`/admin/mesas`}
+                                className="text-xs text-iados-secondary hover:underline mt-1 block"
+                              >
+                                Ir a Gestión de Mesas para imprimir QR →
+                              </a>
+                            )}
+                          </div>
+                        </label>
+                      </div>
                     </>
                   )}
                 </div>
@@ -1046,7 +1101,7 @@ export default function ConfiguracionPage() {
             </div>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* Modal confirmar eliminacion */}
       {deleteConfirm && (

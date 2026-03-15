@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { dashboardApi } from '../../api/endpoints';
 import { KPI } from '../../types';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, ShoppingBag, Receipt, DollarSign, Ban, ClipboardList } from 'lucide-react';
+import { TrendingUp, ShoppingBag, Receipt, DollarSign, Ban, ClipboardList, QrCode } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import SelfOrderDashboard from '../admin/SelfOrderDashboard';
 
 const COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899'];
 
 export default function DashboardPage() {
+  const [tab, setTab] = useState<'ventas' | 'selforder'>('ventas');
   const [kpi, setKpi] = useState<KPI | null>(null);
   const [tendencia, setTendencia] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +53,25 @@ export default function DashboardPage() {
 
   return (
     <div className="p-4 space-y-4 max-w-7xl mx-auto">
+      {/* Tabs principales */}
+      <div className="flex items-center gap-2 border-b border-slate-700 pb-1">
+        <button
+          onClick={() => setTab('ventas')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-t-lg text-sm font-medium transition-colors ${tab === 'ventas' ? 'bg-iados-primary text-white' : 'text-slate-400 hover:text-white'}`}
+        >
+          <TrendingUp size={15} /> Ventas
+        </button>
+        <button
+          onClick={() => setTab('selforder')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-t-lg text-sm font-medium transition-colors ${tab === 'selforder' ? 'bg-iados-primary text-white' : 'text-slate-400 hover:text-white'}`}
+        >
+          <QrCode size={15} /> Self Order
+        </button>
+      </div>
+
+      {tab === 'selforder' && <SelfOrderDashboard embedded />}
+
+      {tab === 'ventas' && <>
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-2xl font-bold">Dashboard KPI</h1>
         <div className="flex gap-2">
@@ -151,6 +172,7 @@ export default function DashboardPage() {
           </ResponsiveContainer>
         </div>
       </div>
+      </>}
     </div>
   );
 }

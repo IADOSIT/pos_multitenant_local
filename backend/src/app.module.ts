@@ -28,6 +28,9 @@ import { InventarioModule } from './modules/inventario/inventario.module';
 import { MateriaPrimaModule } from './modules/materia-prima/materia-prima.module';
 import { MenuDigitalModule } from './modules/menu-digital/menu-digital.module';
 import { BackupModule } from './modules/backup/backup.module';
+import { MesasModule } from './modules/mesas/mesas.module';
+import { SelfOrderModule } from './modules/self-order/self-order.module';
+import { EncuestasModule } from './modules/encuestas/encuestas.module';
 
 // En SERVER LOCAL/EXTERNO: servir desde frontend/dist-prod (build con plantillas).
 // En SERVER OFFLINE (exe instalado): dist-prod no existe → cae a backend/public.
@@ -68,6 +71,9 @@ const _staticRoot = existsSync(_distProd)
     MateriaPrimaModule,
     MenuDigitalModule,
     BackupModule,
+    MesasModule,
+    SelfOrderModule,
+    EncuestasModule,
   ],
   providers: [SchemaSyncService],
 })
