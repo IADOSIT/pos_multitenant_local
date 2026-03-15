@@ -17,7 +17,7 @@ services:
       DB_DATABASE: iados_mysql_prod
       JWT_SECRET: iados_jwt_secret_key_production_2024_cambiar
       JWT_EXPIRES_IN: 8h
-      FRONTEND_URL: http://localhost
+      FRONTEND_URL: http://localhost,http://localhost:8081,https://pos.iados.online
     networks:
       - web_network
 
@@ -27,7 +27,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: /api
+        VITE_API_URL: https://pos.iados.online/api
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

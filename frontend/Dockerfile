@@ -19,7 +19,7 @@ FROM nginx:alpine
 RUN apk add --no-cache curl
 
 # Copiar build desde builder
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /app/dist-prod /usr/share/nginx/html
 
 # Configuración custom de Nginx para SPA
 COPY nginx.conf /etc/nginx/conf.d/default.conf
