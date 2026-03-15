@@ -14,7 +14,7 @@ services:
       DB_PORT: 3306
       DB_USERNAME: root
       DB_PASSWORD: U191tl1ebFN2RJR0fld5QhC8U29AhdOQ
-      DB_DATABASE: iados_mysql_prod
+      DB_DATABASE: pos_iados
       JWT_SECRET: iados_jwt_secret_key_production_2024_cambiar
       JWT_EXPIRES_IN: 8h
       FRONTEND_URL: http://localhost,http://localhost:8081,https://posapi.iados.online
