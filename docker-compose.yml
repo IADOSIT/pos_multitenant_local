@@ -18,6 +18,8 @@ services:
       JWT_SECRET: iados_jwt_secret_key_production_2024_cambiar
       JWT_EXPIRES_IN: 8h
       FRONTEND_URL: http://localhost,http://localhost:8081,https://posapi.iados.online
+    volumes:
+      - pos_uploads:/app/uploads
     networks:
       - web_network
 
@@ -34,6 +36,10 @@ services:
       - "8081:80"
     networks:
       - web_network
+
+volumes:
+  pos_uploads:
+    driver: local
 
 networks:
   web_network:
