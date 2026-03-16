@@ -204,7 +204,7 @@ export default function PedidosPage() {
                     <div>
                       <p className="font-mono text-xs text-slate-400 flex items-center gap-1">
                         {p.folio}
-                        {p.self_order && <Smartphone size={11} className="text-iados-secondary" title="Self Order" />}
+                        {p.self_order && <Smartphone size={11} className="text-iados-secondary" />}
                       </p>
                       <p className="text-xs text-slate-500">{p.usuario_nombre || (p.self_order ? p.cliente_nombre || 'Cliente' : 'Mesero')}</p>
                     </div>
