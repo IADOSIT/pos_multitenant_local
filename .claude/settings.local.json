@@ -156,7 +156,10 @@
       "Bash(git push:*)",
       "Bash(ssh root@74.208.149.7 \"cd /home/administrador/infra/management/portainer/portainer_data/compose/21 && docker compose down\" 2>&1)",
       "Bash(ssh root@74.208.149.7 \"docker exec pos-iados-api ls /app/uploads/ 2>/dev/null || echo 'VACIO O NO EXISTE'\" 2>&1)",
-      "Bash(grep -rn \"claro\\\\|light\\\\|theme\\\\|tema\" /c/sites/pos_multitenant_local/frontend/src/styles/ 2>/dev/null | head -5\nls /c/sites/pos_multitenant_local/frontend/src/styles/ 2>/dev/null\nls /c/sites/pos_multitenant_local/frontend/src/ 2>/dev/null)"
+      "Bash(grep -rn \"claro\\\\|light\\\\|theme\\\\|tema\" /c/sites/pos_multitenant_local/frontend/src/styles/ 2>/dev/null | head -5\nls /c/sites/pos_multitenant_local/frontend/src/styles/ 2>/dev/null\nls /c/sites/pos_multitenant_local/frontend/src/ 2>/dev/null)",
+      "Bash(ssh root@74.208.149.7 \"grep -c 'bg-red-200' /home/administrador/infra/management/portainer/portainer_data/compose/21/frontend/src/index.css 2>&1\")",
+      "Bash(ssh root@74.208.149.7 \"grep -c 'bg-red-200\\\\|w-20.h-20\\\\|254 202 202' /home/administrador/infra/management/portainer/portainer_data/compose/21/frontend/src/index.css 2>&1\")",
+      "Bash(ssh root@74.208.149.7 \"tail -30 /home/administrador/infra/management/portainer/portainer_data/compose/21/frontend/src/index.css\" 2>&1)"
     ]
   }
 }
