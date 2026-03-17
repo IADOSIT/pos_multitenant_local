@@ -326,7 +326,9 @@ export class SelfOrderService {
     .step-icon { font-size: 18px; line-height: 1.2; flex-shrink: 0; }
     .step-text { font-size: 12px; color: #334155; line-height: 1.4; }
     .step-text strong { display: block; font-size: 12px; color: #0f172a; }
-    @media print { body { margin: 0; } .card { box-shadow: none; margin: 0; border: 1px solid #ccc; } }
+    .btn-print { display: block; width: 100%; margin-top: 16px; padding: 12px; background: #0f172a; color: #fff; border: none; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; letter-spacing: 0.5px; }
+    .btn-print:hover { background: #1e293b; }
+    @media print { .btn-print { display: none; } body { margin: 0; } .card { box-shadow: none; margin: 0; border: 1px solid #ccc; } }
   </style>
 </head>
 <body>
@@ -357,8 +359,8 @@ export class SelfOrderService {
         <span class="step-text"><strong>4. Paga en caja</strong>Al terminar paga con el mesero</span>
       </div>
     </div>
+    <button class="btn-print" onclick="window.print()">🖨️ Imprimir QR</button>
   </div>
-  <script>window.onload = () => window.print();</script>
 </body>
 </html>`;
   }
