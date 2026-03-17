@@ -753,26 +753,33 @@ header {
 }
 
 /* -- Excepciones: botones y links sobre fondo colorido conservan blanco -- */
+/* NOTA: NO usar [class*="bg-red"] ni [class*="bg-iados-primary"] —
+   esos selectores capturan también variantes hover: (hover:bg-red-900/50,
+   hover:bg-iados-primary/30) y convierten el texto a blanco sobre fondo blanco */
 [data-theme="claro"] .btn-primary,
 [data-theme="claro"] .btn-accent,
 [data-theme="claro"] .btn-danger,
 [data-theme="claro"] .btn-success,
-[data-theme="claro"] button[class*="bg-iados-primary"],
-[data-theme="claro"] button[class*="bg-red"],
-[data-theme="claro"] button[class*="bg-green"],
+[data-theme="claro"] .bg-red-600,
+[data-theme="claro"] .bg-red-700,
+[data-theme="claro"] .bg-iados-primary,
 [data-theme="claro"] a[class*="bg-iados-primary"] {
   color: white !important;
 }
 
-/* -- UserAvatar y elementos con texto blanco sobre fondos de color -- */
-[data-theme="claro"] .rounded-2xl.text-white:not(.btn-touch) {
+/* -- Elementos con texto blanco sobre fondos de color (avatares, letras de categoría) -- */
+[data-theme="claro"] .rounded-2xl.text-white:not(.btn-touch),
+[data-theme="claro"] .rounded-xl.text-white:not(.btn-touch),
+[data-theme="claro"] .rounded-lg.text-white:not(.btn-touch) {
   color: white !important;
 }
 
 /* -- Badges y pills de estado (fondos oscuros → claros) -- */
 [data-theme="claro"] .bg-green-900\/50    { background-color: rgb(220 252 231) !important; }
 [data-theme="claro"] .bg-green-900\/30    { background-color: rgb(240 253 244) !important; }
+[data-theme="claro"] .bg-green-900        { background-color: rgb(187 247 208) !important; }  /* sin opacidad */
 [data-theme="claro"] .text-green-300      { color: rgb(22 101 52)   !important; }
+[data-theme="claro"] .text-green-400      { color: rgb(21 128 61)   !important; }  /* verde oscuro para precios */
 [data-theme="claro"] .bg-blue-900\/50     { background-color: rgb(219 234 254) !important; }
 [data-theme="claro"] .text-blue-300       { color: rgb(30 64 175)   !important; }
 [data-theme="claro"] .bg-amber-900\/50    { background-color: rgb(254 243 199) !important; }
@@ -780,11 +787,18 @@ header {
 [data-theme="claro"] .text-amber-300      { color: rgb(120 53 15)   !important; }
 [data-theme="claro"] .border-amber-700    { border-color: rgb(180 83 9) !important; }
 [data-theme="claro"] .bg-red-900\/50      { background-color: rgb(254 202 202) !important; }
+[data-theme="claro"] .bg-red-900\/30      { background-color: rgb(254 226 226) !important; }
+[data-theme="claro"] .bg-red-900\/20      { background-color: rgb(255 237 237) !important; }
+[data-theme="claro"] .bg-red-900         { background-color: rgb(254 202 202) !important; }  /* sin opacidad */
 [data-theme="claro"] .text-red-400        { color: rgb(185 28 28)   !important; }
+[data-theme="claro"] .text-red-300        { color: rgb(185 28 28)   !important; }  /* hover state */
 [data-theme="claro"] .bg-purple-900\/50   { background-color: rgb(243 232 255) !important; }
 [data-theme="claro"] .text-purple-300     { color: rgb(88 28 135)   !important; }
 [data-theme="claro"] .bg-yellow-900\/50   { background-color: rgb(254 252 232) !important; }
 [data-theme="claro"] .bg-indigo-900\/50   { background-color: rgb(238 242 255) !important; }
+/* -- Fondos slate oscuros (placeholders, mini-badges) → claros -- */
+[data-theme="claro"] .bg-slate-700        { background-color: rgb(226 232 240) !important; }
+[data-theme="claro"] .bg-slate-800        { background-color: rgb(241 245 249) !important; }
 
 /* -- bg-iados-card: blanco para contrastar con surface (slate-100) -- */
 [data-theme="claro"] .bg-iados-card,
