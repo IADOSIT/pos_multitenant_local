@@ -1,0 +1,57 @@
+sku,nombre,descripcion,precio,costo,categoria,unidad,impuesto_pct,codigo_barras,controla_stock,stock_actual,stock_minimo
+PROD001,Filete Empanizado,"Filete de pescado cubierto con empanizado crujiente y dorado al momento, servido caliente acompañado de papas ensalada y arroz",120,84,Filetes,,16,7500000000001,false,0,0
+PROD002,Filete Gratinado,"Filete de pescado cubierto con queso gratinado que se derrite sobre el pescado, creando un sabor cremoso acompañado de papas ensalada y arroz",145,101.5,Filetes,,16,7500000000002,false,0,0
+PROD003,Filete al Mojo de Ajo,Filete de pescado salteado en mantequilla con ajo dorado soya y cilantro acompañado de papas ensalada y arroz,145,101.5,Filetes,,16,7500000000003,false,0,0
+PROD004,Filete a la Plancha,Filete fresco cocinado a la plancha con especias y un toque de limón que resalta su sabor natural acompañado de papa ensalada y arroz,135,94.5,Filetes,,16,7500000000004,false,0,0
+PROD005,Filete Empanizado Mixto,Filete empanizado  y 2 a 3 camarones empanizados disfrutar una deliciosa combinación de mariscos acompañada de papas ensalada y arroz,145,101.5,Filetes,,16,7500000000005,false,0,0
+PROD006,Camarón Empanizado,"Camarones cubiertos con empanizado dorado y crujiente, fritos al momento para mantener su jugosidad acompañado de papas ensalada y arroz",145,101.5,Camarones,,16,7500000000006,false,0,0
+PROD007,Camarón Gratinado,Camarones preparados con queso gratinado que aporta un sabor cremoso y delicioso acompañado de papas ensalada y arroz,155,108.5,Camarones,,16,7500000000007,false,0,0
+PROD008,Camarón al Mojo de Ajo,camarones preparados salteado en mantequilla con ajo dorado soya y cilantro acompañado de papas ensalada y arroz,145,101.5,Camarones,,16,7500000000008,false,0,0
+PROD009,Camarón al Coco,Camarones empanizados con coco rallado que les da un toque crujiente y ligeramente dulce acompañadocon salsa de mango papas arroz y ensalada,145,101.5,Camarones,,16,7500000000009,false,0,0
+PROD010,Caldo de Camarón,"Caldo caliente preparado con camarones frescos, verduras y especias que brindan un sabor intenso y reconfortante.",155,108.5,Caldos,1 Litro,16,7500000000010,false,0,0
+PROD011,Caldo de Camarón,"Caldo caliente preparado con camarones frescos, verduras y especias que brindan un sabor intenso y reconfortante.",95,66.5,Caldos,1/2 Litro,16,7500000000011,false,0,0
+PROD012,Caldo de Pescado,caldo caliente con pescado fresco y verduras cocinadas en un caldo lleno de sabor.,145,101.5,Caldos,1 Litro,16,7500000000012,false,0,0
+PROD013,Caldo de Pescado,caldo caliente con pescado fresco y verduras cocinadas en un caldo lleno de sabor.,85,59.5,Caldos,1/2 Litro,16,7500000000013,false,0,0
+PROD014,Caldo Mixto,Caldo tradicional con mezcla de mariscos como camarón y pescado acompañado de verduras.,155,108.5,Caldos,1 Litro,16,7500000000014,false,0,0
+PROD015,Caldo Mixto,Caldo tradicional con mezcla de mariscos como camarón y pescado acompañado de verduras.,95,66.5,Caldos,1/2 Litro,16,7500000000015,false,0,0
+PROD016,Consomé,Caldo ligero preparado con especias y mariscos que brinda un sabor suave y reconfortante.,120,84,Caldos,Grande,16,7500000000016,false,0,0
+PROD017,Consomé,Caldo ligero preparado con especias y mariscos que brinda un sabor suave y reconfortante.,75,52.5,Caldos,01-feb,16,7500000000017,false,0,0
+PROD018,Sopa de Mariscos,Deliciosa sopa preparada con variedad de mariscos en un caldo concentrado lleno de sabor.,200,140,Caldos,,16,7500000000018,false,0,0
+PROD019,Mojarra Frita,"Mojarra entera frita hasta quedar dorada y crujiente por fuera, jugosa por dentro acompañada de papas arroz y ensalda",180,126,Adicionales,,16,7500000000019,false,0,0
+PROD020,Papas a la Francesa,"Papas fritas doradas y crujientes, perfectas como acompañamiento.",45,31.5,Adicionales,,16,7500000000020,false,0,0
+PROD021,Papas a la Francesa con Queso,Papas fritas cubiertas con queso derretido para un sabor extra delicioso.,70,49,Adicionales,,16,7500000000021,false,0,0
+PROD022,Cebollas Empanizadas,Aros de cebolla empanizados y fritos hasta quedar crujientes por fuera y suaves por dentro.,45,31.5,Adicionales,,16,7500000000022,false,0,0
+PROD023,Tostada Extra,paquete con 6 tostadas,2,1.4,Adicionales,,16,7500000000023,false,0,0
+PROD024,Porción de Arroz,,15,10.5,Adicionales,,16,7500000000024,false,0,0
+PROD025,Salsa Extra,,5,3.5,Adicionales,,16,7500000000025,false,0,0
+PROD026,Aderezo Extra,,5,3.5,Adicionales,,16,7500000000026,false,0,0
+PROD027,Refresco,,20,14,Adicionales,,16,7500000000027,false,0,0
+PROD028,Tostada de Aguachile,"Camarón fresco marinado en limón con nuestra salsa especial (verde, roja, negra o mango) servido sobre tostada crujiente con pepino y cebolla.",65,45.5,Tostadas,,16,7500000000028,false,0,0
+PROD029,Tostada de Ceviche de Pez,"Pescado fresco marinado con limon con tomate, cebolla blanca ,morada y cilantro, servido sobre tostada con aderezo de la casa kermato y aguacate.",55,38.5,Tostadas,,16,7500000000029,false,0,0
+PROD030,Tostada Mixta Ceviche Pez/Camarón,"Pescado fresco y camaron marinado con limon con tomate, cebolla blanca ,morada y cilantro, servido sobre tostada con aderezo de la casa kermato y aguacate.",75,52.5,Tostadas,,16,7500000000030,false,0,0
+PROD031,"Tostada Mixta Ceviche Pez, Camarón y Pulpo","Pescado fresco y camaron y pulpo marinado con limon con tomate, cebolla blanca ,morada y cilantro, servido sobre tostada con aderezo de la casa kermato y aguacate.",100,70,Tostadas,,16,7500000000031,false,0,0
+PROD032,Tostada de Pulpo,"Pulpo suave y fresco con tomate, cebolla blanca ,morada y cilantro, servido sobre tostada con aderezo de la casa kermato y aguacate.",90,63,Tostadas,,16,7500000000032,false,0,0
+PROD033,Tostada de Camarón,Camaron fresco en una tostada sobre una cama de pepino con aderezo de la casa y aguacate ,65,45.5,Tostadas,,16,7500000000033,false,0,0
+PROD034,Tostada de Atún,Cubos de atún fresco preparados con salsas especiales y aguacate sobre tostada con un toque de cebolla empanizada,120,84,Tostadas,,16,7500000000034,false,0,0
+PROD035,Agua Chile Rojo,"Camarones frescos bañados en salsa roja picante con limón, pepino y cebolla.",150,105,Aguachile,01-feb,16,7500000000035,false,0,0
+PROD036,Agua Chile Rojo,"Camarones frescos bañados en salsa roja picante con limón, pepino y cebolla.",280,196,Aguachile,Grande,16,7500000000036,false,0,0
+PROD037,Agua Chile Verde,Camarones frescos en salsa verde de chile y cilantro con limón y pepino.,150,105,Aguachile,01-feb,16,7500000000037,false,0,0
+PROD038,Agua Chile Verde,Camarones frescos en salsa verde de chile y cilantro con limón y pepino.,280,196,Aguachile,Grande,16,7500000000038,false,0,0
+PROD039,Agua Chile Negro,Camarones preparados con salsa oscura especial de la casa con un sabor intenso y único.,150,105,Aguachile,01-feb,16,7500000000039,false,0,0
+PROD040,Agua Chile Negro,Camarones preparados con salsa oscura especial de la casa con un sabor intenso y único.,280,196,Aguachile,Grande,16,7500000000040,false,0,0
+PROD041,Agua Chile de Mango,"Camarones frescos con salsa de mango, limón y chile que combina lo dulce con lo picante.",150,105,Aguachile,01-feb,16,7500000000041,false,0,0
+PROD042,Agua Chile de Mango,"Camarones frescos con salsa de mango, limón y chile que combina lo dulce con lo picante.",280,196,Aguachile,Grande,16,7500000000042,false,0,0
+PROD043,Cóctel Mediano,"Camarones cocidos en una refrescante en salsa coctelera de la casa con aguacate, cilantro y cebolla.",120,84,Cócteles,,16,7500000000043,false,0,0
+PROD044,Cóctel Grande,"Camarones cocidos en una refrescante en salsa coctelera de la casa con aguacate, cilantro y cebolla.",230,161,Cócteles,,16,7500000000044,false,0,0
+PROD045,Cóctel con Pulpo,"deliciosa mezcla de camarones y pulpo en una refrescante en salsa coctelera de la casa con aguacate, cilantro y cebolla.",150,105,Cócteles,Mediano,16,7500000000045,false,0,0
+PROD046,Cóctel con Pulpo,"deliciosa mezcla de camarones y pulpo en una refrescante en salsa coctelera de la casa con aguacate, cilantro y cebolla.",290,203,Cócteles,Grande,16,7500000000046,false,0,0
+PROD047,Cóctel con Ceviche,"deliciosa mezcla de camarones y ceviche fresco en una refrescante en salsa coctelera de la casa con aguacate, cilantro y cebolla.",150,105,Cócteles,Mediano,16,7500000000047,false,0,0
+PROD048,Cóctel con Ceviche,"deliciosa mezcla de camarones y ceviche fresco en una refrescante en salsa coctelera de la casa con aguacate, cilantro y cebolla.",290,203,Cócteles,Grande,16,7500000000048,false,0,0
+PROD049,Ceviche de Pescado,"Pescado fresco marinado en limón con jitomate, cebolla, cilantro y un toque de chile.",130,91,Ceviches,01-feb,16,7500000000049,false,0,0
+PROD050,Ceviche de Pescado,"Pescado fresco marinado en limón con jitomate, cebolla, cilantro y un toque de chile.",250,175,Ceviches,1 Litro,16,7500000000050,false,0,0
+PROD051,Ceviche Mixto Pez y Camarón,"Pescado fresco con camaron marinado en limón con jitomate, cebolla, cilantro y un toque de chile.",160,112,Ceviches,01-feb,16,7500000000051,false,0,0
+PROD052,Ceviche Mixto Pez y Camarón,"Pescado fresco con  marinado en limón con jitomate, cebolla, cilantro y un toque de chile.",310,217,Ceviches,1 Litro,16,7500000000052,false,0,0
+PROD053,"Ceviche Mixto Pez, Camarón y Pulpo","Pescado fresco con camaron y pulpo marinado en limón con jitomate, cebolla, cilantro y un toque de chile.",200,140,Ceviches,01-feb,16,7500000000053,false,0,0
+PROD054,"Ceviche Mixto Pez, Camarón y Pulpo","Pescado fresco con camaron y pulpo marinado en limón con jitomate, cebolla, cilantro y un toque de chile.",380,266,Ceviches,1 Litro,16,7500000000054,false,0,0
+PROD055,Ceviche Mixto Pez/Pulpo,"Pescado fresco y  pulpo marinado en limón con jitomate, cebolla, cilantro y un toque de chile.",200,140,Ceviches,01-feb,16,7500000000055,false,0,0
+PROD056,Ceviche Mixto Pez/Pulpo,"Pescado fresco y pulpo marinado en limón con jitomate, cebolla, cilantro y un toque de chile.",380,266,Ceviches,1 Litro,16,7500000000056,false,0,0
