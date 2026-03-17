@@ -155,6 +155,52 @@ UPDATE `menu_digital_config` SET `is_active`=1, `cloud_url`='https://pos.iados.o
 UPDATE `users` SET `password`='$2a$10$vxlPjwiQUu/dK/gyUB.DI.2HJakEqGynxOjwwqZZpCax8dOqRuvoy' WHERE `rol` IN ('superadmin','admin');
 UPDATE `users` SET `password`='$2a$10$2GE3so4U7kcdP5u0xd97QO7IeIripbjEuSqdAHqugrpKnxQOgskl6' WHERE `rol` IN ('cajero','mesero','manager');
 
+-- ============================================================
+-- IMAGENES LOCALES: Mariscos 2-13's San Miguel (empresa_id=4)
+-- Archivos en: uploads/img/mariscos213s/
+-- ============================================================
+-- Filetes
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/filete-empanizado.jpeg'  WHERE `id`=140;
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/filete-gratinado.jpeg'   WHERE `id`=141;
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/filete-al-mojo.jpeg'     WHERE `id`=142;
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/filete-al-mojo.jpeg'     WHERE `id`=143; -- Filete a la Plancha
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/filete-mixto.jpeg'       WHERE `id`=144;
+-- Camarones
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/camarones-empanizados.jpeg' WHERE `id`=145;
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/camarones-gratinados.jpeg'  WHERE `id`=146;
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/camarones-diabla.jpeg'      WHERE `id`=147; -- Mojo de Ajo (sauced/spicy)
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/camaron.jpeg'               WHERE `id`=148; -- Al Coco
+-- Caldos y sopas
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/consome.jpeg'           WHERE `id`=149; -- Caldo Camarón 1L
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/consome.jpeg'           WHERE `id`=150; -- Caldo Camarón 1/2
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/caldo-de-pez.jpeg'      WHERE `id`=151;
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/caldo-de-pez.jpeg'      WHERE `id`=152;
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/caldo-mixto.jpeg'       WHERE `id`=153;
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/caldo-mixto.jpeg'       WHERE `id`=154;
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/consome.jpeg'           WHERE `id`=155;
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/consome.jpeg'           WHERE `id`=156;
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/sopa-de-mariscos.jpeg'  WHERE `id`=157;
+-- Tostadas
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/tostada-con-todo.jpeg'  WHERE `id`=162; -- Tostada Extra
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/tostada-de-ceviche.jpeg' WHERE `id`=167; -- Tostada de Aguachile
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/tostiviche.jpeg'        WHERE `id`=168; -- Tostada de Ceviche de Pez
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/tostada-mixta.jpeg'     WHERE `id`=169; -- Mixta Pez/Camarón
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/tostada-megalodon.jpeg' WHERE `id`=170; -- Mixta Pez/Camarón/Pulpo
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/tostada-de-pulpo.jpeg'  WHERE `id`=171;
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/tostada-de-camaron.jpeg' WHERE `id`=172;
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/tostada-de-atun.jpeg'   WHERE `id`=173;
+-- Aguachiles
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/aguachile-rojo.jpeg'    WHERE `id` IN (174,175);
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/aguachile-verde.jpeg'   WHERE `id` IN (176,177);
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/aguachile-negro.jpeg'   WHERE `id` IN (178,179);
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/aguachile-mango.jpeg'   WHERE `id` IN (180,181);
+-- Cócteles
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/coctel.jpeg'            WHERE `id` IN (182,184,186);
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/coctel-grande.jpeg'     WHERE `id` IN (183,185,187);
+-- Ceviches
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/medio-de-ceviche.jpeg'  WHERE `id` IN (188,190,192,194);
+UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/litro-de-ceviche.jpeg'  WHERE `id` IN (189,191,193,195);
+
 -- Verificacion rapida
 SELECT 'Tenants:'      AS info, COUNT(*) AS total FROM tenants
 UNION ALL SELECT 'Empresas:',   COUNT(*) FROM empresas
