@@ -655,14 +655,14 @@ header {
    Fondo blanco, texto oscuro, luminoso, alto contraste, limpio
    ================================================================ */
 
-/* -- Sobreescribir variables de color al modo claro -- */
+/* -- Variables de color al modo claro -- */
 [data-theme="claro"] {
-  --c-dark:    248 250 252;   /* slate-50  — fondo principal */
-  --c-surface: 241 245 249;   /* slate-100 — paneles */
-  --c-card:    255 255 255;   /* blanco    — tarjetas */
-  --c-border:  203 213 225;   /* slate-300 — bordes */
-  --c-text:    15 23 42;      /* slate-900 — texto principal */
-  --c-text-sub: 100 116 139;  /* slate-500 — texto secundario */
+  --c-dark:     248 250 252;   /* slate-50  — fondo principal */
+  --c-surface:  241 245 249;   /* slate-100 — paneles */
+  --c-card:     255 255 255;   /* blanco    — tarjetas */
+  --c-border:   203 213 225;   /* slate-300 — bordes */
+  --c-text:     15 23 42;      /* slate-900 — texto principal */
+  --c-text-sub: 71 85 105;     /* slate-600 — texto secundario */
 }
 
 /* -- Body -- */
@@ -685,13 +685,18 @@ header {
   box-shadow: 2px 0 12px rgba(0,0,0,0.06);
 }
 
-/* -- Nav links en sidebar: texto oscuro -- */
+/* -- Nav links en sidebar -- */
 [data-theme="claro"] nav a {
   color: rgb(51 65 85) !important;
 }
 [data-theme="claro"] nav a:hover {
   background: rgb(241 245 249) !important;
   color: rgb(15 23 42) !important;
+}
+
+/* -- Nav link activo: texto blanco sobre primary -- */
+[data-theme="claro"] a[class*="bg-iados-primary"] {
+  color: white !important;
 }
 
 /* -- Topbar móvil -- */
@@ -701,7 +706,7 @@ header {
   box-shadow: 0 2px 8px rgba(0,0,0,0.07);
 }
 
-/* -- Botón secundario: gris claro con texto oscuro -- */
+/* -- Botón secundario -- */
 [data-theme="claro"] .btn-secondary {
   background-color: rgb(241 245 249) !important;
   color: rgb(15 23 42) !important;
@@ -726,40 +731,79 @@ header {
   border-color: rgb(203 213 225) !important;
 }
 
-/* -- Texto general -- */
+/* -- Texto slate: oscurecido para buen contraste en fondo claro -- */
 [data-theme="claro"] .text-slate-400,
 [data-theme="claro"] .text-slate-500 {
-  color: rgb(100 116 139) !important;
+  color: rgb(71 85 105) !important;   /* slate-600 */
 }
 [data-theme="claro"] .text-slate-300 {
-  color: rgb(71 85 105) !important;
+  color: rgb(51 65 85) !important;    /* slate-700 */
 }
 [data-theme="claro"] .text-white {
   color: rgb(15 23 42) !important;
 }
 
-/* -- Excepciones: botones conservan texto blanco -- */
+/* -- Colores amarillos: demasiado claros sobre fondo blanco -- */
+[data-theme="claro"] .text-yellow-400,
+[data-theme="claro"] .text-yellow-300 {
+  color: rgb(133 77 14) !important;   /* yellow-800 */
+}
+[data-theme="claro"] .text-amber-400 {
+  color: rgb(146 64 14) !important;   /* amber-800 */
+}
+
+/* -- Excepciones: botones y links sobre fondo colorido conservan blanco -- */
 [data-theme="claro"] .btn-primary,
 [data-theme="claro"] .btn-accent,
 [data-theme="claro"] .btn-danger,
 [data-theme="claro"] .btn-success,
 [data-theme="claro"] button[class*="bg-iados-primary"],
 [data-theme="claro"] button[class*="bg-red"],
-[data-theme="claro"] button[class*="bg-green"] {
+[data-theme="claro"] button[class*="bg-green"],
+[data-theme="claro"] a[class*="bg-iados-primary"] {
   color: white !important;
 }
 
-/* -- Badges y pills de estado -- */
-[data-theme="claro"] .bg-green-900\/50 { background-color: rgb(220 252 231) !important; }
-[data-theme="claro"] .text-green-300   { color: rgb(22 101 52)  !important; }
-[data-theme="claro"] .bg-blue-900\/50  { background-color: rgb(219 234 254) !important; }
-[data-theme="claro"] .text-blue-300    { color: rgb(30 64 175)  !important; }
-[data-theme="claro"] .bg-amber-900\/50 { background-color: rgb(254 243 199) !important; }
-[data-theme="claro"] .text-amber-300   { color: rgb(146 64 14)  !important; }
-[data-theme="claro"] .bg-red-900\/50   { background-color: rgb(254 226 226) !important; }
-[data-theme="claro"] .text-red-400     { color: rgb(185 28 28)  !important; }
-[data-theme="claro"] .bg-purple-900\/50 { background-color: rgb(243 232 255) !important; }
-[data-theme="claro"] .text-purple-300  { color: rgb(88 28 135)  !important; }
+/* -- UserAvatar y elementos con texto blanco sobre fondos de color -- */
+[data-theme="claro"] .rounded-2xl.text-white:not(.btn-touch) {
+  color: white !important;
+}
+
+/* -- Badges y pills de estado (fondos oscuros → claros) -- */
+[data-theme="claro"] .bg-green-900\/50    { background-color: rgb(220 252 231) !important; }
+[data-theme="claro"] .bg-green-900\/30    { background-color: rgb(240 253 244) !important; }
+[data-theme="claro"] .text-green-300      { color: rgb(22 101 52)   !important; }
+[data-theme="claro"] .bg-blue-900\/50     { background-color: rgb(219 234 254) !important; }
+[data-theme="claro"] .text-blue-300       { color: rgb(30 64 175)   !important; }
+[data-theme="claro"] .bg-amber-900\/50    { background-color: rgb(254 243 199) !important; }
+[data-theme="claro"] .bg-amber-900\/30    { background-color: rgb(254 243 199) !important; }
+[data-theme="claro"] .text-amber-300      { color: rgb(120 53 15)   !important; }
+[data-theme="claro"] .border-amber-700    { border-color: rgb(180 83 9) !important; }
+[data-theme="claro"] .bg-red-900\/50      { background-color: rgb(254 202 202) !important; }
+[data-theme="claro"] .text-red-400        { color: rgb(185 28 28)   !important; }
+[data-theme="claro"] .bg-purple-900\/50   { background-color: rgb(243 232 255) !important; }
+[data-theme="claro"] .text-purple-300     { color: rgb(88 28 135)   !important; }
+[data-theme="claro"] .bg-yellow-900\/50   { background-color: rgb(254 252 232) !important; }
+[data-theme="claro"] .bg-indigo-900\/50   { background-color: rgb(238 242 255) !important; }
+
+/* -- bg-iados-card: blanco para contrastar con surface (slate-100) -- */
+[data-theme="claro"] .bg-iados-card,
+[data-theme="claro"] .bg-iados-card\/50 {
+  background-color: white !important;
+}
+
+/* -- PIN pad: botones con borde y sombra visibles -- */
+[data-theme="claro"] .w-20.h-20.bg-iados-card {
+  background-color: white !important;
+  border: 1px solid rgb(203 213 225) !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08) !important;
+  color: rgb(15 23 42) !important;
+}
+
+/* -- Botones +/- del carrito: distinguibles del fondo card -- */
+[data-theme="claro"] .w-8.h-8.bg-iados-surface {
+  background-color: rgb(203 213 225) !important;  /* slate-300 */
+}
 
 /* -- Dividers -- */
 [data-theme="claro"] .border-slate-700,
@@ -774,44 +818,6 @@ header {
   border-color: rgb(226 232 240) !important;
 }
 
-/* -- Nav active links deben conservar texto blanco sobre primary -- */
-[data-theme="claro"] a[class*="bg-iados-primary"] {
-  color: white !important;
-}
-
-/* -- Botones +/- del carrito: diferenciar del fondo de la card -- */
-[data-theme="claro"] .w-8.h-8.bg-iados-surface {
-  background-color: rgb(203 213 225) !important; /* slate-300 */
-}
-
-/* -- PIN pad y denominaciones: botones visibles sobre fondo claro -- */
-[data-theme="claro"] .w-20.h-20.bg-iados-card {
-  background-color: white !important;
-  border: 1px solid rgb(203 213 225) !important;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08) !important;
-}
-
-/* -- UserAvatar en login: texto blanco sobre colores de rol -- */
-[data-theme="claro"] .rounded-2xl.text-white:not(.btn-touch) {
-  color: white !important;
-}
-
-/* -- Botón eliminar del carrito: más visible -- */
-[data-theme="claro"] .bg-red-900\/50 {
-  background-color: rgb(254 202 202) !important; /* red-200 */
-}
-
-/* -- Aviso sin caja abierta -- */
-[data-theme="claro"] .bg-amber-900\/30 {
-  background-color: rgb(254 243 199) !important;
-}
-[data-theme="claro"] .border-amber-700 {
-  border-color: rgb(180 83 9) !important;
-}
-[data-theme="claro"] .text-amber-300 {
-  color: rgb(120 53 15) !important;
-}
-
 /* -- Scrollbar -- */
 [data-theme="claro"] ::-webkit-scrollbar-track {
   background-color: rgb(241 245 249);
@@ -821,12 +827,6 @@ header {
 }
 [data-theme="claro"] ::-webkit-scrollbar-thumb:hover {
   background-color: rgb(148 163 184);
-}
-
-/* -- Backgrounds de slots vacíos / placeholders -- */
-[data-theme="claro"] .bg-iados-card\/50,
-[data-theme="claro"] .bg-iados-card {
-  background-color: rgb(241 245 249) !important;
 }
 
 /* -- Modales: overlay oscuro se conserva -- */
