@@ -196,8 +196,8 @@ export default function POSPage() {
                   <img src={prod.imagen_url} alt={prod.nombre} className="w-16 h-16 object-cover rounded-xl mb-2" />
                 ) : (
                   <div
-                    className="w-16 h-16 rounded-xl mb-2 flex items-center justify-center text-2xl font-bold text-white"
-                    style={{ backgroundColor: prod.categoria?.color || '#3b82f6' }}
+                    className="w-16 h-16 rounded-xl mb-2 flex items-center justify-center text-2xl font-bold"
+                    style={{ backgroundColor: prod.categoria?.color || '#3b82f6', color: 'white' }}
                   >
                     {prod.nombre.charAt(0)}
                   </div>

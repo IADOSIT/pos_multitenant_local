@@ -774,6 +774,32 @@ header {
   border-color: rgb(226 232 240) !important;
 }
 
+/* -- Nav active links deben conservar texto blanco sobre primary -- */
+[data-theme="claro"] a[class*="bg-iados-primary"] {
+  color: white !important;
+}
+
+/* -- Botones +/- del carrito: diferenciar del fondo de la card -- */
+[data-theme="claro"] .w-8.h-8.bg-iados-surface {
+  background-color: rgb(203 213 225) !important; /* slate-300 */
+}
+
+/* -- Botón eliminar del carrito: más visible -- */
+[data-theme="claro"] .bg-red-900\/50 {
+  background-color: rgb(254 202 202) !important; /* red-200 */
+}
+
+/* -- Aviso sin caja abierta -- */
+[data-theme="claro"] .bg-amber-900\/30 {
+  background-color: rgb(254 243 199) !important;
+}
+[data-theme="claro"] .border-amber-700 {
+  border-color: rgb(180 83 9) !important;
+}
+[data-theme="claro"] .text-amber-300 {
+  color: rgb(120 53 15) !important;
+}
+
 /* -- Scrollbar -- */
 [data-theme="claro"] ::-webkit-scrollbar-track {
   background-color: rgb(241 245 249);

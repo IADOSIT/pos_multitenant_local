@@ -204,7 +204,7 @@ export default function PayModal({ onClose, isOnline }: Props) {
                     <button
                       key={d}
                       onClick={() => addDenom(d)}
-                      className="bg-iados-card border border-slate-700 hover:bg-iados-primary/30 hover:border-iados-primary text-white py-4 rounded-xl text-sm font-bold transition-colors active:scale-95"
+                      className="bg-iados-card border border-slate-700 hover:bg-iados-primary/30 hover:border-iados-primary py-4 rounded-xl text-sm font-bold transition-colors active:scale-95"
                     >
                       ${d >= 1000 ? `${d / 1000}k` : d}
                     </button>
@@ -215,7 +215,7 @@ export default function PayModal({ onClose, isOnline }: Props) {
                     <button
                       key={d}
                       onClick={() => addDenom(d)}
-                      className="bg-iados-card border border-slate-700 hover:bg-iados-primary/30 hover:border-iados-primary text-white py-4 rounded-xl text-sm font-bold transition-colors active:scale-95"
+                      className="bg-iados-card border border-slate-700 hover:bg-iados-primary/30 hover:border-iados-primary py-4 rounded-xl text-sm font-bold transition-colors active:scale-95"
                     >
                       ${d}
                     </button>
