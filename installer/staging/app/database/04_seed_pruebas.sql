@@ -102,7 +102,7 @@ INSERT IGNORE INTO menu_digital_config
 VALUES
   (1, 1, 1, 'mariscos-la-flota',
    0, 'consulta', 'manual', 30,
-   'http://localhost:3000',
+   'https://pos.iados.online',
    LOWER(HEX(RANDOM_BYTES(32))),
    'mar');
 

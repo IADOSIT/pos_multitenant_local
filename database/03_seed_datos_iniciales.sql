@@ -201,6 +201,66 @@ UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/coctel-grande
 UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/medio-de-ceviche.jpeg'  WHERE `id` IN (188,190,192,194);
 UPDATE `productos` SET `imagen_url`='/api/uploads/img/mariscos213s/litro-de-ceviche.jpeg'  WHERE `id` IN (189,191,193,195);
 
+-- ============================================================
+-- DESCRIPCIONES productos Mariscos 2-13s (desde productos_templateok.csv)
+-- ============================================================
+UPDATE `productos` SET `descripcion`='Filete de pescado cubierto con empanizado crujiente y dorado al momento, servido caliente acompañado de papas ensalada y arroz' WHERE `id`=140 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Filete de pescado cubierto con queso gratinado que se derrite sobre el pescado, creando un sabor cremoso acompañado de papas ensalada y arroz' WHERE `id`=141 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Filete de pescado salteado en mantequilla con ajo dorado soya y cilantro acompañado de papas ensalada y arroz' WHERE `id`=142 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Filete fresco cocinado a la plancha con especias y un toque de limón que resalta su sabor natural acompañado de papa ensalada y arroz' WHERE `id`=143 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Filete empanizado  y 2 a 3 camarones empanizados disfrutar una deliciosa combinación de mariscos acompañada de papas ensalada y arroz' WHERE `id`=144 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Camarones cubiertos con empanizado dorado y crujiente, fritos al momento para mantener su jugosidad acompañado de papas ensalada y arroz' WHERE `id`=145 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Camarones preparados con queso gratinado que aporta un sabor cremoso y delicioso acompañado de papas ensalada y arroz' WHERE `id`=146 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='camarones preparados salteado en mantequilla con ajo dorado soya y cilantro acompañado de papas ensalada y arroz' WHERE `id`=147 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Camarones empanizados con coco rallado que les da un toque crujiente y ligeramente dulce acompañadocon salsa de mango papas arroz y ensalada' WHERE `id`=148 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Caldo caliente preparado con camarones frescos, verduras y especias que brindan un sabor intenso y reconfortante.' WHERE `id`=149 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Caldo caliente preparado con camarones frescos, verduras y especias que brindan un sabor intenso y reconfortante.' WHERE `id`=150 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='caldo caliente con pescado fresco y verduras cocinadas en un caldo lleno de sabor.' WHERE `id`=151 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='caldo caliente con pescado fresco y verduras cocinadas en un caldo lleno de sabor.' WHERE `id`=152 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Caldo tradicional con mezcla de mariscos como camarón y pescado acompañado de verduras.' WHERE `id`=153 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Caldo tradicional con mezcla de mariscos como camarón y pescado acompañado de verduras.' WHERE `id`=154 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Caldo ligero preparado con especias y mariscos que brinda un sabor suave y reconfortante.' WHERE `id`=155 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Caldo ligero preparado con especias y mariscos que brinda un sabor suave y reconfortante.' WHERE `id`=156 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Deliciosa sopa preparada con variedad de mariscos en un caldo concentrado lleno de sabor.' WHERE `id`=157 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Mojarra entera frita hasta quedar dorada y crujiente por fuera, jugosa por dentro acompañada de papas arroz y ensalda' WHERE `id`=158 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Papas fritas doradas y crujientes, perfectas como acompañamiento.' WHERE `id`=159 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Papas fritas cubiertas con queso derretido para un sabor extra delicioso.' WHERE `id`=160 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Aros de cebolla empanizados y fritos hasta quedar crujientes por fuera y suaves por dentro.' WHERE `id`=161 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='paquete con 6 tostadas' WHERE `id`=162 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`=NULL WHERE `id`=163 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`=NULL WHERE `id`=164 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`=NULL WHERE `id`=165 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`=NULL WHERE `id`=166 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Camarón fresco marinado en limón con nuestra salsa especial (verde, roja, negra o mango) servido sobre tostada crujiente con pepino y cebolla.' WHERE `id`=167 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Pescado fresco marinado con limon con tomate, cebolla blanca ,morada y cilantro, servido sobre tostada con aderezo de la casa kermato y aguacate.' WHERE `id`=168 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Pescado fresco y camaron marinado con limon con tomate, cebolla blanca ,morada y cilantro, servido sobre tostada con aderezo de la casa kermato y aguacate.' WHERE `id`=169 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Pescado fresco y camaron y pulpo marinado con limon con tomate, cebolla blanca ,morada y cilantro, servido sobre tostada con aderezo de la casa kermato y aguacate.' WHERE `id`=170 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Pulpo suave y fresco con tomate, cebolla blanca ,morada y cilantro, servido sobre tostada con aderezo de la casa kermato y aguacate.' WHERE `id`=171 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Camaron fresco en una tostada sobre una cama de pepino con aderezo de la casa y aguacate' WHERE `id`=172 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Cubos de atún fresco preparados con salsas especiales y aguacate sobre tostada con un toque de cebolla empanizada' WHERE `id`=173 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Camarones frescos bañados en salsa roja picante con limón, pepino y cebolla.' WHERE `id`=174 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Camarones frescos bañados en salsa roja picante con limón, pepino y cebolla.' WHERE `id`=175 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Camarones frescos en salsa verde de chile y cilantro con limón y pepino.' WHERE `id`=176 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Camarones frescos en salsa verde de chile y cilantro con limón y pepino.' WHERE `id`=177 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Camarones preparados con salsa oscura especial de la casa con un sabor intenso y único.' WHERE `id`=178 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Camarones preparados con salsa oscura especial de la casa con un sabor intenso y único.' WHERE `id`=179 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Camarones frescos con salsa de mango, limón y chile que combina lo dulce con lo picante.' WHERE `id`=180 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Camarones frescos con salsa de mango, limón y chile que combina lo dulce con lo picante.' WHERE `id`=181 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Camarones cocidos en una refrescante en salsa coctelera de la casa con aguacate, cilantro y cebolla.' WHERE `id`=182 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Camarones cocidos en una refrescante en salsa coctelera de la casa con aguacate, cilantro y cebolla.' WHERE `id`=183 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='deliciosa mezcla de camarones y pulpo en una refrescante en salsa coctelera de la casa con aguacate, cilantro y cebolla.' WHERE `id`=184 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='deliciosa mezcla de camarones y pulpo en una refrescante en salsa coctelera de la casa con aguacate, cilantro y cebolla.' WHERE `id`=185 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='deliciosa mezcla de camarones y ceviche fresco en una refrescante en salsa coctelera de la casa con aguacate, cilantro y cebolla.' WHERE `id`=186 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='deliciosa mezcla de camarones y ceviche fresco en una refrescante en salsa coctelera de la casa con aguacate, cilantro y cebolla.' WHERE `id`=187 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Pescado fresco marinado en limón con jitomate, cebolla, cilantro y un toque de chile.' WHERE `id`=188 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Pescado fresco marinado en limón con jitomate, cebolla, cilantro y un toque de chile.' WHERE `id`=189 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Pescado fresco con camaron marinado en limón con jitomate, cebolla, cilantro y un toque de chile.' WHERE `id`=190 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Pescado fresco con  marinado en limón con jitomate, cebolla, cilantro y un toque de chile.' WHERE `id`=191 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Pescado fresco con camaron y pulpo marinado en limón con jitomate, cebolla, cilantro y un toque de chile.' WHERE `id`=192 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Pescado fresco con camaron y pulpo marinado en limón con jitomate, cebolla, cilantro y un toque de chile.' WHERE `id`=193 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Pescado fresco y  pulpo marinado en limón con jitomate, cebolla, cilantro y un toque de chile.' WHERE `id`=194 AND `tenant_id`=4;
+UPDATE `productos` SET `descripcion`='Pescado fresco y pulpo marinado en limón con jitomate, cebolla, cilantro y un toque de chile.' WHERE `id`=195 AND `tenant_id`=4;
+
 -- Verificacion rapida
 SELECT 'Tenants:'      AS info, COUNT(*) AS total FROM tenants
 UNION ALL SELECT 'Empresas:',   COUNT(*) FROM empresas
