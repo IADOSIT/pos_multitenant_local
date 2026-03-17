@@ -784,6 +784,18 @@ header {
   background-color: rgb(203 213 225) !important; /* slate-300 */
 }
 
+/* -- PIN pad y denominaciones: botones visibles sobre fondo claro -- */
+[data-theme="claro"] .w-20.h-20.bg-iados-card {
+  background-color: white !important;
+  border: 1px solid rgb(203 213 225) !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08) !important;
+}
+
+/* -- UserAvatar en login: texto blanco sobre colores de rol -- */
+[data-theme="claro"] .rounded-2xl.text-white:not(.btn-touch) {
+  color: white !important;
+}
+
 /* -- Botón eliminar del carrito: más visible -- */
 [data-theme="claro"] .bg-red-900\/50 {
   background-color: rgb(254 202 202) !important; /* red-200 */
