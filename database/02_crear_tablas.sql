@@ -402,7 +402,26 @@ CREATE TABLE IF NOT EXISTS auditoria (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 19. LICENCIAS
+-- 19. MESAS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS mesas (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tenant_id INT NOT NULL,
+  empresa_id INT NOT NULL,
+  tienda_id INT NOT NULL,
+  numero INT NOT NULL,
+  nombre VARCHAR(100) NULL,
+  zona VARCHAR(100) NULL,
+  capacidad INT NOT NULL DEFAULT 4,
+  activo TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  INDEX idx_mesas_tienda (tienda_id, tenant_id),
+  UNIQUE KEY uq_mesas_tienda_numero (tienda_id, numero)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 20. LICENCIAS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS licencias (
   id INT AUTO_INCREMENT PRIMARY KEY,

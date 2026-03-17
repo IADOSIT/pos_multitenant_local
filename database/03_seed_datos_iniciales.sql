@@ -261,6 +261,21 @@ UPDATE `productos` SET `descripcion`='Pescado fresco con camaron y pulpo marinad
 UPDATE `productos` SET `descripcion`='Pescado fresco y  pulpo marinado en limón con jitomate, cebolla, cilantro y un toque de chile.' WHERE `id`=194 AND `tenant_id`=4;
 UPDATE `productos` SET `descripcion`='Pescado fresco y pulpo marinado en limón con jitomate, cebolla, cilantro y un toque de chile.' WHERE `id`=195 AND `tenant_id`=4;
 
+-- ============================================================
+-- MESAS: Mariscos 2-13's San Miguel (tenant_id=4, empresa_id=4, tienda_id=3)
+-- ============================================================
+INSERT IGNORE INTO mesas (id, tenant_id, empresa_id, tienda_id, numero, nombre, zona, capacidad, activo) VALUES
+(1,  4, 4, 3,  1, 'Mesa 1',  NULL, 4, 1),
+(2,  4, 4, 3,  2, 'Mesa 2',  NULL, 4, 1),
+(3,  4, 4, 3,  3, 'Mesa 3',  NULL, 4, 1),
+(4,  4, 4, 3,  4, 'Mesa 4',  NULL, 4, 1),
+(5,  4, 4, 3,  5, 'Mesa 5',  NULL, 4, 1),
+(6,  4, 4, 3,  6, 'Mesa 6',  NULL, 4, 1),
+(7,  4, 4, 3,  7, 'Mesa 7',  NULL, 6, 1),
+(8,  4, 4, 3,  8, 'Mesa 8',  NULL, 6, 1),
+(9,  4, 4, 3,  9, 'Mesa 9',  NULL, 4, 1),
+(10, 4, 4, 3, 10, 'Mesa 10', NULL, 4, 1);
+
 -- Verificacion rapida
 SELECT 'Tenants:'      AS info, COUNT(*) AS total FROM tenants
 UNION ALL SELECT 'Empresas:',   COUNT(*) FROM empresas

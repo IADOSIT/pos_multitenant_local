@@ -117,6 +117,23 @@ UPDATE ticket_configs SET
 WHERE tienda_id = 1 AND tenant_id = 1;
 
 -- ============================================================
+-- MESAS: Mariscos La Flota (tenant_id=1, empresa_id=1, tienda_id=1)
+-- ============================================================
+INSERT IGNORE INTO mesas (tenant_id, empresa_id, tienda_id, numero, nombre, zona, capacidad, activo) VALUES
+(1, 1, 1,  1, 'Mesa 1',  'Terraza', 4, 1),
+(1, 1, 1,  2, 'Mesa 2',  'Terraza', 4, 1),
+(1, 1, 1,  3, 'Mesa 3',  'Terraza', 4, 1),
+(1, 1, 1,  4, 'Mesa 4',  'Interior', 4, 1),
+(1, 1, 1,  5, 'Mesa 5',  'Interior', 4, 1),
+(1, 1, 1,  6, 'Mesa 6',  'Interior', 6, 1),
+(1, 1, 1,  7, 'Mesa 7',  'Interior', 6, 1),
+(1, 1, 1,  8, 'Mesa 8',  'Interior', 4, 1),
+(1, 1, 1,  9, 'Mesa 9',  'Bar',      2, 1),
+(1, 1, 1, 10, 'Mesa 10', 'Bar',      2, 1),
+(1, 1, 1, 11, 'Mesa 11', 'Bar',      2, 1),
+(1, 1, 1, 12, 'Mesa 12', 'Privado',  8, 1);
+
+-- ============================================================
 -- Verificacion rapida
 -- ============================================================
 SELECT 'Categorias activas:' AS info, COUNT(*) AS total FROM categorias WHERE activo = 1 AND tenant_id = 1
