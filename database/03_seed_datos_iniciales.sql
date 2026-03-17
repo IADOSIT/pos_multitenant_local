@@ -148,8 +148,8 @@ INSERT IGNORE INTO `menu_digital_config` (`id`,`tenant_id`,`empresa_id`,`tienda_
 -- Asegurar licencias activas y con tiempo suficiente
 UPDATE `licencias` SET `estado`='activa', `fecha_fin`='2027-12-31', `max_tiendas`=10, `max_usuarios`=50, `grace_days`=30, `offline_allowed`=1 WHERE 1=1;
 
--- Activar menu digital y apuntar a servidor local
-UPDATE `menu_digital_config` SET `is_active`=1, `cloud_url`='http://localhost:3000' WHERE 1=1;
+-- Activar menu digital y apuntar a VPS (clientes acceden desde su celular con internet)
+UPDATE `menu_digital_config` SET `is_active`=1, `cloud_url`='https://pos.iados.online' WHERE 1=1;
 
 -- Asegurar passwords conocidos (admin123 / cajero123) para todos los usuarios demo
 UPDATE `users` SET `password`='$2a$10$vxlPjwiQUu/dK/gyUB.DI.2HJakEqGynxOjwwqZZpCax8dOqRuvoy' WHERE `rol` IN ('superadmin','admin');
