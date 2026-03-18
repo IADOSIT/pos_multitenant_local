@@ -192,7 +192,15 @@
       "Bash(cd /c/sites/pos_multitenant_local/frontend && VITE_API_URL=/api npm run build 2>&1 | tail -10)",
       "Bash(cd /c/sites/pos_multitenant_local/backend && npx tsc -p tsconfig.json --outDir /c/sites/pos_multitenant_local/installer/staging/app/backend/dist_new --incremental false 2>&1; echo \"TS Exit: $?\")",
       "Bash(cd /c/sites/pos_multitenant_local/installer/staging/app/backend && rm -rf dist && mv dist_new dist && echo \"dist replaced OK\" && ls dist/*.js dist/main.js 2>/dev/null | head -3)",
-      "Bash(ls -la /c/sites/pos_multitenant_local/frontend/dist-prod/assets/index-*.js | sort -k6 -r | head -3 && echo \"---\" && ls -la /c/sites/pos_multitenant_local/frontend/dist-prod/index.html)"
+      "Bash(ls -la /c/sites/pos_multitenant_local/frontend/dist-prod/assets/index-*.js | sort -k6 -r | head -3 && echo \"---\" && ls -la /c/sites/pos_multitenant_local/frontend/dist-prod/index.html)",
+      "Bash(ls /c/sites/pos_multitenant_local/frontend/public/icons/ 2>/dev/null && echo \"---\" || echo \"NO icons dir\"\nls /c/sites/pos_multitenant_local/frontend/public/*.png 2>/dev/null | head -5 || echo \"no PNGs in public root\")",
+      "Bash(cd /c/sites/pos_multitenant_local/frontend && VITE_API_URL=/api npm run build 2>&1 | tail -8)",
+      "Bash(/dev/null __NEW_LINE_1c8a062c2330c51b__ echo echo '=== FUENTES BACKEND \\(timestamps\\) ===')",
+      "Read(//c/sites/pos_multitenant_local/**)",
+      "Read(//c/sites/pos_multitenant_local/backend/**)",
+      "Bash(cd /c/sites/pos_multitenant_local/frontend && VITE_API_URL=/api npm run build 2>&1 | grep -E \"built|error|Error|warning\" | head -15)",
+      "Bash(ls -la /c/sites/pos_multitenant_local/frontend/dist-prod/assets/index-*.js | sort -k6 -r | head -3)",
+      "Bash(rm -rf /c/sites/pos_multitenant_local/installer/staging/app/backend/public && cp -r /c/sites/pos_multitenant_local/frontend/dist-prod /c/sites/pos_multitenant_local/installer/staging/app/backend/public && echo \"public synced\" && ls /c/sites/pos_multitenant_local/installer/staging/app/backend/public/)"
     ]
   }
 }
