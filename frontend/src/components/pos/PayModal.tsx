@@ -1,22 +1,24 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { usePOSStore } from '../../store/pos.store';
 import { offlineActions } from '../../store/offline.store';
-import { ventasApi, ticketsApi } from '../../api/endpoints';
+import { ventasApi, ticketsApi, pedidosApi, pagosGatewayApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
 import { printTicket } from '../../utils/printTicket';
 import toast from 'react-hot-toast';
-import { X, DollarSign, CreditCard, ArrowRightLeft, Banknote, Printer } from 'lucide-react';
+import QRCode from 'qrcode';
+import { X, DollarSign, CreditCard, ArrowRightLeft, Banknote, Printer, ShoppingBag, Wifi, Smartphone, RotateCw, CheckCircle2, XCircle } from 'lucide-react';
 
 interface Props {
   onClose: () => void;
   isOnline: boolean;
+  pedido?: any; // si se pasa, cobrar este pedido en lugar del carrito
 }
 
-type MetodoPago = 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto';
+type MetodoPago = 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto' | 'mp_qr' | 'mp_point' | 'stripe';
 
-export default function PayModal({ onClose, isOnline }: Props) {
-  const { cart, getSubtotal, getImpuestos, getTotal, clearCart, cajaActiva } = usePOSStore();
-  const total = getTotal();
+export default function PayModal({ onClose, isOnline, pedido }: Props) {
+  const { cart, getSubtotal, getImpuestos, getTotal, clearCart, cajaActiva, tipoServicio } = usePOSStore();
+  const total = pedido ? Number(pedido.total) : getTotal();
   const [metodo, setMetodo] = useState<MetodoPago>('efectivo');
   const [pagoEfectivo, setPagoEfectivo] = useState('');
   const [pagoTarjeta, setPagoTarjeta] = useState('');
@@ -24,6 +26,28 @@ export default function PayModal({ onClose, isOnline }: Props) {
   const [loading, setLoading] = useState(false);
   const [ventaCompletada, setVentaCompletada] = useState<any>(null);
   const ticketRawRef = useRef<string>('');
+
+  // Gateway state
+  const [gwConfig, setGwConfig] = useState<any>(null);
+  const [gwQrDataUrl, setGwQrDataUrl] = useState<string>('');
+  const [gwExternalId, setGwExternalId] = useState<string>('');
+  const [gwIntentId, setGwIntentId] = useState<string>('');
+  const [gwEstado, setGwEstado] = useState<'idle' | 'pending' | 'processing' | 'approved' | 'rejected' | 'cancelled'>('idle');
+  const gwPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const gwTransaccionIdRef = useRef<number>(0);
+
+  const stopGwPoll = useCallback(() => {
+    if (gwPollRef.current) { clearInterval(gwPollRef.current); gwPollRef.current = null; }
+  }, []);
+
+  useEffect(() => {
+    if (isOnline) {
+      pagosGatewayApi.getConfig().then(r => setGwConfig(r.data)).catch(() => {});
+    }
+    return () => stopGwPoll();
+  }, [isOnline, stopGwPoll]);
+
+  const folio = pedido?.folio || `POS-${Date.now()}`;
 
   const cambio = metodo === 'efectivo' ? Math.max(0, Number(pagoEfectivo || 0) - total) : 0;
 
@@ -43,7 +67,123 @@ export default function PayModal({ onClose, isOnline }: Props) {
     if (metodo === 'mixto') {
       return (Number(pagoEfectivo || 0) + Number(pagoTarjeta || 0) + Number(pagoTransferencia || 0)) >= total;
     }
+    if (metodo === 'mp_qr' || metodo === 'mp_point' || metodo === 'stripe') {
+      return gwEstado === 'approved'; // only allow confirm when gateway approved
+    }
     return false;
+  };
+
+  // ── Gateway helpers ──────────────────────────────────────────────────────────
+
+  const iniciarQrMP = async () => {
+    setLoading(true);
+    setGwEstado('pending');
+    setGwQrDataUrl('');
+    setGwExternalId('');
+    stopGwPoll();
+    try {
+      const items = pedido ? pedido.detalles?.map((d: any) => ({ sku: d.sku, nombre: d.nombre, precio: Number(d.precio), cantidad: Number(d.cantidad) })) : cart.map(i => ({ sku: i.sku, nombre: i.nombre, precio: i.precio, cantidad: i.cantidad }));
+      const { data } = await pagosGatewayApi.crearQrMP({ total, folio, items });
+      setGwExternalId(data.external_id);
+      gwTransaccionIdRef.current = data.transaccion_id;
+      // Generate QR code image from qr_data string
+      const dataUrl = await QRCode.toDataURL(data.qr_data, { width: 250, margin: 2 });
+      setGwQrDataUrl(dataUrl);
+      // Start polling
+      gwPollRef.current = setInterval(async () => {
+        try {
+          const { data: st } = await pagosGatewayApi.getEstadoMP(data.external_id);
+          if (st.estado === 'approved') {
+            setGwEstado('approved');
+            stopGwPoll();
+            toast.success('¡Pago aprobado por MercadoPago!');
+          } else if (st.estado === 'rejected' || st.estado === 'cancelled') {
+            setGwEstado('rejected');
+            stopGwPoll();
+            toast.error('Pago rechazado / cancelado');
+          }
+        } catch {}
+      }, 3000);
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Error al crear QR MP');
+      setGwEstado('idle');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const iniciarPointMP = async () => {
+    setLoading(true);
+    setGwEstado('pending');
+    setGwIntentId('');
+    stopGwPoll();
+    try {
+      const { data } = await pagosGatewayApi.crearPointMP({ total, folio });
+      setGwIntentId(data.intent_id);
+      gwTransaccionIdRef.current = data.transaccion_id;
+      toast.success('Solicitud enviada al terminal Point');
+      gwPollRef.current = setInterval(async () => {
+        try {
+          const { data: st } = await pagosGatewayApi.getEstadoPoint(data.intent_id);
+          if (st.estado === 'approved') {
+            setGwEstado('approved');
+            stopGwPoll();
+            toast.success('¡Pago aprobado en terminal!');
+          } else if (st.estado === 'cancelled' || st.estado === 'rejected') {
+            setGwEstado('rejected');
+            stopGwPoll();
+            toast.error('Pago cancelado en terminal');
+          } else if (st.estado === 'processing') {
+            setGwEstado('processing');
+          }
+        } catch {}
+      }, 3000);
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Error al enviar a terminal MP Point');
+      setGwEstado('idle');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const iniciarStripe = async () => {
+    setLoading(true);
+    setGwEstado('pending');
+    setGwIntentId('');
+    stopGwPoll();
+    try {
+      const { data } = await pagosGatewayApi.crearStripeIntent({ total, folio });
+      setGwIntentId(data.intent_id);
+      gwTransaccionIdRef.current = data.transaccion_id;
+      toast('Esperando confirmación de pago Stripe...', { icon: '💳' });
+      gwPollRef.current = setInterval(async () => {
+        try {
+          const { data: st } = await pagosGatewayApi.getEstadoStripe(data.intent_id);
+          if (st.estado === 'approved') {
+            setGwEstado('approved');
+            stopGwPoll();
+            toast.success('¡Pago Stripe aprobado!');
+          } else if (st.estado === 'cancelled') {
+            setGwEstado('rejected');
+            stopGwPoll();
+            toast.error('Pago Stripe cancelado');
+          }
+        } catch {}
+      }, 4000);
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Error Stripe');
+      setGwEstado('idle');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cancelarGw = () => {
+    stopGwPoll();
+    setGwEstado('idle');
+    setGwQrDataUrl('');
+    setGwExternalId('');
+    setGwIntentId('');
   };
 
   const ticketConfigRef = useRef<any>(null);
@@ -66,52 +206,108 @@ export default function PayModal({ onClose, isOnline }: Props) {
     }
   };
 
-  const handlePay = async () => {
+  const isGatewayMethod = (m: MetodoPago) => m === 'mp_qr' || m === 'mp_point' || m === 'stripe';
+
+  const buildVentaData = () => ({
+    caja_id: cajaActiva?.id,
+    items: cart.map((i) => ({
+      producto_id: i.producto_id,
+      sku: i.sku,
+      nombre: i.nombre,
+      precio: i.precio,
+      cantidad: i.cantidad,
+      descuento: i.descuento,
+      impuesto: i.impuesto,
+      modificadores: i.modificadores,
+      notas: i.notas,
+    })),
+    subtotal: getSubtotal(),
+    descuento: 0,
+    impuestos: getImpuestos(),
+    total,
+    metodo_pago: isGatewayMethod(metodo) ? 'tarjeta' : metodo,
+    pago_efectivo: metodo === 'efectivo' || metodo === 'mixto' ? Number(pagoEfectivo || 0) : null,
+    pago_tarjeta: (metodo === 'tarjeta' || metodo === 'mixto' || isGatewayMethod(metodo)) ? Number(pagoTarjeta || total) : null,
+    pago_transferencia: metodo === 'transferencia' || metodo === 'mixto' ? Number(pagoTransferencia || total) : null,
+    cambio,
+    tipo_servicio: tipoServicio,
+    gateway: isGatewayMethod(metodo) ? metodo : undefined,
+    gateway_transaccion_id: isGatewayMethod(metodo) ? gwTransaccionIdRef.current : undefined,
+    pagos: [],
+  });
+
+  const buildPagoData = () => ({
+    caja_id: cajaActiva?.id,
+    metodo_pago: isGatewayMethod(metodo) ? 'tarjeta' : metodo,
+    pago_efectivo: metodo === 'efectivo' || metodo === 'mixto' ? Number(pagoEfectivo || 0) : null,
+    pago_tarjeta: (metodo === 'tarjeta' || metodo === 'mixto' || isGatewayMethod(metodo)) ? Number(pagoTarjeta || total) : null,
+    pago_transferencia: metodo === 'transferencia' || metodo === 'mixto' ? Number(pagoTransferencia || total) : null,
+    cambio,
+    gateway: isGatewayMethod(metodo) ? metodo : undefined,
+    gateway_transaccion_id: isGatewayMethod(metodo) ? gwTransaccionIdRef.current : undefined,
+    pagos: [],
+  });
+
+  const handlePay = async (mantenerAbierta = false) => {
     if (!canPay()) return;
     setLoading(true);
 
-    const ventaData = {
-      caja_id: cajaActiva?.id,
-      items: cart.map((i) => ({
-        producto_id: i.producto_id,
-        sku: i.sku,
-        nombre: i.nombre,
-        precio: i.precio,
-        cantidad: i.cantidad,
-        descuento: i.descuento,
-        impuesto: i.impuesto,
-        modificadores: i.modificadores,
-        notas: i.notas,
-      })),
-      subtotal: getSubtotal(),
-      descuento: 0,
-      impuestos: getImpuestos(),
-      total,
-      metodo_pago: metodo,
-      pago_efectivo: metodo === 'efectivo' || metodo === 'mixto' ? Number(pagoEfectivo || 0) : null,
-      pago_tarjeta: metodo === 'tarjeta' || metodo === 'mixto' ? Number(pagoTarjeta || total) : null,
-      pago_transferencia: metodo === 'transferencia' || metodo === 'mixto' ? Number(pagoTransferencia || total) : null,
-      cambio,
-      pagos: [],
-    };
-
     try {
-      if (isOnline) {
-        const { data } = await ventasApi.crear(ventaData);
-        setVentaCompletada(data);
-        toast.success(`Venta ${data.folio} completada`);
-        generarEImprimir(data);
+      if (pedido) {
+        // ── Modo pedido: cobrar pedido existente ──
+        const pagoData = buildPagoData();
+        if (mantenerAbierta) {
+          const { data } = await pedidosApi.cobrarParcial(pedido.id, pagoData);
+          generarEImprimir(data.venta);
+          toast.success(`Pago Mesa ${pedido.mesa} registrado — cuenta sigue abierta`);
+          onClose();
+        } else {
+          const { data } = await pedidosApi.cobrar(pedido.id, pagoData);
+          generarEImprimir(data.venta);
+          setVentaCompletada(data.venta);
+          toast.success(`Mesa ${pedido.mesa} cobrada`);
+        }
       } else {
-        const folio = await offlineActions.saveVentaOffline(ventaData);
-        setVentaCompletada({ folio_offline: folio, total });
-        toast.success(`Venta offline ${folio} guardada`);
+        // ── Modo carrito: venta directa ──
+        const ventaData = buildVentaData();
+        if (isOnline) {
+          const { data } = await ventasApi.crear(ventaData);
+          generarEImprimir(data);
+          if (mantenerAbierta) {
+            toast.success(`Pago $${data.total} registrado — puedes agregar más items`);
+            onClose();
+          } else {
+            setVentaCompletada(data);
+            toast.success(`Venta ${data.folio} completada`);
+            clearCart();
+          }
+        } else {
+          const folio = await offlineActions.saveVentaOffline(ventaData);
+          if (mantenerAbierta) {
+            toast.success(`Pago offline ${folio} guardado — puedes agregar más items`);
+            onClose();
+          } else {
+            setVentaCompletada({ folio_offline: folio, total });
+            toast.success(`Venta offline ${folio} guardada`);
+            clearCart();
+          }
+        }
       }
-      clearCart();
     } catch (err: any) {
-      const folio = await offlineActions.saveVentaOffline(ventaData);
-      setVentaCompletada({ folio_offline: folio, total });
-      toast('Guardada offline por error de red', { icon: '📡' });
-      clearCart();
+      if (!pedido) {
+        const ventaData = buildVentaData();
+        const folio = await offlineActions.saveVentaOffline(ventaData);
+        if (mantenerAbierta) {
+          toast(`Pago offline ${folio} — puedes agregar más items`, { icon: '📡' });
+          onClose();
+        } else {
+          setVentaCompletada({ folio_offline: folio, total });
+          toast('Guardada offline por error de red', { icon: '📡' });
+          clearCart();
+        }
+      } else {
+        toast.error(err.response?.data?.message || 'Error al procesar pago');
+      }
     } finally {
       setLoading(false);
     }
@@ -148,17 +344,30 @@ export default function PayModal({ onClose, isOnline }: Props) {
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
       <div className="card max-w-lg w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold">Cobrar</h2>
+          <div>
+            <h2 className="text-xl font-bold">Cobrar</h2>
+            {pedido && (
+              <p className="text-sm text-slate-400">
+                Mesa {pedido.mesa} · {pedido.folio} · {pedido.detalles?.length || 0} items
+                {pedido.cuenta_abierta && <span className="ml-2 text-orange-400">· Cuenta abierta</span>}
+              </p>
+            )}
+          </div>
           <button onClick={onClose} className="p-2 hover:bg-iados-card rounded-xl"><X size={24} /></button>
         </div>
 
         <div className="text-center mb-6">
+          {(pedido?.tipo_servicio === 'para_llevar' || (!pedido && tipoServicio === 'para_llevar')) && (
+            <div className="inline-flex items-center gap-1 bg-orange-600/20 border border-orange-500/40 text-orange-300 text-sm font-medium px-3 py-1 rounded-full mb-3">
+              <ShoppingBag size={14} /> Para llevar
+            </div>
+          )}
           <p className="text-sm text-slate-400">Total a cobrar</p>
           <p className="text-4xl font-bold text-iados-accent">${total.toFixed(2)}</p>
         </div>
 
         {/* Métodos de pago */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
           {([
             { key: 'efectivo', label: 'Efectivo', icon: Banknote },
             { key: 'tarjeta', label: 'Tarjeta', icon: CreditCard },
@@ -167,7 +376,7 @@ export default function PayModal({ onClose, isOnline }: Props) {
           ] as const).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
-              onClick={() => setMetodo(key)}
+              onClick={() => { setMetodo(key); cancelarGw(); }}
               className={`btn-touch flex-col gap-1 text-sm ${
                 metodo === key ? 'bg-iados-primary ring-2 ring-iados-secondary' : 'bg-iados-card'
               }`}
@@ -177,6 +386,42 @@ export default function PayModal({ onClose, isOnline }: Props) {
             </button>
           ))}
         </div>
+
+        {/* Gateway buttons (only when online and configured) */}
+        {isOnline && gwConfig && (
+          <div className="flex gap-2 mb-6 flex-wrap">
+            {gwConfig.opciones?.mp_qr_habilitado && (
+              <button
+                onClick={() => { setMetodo('mp_qr'); cancelarGw(); }}
+                className={`flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-medium border transition-colors ${
+                  metodo === 'mp_qr' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-iados-card border-slate-600 text-slate-300 hover:border-blue-500'
+                }`}
+              >
+                <Wifi size={14} /> MP QR
+              </button>
+            )}
+            {gwConfig.opciones?.mp_point_habilitado && (
+              <button
+                onClick={() => { setMetodo('mp_point'); cancelarGw(); }}
+                className={`flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-medium border transition-colors ${
+                  metodo === 'mp_point' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-iados-card border-slate-600 text-slate-300 hover:border-blue-500'
+                }`}
+              >
+                <Smartphone size={14} /> MP Point
+              </button>
+            )}
+            {gwConfig.opciones?.stripe_habilitado && (
+              <button
+                onClick={() => { setMetodo('stripe'); cancelarGw(); }}
+                className={`flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-medium border transition-colors ${
+                  metodo === 'stripe' ? 'bg-purple-600 border-purple-500 text-white' : 'bg-iados-card border-slate-600 text-slate-300 hover:border-purple-500'
+                }`}
+              >
+                <CreditCard size={14} /> Stripe
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Campos de pago según método */}
         {(metodo === 'efectivo' || metodo === 'mixto') && (
@@ -283,12 +528,131 @@ export default function PayModal({ onClose, isOnline }: Props) {
           </div>
         )}
 
+        {/* ── Gateway panels ────────────────────────────────────────────── */}
+        {metodo === 'mp_qr' && (
+          <div className="mb-4 p-4 bg-iados-card/50 rounded-xl border border-blue-600/30 text-center space-y-3">
+            <p className="text-sm font-bold text-blue-300">MercadoPago — Código QR</p>
+            {gwEstado === 'idle' && (
+              <button onClick={iniciarQrMP} disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2">
+                <Wifi size={16} /> {loading ? 'Generando...' : 'Generar QR de cobro'}
+              </button>
+            )}
+            {gwEstado === 'pending' && gwQrDataUrl && (
+              <>
+                <img src={gwQrDataUrl} alt="QR MP" className="mx-auto rounded-xl w-52 h-52" />
+                <p className="text-xs text-slate-400">Muestra este QR al cliente para que pague con la app MP</p>
+                <div className="flex items-center justify-center gap-2 text-yellow-400 text-sm animate-pulse">
+                  <RotateCw size={14} className="animate-spin" /> Esperando pago...
+                </div>
+                <button onClick={cancelarGw} className="text-xs text-red-400 hover:text-red-300">Cancelar</button>
+              </>
+            )}
+            {gwEstado === 'approved' && (
+              <div className="flex flex-col items-center gap-2 text-green-400">
+                <CheckCircle2 size={48} />
+                <p className="font-bold">¡Pago aprobado!</p>
+                <p className="text-xs text-slate-400">Confirma la venta para registrarla</p>
+              </div>
+            )}
+            {(gwEstado === 'rejected' || gwEstado === 'cancelled') && (
+              <div className="flex flex-col items-center gap-2 text-red-400">
+                <XCircle size={40} />
+                <p className="font-bold">Pago rechazado</p>
+                <button onClick={cancelarGw} className="text-xs text-slate-400 hover:text-white">Reintentar</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {metodo === 'mp_point' && (
+          <div className="mb-4 p-4 bg-iados-card/50 rounded-xl border border-blue-600/30 text-center space-y-3">
+            <p className="text-sm font-bold text-blue-300">MercadoPago Point — Terminal físico</p>
+            {gwEstado === 'idle' && (
+              <button onClick={iniciarPointMP} disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2">
+                <Smartphone size={16} /> {loading ? 'Enviando...' : 'Enviar cobro al terminal'}
+              </button>
+            )}
+            {gwEstado === 'pending' && (
+              <div className="space-y-2">
+                <div className="text-5xl">📱</div>
+                <p className="text-sm text-slate-300">Solicitud enviada al terminal</p>
+                <div className="flex items-center justify-center gap-2 text-yellow-400 text-sm animate-pulse">
+                  <RotateCw size={14} className="animate-spin" /> Esperando respuesta del cliente...
+                </div>
+                <button onClick={cancelarGw} className="text-xs text-red-400">Cancelar</button>
+              </div>
+            )}
+            {gwEstado === 'processing' && (
+              <div className="flex flex-col items-center gap-2 text-blue-400">
+                <RotateCw size={36} className="animate-spin" />
+                <p>Procesando pago en terminal...</p>
+              </div>
+            )}
+            {gwEstado === 'approved' && (
+              <div className="flex flex-col items-center gap-2 text-green-400">
+                <CheckCircle2 size={48} />
+                <p className="font-bold">¡Pago aprobado en terminal!</p>
+              </div>
+            )}
+            {(gwEstado === 'rejected' || gwEstado === 'cancelled') && (
+              <div className="flex flex-col items-center gap-2 text-red-400">
+                <XCircle size={40} />
+                <p className="font-bold">Cancelado en terminal</p>
+                <button onClick={cancelarGw} className="text-xs text-slate-400 hover:text-white">Reintentar</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {metodo === 'stripe' && (
+          <div className="mb-4 p-4 bg-iados-card/50 rounded-xl border border-purple-600/30 text-center space-y-3">
+            <p className="text-sm font-bold text-purple-300">Stripe — Tarjeta</p>
+            {gwEstado === 'idle' && (
+              <button onClick={iniciarStripe} disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2">
+                <CreditCard size={16} /> {loading ? 'Procesando...' : 'Iniciar cobro Stripe'}
+              </button>
+            )}
+            {gwEstado === 'pending' && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-center gap-2 text-yellow-400 animate-pulse">
+                  <RotateCw size={14} className="animate-spin" /> Esperando pago...
+                </div>
+                <p className="text-xs text-slate-400">Intent ID: {gwIntentId.substring(0, 20)}...</p>
+                <button onClick={cancelarGw} className="text-xs text-red-400">Cancelar</button>
+              </div>
+            )}
+            {gwEstado === 'approved' && (
+              <div className="flex flex-col items-center gap-2 text-green-400">
+                <CheckCircle2 size={48} />
+                <p className="font-bold">¡Pago Stripe confirmado!</p>
+              </div>
+            )}
+            {(gwEstado === 'rejected' || gwEstado === 'cancelled') && (
+              <div className="flex flex-col items-center gap-2 text-red-400">
+                <XCircle size={40} />
+                <p className="font-bold">Pago cancelado</p>
+                <button onClick={cancelarGw} className="text-xs text-slate-400 hover:text-white">Reintentar</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Confirm / pay buttons ─────────────────────────────────────────── */}
         <button
-          onClick={handlePay}
+          onClick={() => handlePay(false)}
           disabled={!canPay() || loading}
           className="btn-success w-full text-lg disabled:opacity-50"
         >
-          {loading ? 'Procesando...' : `Completar Venta $${total.toFixed(2)}`}
+          {loading ? 'Procesando...' : pedido ? `Cobrar Mesa ${pedido.mesa} — $${total.toFixed(2)}` : `Completar Venta $${total.toFixed(2)}`}
+        </button>
+
+        <button
+          onClick={() => handlePay(true)}
+          disabled={!canPay() || loading}
+          className="w-full mt-2 py-3 px-4 rounded-xl border border-iados-secondary/50 text-iados-secondary hover:bg-iados-secondary/10 text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          <ShoppingBag size={16} />
+          Cobrar y mantener cuenta abierta
         </button>
       </div>
     </div>

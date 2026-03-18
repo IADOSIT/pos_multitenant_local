@@ -61,9 +61,14 @@ export class TicketsService {
     if (config.encabezado_linea2) lines.push(this.center(this.s(config.encabezado_linea2), w));
     if (config.encabezado_linea3) lines.push(this.center(this.s(config.encabezado_linea3), w));
     lines.push('='.repeat(w));
+    if (venta.tipo_servicio === 'para_llevar') {
+      lines.push(this.center('*** PARA LLEVAR ***', w));
+      lines.push('');
+    }
     lines.push(`Folio: ${venta.folio}`);
     lines.push(`Fecha: ${new Date(venta.created_at).toLocaleString('es-MX')}`);
     if (config.mostrar_cajero) lines.push(`Cajero: ${this.s(venta.usuario_nombre || 'N/A')}`);
+    if (venta.notas) lines.push(`Nota: ${this.s(venta.notas)}`);
     lines.push('-'.repeat(w));
 
     // Encabezado productos

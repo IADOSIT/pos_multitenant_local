@@ -7,7 +7,7 @@ interface Props {
 }
 
 export default function CartPanel({ onPay, onEnviarPedido }: Props) {
-  const { cart, updateQuantity, removeFromCart, clearCart, getSubtotal, getImpuestos, getTotal, cajaActiva, modoServicio, tipoCobro, mesaActiva, setMesaActiva } = usePOSStore();
+  const { cart, updateQuantity, removeFromCart, clearCart, getSubtotal, getImpuestos, getTotal, cajaActiva, modoServicio, tipoCobro, mesaActiva, setMesaActiva, tipoServicio, setTipoServicio } = usePOSStore();
 
   const isMesa = modoServicio === 'mesa';
   const isPostPago = isMesa && tipoCobro === 'post_pago';
@@ -37,6 +37,28 @@ export default function CartPanel({ onPay, onEnviarPedido }: Props) {
           />
         </div>
       )}
+
+      {/* Tipo de servicio */}
+      <div className="p-3 border-b border-slate-700">
+        <div className="flex rounded-xl overflow-hidden border border-slate-600">
+          <button
+            onClick={() => setTipoServicio('en_sitio')}
+            className={`flex-1 py-2 text-sm font-medium flex items-center justify-center gap-1 transition-colors ${
+              tipoServicio === 'en_sitio' ? 'bg-iados-primary text-white' : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            🍽️ En sitio
+          </button>
+          <button
+            onClick={() => setTipoServicio('para_llevar')}
+            className={`flex-1 py-2 text-sm font-medium flex items-center justify-center gap-1 transition-colors ${
+              tipoServicio === 'para_llevar' ? 'bg-orange-600 text-white' : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            🥡 Para llevar
+          </button>
+        </div>
+      </div>
 
       {!cajaActiva && !isPostPago && (
         <div className="p-4 bg-amber-900/30 border-b border-amber-700 text-amber-300 text-sm text-center">

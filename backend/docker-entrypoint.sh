@@ -32,6 +32,14 @@ until node -e "
 done
 
 echo "[OK] MySQL listo"
+
+# Copiar imágenes estáticas built-in al volumen (sin sobreescribir uploads del usuario)
+if [ -d "/app/uploads-builtin" ]; then
+  echo "[*] Sincronizando imágenes estáticas al volumen..."
+  cp -rn /app/uploads-builtin/. /app/uploads/ 2>/dev/null || true
+  echo "[OK] Imágenes sincronizadas"
+fi
+
 echo "[*] Iniciando backend..."
 
 exec "$@"

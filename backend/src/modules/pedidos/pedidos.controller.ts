@@ -52,6 +52,12 @@ export class PedidosController {
     return this.service.cobrar(id, pagoData, scope);
   }
 
+  @Post(':id/cobrar-parcial')
+  @Roles('superadmin', 'admin', 'manager', 'cajero')
+  cobrarParcial(@Param('id', ParseIntPipe) id: number, @Body() pagoData: any, @TenantScope() scope) {
+    return this.service.cobrarParcial(id, pagoData, scope);
+  }
+
   @Post(':id/cancelar')
   @Roles('superadmin', 'admin', 'manager')
   cancelar(@Param('id', ParseIntPipe) id: number, @Body('motivo') motivo: string, @TenantScope() scope) {

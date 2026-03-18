@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { tiendasApi, empresasApi, menuDigitalApi } from '../../api/endpoints';
+import { tiendasApi, empresasApi, menuDigitalApi, pagosGatewayApi } from '../../api/endpoints';
 import api, { resolveUploadUrl } from '../../api/client';
 import { useAuthStore } from '../../store/auth.store';
 import TicketsConfig from './TicketsConfig';
 import { useThemeStore, ThemeName, PaletteName } from '../../store/theme.store';
 import toast from 'react-hot-toast';
-import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key } from 'lucide-react';
+import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff } from 'lucide-react';
 import QRCode from 'qrcode';
 
 const THEMES: { key: ThemeName; name: string; desc: string; previewStyle: React.CSSProperties }[] = [
@@ -44,6 +44,13 @@ export default function ConfiguracionPage() {
   const [systemInfo, setSystemInfo] = useState<any>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [copiedUrl, setCopiedUrl] = useState<string>('');
+  // Pagos Gateway
+  const [gwConfig, setGwConfig]           = useState<any>(null);
+  const [gwForm, setGwForm]               = useState<any>({});
+  const [gwSaving, setGwSaving]           = useState(false);
+  const [gwShowMpToken, setGwShowMpToken] = useState(false);
+  const [gwShowStripeKey, setGwShowStripeKey] = useState(false);
+
   // Menu Digital
   const [mdStatus, setMdStatus]       = useState<any>(null);
   const [mdLogs, setMdLogs]           = useState<any[]>([]);
@@ -285,6 +292,57 @@ export default function ConfiguracionPage() {
       }
     } catch {}
   }, []);
+
+  const loadGwConfig = useCallback(async () => {
+    try {
+      const { data } = await pagosGatewayApi.getConfig();
+      setGwConfig(data);
+      setGwForm({
+        mp_access_token: data.mp_access_token || '',
+        mp_public_key: data.mp_public_key || '',
+        mp_user_id: data.mp_user_id || '',
+        mp_point_device_id: data.mp_point_device_id || '',
+        stripe_secret_key: data.stripe_secret_key || '',
+        stripe_publishable_key: data.stripe_publishable_key || '',
+        stripe_webhook_secret: data.stripe_webhook_secret || '',
+        mp_qr_habilitado: data.opciones?.mp_qr_habilitado ?? false,
+        mp_point_habilitado: data.opciones?.mp_point_habilitado ?? false,
+        stripe_habilitado: data.opciones?.stripe_habilitado ?? false,
+        confirmacion_automatica: data.opciones?.confirmacion_automatica ?? true,
+        comision_mp_porcentaje: data.opciones?.comision_mp_porcentaje ?? 3.49,
+        comision_stripe_porcentaje: data.opciones?.comision_stripe_porcentaje ?? 3.6,
+      });
+    } catch {}
+  }, []);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { loadGwConfig(); }, []);
+
+  const saveGwConfig = async () => {
+    setGwSaving(true);
+    try {
+      await pagosGatewayApi.saveConfig({
+        mp_access_token: gwForm.mp_access_token,
+        mp_public_key: gwForm.mp_public_key,
+        mp_user_id: gwForm.mp_user_id,
+        mp_point_device_id: gwForm.mp_point_device_id,
+        stripe_secret_key: gwForm.stripe_secret_key,
+        stripe_publishable_key: gwForm.stripe_publishable_key,
+        stripe_webhook_secret: gwForm.stripe_webhook_secret,
+        opciones: {
+          mp_qr_habilitado: gwForm.mp_qr_habilitado,
+          mp_point_habilitado: gwForm.mp_point_habilitado,
+          stripe_habilitado: gwForm.stripe_habilitado,
+          confirmacion_automatica: gwForm.confirmacion_automatica,
+          comision_mp_porcentaje: Number(gwForm.comision_mp_porcentaje),
+          comision_stripe_porcentaje: Number(gwForm.comision_stripe_porcentaje),
+        },
+      });
+      toast.success('Configuración de pagos guardada');
+      loadGwConfig();
+    } catch { toast.error('Error al guardar configuración de pagos'); }
+    finally { setGwSaving(false); }
+  };
 
   const saveMdConfig = async () => {
     if (!selected?.id) return;
@@ -1104,6 +1162,113 @@ export default function ConfiguracionPage() {
                     <input type="checkbox" checked={form.impresora_auto_print} onChange={(e) => setForm({ ...form, impresora_auto_print: e.target.checked })} className="w-5 h-5 rounded" />
                     <span className="text-sm">Imprimir automaticamente al completar venta</span>
                   </label>
+                </div>
+              )}
+
+              {/* Seccion: Pasarelas de Pago */}
+              <SectionHeader id="pagos" icon={CreditCard} title="Pasarelas de Pago" />
+              {expandedSection === 'pagos' && (
+                <div className="card space-y-4">
+                  <p className="text-xs text-slate-400">Conecta MercadoPago o Stripe para cobrar con QR o terminal físico. Las claves se almacenan cifradas por tienda.</p>
+
+                  {/* MercadoPago */}
+                  <div className="border border-blue-600/30 rounded-xl p-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-sm flex items-center gap-2 text-blue-300"><Wifi size={15} /> MercadoPago</h4>
+                      <div className="flex items-center gap-3">
+                        <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                          <input type="checkbox" checked={gwForm.mp_qr_habilitado || false} onChange={e => setGwForm({ ...gwForm, mp_qr_habilitado: e.target.checked })} className="w-4 h-4 rounded" />
+                          QR
+                        </label>
+                        <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                          <input type="checkbox" checked={gwForm.mp_point_habilitado || false} onChange={e => setGwForm({ ...gwForm, mp_point_habilitado: e.target.checked })} className="w-4 h-4 rounded" />
+                          Point
+                        </label>
+                      </div>
+                    </div>
+                    <div className="grid gap-2">
+                      <div>
+                        <label className="text-xs text-slate-400">Access Token</label>
+                        <div className="relative">
+                          <input
+                            type={gwShowMpToken ? 'text' : 'password'}
+                            value={gwForm.mp_access_token || ''}
+                            onChange={e => setGwForm({ ...gwForm, mp_access_token: e.target.value })}
+                            placeholder="APP_USR-xxxxx..."
+                            className="input-touch pr-10 text-xs"
+                          />
+                          <button onClick={() => setGwShowMpToken(!gwShowMpToken)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400">
+                            {gwShowMpToken ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400">Public Key</label>
+                        <input type="text" value={gwForm.mp_public_key || ''} onChange={e => setGwForm({ ...gwForm, mp_public_key: e.target.value })} placeholder="APP_USR-xxxxx..." className="input-touch text-xs" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs text-slate-400">User ID (Collector)</label>
+                          <input type="text" value={gwForm.mp_user_id || ''} onChange={e => setGwForm({ ...gwForm, mp_user_id: e.target.value })} placeholder="123456789" className="input-touch text-xs" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-400">Point Device ID</label>
+                          <input type="text" value={gwForm.mp_point_device_id || ''} onChange={e => setGwForm({ ...gwForm, mp_point_device_id: e.target.value })} placeholder="PAX_A910__..." className="input-touch text-xs" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400">Comisión MP % (info, no se descuenta automáticamente)</label>
+                        <input type="number" step="0.01" value={gwForm.comision_mp_porcentaje ?? 3.49} onChange={e => setGwForm({ ...gwForm, comision_mp_porcentaje: e.target.value })} className="input-touch text-xs" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Stripe */}
+                  <div className="border border-purple-600/30 rounded-xl p-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-sm flex items-center gap-2 text-purple-300"><CreditCard size={15} /> Stripe</h4>
+                      <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                        <input type="checkbox" checked={gwForm.stripe_habilitado || false} onChange={e => setGwForm({ ...gwForm, stripe_habilitado: e.target.checked })} className="w-4 h-4 rounded" />
+                        Habilitado
+                      </label>
+                    </div>
+                    <div className="grid gap-2">
+                      <div>
+                        <label className="text-xs text-slate-400">Secret Key</label>
+                        <div className="relative">
+                          <input
+                            type={gwShowStripeKey ? 'text' : 'password'}
+                            value={gwForm.stripe_secret_key || ''}
+                            onChange={e => setGwForm({ ...gwForm, stripe_secret_key: e.target.value })}
+                            placeholder="sk_live_xxxx... o sk_test_xxxx..."
+                            className="input-touch pr-10 text-xs"
+                          />
+                          <button onClick={() => setGwShowStripeKey(!gwShowStripeKey)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400">
+                            {gwShowStripeKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400">Publishable Key</label>
+                        <input type="text" value={gwForm.stripe_publishable_key || ''} onChange={e => setGwForm({ ...gwForm, stripe_publishable_key: e.target.value })} placeholder="pk_live_xxxx..." className="input-touch text-xs" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400">Comisión Stripe % (info)</label>
+                        <input type="number" step="0.01" value={gwForm.comision_stripe_porcentaje ?? 3.6} onChange={e => setGwForm({ ...gwForm, comision_stripe_porcentaje: e.target.value })} className="input-touch text-xs" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* General options */}
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={gwForm.confirmacion_automatica ?? true} onChange={e => setGwForm({ ...gwForm, confirmacion_automatica: e.target.checked })} className="w-5 h-5 rounded" />
+                    <span className="text-sm">Confirmación automática (polling cada 3s)</span>
+                  </label>
+                  <p className="text-xs text-slate-500">Si se desactiva, el cajero confirmará manualmente el pago del gateway.</p>
+
+                  <button onClick={saveGwConfig} disabled={gwSaving} className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50">
+                    <Save size={16} /> {gwSaving ? 'Guardando...' : 'Guardar Configuración de Pagos'}
+                  </button>
                 </div>
               )}
 

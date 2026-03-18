@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { mesasApi, usersApi } from '../../api/endpoints';
+import { mesasApi, usersApi, pedidosApi } from '../../api/endpoints';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../../store/auth.store';
-import { Grid3X3, Plus, Trash2, Edit2, QrCode, UserCheck, Link2, Unlink, Printer, User, ChevronDown } from 'lucide-react';
+import { Grid3X3, Plus, Trash2, Edit2, QrCode, UserCheck, Link2, Unlink, Printer, User, ChevronDown, CreditCard } from 'lucide-react';
+import PayModal from '../../components/pos/PayModal';
 
 // Paleta de colores por mesero
 const MESERO_COLORS = [
@@ -17,6 +18,7 @@ export default function MesasAdmin() {
   const [asignaciones, setAsignaciones] = useState<any[]>([]);
   const [juntas, setJuntas] = useState<any[]>([]);
   const [meseros, setMeseros] = useState<any[]>([]);
+  const [pedidosPendientes, setPedidosPendientes] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
   const [showJuntar, setShowJuntar] = useState(false);
@@ -25,24 +27,30 @@ export default function MesasAdmin() {
   const [form, setForm] = useState({ numero: '', nombre: '', zona: '', capacidad: '4' });
   const [view, setView] = useState<'mesas' | 'meseros'>('mesas');
   const [dragMesaId, setDragMesaId] = useState<number | null>(null);
+  const [pedidoACobrar, setPedidoACobrar] = useState<any>(null);
 
   useEffect(() => { load(); }, []);
 
   const load = async () => {
     try {
-      const [m, a, j, u] = await Promise.all([
+      const [m, a, j, u, p] = await Promise.all([
         mesasApi.list(),
         mesasApi.getAsignaciones(),
         mesasApi.getJuntas(),
         usersApi ? usersApi.list() : Promise.resolve({ data: [] }),
+        pedidosApi.pendientes(),
       ]);
       setMesas(m.data);
       setAsignaciones(a.data);
       setJuntas(j.data);
+      setPedidosPendientes(p.data || []);
       const meserosList = (u.data || []).filter((u: any) => ['mesero', 'admin', 'superadmin'].includes(u.rol));
       setMeseros(meserosList);
     } catch { toast.error('Error cargando mesas'); }
   };
+
+  const getPedidoMesa = (numero: number) =>
+    pedidosPendientes.find((p) => Number(p.mesa) === Number(numero));
 
   const handleSave = async () => {
     if (!form.numero) return toast.error('El número de mesa es obligatorio');
@@ -205,20 +213,39 @@ export default function MesasAdmin() {
             const asig = getAsignado(mesa.id);
             const junta = getJuntada(mesa.id);
             const colorClass = asig ? getMeseroColor(asig.user_id) : '';
+            const pedidoMesa = getPedidoMesa(mesa.numero);
             return (
-              <div key={mesa.id} className="card space-y-3">
+              <div key={mesa.id} className={`card space-y-3 ${pedidoMesa ? 'ring-1 ring-orange-500/40' : ''}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-xl ${asig ? colorClass : 'bg-slate-700 text-slate-300'}`}>
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-xl relative ${pedidoMesa ? 'bg-orange-600 text-white' : asig ? colorClass : 'bg-slate-700 text-slate-300'}`}>
                       {mesa.numero}
+                      {pedidoMesa && (
+                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border border-iados-surface" />
+                      )}
                     </div>
                     <div>
                       {mesa.nombre && <p className="text-xs text-slate-400">{mesa.nombre}</p>}
                       {mesa.zona && <p className="text-xs text-slate-500">{mesa.zona}</p>}
                       <p className="text-xs text-slate-600">{mesa.capacidad} pax</p>
+                      {pedidoMesa && (
+                        <p className="text-xs text-orange-400 font-medium">
+                          💳 ${Number(pedidoMesa.total).toFixed(2)} · {pedidoMesa.detalles?.length || 0} items
+                          {pedidoMesa.cuenta_abierta && ' · Parcial'}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex gap-1">
+                    {pedidoMesa && (
+                      <button
+                        onClick={() => setPedidoACobrar(pedidoMesa)}
+                        className="p-1.5 bg-green-700 hover:bg-green-600 rounded-lg text-white"
+                        title="Cobrar"
+                      >
+                        <CreditCard size={15} />
+                      </button>
+                    )}
                     <button onClick={() => handlePrintQR(mesa)} className="p-1.5 hover:bg-iados-card rounded-lg text-iados-secondary" title="QR">
                       <QrCode size={15} />
                     </button>
@@ -368,6 +395,15 @@ export default function MesasAdmin() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal cobro desde Mesas */}
+      {pedidoACobrar && (
+        <PayModal
+          onClose={() => { setPedidoACobrar(null); load(); }}
+          isOnline={true}
+          pedido={pedidoACobrar}
+        />
       )}
     </div>
   );

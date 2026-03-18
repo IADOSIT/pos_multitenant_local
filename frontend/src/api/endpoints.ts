@@ -112,6 +112,7 @@ export const pedidosApi = {
   get: (id: number) => api.get(`/pedidos/${id}`),
   updateEstado: (id: number, estado: string) => api.patch(`/pedidos/${id}/estado`, { estado }),
   cobrar: (id: number, pagoData: any) => api.post(`/pedidos/${id}/cobrar`, pagoData),
+  cobrarParcial: (id: number, pagoData: any) => api.post(`/pedidos/${id}/cobrar-parcial`, pagoData),
   cancelar: (id: number, motivo: string) => api.post(`/pedidos/${id}/cancelar`, { motivo }),
 };
 
@@ -248,6 +249,23 @@ export const encuestasApi = {
   list: (limit?: number) => api.get('/encuestas', { params: { limit } }),
   kpis: (desde?: string, hasta?: string) =>
     api.get('/encuestas/kpis', { params: { desde, hasta } }),
+};
+
+// Pasarelas de Pago
+export const pagosGatewayApi = {
+  getConfig:        () => api.get('/pagos-gateway/config'),
+  saveConfig:       (data: any) => api.put('/pagos-gateway/config', data),
+  // MP QR
+  crearQrMP:        (body: any) => api.post('/pagos-gateway/mp/qr', body),
+  getEstadoMP:      (externalId: string) => api.get(`/pagos-gateway/mp/estado/${externalId}`),
+  // MP Point
+  crearPointMP:     (body: any) => api.post('/pagos-gateway/mp/point', body),
+  getEstadoPoint:   (intentId: string) => api.get(`/pagos-gateway/mp/point/${intentId}`),
+  // Stripe
+  crearStripeIntent:(body: any) => api.post('/pagos-gateway/stripe/intent', body),
+  getEstadoStripe:  (intentId: string) => api.get(`/pagos-gateway/stripe/estado/${intentId}`),
+  // History
+  getTransacciones: (limit?: number) => api.get('/pagos-gateway/transacciones', { params: { limit } }),
 };
 
 // Backup / Mantenimiento

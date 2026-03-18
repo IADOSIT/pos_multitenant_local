@@ -34,6 +34,7 @@ export class PedidosService {
       total: data.total,
       notas: data.notas,
       cliente_nombre: data.cliente_nombre,
+      tipo_servicio: data.tipo_servicio || 'en_sitio',
       detalles: data.items.map((item: any) => ({
         producto_id: item.producto_id,
         producto_nombre: item.nombre,
@@ -141,7 +142,7 @@ export class PedidosService {
   async cobrar(id: number, pagoData: any, scope: any) {
     const pedido = await this.findOne(id);
     if (!pedido) throw new BadRequestException('Pedido no encontrado');
-    if (pedido.venta_id) throw new BadRequestException('Pedido ya cobrado');
+    if (pedido.venta_id && !pedido.cuenta_abierta) throw new BadRequestException('Pedido ya cobrado');
     if (pedido.estado === PedidoEstado.CANCELADO) throw new BadRequestException('Pedido cancelado');
 
     // Build venta data from pedido + payment info
@@ -198,6 +199,48 @@ export class PedidosService {
     });
 
     this.logger.log(`Pedido ${pedido.folio} cobrado - Venta ${venta.folio}`);
+    return { pedido, venta };
+  }
+
+  async cobrarParcial(id: number, pagoData: any, scope: any) {
+    const pedido = await this.findOne(id);
+    if (!pedido) throw new BadRequestException('Pedido no encontrado');
+    if (pedido.estado === PedidoEstado.CANCELADO) throw new BadRequestException('Pedido cancelado');
+    if (pedido.estado === PedidoEstado.ENTREGADO) throw new BadRequestException('Pedido ya cerrado');
+
+    const ventaData = {
+      caja_id: pagoData.caja_id,
+      items: pedido.detalles.map((d) => ({
+        producto_id: d.producto_id,
+        nombre: d.producto_nombre,
+        sku: d.producto_sku,
+        precio: Number(d.precio_unitario),
+        cantidad: Number(d.cantidad),
+        descuento: Number(d.descuento),
+        impuesto: Number(d.impuesto),
+        modificadores: d.modificadores,
+        notas: d.notas,
+      })),
+      subtotal: Number(pedido.subtotal),
+      descuento: Number(pedido.descuento),
+      impuestos: Number(pedido.impuestos),
+      total: Number(pedido.total),
+      metodo_pago: pagoData.metodo_pago,
+      pago_efectivo: pagoData.pago_efectivo,
+      pago_tarjeta: pagoData.pago_tarjeta,
+      pago_transferencia: pagoData.pago_transferencia,
+      cambio: pagoData.cambio || 0,
+      notas: `Mesa ${pedido.mesa} - Pago parcial${pedido.notas ? ' | ' + pedido.notas : ''}`,
+      cliente_nombre: pedido.cliente_nombre,
+      tipo_servicio: pedido.tipo_servicio,
+      pagos: pagoData.pagos || [],
+    };
+
+    const venta = await this.ventasService.crear(ventaData, scope);
+    pedido.cuenta_abierta = true;
+    await this.pedidosRepo.save(pedido);
+
+    this.logger.log(`Pedido ${pedido.folio} - pago parcial - Venta ${venta.folio}`);
     return { pedido, venta };
   }
 

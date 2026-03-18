@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { usePOSStore } from '../../store/pos.store';
 import { useAuthStore } from '../../store/auth.store';
 import { offlineActions } from '../../store/offline.store';
@@ -8,7 +8,7 @@ import { Producto, Categoria } from '../../types';
 import toast from 'react-hot-toast';
 import CartPanel from '../../components/pos/CartPanel';
 import PayModal from '../../components/pos/PayModal';
-import { Search, ShoppingBag, Wifi, WifiOff } from 'lucide-react';
+import { Search, ShoppingBag, Wifi, WifiOff, CreditCard, X, Clock, RefreshCw } from 'lucide-react';
 
 export default function POSPage() {
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -17,20 +17,37 @@ export default function POSPage() {
   const [showPay, setShowPay] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [cartVisible, setCartVisible] = useState(false);
+  const [cuentasAbiertas, setCuentasAbiertas] = useState<any[]>([]);
+  const [showCuentas, setShowCuentas] = useState(false);
+  const [pedidoACobrar, setPedidoACobrar] = useState<any>(null);
 
   const { user } = useAuthStore();
-  const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, clearCart } = usePOSStore();
+  const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, tipoServicio, clearCart } = usePOSStore();
+
+  const loadCuentasAbiertas = useCallback(async () => {
+    try {
+      const { data } = await pedidosApi.pendientes();
+      setCuentasAbiertas(data);
+    } catch {}
+  }, []);
 
   useEffect(() => {
     loadData();
     loadCaja();
     loadTiendaConfig();
+    loadCuentasAbiertas();
     const onOnline = () => setIsOnline(true);
     const onOffline = () => setIsOnline(false);
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
-    return () => { window.removeEventListener('online', onOnline); window.removeEventListener('offline', onOffline); };
-  }, []);
+    // Refresco automático cada 30s
+    const interval = setInterval(loadCuentasAbiertas, 30000);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+      clearInterval(interval);
+    };
+  }, [loadCuentasAbiertas]);
 
   const loadTiendaConfig = async () => {
     if (!user?.tienda_id) return;
@@ -95,6 +112,7 @@ export default function POSPage() {
     try {
       const data = {
         mesa: mesaActiva,
+        tipo_servicio: tipoServicio,
         items: cart.map((i) => ({
           producto_id: i.producto_id,
           nombre: i.nombre,
@@ -113,9 +131,50 @@ export default function POSPage() {
       const { data: pedido } = await pedidosApi.crear(data);
       toast.success(`Pedido ${pedido.folio} enviado - Mesa ${mesaActiva}`);
       clearCart();
+      loadCuentasAbiertas();
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Error al enviar pedido');
     }
+  };
+
+  const handleCargarAlCarrito = (pedido: any) => {
+    if (cart.length > 0) {
+      if (!confirm('El carrito actual tiene items. ¿Reemplazar con los items de esta cuenta?')) return;
+      clearCart();
+    }
+    pedido.detalles?.forEach((d: any) => {
+      addToCart({
+        id: d.producto_id,
+        nombre: d.producto_nombre,
+        sku: d.producto_sku,
+        precio: Number(d.precio_unitario),
+        categoria_id: 0,
+        descripcion: '',
+        imagen_url: '',
+        disponible: true,
+        en_pos: true,
+      } as Producto, Number(d.cantidad));
+    });
+    setShowCuentas(false);
+    toast.success(`Mesa ${pedido.mesa} cargada al carrito`);
+  };
+
+  const handleCobrarPedido = (pedido: any) => {
+    setPedidoACobrar(pedido);
+    setShowCuentas(false);
+    setShowPay(true);
+  };
+
+  const tiempoTranscurrido = (fecha: string) => {
+    const mins = Math.floor((Date.now() - new Date(fecha).getTime()) / 60000);
+    if (mins < 60) return `${mins}min`;
+    return `${Math.floor(mins / 60)}h ${mins % 60}min`;
+  };
+
+  const estadoColor: Record<string, string> = {
+    recibido: 'text-blue-400',
+    en_elaboracion: 'text-yellow-400',
+    listo_para_entrega: 'text-green-400',
   };
 
   return (
@@ -137,12 +196,28 @@ export default function POSPage() {
               className="input-touch pl-10"
             />
           </div>
+
+          {/* Botón Cuentas Abiertas */}
+          <button
+            onClick={() => { setShowCuentas(true); loadCuentasAbiertas(); }}
+            className="relative flex items-center gap-1.5 px-3 py-2 rounded-xl bg-iados-card border border-slate-600 hover:border-iados-secondary text-sm font-medium transition-colors shrink-0"
+          >
+            <CreditCard size={16} />
+            <span className="hidden sm:inline">Cuentas</span>
+            {cuentasAbiertas.length > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 bg-orange-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
+                {cuentasAbiertas.length}
+              </span>
+            )}
+          </button>
+
           <div className="flex items-center gap-1 text-xs text-slate-400">
             {isOnline ? <Wifi size={16} className="text-green-400" /> : <WifiOff size={16} className="text-red-400" />}
             {modoServicio === 'mesa' && (
               <span className="ml-1 px-2 py-0.5 bg-iados-primary/30 text-iados-accent rounded text-xs">Mesa</span>
             )}
           </div>
+
           {/* Boton carrito movil */}
           <button
             className="lg:hidden btn-accent relative"
@@ -217,7 +292,7 @@ export default function POSPage() {
       <div className={`${cartVisible ? 'fixed inset-0 z-40 lg:relative' : 'hidden lg:flex'} lg:w-96 flex flex-col bg-iados-surface border-l border-slate-700`}>
         <button className="lg:hidden absolute top-2 right-2 z-50 p-2 text-slate-400" onClick={() => setCartVisible(false)}>✕</button>
         <CartPanel
-          onPay={() => { setShowPay(true); setCartVisible(false); }}
+          onPay={() => { setShowPay(true); setCartVisible(false); setPedidoACobrar(null); }}
           onEnviarPedido={handleEnviarPedido}
         />
       </div>
@@ -225,9 +300,100 @@ export default function POSPage() {
       {/* Modal de pago */}
       {showPay && (
         <PayModal
-          onClose={() => setShowPay(false)}
+          onClose={() => { setShowPay(false); setPedidoACobrar(null); loadCuentasAbiertas(); }}
           isOnline={isOnline}
+          pedido={pedidoACobrar}
         />
+      )}
+
+      {/* Panel: Cuentas Abiertas */}
+      {showCuentas && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="card w-full max-w-2xl max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4 shrink-0">
+              <div className="flex items-center gap-2">
+                <CreditCard size={20} className="text-iados-secondary" />
+                <h2 className="text-xl font-bold">Cuentas Abiertas</h2>
+                <span className="bg-orange-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                  {cuentasAbiertas.length}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={loadCuentasAbiertas} className="p-2 hover:bg-iados-card rounded-xl text-slate-400" title="Refrescar">
+                  <RefreshCw size={16} />
+                </button>
+                <button onClick={() => setShowCuentas(false)} className="p-2 hover:bg-iados-card rounded-xl">
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Lista */}
+            <div className="overflow-y-auto flex-1 space-y-3 pr-1">
+              {cuentasAbiertas.length === 0 ? (
+                <div className="text-center text-slate-500 py-16">
+                  <CreditCard size={48} className="mx-auto mb-3 opacity-20" />
+                  <p>No hay cuentas abiertas</p>
+                </div>
+              ) : (
+                cuentasAbiertas.map((p) => (
+                  <div key={p.id} className="bg-iados-card rounded-xl p-4 flex gap-3">
+                    {/* Mesa badge */}
+                    <div className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center font-black shrink-0 text-white ${p.cuenta_abierta ? 'bg-orange-600' : 'bg-iados-primary'}`}>
+                      <span className="text-xs font-normal opacity-80">Mesa</span>
+                      <span className="text-xl leading-none">{p.mesa}</span>
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-bold">{p.folio}</span>
+                        {p.cuenta_abierta && (
+                          <span className="text-xs bg-orange-500/20 text-orange-300 px-2 py-0.5 rounded-full border border-orange-500/30">
+                            Pago parcial
+                          </span>
+                        )}
+                        <span className={`text-xs ${estadoColor[p.estado] || 'text-slate-400'}`}>
+                          {p.estado.replace('_', ' ')}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 truncate">
+                        {p.detalles?.slice(0, 3).map((d: any) => d.producto_nombre).join(', ')}
+                        {p.detalles?.length > 3 && ` +${p.detalles.length - 3} más`}
+                      </p>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-lg font-bold text-iados-accent">${Number(p.total).toFixed(2)}</span>
+                        <span className="text-xs text-slate-500 flex items-center gap-1">
+                          <Clock size={10} />{tiempoTranscurrido(p.created_at)}
+                        </span>
+                        {p.tipo_servicio === 'para_llevar' && (
+                          <span className="text-xs text-orange-400">🥡 Para llevar</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Acciones */}
+                    <div className="flex flex-col gap-2 shrink-0">
+                      <button
+                        onClick={() => handleCobrarPedido(p)}
+                        className="btn-success text-xs px-3 py-2 flex items-center gap-1"
+                      >
+                        <CreditCard size={13} /> Cobrar
+                      </button>
+                      <button
+                        onClick={() => handleCargarAlCarrito(p)}
+                        className="btn-secondary text-xs px-3 py-2 flex items-center gap-1"
+                      >
+                        <ShoppingBag size={13} /> Cargar
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

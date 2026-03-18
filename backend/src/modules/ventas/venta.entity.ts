@@ -81,6 +81,9 @@ export class Venta {
   @Column({ length: 200, nullable: true })
   cliente_nombre: string;
 
+  @Column({ length: 20, default: 'en_sitio' })
+  tipo_servicio: string; // 'en_sitio' | 'para_llevar'
+
   @Column({ default: false })
   sincronizado: boolean;
 

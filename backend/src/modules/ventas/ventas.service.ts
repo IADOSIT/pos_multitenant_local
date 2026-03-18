@@ -41,6 +41,7 @@ export class VentasService {
       cambio: data.cambio || 0,
       notas: data.notas,
       cliente_nombre: data.cliente_nombre,
+      tipo_servicio: data.tipo_servicio || 'en_sitio',
       sincronizado: !data.folio_offline,
       detalles: data.items.map((item: any) => ({
         producto_id: item.producto_id,

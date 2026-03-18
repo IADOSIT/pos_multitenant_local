@@ -204,7 +204,16 @@
       "Bash(cd /c/sites/pos_multitenant_local/installer/staging/app/backend && rm -rf dist && mv dist_new dist && echo \"dist swapped OK\" && ls dist/ | head -5)",
       "Bash(cd /c/sites/pos_multitenant_local/installer/staging/app/backend && rm -rf dist && mv dist_new dist && echo \"dist OK\")",
       "Bash(cd \"C:\\\\sites\\\\pos_multitenant_local\\\\installer\" && powershell -File \"build-exe.ps1\" -Version \"2.2.21\" -Mode local -RuntimeSource \"v1.0.0\")",
-      "Bash(mysql -h 127.0.0.1 -P 3306 -u pos_iados -ppos_iados_2024 pos_iados -e \"SHOW GRANTS FOR 'pos_iados'@'%';\" 2>/dev/null; mysql -h 127.0.0.1 -P 3306 -u pos_iados -ppos_iados_2024 pos_iados -e \"SHOW TABLES;\" 2>/dev/null | head -5)"
+      "Bash(mysql -h 127.0.0.1 -P 3306 -u pos_iados -ppos_iados_2024 pos_iados -e \"SHOW GRANTS FOR 'pos_iados'@'%';\" 2>/dev/null; mysql -h 127.0.0.1 -P 3306 -u pos_iados -ppos_iados_2024 pos_iados -e \"SHOW TABLES;\" 2>/dev/null | head -5)",
+      "Bash(cat > /tmp/seed_header.sql << 'HEADER'\n-- ============================================================\n-- POS-iaDoS v2.2.22: Seed completo desde BD local\n-- Incluye: tenants, empresas, tiendas, users, categorias,\n--          productos, cajas, mesas, materia_prima, licencias\n-- Se ejecuta DESPUES de que el backend haya arrancado 1 vez\n-- \\(TypeORM crea las tablas, este seed las puebla\\)\n-- ============================================================\n\nUSE pos_iados;\n\nSET SESSION check_constraint_checks=OFF;\nSET FOREIGN_KEY_CHECKS=0;\n\n-- Limpiar tablas en orden seguro\nTRUNCATE TABLE menu_digital_snapshot;\nTRUNCATE TABLE menu_digital_config;\nTRUNCATE TABLE menu_digital_log;\nTRUNCATE TABLE mesa_asignaciones;\nTRUNCATE TABLE mesas_juntas;\nTRUNCATE TABLE mesas;\nTRUNCATE TABLE producto_tienda;\nTRUNCATE TABLE materia_prima;\nTRUNCATE TABLE productos;\nTRUNCATE TABLE categorias;\nTRUNCATE TABLE ticket_configs;\nTRUNCATE TABLE cajas;\nTRUNCATE TABLE licencias;\nTRUNCATE TABLE users;\nTRUNCATE TABLE tiendas;\nTRUNCATE TABLE empresas;\nTRUNCATE TABLE tenants;\n\nHEADER\necho \"Header listo\")",
+      "Bash(cd \"C:\\\\sites\\\\pos_multitenant_local\\\\installer\" && powershell -File \"build-exe.ps1\" -Version \"2.2.22\" -Mode local -RuntimeSource \"v1.0.0\")",
+      "Bash(cd \"C:\\\\sites\\\\pos_multitenant_local\\\\installer\" && powershell -File \"build-exe.ps1\" -Version \"2.2.23\" -Mode local -RuntimeSource \"v1.0.0\")",
+      "Bash(cd \"C:\\\\sites\\\\pos_multitenant_local\\\\installer\" && powershell -File \"build-exe.ps1\" -Version \"2.2.24\" -Mode local -RuntimeSource \"v1.0.0\")",
+      "Bash(cd \"C:/sites/pos_multitenant_local/installer/staging/app/backend\" && rm -rf dist && mv dist_new dist && echo \"dist swapped\")",
+      "Bash(cp -r \"C:/sites/pos_multitenant_local/frontend/dist-prod/.\" \"C:/sites/pos_multitenant_local/installer/staging/app/frontend/dist-prod/\" && echo \"Frontend copied\")",
+      "Bash(cd \"C:/sites/pos_multitenant_local/installer\" && powershell -File build-exe.ps1 -Version 2.2.25 -Mode local -RuntimeSource v1.0.0 2>&1 | tail -30)",
+      "Bash(cd \"C:/sites/pos_multitenant_local/installer\" && powershell -ExecutionPolicy Bypass -File build-exe.ps1 -Version 2.2.25 -Mode local -RuntimeSource v1.0.0 2>&1 | tee /tmp/build_output.txt | tail -50)",
+      "Bash(du -sh \"C:/sites/pos_multitenant_local/installer/output/POS-iaDoS-Local-v2.2.25-src/\"* 2>/dev/null | sort -h)"
     ]
   }
 }

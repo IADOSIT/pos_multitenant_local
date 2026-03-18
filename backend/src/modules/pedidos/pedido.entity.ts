@@ -75,6 +75,12 @@ export class Pedido {
   @Column({ length: 100, nullable: true })
   encuesta_token: string;
 
+  @Column({ length: 20, default: 'en_sitio' })
+  tipo_servicio: string; // 'en_sitio' | 'para_llevar'
+
+  @Column({ default: false })
+  cuenta_abierta: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 

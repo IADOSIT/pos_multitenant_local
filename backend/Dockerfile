@@ -16,6 +16,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install --omit=dev
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/uploads ./uploads-builtin
 COPY --from=builder /app/docker-entrypoint.sh /docker-entrypoint.sh
 
 RUN chmod +x /docker-entrypoint.sh

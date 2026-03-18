@@ -15,6 +15,7 @@ interface POSState {
   mesaActiva: number | null;
   modoServicio: 'autoservicio' | 'mesa';
   tipoCobro: 'pago_inmediato' | 'post_pago';
+  tipoServicio: 'en_sitio' | 'para_llevar';
   ivaConfig: IvaConfig;
 
   setCajaActiva: (caja: CajaActiva | null) => void;
@@ -22,6 +23,7 @@ interface POSState {
   setMesaActiva: (mesa: number | null) => void;
   setModoServicio: (modo: 'autoservicio' | 'mesa') => void;
   setTipoCobro: (tipo: 'pago_inmediato' | 'post_pago') => void;
+  setTipoServicio: (tipo: 'en_sitio' | 'para_llevar') => void;
   setIvaConfig: (config: IvaConfig) => void;
 
   addToCart: (producto: Producto, cantidad?: number) => void;
@@ -43,6 +45,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
   mesaActiva: null,
   modoServicio: 'autoservicio',
   tipoCobro: 'pago_inmediato',
+  tipoServicio: 'en_sitio',
   ivaConfig: { enabled: false, porcentaje: 16, incluido: true },
 
   setCajaActiva: (caja) => set({ cajaActiva: caja }),
@@ -50,6 +53,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
   setMesaActiva: (mesa) => set({ mesaActiva: mesa }),
   setModoServicio: (modo) => set({ modoServicio: modo }),
   setTipoCobro: (tipo) => set({ tipoCobro: tipo }),
+  setTipoServicio: (tipo) => set({ tipoServicio: tipo }),
   setIvaConfig: (config) => set({ ivaConfig: config }),
 
   addToCart: (producto, cantidad = 1) => {
