@@ -200,7 +200,10 @@
       "Read(//c/sites/pos_multitenant_local/backend/**)",
       "Bash(cd /c/sites/pos_multitenant_local/frontend && VITE_API_URL=/api npm run build 2>&1 | grep -E \"built|error|Error|warning\" | head -15)",
       "Bash(ls -la /c/sites/pos_multitenant_local/frontend/dist-prod/assets/index-*.js | sort -k6 -r | head -3)",
-      "Bash(rm -rf /c/sites/pos_multitenant_local/installer/staging/app/backend/public && cp -r /c/sites/pos_multitenant_local/frontend/dist-prod /c/sites/pos_multitenant_local/installer/staging/app/backend/public && echo \"public synced\" && ls /c/sites/pos_multitenant_local/installer/staging/app/backend/public/)"
+      "Bash(rm -rf /c/sites/pos_multitenant_local/installer/staging/app/backend/public && cp -r /c/sites/pos_multitenant_local/frontend/dist-prod /c/sites/pos_multitenant_local/installer/staging/app/backend/public && echo \"public synced\" && ls /c/sites/pos_multitenant_local/installer/staging/app/backend/public/)",
+      "Bash(cd /c/sites/pos_multitenant_local/installer/staging/app/backend && rm -rf dist && mv dist_new dist && echo \"dist swapped OK\" && ls dist/ | head -5)",
+      "Bash(cd /c/sites/pos_multitenant_local/installer/staging/app/backend && rm -rf dist && mv dist_new dist && echo \"dist OK\")",
+      "Bash(cd \"C:\\\\sites\\\\pos_multitenant_local\\\\installer\" && powershell -File \"build-exe.ps1\" -Version \"2.2.21\" -Mode local -RuntimeSource \"v1.0.0\")"
     ]
   }
 }

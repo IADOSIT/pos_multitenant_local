@@ -300,7 +300,11 @@ export class SelfOrderService {
       [tienda_id],
     );
 
-    const url = `${baseUrl}/self-order/${tienda_id}/${mesa.numero}`;
+    // Prioridad: URL configurada en la tienda > URL del frontend (window.location.origin) > host del request
+    let configPos: any = {};
+    try { configPos = tienda?.config_pos ? JSON.parse(tienda.config_pos) : {}; } catch { configPos = {}; }
+    const effectiveBase = configPos.self_order_url || baseUrl;
+    const url = `${effectiveBase}/self-order/${tienda_id}/${mesa.numero}`;
 
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const QRCode = require('qrcode');

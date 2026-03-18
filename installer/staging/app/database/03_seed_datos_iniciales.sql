@@ -276,6 +276,38 @@ INSERT IGNORE INTO mesas (id, tenant_id, empresa_id, tienda_id, numero, nombre, 
 (9,  4, 4, 3,  9, 'Mesa 9',  NULL, 4, 1),
 (10, 4, 4, 3, 10, 'Mesa 10', NULL, 4, 1);
 
+-- ============================================================
+-- MESAS: iaDoS Corp (tenant_id=1, empresa_id=1, tienda_id=1)
+-- ============================================================
+INSERT IGNORE INTO mesas (id, tenant_id, empresa_id, tienda_id, numero, nombre, zona, capacidad, activo) VALUES
+(11, 1, 1, 1,  1, 'Mesa 1',  'Terraza',  4, 1),
+(12, 1, 1, 1,  2, 'Mesa 2',  'Terraza',  4, 1),
+(13, 1, 1, 1,  3, 'Mesa 3',  'Terraza',  4, 1),
+(14, 1, 1, 1,  4, 'Mesa 4',  'Interior', 4, 1),
+(15, 1, 1, 1,  5, 'Mesa 5',  'Interior', 4, 1),
+(16, 1, 1, 1,  6, 'Mesa 6',  'Interior', 6, 1),
+(17, 1, 1, 1,  7, 'Mesa 7',  'Interior', 6, 1),
+(18, 1, 1, 1,  8, 'Mesa 8',  'Interior', 4, 1),
+(19, 1, 1, 1,  9, 'Mesa 9',  'Bar',      2, 1),
+(20, 1, 1, 1, 10, 'Mesa 10', 'Bar',      2, 1),
+(21, 1, 1, 1, 11, 'Mesa 11', 'Bar',      2, 1),
+(22, 1, 1, 1, 12, 'Mesa 12', 'Privado',  8, 1);
+
+-- ============================================================
+-- MESAS: Mariscos Apodaca (tenant_id=2, empresa_id=2, tienda_id=2)
+-- ============================================================
+INSERT IGNORE INTO mesas (id, tenant_id, empresa_id, tienda_id, numero, nombre, zona, capacidad, activo) VALUES
+(23, 2, 2, 2,  1, 'Mesa 1',  'Salon',    4, 1),
+(24, 2, 2, 2,  2, 'Mesa 2',  'Salon',    4, 1),
+(25, 2, 2, 2,  3, 'Mesa 3',  'Salon',    4, 1),
+(26, 2, 2, 2,  4, 'Mesa 4',  'Salon',    6, 1),
+(27, 2, 2, 2,  5, 'Mesa 5',  'Terraza',  4, 1),
+(28, 2, 2, 2,  6, 'Mesa 6',  'Terraza',  4, 1),
+(29, 2, 2, 2,  7, 'Mesa 7',  'Terraza',  4, 1),
+(30, 2, 2, 2,  8, 'Mesa 8',  'Bar',      2, 1),
+(31, 2, 2, 2,  9, 'Mesa 9',  'Bar',      2, 1),
+(32, 2, 2, 2, 10, 'Mesa 10', 'Privado',  8, 1);
+
 -- Verificacion rapida
 SELECT 'Tenants:'      AS info, COUNT(*) AS total FROM tenants
 UNION ALL SELECT 'Empresas:',   COUNT(*) FROM empresas

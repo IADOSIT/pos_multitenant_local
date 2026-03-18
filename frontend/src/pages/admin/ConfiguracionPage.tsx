@@ -73,6 +73,7 @@ export default function ConfiguracionPage() {
     tipo_cobro_mesa: 'post_pago' as 'pago_inmediato' | 'post_pago',
     num_mesas: 20,
     self_order_enabled: false,
+    self_order_url: '',
     // Impresora config
     impresora_modelo: '',
     impresora_ancho: 80,
@@ -141,6 +142,7 @@ export default function ConfiguracionPage() {
       tipo_cobro_mesa: cp.tipo_cobro_mesa || 'post_pago',
       num_mesas: cp.num_mesas || 20,
       self_order_enabled: cp.self_order_enabled || false,
+      self_order_url: cp.self_order_url || '',
       impresora_modelo: ci.modelo || '',
       impresora_ancho: ci.ancho || 80,
       impresora_auto_print: ci.auto_print || false,
@@ -163,6 +165,7 @@ export default function ConfiguracionPage() {
           tipo_cobro_mesa: form.tipo_cobro_mesa,
           num_mesas: form.num_mesas,
           self_order_enabled: form.self_order_enabled,
+          self_order_url: form.self_order_url || undefined,
           iva_enabled: form.iva_enabled,
           iva_porcentaje: form.iva_porcentaje,
           iva_incluido: form.iva_incluido,
@@ -215,7 +218,7 @@ export default function ConfiguracionPage() {
       nombre: '', direccion: '', telefono: '', email: '',
       zona_horaria: 'America/Mexico_City',
       iva_enabled: false, iva_porcentaje: 16, iva_incluido: true,
-      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false,
+      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '',
       impresora_modelo: '', impresora_ancho: 80, impresora_auto_print: false, impresora_copias: 1,
     });
   };
@@ -1048,13 +1051,26 @@ export default function ConfiguracionPage() {
                             <p className="text-xs text-slate-500 mt-0.5">
                               El cliente escanea el QR de su mesa y hace su pedido desde el celular. El mesero confirma.
                             </p>
-                            {form.self_order_enabled && selected && (
-                              <a
-                                href={`/admin/mesas`}
-                                className="text-xs text-iados-secondary hover:underline mt-1 block"
-                              >
-                                Ir a Gestión de Mesas para imprimir QR →
-                              </a>
+                            {form.self_order_enabled && (
+                              <div className="mt-3 space-y-1">
+                                <label className="text-xs font-medium text-slate-400">URL base para QR de mesas</label>
+                                <input
+                                  type="url"
+                                  value={form.self_order_url}
+                                  onChange={(e) => setForm({ ...form, self_order_url: e.target.value })}
+                                  placeholder={`${window.location.origin} (dejar vacío = usar URL actual)`}
+                                  className="input-touch text-xs"
+                                />
+                                <p className="text-xs text-slate-500">
+                                  EXE local: <code>http://192.168.X.X:3000</code> &nbsp;|&nbsp;
+                                  VPS: <code>https://pos.iados.online</code>
+                                </p>
+                                {selected && (
+                                  <a href="/admin/mesas" className="text-xs text-iados-secondary hover:underline mt-1 block">
+                                    Ir a Gestión de Mesas para imprimir QR →
+                                  </a>
+                                )}
+                              </div>
                             )}
                           </div>
                         </label>

@@ -46,10 +46,12 @@ export class SelfOrderPublicController {
   async printQR(
     @Param('tienda_id', ParseIntPipe) tienda_id: number,
     @Param('mesa_id', ParseIntPipe) mesa_id: number,
+    @Query('base') baseParam: string,
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    // Usar baseUrl del frontend (contiene la IP real de la red) o fallback al host del request
+    const baseUrl = baseParam ? decodeURIComponent(baseParam) : `${req.protocol}://${req.get('host')}`;
     const html = await this.service.getQRPrintable(tienda_id, mesa_id, baseUrl);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);

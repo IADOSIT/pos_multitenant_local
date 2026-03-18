@@ -106,8 +106,8 @@ try {
         $g   = [System.Drawing.Graphics]::FromImage($bmp)
         $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
 
-        # Fondo oscuro igual al login
-        $g.Clear([System.Drawing.Color]::FromArgb(255, 15, 23, 42))
+        # Fondo blanco
+        $g.Clear([System.Drawing.Color]::White)
 
         $green      = [System.Drawing.Color]::FromArgb(255, 92, 184, 130)
         $greenLight = [System.Drawing.Color]::FromArgb(179, 126, 200, 160)

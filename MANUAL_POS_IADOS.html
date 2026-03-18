@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Manual de Usuario — POS-iaDoS</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',Arial,sans-serif;background:#f1f5f9;color:#1e293b;font-size:15px;line-height:1.7}
+  a{color:#1e40af;text-decoration:none}
+
+  /* HEADER */
+  .header{background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 60%,#1e40af 100%);color:#fff;padding:48px 40px 40px;text-align:center}
+  .header .logo-line{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:18px}
+  .header .badge{background:#5cb882;color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:1px;text-transform:uppercase}
+  .header h1{font-size:2.4rem;font-weight:800;letter-spacing:-1px;margin-bottom:8px}
+  .header h1 span{color:#5cb882}
+  .header p{font-size:1rem;color:#93c5fd;margin-bottom:18px}
+  .header .contacts{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:16px}
+  .header .contacts a{background:rgba(255,255,255,.12);color:#fff;padding:8px 18px;border-radius:50px;font-size:13px;font-weight:600;transition:.2s}
+  .header .contacts a:hover{background:#5cb882}
+
+  /* TOC */
+  .toc-wrap{max-width:900px;margin:36px auto 0;padding:0 20px}
+  .toc{background:#fff;border-radius:16px;box-shadow:0 2px 16px rgba(0,0,0,.07);padding:28px 32px}
+  .toc h2{font-size:1rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:16px}
+  .toc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px}
+  .toc a{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;color:#1e3a8a;font-size:13.5px;font-weight:500;transition:.15s}
+  .toc a:hover{background:#eff6ff}
+  .toc a .num{background:#e0e7ff;color:#3730a3;font-size:11px;font-weight:700;padding:1px 7px;border-radius:20px;min-width:28px;text-align:center}
+
+  /* CONTENT */
+  .content{max-width:900px;margin:0 auto;padding:0 20px 60px}
+
+  /* SECTION */
+  .section{background:#fff;border-radius:16px;box-shadow:0 2px 16px rgba(0,0,0,.07);margin-top:28px;overflow:hidden}
+  .section-header{background:linear-gradient(90deg,#1e3a8a,#1e40af);color:#fff;padding:18px 28px;display:flex;align-items:center;gap:14px}
+  .section-header .snum{background:rgba(255,255,255,.2);font-size:13px;font-weight:700;padding:3px 10px;border-radius:20px}
+  .section-header h2{font-size:1.15rem;font-weight:700;letter-spacing:-.3px}
+  .section-body{padding:24px 28px}
+  .section-body p{margin-bottom:12px;color:#374151}
+  .section-body h3{font-size:.95rem;font-weight:700;color:#1e3a8a;margin:20px 0 8px;text-transform:uppercase;letter-spacing:.5px}
+  .section-body h4{font-size:.9rem;font-weight:600;color:#334155;margin:14px 0 6px;border-left:3px solid #5cb882;padding-left:10px}
+
+  /* TABLE */
+  .tbl-wrap{overflow-x:auto;margin:12px 0}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  thead tr{background:#1e3a8a;color:#fff}
+  thead th{padding:10px 14px;text-align:left;font-weight:600}
+  tbody tr:nth-child(even){background:#f8fafc}
+  tbody tr:hover{background:#eff6ff}
+  tbody td{padding:9px 14px;border-bottom:1px solid #e2e8f0;color:#374151}
+  td .check{color:#16a34a;font-weight:700}
+  td .cross{color:#dc2626;font-weight:700}
+  td .money{color:#d97706;font-weight:700}
+
+  /* FLOW */
+  .flow{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:18px 22px;margin:12px 0;font-family:monospace;font-size:13px;color:#374151;line-height:2}
+
+  /* LIST */
+  ul,ol{padding-left:22px;margin:8px 0 14px}
+  li{margin-bottom:5px;color:#374151}
+
+  /* CALLOUT */
+  .callout{border-radius:10px;padding:14px 18px;margin:14px 0;font-size:13.5px}
+  .callout.warn{background:#fefce8;border-left:4px solid #eab308;color:#713f12}
+  .callout.info{background:#eff6ff;border-left:4px solid #3b82f6;color:#1e3a8a}
+  .callout.success{background:#f0fdf4;border-left:4px solid #22c55e;color:#14532d}
+  .callout strong{font-weight:700}
+
+  /* CHIPS */
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+  .chip{background:#e0e7ff;color:#3730a3;font-size:12px;font-weight:600;padding:4px 12px;border-radius:20px}
+  .chip.green{background:#dcfce7;color:#15803d}
+  .chip.amber{background:#fef3c7;color:#92400e}
+
+  /* CONTACT BOX */
+  .contact-box{background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff;border-radius:16px;padding:32px;text-align:center;margin-top:40px}
+  .contact-box h2{font-size:1.5rem;font-weight:800;margin-bottom:8px}
+  .contact-box p{color:#93c5fd;margin-bottom:20px}
+  .contact-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-top:16px}
+  .contact-item{background:rgba(255,255,255,.1);border-radius:12px;padding:16px;font-size:14px}
+  .contact-item .label{color:#93c5fd;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+  .contact-item .val{color:#fff;font-weight:600}
+
+  /* FOOTER */
+  footer{text-align:center;padding:28px;font-size:12px;color:#94a3b8}
+
+  /* PRINT */
+  @media print{
+    body{background:#fff}
+    .section{box-shadow:none;border:1px solid #e2e8f0;break-inside:avoid}
+    .header{break-after:page}
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo-line">
+    <span class="badge">Manual de Usuario</span>
+    <span class="badge" style="background:#1e40af">v2.2</span>
+  </div>
+  <h1>POS-<span>iaDoS</span></h1>
+  <p>Sistema de Punto de Venta Inteligente · Monterrey, Nuevo León</p>
+  <div class="contacts">
+    <a href="https://wa.me/528114137902">📱 81 1413 7902</a>
+    <a href="https://wa.me/528318989580">📱 83 1898 9580</a>
+    <a href="https://iados.mx">🌐 iados.mx</a>
+    <a href="#">📍 Monterrey, NL</a>
+  </div>
+</div>
+
+<!-- TOC -->
+<div class="toc-wrap">
+  <div class="toc">
+    <h2>Contenido</h2>
+    <div class="toc-grid">
+      <a href="#s1"><span class="num">01</span>Introducción y ventajas</a>
+      <a href="#s2"><span class="num">02</span>Requisitos del sistema</a>
+      <a href="#s3"><span class="num">03</span>Instalación</a>
+      <a href="#s4"><span class="num">04</span>Primer acceso</a>
+      <a href="#s5"><span class="num">05</span>Módulo POS — Ventas</a>
+      <a href="#s6"><span class="num">06</span>Módulo Mesas</a>
+      <a href="#s7"><span class="num">07</span>Self Order — QR</a>
+      <a href="#s8"><span class="num">08</span>Módulo Productos</a>
+      <a href="#s9"><span class="num">09</span>Módulo Categorías</a>
+      <a href="#s10"><span class="num">10</span>Módulo Caja</a>
+      <a href="#s11"><span class="num">11</span>Módulo Pedidos</a>
+      <a href="#s12"><span class="num">12</span>Módulo Inventario</a>
+      <a href="#s13"><span class="num">13</span>Dashboard</a>
+      <a href="#s14"><span class="num">14</span>Módulo Usuarios</a>
+      <a href="#s15"><span class="num">15</span>Configuración</a>
+      <a href="#s16"><span class="num">16</span>Menú Digital</a>
+      <a href="#s17"><span class="num">17</span>Acceso por PIN</a>
+      <a href="#s18"><span class="num">18</span>Roles y Permisos</a>
+      <a href="#s19"><span class="num">19</span>Respaldo</a>
+      <a href="#s20"><span class="num">20</span>Preguntas Frecuentes</a>
+    </div>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+
+<!-- S1 -->
+<div class="section" id="s1">
+  <div class="section-header"><span class="snum">01</span><h2>Introducción y Ventajas</h2></div>
+  <div class="section-body">
+    <p><strong>POS-iaDoS</strong> es un sistema de Punto de Venta profesional desarrollado por <strong>iaDoS</strong>, empresa de tecnología con base en Monterrey, Nuevo León. Diseñado para restaurantes, fondas, cafeterías, tiendas y negocios de servicio rápido.</p>
+    <h3>¿Qué hace diferente a POS-iaDoS?</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Característica</th><th>POS-iaDoS</th><th>Sistemas tradicionales</th></tr></thead>
+        <tbody>
+          <tr><td>Funciona sin internet</td><td><span class="check">✅ Sí (modo offline)</span></td><td><span class="cross">❌ Requiere conexión</span></td></tr>
+          <tr><td>Self Order por QR (cliente ordena solo)</td><td><span class="check">✅ Incluido</span></td><td><span class="money">💲 Extra o no disponible</span></td></tr>
+          <tr><td>Menú digital en pantalla</td><td><span class="check">✅ Incluido</span></td><td><span class="money">💲 Extra</span></td></tr>
+          <tr><td>Multisucursal</td><td><span class="check">✅ Ilimitado</span></td><td><span class="money">💲 Por sucursal</span></td></tr>
+          <tr><td>Instalación en Windows</td><td><span class="check">✅ Un solo archivo EXE</span></td><td><span class="cross">❌ Requiere técnico</span></td></tr>
+          <tr><td>Soporte local Monterrey</td><td><span class="check">✅ Disponible</span></td><td><span class="cross">❌ Solo en línea</span></td></tr>
+          <tr><td>Actualizaciones</td><td><span class="check">✅ Incluidas</span></td><td><span class="money">💲 Membresía anual</span></td></tr>
+          <tr><td>Login por PIN para pantalla touch</td><td><span class="check">✅ Incluido</span></td><td><span class="cross">❌ No disponible</span></td></tr>
+          <tr><td>Dashboard con analytics</td><td><span class="check">✅ Incluido</span></td><td><span class="money">💲 Módulo extra</span></td></tr>
+          <tr><td>Encuestas de satisfacción</td><td><span class="check">✅ Incluido</span></td><td><span class="cross">❌ No disponible</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- S2 -->
+<div class="section" id="s2">
+  <div class="section-header"><span class="snum">02</span><h2>Requisitos del Sistema</h2></div>
+  <div class="section-body">
+    <h3>Modo Offline (EXE Instalador)</h3>
+    <div class="chips">
+      <span class="chip">Windows 10 / 11 (64 bits)</span>
+      <span class="chip">Mínimo 4 GB RAM</span>
+      <span class="chip">500 MB disco libre</span>
+      <span class="chip">Red Wi-Fi local</span>
+    </div>
+    <h3>Acceso desde otros dispositivos</h3>
+    <p>Cualquier tablet, celular o computadora en la misma red puede usar el sistema. Solo necesitan un navegador (Chrome, Edge o Firefox) y la dirección IP del servidor.</p>
+    <h3>Modo en Nube (VPS)</h3>
+    <p>Cualquier dispositivo con navegador moderno y conexión a internet. Sin instalación requerida.</p>
+  </div>
+</div>
+
+<!-- S3 -->
+<div class="section" id="s3">
+  <div class="section-header"><span class="snum">03</span><h2>Instalación</h2></div>
+  <div class="section-body">
+    <h3>Instalación Rápida — 5 pasos</h3>
+    <div class="flow">1. Ejecutar POS-iaDoS-Local-vX.X.X.exe como Administrador
+2. Seguir el asistente de instalación (siguiente, siguiente, instalar)
+3. El sistema abre automáticamente en el navegador: http://localhost:3000
+4. Iniciar sesión con las credenciales iniciales
+5. ¡Listo! El sistema queda corriendo como servicio de Windows</div>
+    <div class="callout info"><strong>💡 Acceso desde otros equipos:</strong> Cualquier dispositivo en la misma red Wi-Fi puede acceder usando la IP del servidor: <strong>http://192.168.X.X:3000</strong></div>
+    <h3>Archivos de gestión en C:\POS-iaDoS\</h3>
+    <div class="chips">
+      <span class="chip green">INICIAR.bat</span>
+      <span class="chip amber">DETENER.bat</span>
+      <span class="chip">ESTADO.bat</span>
+      <span class="chip">DESINSTALAR.bat</span>
+    </div>
+  </div>
+</div>
+
+<!-- S4 -->
+<div class="section" id="s4">
+  <div class="section-header"><span class="snum">04</span><h2>Primer Acceso</h2></div>
+  <div class="section-body">
+    <h3>Credenciales iniciales</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Usuario</th><th>Email</th><th>Contraseña</th><th>PIN</th><th>Rol</th></tr></thead>
+        <tbody>
+          <tr><td>Super Admin</td><td>admin@iados.mx</td><td>admin123</td><td>0000</td><td>Superadmin</td></tr>
+          <tr><td>Administrador</td><td>admin2@iados.mx</td><td>admin123</td><td>1111</td><td>Admin</td></tr>
+          <tr><td>Cajero</td><td>cajero@iados.mx</td><td>cajero123</td><td>1234</td><td>Cajero</td></tr>
+          <tr><td>Mesero</td><td>mesero@iados.mx</td><td>cajero123</td><td>5678</td><td>Mesero</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout warn"><strong>⚠️ Importante:</strong> Cambia las contraseñas desde Configuración → Usuarios en tu primer inicio de sesión.</div>
+  </div>
+</div>
+
+<!-- S5 -->
+<div class="section" id="s5">
+  <div class="section-header"><span class="snum">05</span><h2>Módulo POS — Punto de Venta</h2></div>
+  <div class="section-body">
+    <p>El corazón del sistema. Desde aquí se gestionan todas las ventas del negocio de forma rápida y sin errores.</p>
+    <h3>Flujo de una venta completa</h3>
+    <div class="flow">Abrir caja → Seleccionar mesa → Agregar productos
+→ Confirmar pedido → Seleccionar método de pago
+→ Imprimir ticket → Dar cambio → Venta registrada</div>
+    <h4>Carrito de compras</h4>
+    <ul>
+      <li>Buscar por nombre, SKU o código de barras</li>
+      <li>Agregar cantidades con botones + / –</li>
+      <li>Aplicar descuento por producto o global</li>
+      <li>Total con impuestos desglosados en tiempo real</li>
+    </ul>
+    <h4>Métodos de pago</h4>
+    <ul>
+      <li><strong>Efectivo</strong> — Calcula cambio exacto con pad de billetes ($10, $20, $50, $100, $200, $500)</li>
+      <li><strong>Tarjeta</strong> — Registra el monto cobrado por terminal bancaria</li>
+      <li><strong>Transferencia</strong> — Registra referencia del pago</li>
+      <li><strong>Pago Mixto</strong> — Combina efectivo + tarjeta + transferencia en una sola venta</li>
+    </ul>
+    <h4>Impresión de ticket</h4>
+    <ul>
+      <li>Ticket automático al finalizar la venta</li>
+      <li>Reimpresión disponible desde módulo Pedidos</li>
+      <li>Compatible con impresoras térmicas de 58mm y 80mm</li>
+    </ul>
+  </div>
+</div>
+
+<!-- S6 -->
+<div class="section" id="s6">
+  <div class="section-header"><span class="snum">06</span><h2>Módulo Mesas</h2></div>
+  <div class="section-body">
+    <p>Gestión completa del salón del restaurante con vista en tiempo real del estado de cada mesa.</p>
+    <h4>Vista de mesas</h4>
+    <ul>
+      <li>Mapa visual de todas las mesas del local</li>
+      <li>Estado en tiempo real: Libre / Ocupada / Con pedido pendiente</li>
+      <li>Color distintivo por mesero asignado</li>
+    </ul>
+    <h4>Funciones principales</h4>
+    <ul>
+      <li><strong>Asignar mesero</strong> — Define quién atiende cada mesa</li>
+      <li><strong>Juntar mesas</strong> — Para grupos grandes</li>
+      <li><strong>Separar mesas</strong> — Cuando el grupo se divide</li>
+      <li><strong>QR de mesa</strong> — Genera e imprime el código QR para Self Order</li>
+      <li><strong>Zonas</strong> — Terraza, Salón, Bar, Privado, etc.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- S7 -->
+<div class="section" id="s7">
+  <div class="section-header"><span class="snum">07</span><h2>Self Order — Pedido por QR</h2></div>
+  <div class="section-body">
+    <p>Sistema de autoservicio donde el cliente hace su pedido desde su propio celular escaneando el código QR de su mesa. <strong>Sin app adicional. Sin registro. Sin fricción.</strong></p>
+    <h3>¿Cómo funciona?</h3>
+    <div class="flow">Cliente escanea QR en la mesa con su cámara
+→ Se abre el menú en el navegador del celular
+→ Cliente selecciona productos y confirma
+→ Mesero recibe notificación inmediata en el POS
+→ Mesero confirma y manda a cocina
+→ Al cobrar, se envía encuesta de satisfacción automática</div>
+    <h4>Beneficios clave</h4>
+    <ul>
+      <li>Reduce el tiempo de atención hasta un 50%</li>
+      <li>Elimina errores en la toma de órdenes</li>
+      <li>El mesero puede atender más mesas al mismo tiempo</li>
+      <li>El cliente no espera para ordenar</li>
+    </ul>
+    <h4>Dashboard Self Order</h4>
+    <ul>
+      <li>Total pedidos por QR, ticket promedio, mesa más activa</li>
+      <li>Tiempo promedio de confirmación por mesero</li>
+      <li>Encuestas: calificación de servicio y comida (1-5 estrellas)</li>
+    </ul>
+    <div class="callout info"><strong>💡 Para que funcione desde celulares externos:</strong> El admin debe acceder al POS usando la IP de red del servidor (ej. http://192.168.1.X:3000), no desde localhost.</div>
+  </div>
+</div>
+
+<!-- S8 -->
+<div class="section" id="s8">
+  <div class="section-header"><span class="snum">08</span><h2>Módulo Productos</h2></div>
+  <div class="section-body">
+    <p>Catálogo completo de platillos y productos con toda la información necesaria para ventas, menú digital e inventario.</p>
+    <h4>Campos disponibles</h4>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Campo</th><th>Descripción</th></tr></thead>
+        <tbody>
+          <tr><td>SKU</td><td>Código único del producto</td></tr>
+          <tr><td>Nombre</td><td>Nombre en el menú/ticket</td></tr>
+          <tr><td>Descripción</td><td>Descripción para menú digital</td></tr>
+          <tr><td>Precio / Costo</td><td>Precio de venta y costo (para margen)</td></tr>
+          <tr><td>Categoría</td><td>Clasificación del producto</td></tr>
+          <tr><td>Impuesto</td><td>% de IVA aplicable</td></tr>
+          <tr><td>Código de barras</td><td>Para lectura con scanner</td></tr>
+          <tr><td>Imagen</td><td>Foto para menú digital</td></tr>
+          <tr><td>Disponible en POS</td><td>Ocultar temporalmente sin eliminar</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4>Importación masiva por CSV</h4>
+    <div class="flow">1. Descargar plantilla CSV desde Productos → Importar
+2. Llenar en Excel con tus productos
+3. Guardar como CSV y subir al sistema
+4. Se crean o actualizan automáticamente</div>
+  </div>
+</div>
+
+<!-- S9 -->
+<div class="section" id="s9">
+  <div class="section-header"><span class="snum">09</span><h2>Módulo Categorías</h2></div>
+  <div class="section-body">
+    <p>Organiza tus productos por categorías para facilitar la navegación en el POS y el menú digital.</p>
+    <ul>
+      <li>Nombre, color e ícono personalizable</li>
+      <li>Orden de aparición en el POS</li>
+      <li>Imagen de portada para el menú digital</li>
+      <li>Las categorías aparecen como pestañas en el POS para filtrar productos rápidamente</li>
+    </ul>
+  </div>
+</div>
+
+<!-- S10 -->
+<div class="section" id="s10">
+  <div class="section-header"><span class="snum">10</span><h2>Módulo Caja</h2></div>
+  <div class="section-body">
+    <p>Control completo del flujo de efectivo del negocio con cierre de caja profesional.</p>
+    <h3>Ciclo de caja</h3>
+    <div class="flow">Apertura (fondo inicial)
+→ Ventas del día (automático)
+→ Entradas/Salidas manuales
+→ Corte: conteo físico vs esperado
+→ Cierre y reporte imprimible</div>
+    <h4>Apertura</h4>
+    <p>Registra el fondo inicial en efectivo, el responsable y la hora de apertura.</p>
+    <h4>Entradas y salidas manuales</h4>
+    <ul>
+      <li>Retiros para pago de proveedores o gastos del día</li>
+      <li>Entradas para cambio de billete o reposición de fondo</li>
+      <li>Cada movimiento queda registrado con fecha, hora y responsable</li>
+    </ul>
+    <h4>Corte de caja</h4>
+    <ul>
+      <li>Total esperado calculado automáticamente</li>
+      <li>El cajero ingresa el total real contado</li>
+      <li>Cálculo automático de diferencia (sobrante o faltante)</li>
+      <li>Reporte imprimible para el cierre del día</li>
+    </ul>
+  </div>
+</div>
+
+<!-- S11 -->
+<div class="section" id="s11">
+  <div class="section-header"><span class="snum">11</span><h2>Módulo Pedidos</h2></div>
+  <div class="section-body">
+    <p>Historial completo de todas las transacciones realizadas.</p>
+    <ul>
+      <li>Ver todos los pedidos: activos, completados, cancelados</li>
+      <li>Filtrar por fecha, mesero o método de pago</li>
+      <li>Ver detalle completo de cada pedido</li>
+      <li><strong>Reimprimir ticket</strong> de cualquier venta pasada</li>
+      <li>Cancelar pedido (con control por rol)</li>
+      <li>Estadísticas: total del día, número de ventas, ticket promedio</li>
+    </ul>
+  </div>
+</div>
+
+<!-- S12 -->
+<div class="section" id="s12">
+  <div class="section-header"><span class="snum">12</span><h2>Módulo Inventario</h2></div>
+  <div class="section-body">
+    <ul>
+      <li>Stock actual de todos los productos con control de inventario</li>
+      <li>Ajustes manuales: entrada de mercancía, merma, etc.</li>
+      <li>Alertas de stock mínimo</li>
+      <li>Descuento automático al realizar ventas</li>
+      <li>Historial de movimientos por producto</li>
+    </ul>
+  </div>
+</div>
+
+<!-- S13 -->
+<div class="section" id="s13">
+  <div class="section-header"><span class="snum">13</span><h2>Dashboard — Inteligencia de Negocio</h2></div>
+  <div class="section-body">
+    <p>Centro de métricas en tiempo real. Toda la información de tu negocio en una sola pantalla.</p>
+    <h4>Pestaña Ventas</h4>
+    <ul>
+      <li>Total del día / semana / mes con comparativa vs período anterior</li>
+      <li>Gráfica de ventas por hora (identifica horas pico)</li>
+      <li>Ventas por método de pago</li>
+      <li>Top 10 productos más vendidos</li>
+      <li>Ventas por categoría y ticket promedio</li>
+    </ul>
+    <h4>Pestaña Self Order</h4>
+    <ul>
+      <li>KPIs de pedidos por QR</li>
+      <li>Promedio de calificación de servicio</li>
+      <li>Rendimiento por mesero</li>
+    </ul>
+    <div class="callout success"><strong>✅ Filtros disponibles:</strong> Hoy · Esta semana · Este mes · Rango personalizado</div>
+  </div>
+</div>
+
+<!-- S14 -->
+<div class="section" id="s14">
+  <div class="section-header"><span class="snum">14</span><h2>Módulo Usuarios</h2></div>
+  <div class="section-body">
+    <ul>
+      <li>Nombre, email, contraseña y PIN de 4 dígitos</li>
+      <li>Rol: superadmin, admin, manager, cajero, mesero</li>
+      <li>Empresa y tienda asignada</li>
+      <li>Activar / desactivar usuario</li>
+      <li>Cambio de contraseña desde perfil personal</li>
+      <li>Usuarios ilimitados sin costo adicional</li>
+    </ul>
+  </div>
+</div>
+
+<!-- S15 -->
+<div class="section" id="s15">
+  <div class="section-header"><span class="snum">15</span><h2>Configuración</h2></div>
+  <div class="section-body">
+    <h4>Empresa</h4>
+    <p>Nombre, logo, dirección, RFC, mensaje en ticket (pie de página).</p>
+    <h4>Apariencia</h4>
+    <p>Tema oscuro / claro, color principal de la interfaz.</p>
+    <h4>Menú Digital</h4>
+    <p>Activar, previsualizar y publicar el menú. Al publicar se regenera el snapshot con todas las fotos actualizadas.</p>
+  </div>
+</div>
+
+<!-- S16 -->
+<div class="section" id="s16">
+  <div class="section-header"><span class="snum">16</span><h2>Menú Digital</h2></div>
+  <div class="section-body">
+    <p>Versión pública del catálogo de productos, accesible desde cualquier dispositivo sin cuenta.</p>
+    <ul>
+      <li>Vista atractiva con fotos de los platillos</li>
+      <li>Filtro por categorías</li>
+      <li>Descripción completa y precios actualizados</li>
+      <li>Puede mostrarse en pantalla de TV en el local</li>
+      <li>Se actualiza al instante al presionar "Publicar"</li>
+    </ul>
+  </div>
+</div>
+
+<!-- S17 -->
+<div class="section" id="s17">
+  <div class="section-header"><span class="snum">17</span><h2>Acceso por PIN</h2></div>
+  <div class="section-body">
+    <p>Diseñado para pantallas táctiles en el mostrador. Acceso en menos de 3 segundos.</p>
+    <div class="flow">En login → seleccionar "Acceso con PIN"
+→ Teclado numérico en pantalla
+→ Ingresar 4 dígitos
+→ Acceso inmediato</div>
+    <div class="callout success"><strong>✅ Ventajas:</strong> Ideal para tablets y pantallas touch en caja. Cambio rápido de operador sin cerrar sesión completa. Login con email siempre disponible como alternativa.</div>
+  </div>
+</div>
+
+<!-- S18 -->
+<div class="section" id="s18">
+  <div class="section-header"><span class="snum">18</span><h2>Roles y Permisos</h2></div>
+  <div class="section-body">
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Función</th><th>Superadmin</th><th>Admin</th><th>Manager</th><th>Cajero</th><th>Mesero</th></tr></thead>
+        <tbody>
+          <tr><td>Ver todos los tenants</td><td><span class="check">✅</span></td><td><span class="cross">❌</span></td><td><span class="cross">❌</span></td><td><span class="cross">❌</span></td><td><span class="cross">❌</span></td></tr>
+          <tr><td>Gestionar usuarios</td><td><span class="check">✅</span></td><td><span class="check">✅</span></td><td><span class="cross">❌</span></td><td><span class="cross">❌</span></td><td><span class="cross">❌</span></td></tr>
+          <tr><td>Gestionar productos</td><td><span class="check">✅</span></td><td><span class="check">✅</span></td><td><span class="check">✅</span></td><td><span class="cross">❌</span></td><td><span class="cross">❌</span></td></tr>
+          <tr><td>Abrir/cerrar caja</td><td><span class="check">✅</span></td><td><span class="check">✅</span></td><td><span class="check">✅</span></td><td><span class="check">✅</span></td><td><span class="cross">❌</span></td></tr>
+          <tr><td>Realizar ventas</td><td><span class="check">✅</span></td><td><span class="check">✅</span></td><td><span class="check">✅</span></td><td><span class="check">✅</span></td><td><span class="check">✅</span></td></tr>
+          <tr><td>Ver dashboard</td><td><span class="check">✅</span></td><td><span class="check">✅</span></td><td><span class="check">✅</span></td><td><span class="cross">❌</span></td><td><span class="cross">❌</span></td></tr>
+          <tr><td>Cancelar pedidos</td><td><span class="check">✅</span></td><td><span class="check">✅</span></td><td><span class="check">✅</span></td><td><span class="cross">❌</span></td><td><span class="cross">❌</span></td></tr>
+          <tr><td>Configuración sistema</td><td><span class="check">✅</span></td><td><span class="check">✅</span></td><td><span class="cross">❌</span></td><td><span class="cross">❌</span></td><td><span class="cross">❌</span></td></tr>
+          <tr><td>Gestionar mesas</td><td><span class="check">✅</span></td><td><span class="check">✅</span></td><td><span class="check">✅</span></td><td><span class="check">✅</span></td><td><span class="check">✅</span></td></tr>
+          <tr><td>Confirmar pedidos QR</td><td><span class="check">✅</span></td><td><span class="check">✅</span></td><td><span class="check">✅</span></td><td><span class="check">✅</span></td><td><span class="check">✅</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- S19 -->
+<div class="section" id="s19">
+  <div class="section-header"><span class="snum">19</span><h2>Respaldo y Restauración</h2></div>
+  <div class="section-body">
+    <h4>Respaldo manual</h4>
+    <p>Ir a <strong>Configuración → Respaldo</strong> → Descargar archivo <code>.sql</code> con todos los datos. Guárdalo en USB, nube o correo.</p>
+    <h4>Restauración</h4>
+    <p>En caso de reinstalación, importa el archivo de respaldo. Todos los datos se restauran: ventas, productos, configuración.</p>
+    <div class="callout warn"><strong>⚠️ Recomendación:</strong> Realiza un respaldo al menos una vez por semana y guárdalo fuera del equipo servidor.</div>
+  </div>
+</div>
+
+<!-- S20 -->
+<div class="section" id="s20">
+  <div class="section-header"><span class="snum">20</span><h2>Preguntas Frecuentes</h2></div>
+  <div class="section-body">
+    <h4>¿Funciona sin internet?</h4>
+    <p>Sí. El modo offline (instalador EXE) funciona completamente sin conexión. La base de datos y el servidor están en el mismo equipo.</p>
+    <h4>¿Puedo usar el sistema desde mi celular o tablet?</h4>
+    <p>Sí. Desde cualquier dispositivo en la misma red Wi-Fi accediendo por la IP del servidor: <strong>http://IP-SERVIDOR:3000</strong></p>
+    <h4>¿Cuántos usuarios puedo tener?</h4>
+    <p>Ilimitados. No hay costo adicional por número de usuarios ni sucursales.</p>
+    <h4>¿Puedo importar mi catálogo de productos desde Excel?</h4>
+    <p>Sí. El sistema acepta CSV exportados desde Excel con los campos: SKU, nombre, precio, costo, categoría y más.</p>
+    <h4>¿Qué pasa si se va la luz?</h4>
+    <p>Al restaurar la energía, los servicios de Windows reinician automáticamente. Los datos guardados están intactos.</p>
+    <h4>¿Funciona en Mac, Linux o iPad?</h4>
+    <p>El instalador EXE es para Windows. El acceso desde navegador funciona en cualquier sistema: Mac, Linux, iOS, Android.</p>
+    <h4>¿Tiene soporte para facturación CFDI?</h4>
+    <p>Actualmente genera tickets de venta. La integración CFDI está disponible como módulo adicional. Consulta a tu asesor iaDoS.</p>
+  </div>
+</div>
+
+<!-- CONTACT -->
+<div class="contact-box">
+  <h2>¿Necesitas ayuda o quieres una demo?</h2>
+  <p>Nuestro equipo en Monterrey está listo para apoyarte</p>
+  <div class="contact-grid">
+    <div class="contact-item">
+      <div class="label">WhatsApp</div>
+      <div class="val">📱 +52 81 1413 7902</div>
+    </div>
+    <div class="contact-item">
+      <div class="label">WhatsApp</div>
+      <div class="val">📱 +52 83 1898 9580</div>
+    </div>
+    <div class="contact-item">
+      <div class="label">Sitio Web</div>
+      <div class="val">🌐 www.iados.mx</div>
+    </div>
+    <div class="contact-item">
+      <div class="label">Ubicación</div>
+      <div class="val">📍 Monterrey, Nuevo León</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /content -->
+
+<footer>
+  POS-iaDoS v2.2 &nbsp;·&nbsp; iaDoS © 2025 &nbsp;·&nbsp; Todos los derechos reservados<br>
+  Desarrollado con tecnología de vanguardia en Monterrey, Nuevo León, México
+</footer>
+
+</body>
+</html>

@@ -99,7 +99,8 @@ export default function MesasAdmin() {
   };
 
   const handlePrintQR = (mesa: any) => {
-    window.open(`/api/public/self-order/qr/${user?.tienda_id}/${mesa.id}`, '_blank');
+    const base = encodeURIComponent(window.location.origin);
+    window.open(`/api/public/self-order/qr/${user?.tienda_id}/${mesa.id}?base=${base}`, '_blank');
   };
 
   const handlePrintReporte = () => {

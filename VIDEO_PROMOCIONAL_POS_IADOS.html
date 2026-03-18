@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Guión Video Promocional — POS-iaDoS</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',Arial,sans-serif;background:#0f172a;color:#e2e8f0;font-size:15px;line-height:1.7}
+
+  /* HEADER */
+  .header{background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 50%,#5cb882 100%);padding:56px 40px 48px;text-align:center;position:relative;overflow:hidden}
+  .header::before{content:'';position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Ccircle cx='30' cy='30' r='20'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")}
+  .header .tag{display:inline-block;background:#5cb882;color:#fff;font-size:11px;font-weight:700;padding:4px 14px;border-radius:20px;letter-spacing:2px;text-transform:uppercase;margin-bottom:20px}
+  .header h1{font-size:3rem;font-weight:900;letter-spacing:-2px;color:#fff;margin-bottom:10px;position:relative}
+  .header h1 span{color:#5cb882}
+  .header .sub{font-size:1.1rem;color:#93c5fd;margin-bottom:24px}
+  .header .meta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .header .meta span{background:rgba(255,255,255,.1);color:#e2e8f0;padding:6px 16px;border-radius:50px;font-size:13px;font-weight:500}
+  .header .contacts{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:20px}
+  .header .contacts a{background:#5cb882;color:#fff;padding:10px 22px;border-radius:50px;font-size:14px;font-weight:700;text-decoration:none;transition:.2s}
+  .header .contacts a:hover{background:#4ade80}
+
+  /* STRUCTURE */
+  .content{max-width:960px;margin:0 auto;padding:40px 20px 80px}
+
+  /* OVERVIEW */
+  .overview{background:#1e293b;border-radius:16px;padding:28px 32px;margin-bottom:36px;border:1px solid #334155}
+  .overview h2{font-size:.85rem;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#5cb882;margin-bottom:20px}
+  .timeline{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .tl-item{background:#0f172a;border-radius:12px;padding:14px 16px;border:1px solid #334155;text-align:center}
+  .tl-item .time{font-size:13px;font-weight:700;color:#5cb882;font-family:monospace;margin-bottom:4px}
+  .tl-item .desc{font-size:12px;color:#94a3b8}
+
+  /* SCENE */
+  .scene{background:#1e293b;border-radius:20px;margin-bottom:24px;overflow:hidden;border:1px solid #334155;transition:.2s}
+  .scene:hover{border-color:#5cb882;box-shadow:0 0 0 1px #5cb882}
+  .scene-header{display:flex;align-items:center;gap:16px;padding:18px 24px;background:#0f172a;border-bottom:1px solid #334155}
+  .scene-num{background:#5cb882;color:#0f172a;font-size:13px;font-weight:800;padding:4px 12px;border-radius:20px;flex-shrink:0;font-family:monospace}
+  .scene-title{font-size:1.05rem;font-weight:700;color:#f1f5f9;flex:1}
+  .scene-duration{background:#334155;color:#94a3b8;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;font-family:monospace;flex-shrink:0}
+  .scene-body{padding:22px 24px}
+  .scene-body p{color:#94a3b8;font-size:13.5px;margin-bottom:14px}
+  .scene-body p strong{color:#e2e8f0}
+
+  /* VISUAL BOX */
+  .visual-box{background:#0f172a;border:1px solid #334155;border-radius:12px;padding:14px 18px;margin:10px 0 16px;font-size:13px;color:#64748b}
+  .visual-box .label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#5cb882;margin-bottom:6px}
+  .visual-box p{color:#94a3b8}
+
+  /* VOICE BOX */
+  .voice-box{background:linear-gradient(135deg,#1e3a8a,#1e40af);border-radius:14px;padding:20px 24px;margin:10px 0;position:relative}
+  .voice-box::before{content:'🎙️';position:absolute;top:14px;right:18px;font-size:20px;opacity:.4}
+  .voice-box .label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#93c5fd;margin-bottom:10px}
+  .voice-box p{color:#dbeafe;font-size:14px;line-height:1.8;font-style:italic}
+
+  /* SCREEN TEXT */
+  .screen-text{background:#0f172a;border:2px solid #1e40af;border-radius:12px;padding:14px 18px;margin:10px 0}
+  .screen-text .label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#60a5fa;margin-bottom:10px}
+  .screen-text .items{display:flex;flex-wrap:wrap;gap:8px}
+  .screen-text .item{background:#1e3a8a;color:#bfdbfe;font-size:13px;font-weight:600;padding:6px 14px;border-radius:8px}
+  .screen-text .item.green{background:#14532d;color:#86efac}
+
+  /* SHORT VERSION */
+  .short-section{background:linear-gradient(135deg,#14532d,#166534);border-radius:20px;padding:28px 32px;margin:36px 0;border:1px solid #22c55e}
+  .short-section h2{font-size:1.1rem;font-weight:800;color:#4ade80;margin-bottom:6px}
+  .short-section .sub{font-size:13px;color:#86efac;margin-bottom:20px}
+  .short-section .voice-box{background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1)}
+  .short-section .voice-box p{color:#dcfce7}
+
+  /* PROD NOTES */
+  .prod-section{background:#1e293b;border-radius:16px;padding:28px 32px;margin-top:36px;border:1px solid #334155}
+  .prod-section h2{font-size:.85rem;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#f59e0b;margin-bottom:20px}
+  .tools-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin:12px 0}
+  .tool-card{background:#0f172a;border-radius:10px;padding:14px 16px;border:1px solid #334155}
+  .tool-card .tool-name{font-size:14px;font-weight:700;color:#f1f5f9;margin-bottom:4px}
+  .tool-card .tool-info{font-size:12px;color:#64748b}
+  .tool-card .tool-cost{font-size:11px;font-weight:700;margin-top:6px}
+  .tool-card .tool-cost.free{color:#4ade80}
+  .tool-card .tool-cost.paid{color:#f59e0b}
+
+  /* TIPS */
+  .tips{margin-top:16px}
+  .tip{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #1e293b}
+  .tip:last-child{border:none}
+  .tip .icon{font-size:18px;flex-shrink:0;margin-top:2px}
+  .tip .text{font-size:13.5px;color:#94a3b8}
+
+  /* CONTACT BOX */
+  .contact-box{background:linear-gradient(135deg,#0f172a,#1e3a8a);border-radius:20px;padding:40px;text-align:center;margin-top:40px;border:1px solid #1e40af}
+  .contact-box h2{font-size:1.6rem;font-weight:800;color:#fff;margin-bottom:8px}
+  .contact-box p{color:#93c5fd;margin-bottom:24px}
+  .contact-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
+  .contact-item{background:rgba(255,255,255,.08);border-radius:14px;padding:18px;border:1px solid rgba(255,255,255,.1)}
+  .contact-item .cl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#5cb882;margin-bottom:6px}
+  .contact-item .cv{color:#fff;font-weight:700;font-size:15px}
+  .wa-btn{display:inline-block;background:#25d366;color:#fff;font-weight:800;font-size:15px;padding:14px 32px;border-radius:50px;text-decoration:none;margin-top:24px;transition:.2s}
+  .wa-btn:hover{background:#1ebe57;transform:translateY(-2px)}
+
+  /* FOOTER */
+  footer{text-align:center;padding:28px;font-size:12px;color:#475569}
+
+  /* PRINT */
+  @media print{
+    body{background:#fff;color:#000}
+    .scene,.overview,.short-section,.prod-section{border:1px solid #ccc;page-break-inside:avoid}
+    .voice-box{background:#f0f0ff;color:#000}
+    .voice-box p{color:#000}
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="tag">Guión de Video Promocional</div>
+  <h1>POS-<span>iaDoS</span></h1>
+  <p class="sub">Punto de Venta Inteligente · Tecnología de Vanguardia</p>
+  <div class="meta">
+    <span>🎬 Duración: 2:30 – 3:00 min</span>
+    <span>🌍 Idioma: Español</span>
+    <span>📐 Formato: Full HD 1920×1080</span>
+    <span>🎵 Música: Corporate upbeat</span>
+  </div>
+  <div class="contacts">
+    <a href="https://wa.me/528114137902">📱 WhatsApp 81 1413 7902</a>
+    <a href="https://wa.me/528318989580">📱 WhatsApp 83 1898 9580</a>
+    <a href="https://iados.mx">🌐 iados.mx</a>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- TIMELINE -->
+  <div class="overview">
+    <h2>Estructura del Video</h2>
+    <div class="timeline">
+      <div class="tl-item"><div class="time">00:00–00:12</div><div class="desc">Intro — El Problema</div></div>
+      <div class="tl-item"><div class="time">00:12–00:28</div><div class="desc">Presentación del producto</div></div>
+      <div class="tl-item"><div class="time">00:28–01:45</div><div class="desc">Demo de módulos clave</div></div>
+      <div class="tl-item"><div class="time">01:45–02:10</div><div class="desc">Ventajas competitivas</div></div>
+      <div class="tl-item"><div class="time">02:10–02:30</div><div class="desc">Call to Action</div></div>
+    </div>
+  </div>
+
+  <!-- ESCENA 1 -->
+  <div class="scene">
+    <div class="scene-header">
+      <span class="scene-num">ESCENA 01</span>
+      <span class="scene-title">INTRO — El Problema (impacto emocional)</span>
+      <span class="scene-duration">0:00 – 0:12</span>
+    </div>
+    <div class="scene-body">
+      <div class="visual-box">
+        <div class="label">🎥 Visual</div>
+        <p>Toma rápida y dinámica: restaurante lleno, cajero con calculadora y papel, cliente esperando frustrado, mesero corriendo anotando en libreta, fila larga. Cortes rápidos al ritmo de la música.</p>
+      </div>
+      <div class="voice-box">
+        <div class="label">🎙️ Voz en off</div>
+        <p>"¿Cuánto tiempo pierdes cada día en procesos que podrían automatizarse? ¿Cuántas ventas se te escapan por no tener el control de tu negocio? ¿Cuánto te cuesta… no tener tecnología?"</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ESCENA 2 -->
+  <div class="scene">
+    <div class="scene-header">
+      <span class="scene-num">ESCENA 02</span>
+      <span class="scene-title">PRESENTACIÓN — La Solución</span>
+      <span class="scene-duration">0:12 – 0:28</span>
+    </div>
+    <div class="scene-body">
+      <div class="visual-box">
+        <div class="label">🎥 Visual</div>
+        <p>Pantalla oscura. Logo iaDoS aparece con animación elegante. Brillo verde. Transición al dashboard del sistema. Fondo limpio, profesional.</p>
+      </div>
+      <div class="voice-box">
+        <div class="label">🎙️ Voz en off</div>
+        <p>"Presenta iaDoS: POS-iaDoS. El sistema de punto de venta más completo, más rápido y más inteligente para tu negocio. Tecnología de vanguardia, hecha en Monterrey, para negocios como el tuyo."</p>
+      </div>
+      <div class="screen-text">
+        <div class="label">📺 Texto en pantalla</div>
+        <div class="items">
+          <span class="item">POS-iaDoS</span>
+          <span class="item">Punto de Venta Inteligente</span>
+          <span class="item green">iaDoS · Monterrey, NL</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ESCENA 3 -->
+  <div class="scene">
+    <div class="scene-header">
+      <span class="scene-num">ESCENA 03</span>
+      <span class="scene-title">MÓDULO POS — Ventas Ultra Rápidas</span>
+      <span class="scene-duration">0:28 – 0:43</span>
+    </div>
+    <div class="scene-body">
+      <div class="visual-box">
+        <div class="label">🎥 Visual</div>
+        <p>Manos en pantalla táctil tocando productos. El carrito se llena. Toca "Cobrar". Aparece el pad de denominaciones ($100, $200, $500). Calcula el cambio automático. Ticket imprimiéndose. Animación check verde: "Venta completada".</p>
+      </div>
+      <div class="voice-box">
+        <div class="label">🎙️ Voz en off</div>
+        <p>"Registra una venta en menos de 10 segundos. Toca el producto, elige la cantidad, selecciona el método de pago — efectivo, tarjeta o transferencia — y listo. El sistema calcula el cambio exacto. Cero errores. Cero pérdidas."</p>
+      </div>
+      <div class="screen-text">
+        <div class="label">📺 Texto en pantalla</div>
+        <div class="items">
+          <span class="item green">⚡ Ventas en menos de 10 segundos</span>
+          <span class="item">Efectivo · Tarjeta · Transferencia · Mixto</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ESCENA 4 -->
+  <div class="scene">
+    <div class="scene-header">
+      <span class="scene-num">ESCENA 04</span>
+      <span class="scene-title">SELF ORDER — El cliente ordena solo desde su celular</span>
+      <span class="scene-duration">0:43 – 1:03</span>
+    </div>
+    <div class="scene-body">
+      <div class="visual-box">
+        <div class="label">🎥 Visual</div>
+        <p>Cliente en mesa apunta su celular al QR. El menú digital se abre en el navegador del celular con fotos apetitosas de los platillos. Selecciona productos. Confirma su pedido. En la tablet del mesero aparece la notificación con sonido. El mesero toca "Confirmar". Mesero sirve a la mesa con una sonrisa.</p>
+      </div>
+      <div class="voice-box">
+        <div class="label">🎙️ Voz en off</div>
+        <p>"¿Quieres reducir el tiempo de atención a la mitad? Con Self Order, el cliente escanea el código QR de su mesa, elige del menú y hace su pedido directamente desde su celular. El mesero lo recibe al instante. Sin filas. Sin malentendidos. Sin perder una sola orden. Y sin que el cliente tenga que descargar ninguna app."</p>
+      </div>
+      <div class="screen-text">
+        <div class="label">📺 Texto en pantalla</div>
+        <div class="items">
+          <span class="item green">📱 El cliente ordena desde su celular</span>
+          <span class="item">Sin app adicional · Solo el QR</span>
+          <span class="item green">⏱️ 50% menos tiempo de atención</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ESCENA 5 -->
+  <div class="scene">
+    <div class="scene-header">
+      <span class="scene-num">ESCENA 05</span>
+      <span class="scene-title">MESAS — Control total del salón</span>
+      <span class="scene-duration">1:03 – 1:13</span>
+    </div>
+    <div class="scene-body">
+      <div class="visual-box">
+        <div class="label">🎥 Visual</div>
+        <p>Mapa de mesas con colores vivos. Algunas mesas verdes (libres), otras en azul (con mesero asignado), otras en rojo (pedido pendiente). Vista en tablet desde el mostrador. Mesero asignado a cada mesa con su color.</p>
+      </div>
+      <div class="voice-box">
+        <div class="label">🎙️ Voz en off</div>
+        <p>"Controla tu salón completo desde una pantalla. Ve qué mesas están libres, cuáles ocupadas, quién las atiende. El caos del salón, bajo control total."</p>
+      </div>
+      <div class="screen-text">
+        <div class="label">📺 Texto en pantalla</div>
+        <div class="items">
+          <span class="item green">🗺️ Control total del salón · En tiempo real</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ESCENA 6 -->
+  <div class="scene">
+    <div class="scene-header">
+      <span class="scene-num">ESCENA 06</span>
+      <span class="scene-title">DASHBOARD — Inteligencia de negocio</span>
+      <span class="scene-duration">1:13 – 1:28</span>
+    </div>
+    <div class="scene-body">
+      <div class="visual-box">
+        <div class="label">🎥 Visual</div>
+        <p>Dashboard animado. Contador de ventas subiendo: $14,280. Gráfica de barras de ventas por hora mostrando pico a la hora del almuerzo. Lista de top 10 productos. Gráfica de pastel por categoría. Dueño mirando su laptop con cara de satisfacción.</p>
+      </div>
+      <div class="voice-box">
+        <div class="label">🎙️ Voz en off</div>
+        <p>"¿Sabes cuánto vendiste hoy? ¿A qué hora tienes más clientes? ¿Qué producto te deja más ganancia? Con el Dashboard de POS-iaDoS, tienes todos los indicadores de tu negocio en un solo lugar. Toma decisiones basadas en datos… no en suposiciones."</p>
+      </div>
+      <div class="screen-text">
+        <div class="label">📺 Texto en pantalla</div>
+        <div class="items">
+          <span class="item green">📊 Inteligencia de negocio en tiempo real</span>
+          <span class="item">Ventas · Productos · Horas pico · Tendencias</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ESCENA 7 -->
+  <div class="scene">
+    <div class="scene-header">
+      <span class="scene-num">ESCENA 07</span>
+      <span class="scene-title">CAJA E INVENTARIO — Todo controlado</span>
+      <span class="scene-duration">1:28 – 1:38</span>
+    </div>
+    <div class="scene-body">
+      <div class="visual-box">
+        <div class="label">🎥 Visual</div>
+        <p>Cajero abre la caja registrando el fondo. Durante el día se ven ventas sumándose. Al final: corte de caja. Diferencia: $0.00. Inventario de un producto bajando automáticamente al procesar una venta.</p>
+      </div>
+      <div class="voice-box">
+        <div class="label">🎙️ Voz en off</div>
+        <p>"Abre y cierra caja con un clic. Cada peso está contado, cada movimiento registrado. El inventario se actualiza solo con cada venta. Di adiós a las mermas sin explicación y a los faltantes al final del día."</p>
+      </div>
+      <div class="screen-text">
+        <div class="label">📺 Texto en pantalla</div>
+        <div class="items">
+          <span class="item green">💰 Control de caja e inventario · Automático</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ESCENA 8 -->
+  <div class="scene">
+    <div class="scene-header">
+      <span class="scene-num">ESCENA 08</span>
+      <span class="scene-title">MENÚ DIGITAL — Tu negocio vende solo</span>
+      <span class="scene-duration">1:38 – 1:48</span>
+    </div>
+    <div class="scene-body">
+      <div class="visual-box">
+        <div class="label">🎥 Visual</div>
+        <p>Pantalla grande en el local mostrando el menú digital con fotos profesionales de los platillos. Colores vivos. Clientes apuntando a la pantalla. Misma vista en el celular de un cliente.</p>
+      </div>
+      <div class="voice-box">
+        <div class="label">🎙️ Voz en off</div>
+        <p>"Muestra tu menú de forma profesional en pantalla o en el celular de tus clientes. Fotos, descripciones y precios actualizados al instante. Tu negocio vende… aunque nadie esté explicando el menú."</p>
+      </div>
+      <div class="screen-text">
+        <div class="label">📺 Texto en pantalla</div>
+        <div class="items">
+          <span class="item green">🍽️ Menú Digital · Vende más sin esfuerzo extra</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ESCENA 9 -->
+  <div class="scene">
+    <div class="scene-header">
+      <span class="scene-num">ESCENA 09</span>
+      <span class="scene-title">VENTAJAS COMPETITIVAS — El diferenciador</span>
+      <span class="scene-duration">1:48 – 2:13</span>
+    </div>
+    <div class="scene-body">
+      <div class="visual-box">
+        <div class="label">🎥 Visual</div>
+        <p>Fondo oscuro profesional. Cada ventaja aparece con animación tipo "check" desde la izquierda, con ícono y texto en blanco/verde. Ritmo al compás de la música. Al final todos visibles simultáneamente.</p>
+      </div>
+      <div class="voice-box">
+        <div class="label">🎙️ Voz en off</div>
+        <p>"POS-iaDoS funciona sin internet — ideal para locales con conexión inestable. Se instala en minutos con un solo archivo. Funciona en cualquier dispositivo: tablet, celular o computadora. Maneja múltiples sucursales desde un solo panel. Y lo mejor… no pagas renta mensual de software, no pagas por módulo, no pagas por usuario. Es tuyo. Para siempre."</p>
+      </div>
+      <div class="screen-text">
+        <div class="label">📺 Texto animado — aparece uno por uno</div>
+        <div class="items">
+          <span class="item green">✅ Sin internet requerido</span>
+          <span class="item green">✅ Instalación en 5 minutos</span>
+          <span class="item green">✅ Tablet, celular o PC</span>
+          <span class="item green">✅ Multi-sucursal incluido</span>
+          <span class="item green">✅ Sin costos mensuales ocultos</span>
+          <span class="item green">✅ Soporte local en Monterrey</span>
+          <span class="item green">✅ +40% eficiencia operativa</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ESCENA 10 -->
+  <div class="scene">
+    <div class="scene-header">
+      <span class="scene-num">ESCENA 10</span>
+      <span class="scene-title">IMPACTO — El resultado</span>
+      <span class="scene-duration">2:13 – 2:25</span>
+    </div>
+    <div class="scene-body">
+      <div class="visual-box">
+        <div class="label">🎥 Visual</div>
+        <p>Dueño del restaurante viendo su dashboard, sonriendo con satisfacción. Equipo de trabajo coordinado y eficiente. Clientes satisfechos saliendo del local. Mesero con tablet confirmando pedidos sin correr.</p>
+      </div>
+      <div class="voice-box">
+        <div class="label">🎙️ Voz en off</div>
+        <p>"Nuestros clientes incrementan su eficiencia operativa hasta un 40%. Menos tiempo en procesos. Más tiempo atendiendo a tus clientes. Más ventas. Más utilidad. Más control."</p>
+      </div>
+      <div class="screen-text">
+        <div class="label">📺 Texto en pantalla</div>
+        <div class="items">
+          <span class="item green">📈 +40% eficiencia operativa · Comprobado</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ESCENA 11 -->
+  <div class="scene">
+    <div class="scene-header">
+      <span class="scene-num">ESCENA 11</span>
+      <span class="scene-title">CALL TO ACTION — Contacto y cierre</span>
+      <span class="scene-duration">2:25 – 2:45</span>
+    </div>
+    <div class="scene-body">
+      <div class="visual-box">
+        <div class="label">🎥 Visual</div>
+        <p>Logo iaDoS centrado sobre fondo oscuro con efecto de luz verde. Los datos de contacto aparecen con animación elegante uno a uno. Brillo final. Fundido a negro con el logo.</p>
+      </div>
+      <div class="voice-box">
+        <div class="label">🎙️ Voz en off</div>
+        <p>"¿Listo para llevar tu negocio al siguiente nivel? Contáctanos hoy mismo por WhatsApp. Estamos en Monterrey, Nuevo León, listos para instalarlo y capacitar a tu equipo. La primera demo es completamente gratis."</p>
+      </div>
+      <div class="screen-text">
+        <div class="label">📺 Texto animado</div>
+        <div class="items">
+          <span class="item green">📱 WhatsApp: 81 1413 7902</span>
+          <span class="item green">📱 WhatsApp: 83 1898 9580</span>
+          <span class="item">🌐 www.iados.mx</span>
+          <span class="item">📍 Monterrey, Nuevo León</span>
+        </div>
+      </div>
+      <div class="voice-box" style="background:linear-gradient(135deg,#14532d,#166534);margin-top:12px">
+        <div class="label">🎙️ Frase de cierre</div>
+        <p>"POS-iaDoS. Tecnología de vanguardia. Tu negocio, al siguiente nivel."</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SHORT VERSION -->
+  <div class="short-section">
+    <h2>📱 Versión Corta — 60 segundos (Redes Sociales)</h2>
+    <p class="sub">Para Instagram · TikTok · WhatsApp Status · Facebook Reels</p>
+    <div class="voice-box">
+      <div class="label">🎙️ Guión completo</div>
+      <p>"¿Todavía cobras con calculadora y papel?<br><br>
+      En iaDoS desarrollamos POS-iaDoS: el sistema de punto de venta que automatiza tu restaurante o negocio desde el primer día.<br><br>
+      Tus clientes ordenan escaneando un QR desde su celular. Tú ves los pedidos en tiempo real. Cobras en segundos con efectivo, tarjeta o transferencia. El inventario se actualiza solo. Y al final del día, tienes el reporte completo de ventas en pantalla.<br><br>
+      Funciona sin internet. Se instala en minutos. Sin costos mensuales ocultos.<br><br>
+      Somos iaDoS, de Monterrey para todo México.<br>
+      WhatsApp: 81 1413 7902 · iados.mx<br><br>
+      Tu negocio, al siguiente nivel."</p>
+    </div>
+  </div>
+
+  <!-- PRODUCTION NOTES -->
+  <div class="prod-section">
+    <h2>⚙️ Notas de Producción</h2>
+    <p style="color:#94a3b8;margin-bottom:20px">Herramientas recomendadas para crear el video (desde básico hasta profesional):</p>
+    <div class="tools-grid">
+      <div class="tool-card">
+        <div class="tool-name">CapCut Desktop</div>
+        <div class="tool-info">Fácil de usar, plantillas modernas</div>
+        <div class="tool-cost free">✅ Gratis</div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-name">DaVinci Resolve</div>
+        <div class="tool-info">Profesional, color grading</div>
+        <div class="tool-cost free">✅ Gratis</div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-name">Canva Pro</div>
+        <div class="tool-info">Animaciones rápidas, fácil</div>
+        <div class="tool-cost paid">💲 $13 USD/mes</div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-name">ElevenLabs</div>
+        <div class="tool-info">Voz IA profesional en español</div>
+        <div class="tool-cost paid">💲 Plan gratis disponible</div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-name">OBS Studio</div>
+        <div class="tool-info">Captura de pantalla del sistema</div>
+        <div class="tool-cost free">✅ Gratis</div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-name">Adobe Premiere</div>
+        <div class="tool-info">Resultado más profesional</div>
+        <div class="tool-cost paid">💲 $55 USD/mes</div>
+      </div>
+    </div>
+
+    <h2 style="margin-top:24px">💡 Tips para que el video se vea profesional</h2>
+    <div class="tips">
+      <div class="tip"><span class="icon">🍔</span><span class="text">Usa el sistema con datos reales atractivos: productos con fotos apetitosas y nombres reales de platillos</span></div>
+      <div class="tip"><span class="icon">🏪</span><span class="text">Muestra el QR en una mesa real de restaurante, no sobre fondo blanco</span></div>
+      <div class="tip"><span class="icon">👆</span><span class="text">Usa una mano real haciendo los clics — da sensación de uso real y cercano</span></div>
+      <div class="tip"><span class="icon">💰</span><span class="text">El dashboard debe mostrar cifras realistas ($14,280 de ventas del día, ticket promedio $280)</span></div>
+      <div class="tip"><span class="icon">✅</span><span class="text">Agrega micro-animaciones de check verde cuando algo se completa exitosamente</span></div>
+      <div class="tip"><span class="icon">📐</span><span class="text">Para redes: crea versión vertical 9:16 (1080×1920) editando el mismo video</span></div>
+    </div>
+
+    <h2 style="margin-top:24px">🎨 Paleta de Colores del Sistema</h2>
+    <div class="tools-grid" style="margin-top:12px">
+      <div class="tool-card" style="border-left:4px solid #0f172a">
+        <div class="tool-name" style="color:#e2e8f0">Azul oscuro</div>
+        <div class="tool-info" style="font-family:monospace">#0f172a · #1e3a8a</div>
+      </div>
+      <div class="tool-card" style="border-left:4px solid #5cb882">
+        <div class="tool-name" style="color:#5cb882">Verde iaDoS</div>
+        <div class="tool-info" style="font-family:monospace">#5cb882</div>
+      </div>
+      <div class="tool-card" style="border-left:4px solid #ffffff">
+        <div class="tool-name">Blanco</div>
+        <div class="tool-info" style="font-family:monospace">#ffffff · #f1f5f9</div>
+      </div>
+      <div class="tool-card" style="border-left:4px solid #1e40af">
+        <div class="tool-name">Azul principal</div>
+        <div class="tool-info" style="font-family:monospace">#1e40af · #3b82f6</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTACT -->
+  <div class="contact-box">
+    <h2>¿Listo para el siguiente nivel?</h2>
+    <p>Contáctanos para una demo gratuita sin compromiso</p>
+    <div class="contact-grid">
+      <div class="contact-item">
+        <div class="cl">WhatsApp</div>
+        <div class="cv">📱 +52 81 1413 7902</div>
+      </div>
+      <div class="contact-item">
+        <div class="cl">WhatsApp</div>
+        <div class="cv">📱 +52 83 1898 9580</div>
+      </div>
+      <div class="contact-item">
+        <div class="cl">Sitio Web</div>
+        <div class="cv">🌐 www.iados.mx</div>
+      </div>
+      <div class="contact-item">
+        <div class="cl">Ubicación</div>
+        <div class="cv">📍 Monterrey, NL</div>
+      </div>
+    </div>
+    <a class="wa-btn" href="https://wa.me/528114137902?text=Hola!%20Quiero%20una%20demo%20de%20POS-iaDoS">💬 Escribir por WhatsApp ahora</a>
+  </div>
+
+</div><!-- /content -->
+
+<footer>
+  Guión Promocional POS-iaDoS &nbsp;·&nbsp; iaDoS © 2025 &nbsp;·&nbsp; iados.mx &nbsp;·&nbsp; Monterrey, Nuevo León
+</footer>
+
+</body>
+</html>

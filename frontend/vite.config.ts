@@ -25,13 +25,6 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https?:\/\/.*\/api\/(productos|categorias)/,
-            handler: 'StaleWhileRevalidate',
-            options: { cacheName: 'api-cache', expiration: { maxEntries: 100, maxAgeSeconds: 3600 } },
-          },
-        ],
       },
     }),
   ],
