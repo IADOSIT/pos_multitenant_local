@@ -27,8 +27,15 @@ export default function PayModal({ onClose, isOnline }: Props) {
 
   const cambio = metodo === 'efectivo' ? Math.max(0, Number(pagoEfectivo || 0) - total) : 0;
 
-  const addDenom = (d: number) =>
-    setPagoEfectivo((prev) => String(Math.round((Number(prev || 0) + d) * 100) / 100));
+  const addDenom = (d: number) => {
+    if (metodo === 'tarjeta') {
+      setPagoTarjeta((prev) => String(Math.round((Number(prev || 0) + d) * 100) / 100));
+    } else if (metodo === 'transferencia') {
+      setPagoTransferencia((prev) => String(Math.round((Number(prev || 0) + d) * 100) / 100));
+    } else {
+      setPagoEfectivo((prev) => String(Math.round((Number(prev || 0) + d) * 100) / 100));
+    }
+  };
 
   const canPay = () => {
     if (metodo === 'efectivo') return Number(pagoEfectivo || 0) >= total;
@@ -174,8 +181,8 @@ export default function PayModal({ onClose, isOnline }: Props) {
         {/* Campos de pago según método */}
         {(metodo === 'efectivo' || metodo === 'mixto') && (
           <div className="mb-4">
-            {/* Monto recibido + botón limpiar */}
             <div className="flex gap-2 items-center mb-3">
+              {metodo === 'mixto' && <label className="text-sm text-slate-400 shrink-0">Efectivo</label>}
               <input
                 type="number"
                 value={pagoEfectivo}
@@ -194,67 +201,77 @@ export default function PayModal({ onClose, isOnline }: Props) {
                 </button>
               )}
             </div>
-
-            {/* Pad de denominaciones — toca cada billete/moneda recibido */}
-            {metodo === 'efectivo' && (
-              <>
-                <p className="text-xs text-slate-500 mb-2 text-center">Toca cada billete / moneda que entrega el cliente</p>
-                <div className="grid grid-cols-4 gap-2 mb-2">
-                  {([1000, 500, 200, 100] as const).map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => addDenom(d)}
-                      className="bg-iados-card border border-slate-700 hover:bg-iados-primary/30 hover:border-iados-primary py-4 rounded-xl text-sm font-bold transition-colors active:scale-95"
-                    >
-                      ${d >= 1000 ? `${d / 1000}k` : d}
-                    </button>
-                  ))}
-                </div>
-                <div className="grid grid-cols-4 gap-2 mb-3">
-                  {([50, 20, 10, 5] as const).map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => addDenom(d)}
-                      className="bg-iados-card border border-slate-700 hover:bg-iados-primary/30 hover:border-iados-primary py-4 rounded-xl text-sm font-bold transition-colors active:scale-95"
-                    >
-                      ${d}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  onClick={() => setPagoEfectivo(total.toFixed(2))}
-                  className="btn-secondary w-full text-sm py-3"
-                >
-                  Exacto — ${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                </button>
-              </>
-            )}
           </div>
         )}
 
         {(metodo === 'tarjeta' || metodo === 'mixto') && (
           <div className="mb-4">
-            <label className="text-sm text-slate-400 mb-1 block">Tarjeta</label>
-            <input
-              type="number"
-              value={pagoTarjeta}
-              onChange={(e) => setPagoTarjeta(e.target.value)}
-              className="input-touch text-xl text-center"
-              placeholder={metodo === 'tarjeta' ? total.toFixed(2) : '0.00'}
-            />
+            <div className="flex gap-2 items-center mb-3">
+              <label className="text-sm text-slate-400 shrink-0">Tarjeta</label>
+              <input
+                type="number"
+                value={pagoTarjeta}
+                onChange={(e) => setPagoTarjeta(e.target.value)}
+                className="input-touch text-xl text-center flex-1"
+                placeholder={metodo === 'tarjeta' ? total.toFixed(2) : '0.00'}
+              />
+              {Number(pagoTarjeta) > 0 && (
+                <button onClick={() => setPagoTarjeta('')} className="p-3 rounded-xl bg-iados-card text-slate-400 hover:text-red-400 transition-colors"><X size={20} /></button>
+              )}
+            </div>
           </div>
         )}
 
         {(metodo === 'transferencia' || metodo === 'mixto') && (
           <div className="mb-4">
-            <label className="text-sm text-slate-400 mb-1 block">Transferencia</label>
-            <input
-              type="number"
-              value={pagoTransferencia}
-              onChange={(e) => setPagoTransferencia(e.target.value)}
-              className="input-touch text-xl text-center"
-              placeholder={metodo === 'transferencia' ? total.toFixed(2) : '0.00'}
-            />
+            <div className="flex gap-2 items-center mb-3">
+              <label className="text-sm text-slate-400 shrink-0">Transferencia</label>
+              <input
+                type="number"
+                value={pagoTransferencia}
+                onChange={(e) => setPagoTransferencia(e.target.value)}
+                className="input-touch text-xl text-center flex-1"
+                placeholder={metodo === 'transferencia' ? total.toFixed(2) : '0.00'}
+              />
+              {Number(pagoTransferencia) > 0 && (
+                <button onClick={() => setPagoTransferencia('')} className="p-3 rounded-xl bg-iados-card text-slate-400 hover:text-red-400 transition-colors"><X size={20} /></button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Pad de denominaciones — aplica para todos los métodos excepto mixto */}
+        {metodo !== 'mixto' && (
+          <div className="mb-4">
+            <p className="text-xs text-slate-500 mb-2 text-center">Toca cada billete / moneda que entrega el cliente</p>
+            <div className="grid grid-cols-4 gap-2 mb-2">
+              {([1000, 500, 200, 100] as const).map((d) => (
+                <button
+                  key={d}
+                  onClick={() => addDenom(d)}
+                  className="bg-iados-card border border-slate-700 hover:bg-iados-primary/30 hover:border-iados-primary py-4 rounded-xl text-sm font-bold transition-colors active:scale-95"
+                >
+                  ${d >= 1000 ? `${d / 1000}k` : d}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-4 gap-2 mb-3">
+              {([50, 20, 10, 5] as const).map((d) => (
+                <button
+                  key={d}
+                  onClick={() => addDenom(d)}
+                  className="bg-iados-card border border-slate-700 hover:bg-iados-primary/30 hover:border-iados-primary py-4 rounded-xl text-sm font-bold transition-colors active:scale-95"
+                >
+                  ${d}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => addDenom(total - (metodo === 'tarjeta' ? Number(pagoTarjeta || 0) : metodo === 'transferencia' ? Number(pagoTransferencia || 0) : Number(pagoEfectivo || 0)))}
+              className="btn-secondary w-full text-sm py-3"
+            >
+              Exacto — ${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+            </button>
           </div>
         )}
 

@@ -174,7 +174,25 @@
       "Bash(cd \"C:/sites/pos_multitenant_local/installer/staging/app/backend\" && rm -rf dist && mv dist_new dist && echo \"dist replaced\" && ls dist/ | head -5 && stat dist/main.js 2>/dev/null || echo \"main.js check failed\")",
       "Bash(cd \"C:/sites/pos_multitenant_local\" && rm -f gen_desc.py apply_local.py apply_local.sql desc_updates.sql && echo \"Temp files removed\")",
       "Bash(cd \"C:/sites/pos_multitenant_local/frontend\" && VITE_API_URL=/api npm run build 2>&1 | tail -15)",
-      "Bash(cd \"C:/sites/pos_multitenant_local/installer\" && powershell -NoProfile -ExecutionPolicy Bypass -File \"build-exe.ps1\" -Version \"2.2.14\" -Mode \"local\" -RuntimeSource \"v1.0.0\" 2>&1 | tail -30)"
+      "Bash(cd \"C:/sites/pos_multitenant_local/installer\" && powershell -NoProfile -ExecutionPolicy Bypass -File \"build-exe.ps1\" -Version \"2.2.14\" -Mode \"local\" -RuntimeSource \"v1.0.0\" 2>&1 | tail -30)",
+      "Bash(cd \"C:/sites/pos_multitenant_local\" && python fix_accents.py)",
+      "Bash(mysql --host=127.0.0.1 --port=3306 -u pos_iados -ppos_iados_2024 pos_iados 2>&1 -e \"SELECT sku, nombre FROM productos WHERE tenant_id=4 AND sku IN \\('PROD006','PROD043','PROD051'\\) ORDER BY sku\" | grep -v Warning)",
+      "Bash(cd \"C:/sites/pos_multitenant_local/installer\" && powershell -NoProfile -ExecutionPolicy Bypass -File \"build-exe.ps1\" -Version \"2.2.15\" -Mode \"local\" -RuntimeSource \"v1.0.0\" 2>&1 | tail -5)",
+      "Bash(find /c/sites/pos_multitenant_local -name \".env*\" -type f 2>/dev/null | head -10)",
+      "Bash(find /c/sites/pos_multitenant_local/backend/src/database -name \"*.sql\" -type f 2>/dev/null | head -10)",
+      "Bash(cp -r /c/sites/pos_multitenant_local/database/* /c/sites/pos_multitenant_local/installer/staging/app/database/ && echo \"DB synced\")",
+      "Bash(cd /c/sites/pos_multitenant_local/backend && npx tsc -p tsconfig.json --outDir /tmp/dist_new --incremental false 2>&1 | tail -5; echo \"Exit: $?\")",
+      "Bash(cd /c/sites/pos_multitenant_local/installer/staging/app/backend && rm -rf dist && mv dist_new dist && echo \"dist replaced\")",
+      "Bash(powershell.exe -Command \"Start-Process powershell -ArgumentList '-NoExit -File C:\\\\\\\\sites\\\\\\\\pos_multitenant_local\\\\\\\\installer\\\\\\\\_build_launcher.ps1' -Verb RunAs\" 2>&1; echo \"Launched\")",
+      "Bash(while read:*)",
+      "Bash(do echo:*)",
+      "Read(//c/sites/pos_multitenant_local/installer/staging/app/backend/**)",
+      "Bash(done)",
+      "Bash(whoami && net session >nul 2>&1 && echo \"IS_ADMIN\" || echo \"NOT_ADMIN\")",
+      "Bash(cd /c/sites/pos_multitenant_local/frontend && VITE_API_URL=/api npm run build 2>&1 | tail -10)",
+      "Bash(cd /c/sites/pos_multitenant_local/backend && npx tsc -p tsconfig.json --outDir /c/sites/pos_multitenant_local/installer/staging/app/backend/dist_new --incremental false 2>&1; echo \"TS Exit: $?\")",
+      "Bash(cd /c/sites/pos_multitenant_local/installer/staging/app/backend && rm -rf dist && mv dist_new dist && echo \"dist replaced OK\" && ls dist/*.js dist/main.js 2>/dev/null | head -3)",
+      "Bash(ls -la /c/sites/pos_multitenant_local/frontend/dist-prod/assets/index-*.js | sort -k6 -r | head -3 && echo \"---\" && ls -la /c/sites/pos_multitenant_local/frontend/dist-prod/index.html)"
     ]
   }
 }

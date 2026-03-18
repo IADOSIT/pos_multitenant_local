@@ -54,12 +54,19 @@ export class SelfOrderService {
   // Obtener menú publicado para self-order (productos y categorías activos)
   async getMenuPublico(tienda_id: number) {
     const categorias = await this.dataSource.query(
-      `SELECT id, nombre, color, icono, imagen_url, orden FROM categorias WHERE tienda_id = ? AND activo = 1 ORDER BY orden ASC`,
+      `SELECT c.id, c.nombre, c.color, c.icono, c.imagen_url, c.orden
+       FROM categorias c
+       INNER JOIN tiendas t ON t.empresa_id = c.empresa_id
+       WHERE t.id = ? AND c.activo = 1
+       ORDER BY c.orden ASC`,
       [tienda_id],
     );
     const productos = await this.dataSource.query(
       `SELECT p.id, p.nombre, p.descripcion, p.precio, p.imagen_url, p.categoria_id, p.impuesto_pct, p.unidad
-       FROM productos p WHERE p.tienda_id = ? AND p.activo = 1 AND p.disponible = 1 ORDER BY p.orden ASC, p.nombre ASC`,
+       FROM productos p
+       INNER JOIN producto_tienda pt ON pt.producto_id = p.id AND pt.tienda_id = ?
+       WHERE p.activo = 1 AND p.disponible = 1 AND pt.disponible = 1
+       ORDER BY p.orden ASC, p.nombre ASC`,
       [tienda_id],
     );
     return { categorias, productos };

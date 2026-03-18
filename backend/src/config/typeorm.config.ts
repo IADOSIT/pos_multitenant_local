@@ -16,10 +16,12 @@ export const dataSourceOptions: DataSourceOptions = {
   // En desarrollo: log completo. En producción: solo DDL + errores (visible en logs del instalador)
   logging: process.env.NODE_ENV === 'development' ? true : ['schema', 'warn', 'error'],
   // Pool para estabilidad en Docker/MariaDB
+  charset: 'utf8mb4',
   extra: {
     connectionLimit: 10,
     connectTimeout: 30000,
     ssl: false,
+    charset: 'utf8mb4',
   },
 };
 

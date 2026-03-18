@@ -401,9 +401,9 @@ export class BackupService implements OnModuleInit {
         const [r1] = await this.dataSource.query('SELECT COUNT(*) AS c FROM movimientos_caja');
         await this.dataSource.query('DELETE FROM movimientos_caja');
         resultado.movimientos_caja = Number(r1.c);
-        // Reset cajas to estado abierto y saldo inicial
+        // Reset cajas totals
         await this.dataSource.query(
-          `UPDATE cajas SET saldo_actual = saldo_inicial, estado = 'abierta'`,
+          `UPDATE cajas SET total_ventas = 0, total_entradas = 0, total_salidas = 0, total_esperado = NULL, total_real = NULL, diferencia = NULL, fecha_apertura = NULL, fecha_cierre = NULL, estado = 'cerrada'`,
         );
       }
 

@@ -103,38 +103,43 @@ export default function SelfOrderDashboard({ embedded = false }: { embedded?: bo
         </div>
       )}
 
-      {/* KPI Cards - Encuestas */}
-      {kpisEncuestas && kpisEncuestas.total > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="card flex items-center gap-4">
-            <div className="w-12 h-12 bg-yellow-900/30 rounded-xl flex items-center justify-center shrink-0">
-              <Star size={24} className="text-yellow-400" />
+      {/* KPI Cards - Encuestas de Meseros */}
+      <div className="card">
+        <h2 className="text-sm font-bold mb-3 flex items-center gap-2"><Star size={16} className="text-yellow-400" /> Encuestas de Meseros</h2>
+        {kpisEncuestas && kpisEncuestas.total > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-yellow-900/30 rounded-xl flex items-center justify-center shrink-0">
+                <Star size={20} className="text-yellow-400" />
+              </div>
+              <div>
+                <div className="text-xs text-slate-400 mb-1">Servicio</div>
+                <StarDisplay value={kpisEncuestas.promedio_servicio} />
+              </div>
             </div>
-            <div>
-              <div className="text-xs text-slate-400 mb-1">Servicio</div>
-              <StarDisplay value={kpisEncuestas.promedio_servicio} />
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-orange-900/30 rounded-xl flex items-center justify-center shrink-0">
+                <Award size={20} className="text-orange-400" />
+              </div>
+              <div>
+                <div className="text-xs text-slate-400 mb-1">Comida</div>
+                <StarDisplay value={kpisEncuestas.promedio_comida} />
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-indigo-900/30 rounded-xl flex items-center justify-center shrink-0">
+                <MessageSquare size={20} className="text-indigo-400" />
+              </div>
+              <div>
+                <div className="text-xs text-slate-400 mb-1">Encuestas completadas</div>
+                <div className="text-2xl font-black">{kpisEncuestas.total}</div>
+              </div>
             </div>
           </div>
-          <div className="card flex items-center gap-4">
-            <div className="w-12 h-12 bg-orange-900/30 rounded-xl flex items-center justify-center shrink-0">
-              <Award size={24} className="text-orange-400" />
-            </div>
-            <div>
-              <div className="text-xs text-slate-400 mb-1">Comida</div>
-              <StarDisplay value={kpisEncuestas.promedio_comida} />
-            </div>
-          </div>
-          <div className="card flex items-center gap-4">
-            <div className="w-12 h-12 bg-indigo-900/30 rounded-xl flex items-center justify-center shrink-0">
-              <MessageSquare size={24} className="text-indigo-400" />
-            </div>
-            <div>
-              <div className="text-xs text-slate-400 mb-1">Encuestas completadas</div>
-              <div className="text-2xl font-black">{kpisEncuestas.total}</div>
-            </div>
-          </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-sm text-slate-500">Sin encuestas en el periodo — se generan al cobrar pedidos Self Order.</p>
+        )}
+      </div>
 
       {/* Gráfica por mesero */}
       {meseroData.length > 0 && (

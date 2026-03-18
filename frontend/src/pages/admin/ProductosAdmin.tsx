@@ -18,7 +18,7 @@ export default function ProductosAdmin() {
   const fileRef = useRef<HTMLInputElement>(null);
   const imageFileRef = useRef<HTMLInputElement>(null);
 
-  const [form, setForm] = useState({ sku: '', nombre: '', descripcion: '', precio: '', costo: '', categoria_id: '', impuesto_pct: '16', unidad: 'pza', imagen_url: '' });
+  const [form, setForm] = useState({ sku: '', nombre: '', descripcion: '', precio: '', costo: '', categoria_id: '', impuesto_pct: '16', unidad: 'pza', imagen_url: '', disponible: true });
 
   useEffect(() => { load(); }, []);
 
@@ -29,10 +29,10 @@ export default function ProductosAdmin() {
   const handleSave = async () => {
     try {
       if (editItem) {
-        await productosApi.update(editItem.id, { ...form, precio: Number(form.precio), costo: Number(form.costo) });
+        await productosApi.update(editItem.id, { ...form, precio: Number(form.precio), costo: Number(form.costo), disponible: form.disponible });
         toast.success('Producto actualizado');
       } else {
-        await productosApi.create({ ...form, precio: Number(form.precio), costo: Number(form.costo) });
+        await productosApi.create({ ...form, precio: Number(form.precio), costo: Number(form.costo), disponible: form.disponible });
         toast.success('Producto creado');
       }
       setShowForm(false); setEditItem(null); load();
@@ -41,8 +41,15 @@ export default function ProductosAdmin() {
 
   const handleEdit = (p: any) => {
     setEditItem(p);
-    setForm({ sku: p.sku, nombre: p.nombre, descripcion: p.descripcion || '', precio: String(p.precio), costo: String(p.costo || ''), categoria_id: String(p.categoria_id || ''), impuesto_pct: String(p.impuesto_pct || 16), unidad: p.unidad || 'pza', imagen_url: p.imagen_url || '' });
+    setForm({ sku: p.sku, nombre: p.nombre, descripcion: p.descripcion || '', precio: String(p.precio), costo: String(p.costo || ''), categoria_id: String(p.categoria_id || ''), impuesto_pct: String(p.impuesto_pct || 16), unidad: p.unidad || 'pza', imagen_url: p.imagen_url || '', disponible: p.disponible !== false });
     setShowForm(true);
+  };
+
+  const handleToggleDisponible = async (p: any) => {
+    try {
+      await productosApi.update(p.id, { disponible: !p.disponible });
+      load();
+    } catch (e: any) { toast.error(e.response?.data?.message || 'Error'); }
   };
 
   const handleDelete = async (p: any) => {
@@ -117,7 +124,7 @@ export default function ProductosAdmin() {
           <button onClick={handleCSVDownload} className="btn-secondary text-sm"><Download size={16} className="mr-1" />CSV Template</button>
           <button onClick={() => fileRef.current?.click()} className="btn-secondary text-sm"><Upload size={16} className="mr-1" />Importar CSV</button>
           <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleCSVUpload} />
-          <button onClick={() => { setShowForm(true); setEditItem(null); setForm({ sku: '', nombre: '', descripcion: '', precio: '', costo: '', categoria_id: '', impuesto_pct: '16', unidad: 'pza', imagen_url: '' }); }} className="btn-primary text-sm">
+          <button onClick={() => { setShowForm(true); setEditItem(null); setForm({ sku: '', nombre: '', descripcion: '', precio: '', costo: '', categoria_id: '', impuesto_pct: '16', unidad: 'pza', imagen_url: '', disponible: true }); }} className="btn-primary text-sm">
             <Plus size={16} className="mr-1" />Nuevo
           </button>
         </div>
@@ -158,7 +165,7 @@ export default function ProductosAdmin() {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-slate-400 border-b border-slate-700">
-              <th className="p-3">Img</th><th className="p-3">SKU</th><th className="p-3">Nombre</th><th className="p-3">Precio</th><th className="p-3">Categoria</th><th className="p-3">Estado</th><th className="p-3"></th>
+              <th className="p-3">Img</th><th className="p-3">SKU</th><th className="p-3">Nombre</th><th className="p-3">Precio</th><th className="p-3">Categoria</th><th className="p-3">Estado</th><th className="p-3">Disponible</th><th className="p-3"></th>
             </tr>
           </thead>
           <tbody>
@@ -176,6 +183,15 @@ export default function ProductosAdmin() {
                 <td className="p-3 text-green-400 font-bold">${Number(p.precio).toFixed(2)}</td>
                 <td className="p-3">{p.categoria?.nombre || '-'}</td>
                 <td className="p-3"><span className={`px-2 py-1 rounded text-xs ${p.activo ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>{p.activo ? 'Activo' : 'Inactivo'}</span></td>
+                <td className="p-3">
+                  <button
+                    onClick={() => handleToggleDisponible(p)}
+                    className={`px-2 py-1 rounded text-xs font-medium transition-colors ${p.disponible ? 'bg-blue-900 text-blue-300 hover:bg-blue-800' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}
+                    title={p.disponible ? 'En POS — clic para ocultar' : 'Oculto en POS — clic para mostrar'}
+                  >
+                    {p.disponible ? 'En POS' : 'Oculto'}
+                  </button>
+                </td>
                 <td className="p-3 flex gap-1">
                   <button onClick={() => handleEdit(p)} className="p-2 hover:bg-iados-card rounded-lg"><Edit2 size={16} /></button>
                   <button onClick={() => setDeleteConfirm(p)} className="p-2 hover:bg-red-900/50 rounded-lg text-red-400"><Trash2 size={16} /></button>
@@ -201,6 +217,18 @@ export default function ProductosAdmin() {
             <div className="grid grid-cols-2 gap-2">
               <input value={form.impuesto_pct} onChange={(e) => setForm({ ...form, impuesto_pct: e.target.value })} placeholder="IVA %" type="number" className="input-touch" />
               <input value={form.unidad} onChange={(e) => setForm({ ...form, unidad: e.target.value })} placeholder="Unidad" className="input-touch" />
+            </div>
+
+            <div className="flex items-center gap-3 py-1">
+              <span className="text-sm text-slate-400">Disponible en POS</span>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, disponible: !form.disponible })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${form.disponible ? 'bg-blue-600' : 'bg-slate-600'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${form.disponible ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+              <span className="text-xs text-slate-500">{form.disponible ? 'Visible en POS' : 'Oculto en POS'}</span>
             </div>
 
             {/* Imagen */}
