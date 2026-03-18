@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { tiendasApi, empresasApi, menuDigitalApi } from '../../api/endpoints';
 import api, { resolveUploadUrl } from '../../api/client';
 import { useAuthStore } from '../../store/auth.store';
@@ -28,6 +29,7 @@ const PALETTES: { key: PaletteName; name: string; colors: [string, string, strin
 export default function ConfiguracionPage() {
   const { user } = useAuthStore();
   const { theme, palette, setTheme, setPalette } = useThemeStore();
+  const navigate = useNavigate();
   const [tiendas, setTiendas] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -1066,9 +1068,9 @@ export default function ConfiguracionPage() {
                                   VPS: <code>https://pos.iados.online</code>
                                 </p>
                                 {selected && (
-                                  <a href="/admin/mesas" className="text-xs text-iados-secondary hover:underline mt-1 block">
+                                  <button onClick={() => navigate('/admin/mesas')} className="text-xs text-iados-secondary hover:underline mt-1 block text-left">
                                     Ir a Gestión de Mesas para imprimir QR →
-                                  </a>
+                                  </button>
                                 )}
                               </div>
                             )}

@@ -203,7 +203,8 @@
       "Bash(rm -rf /c/sites/pos_multitenant_local/installer/staging/app/backend/public && cp -r /c/sites/pos_multitenant_local/frontend/dist-prod /c/sites/pos_multitenant_local/installer/staging/app/backend/public && echo \"public synced\" && ls /c/sites/pos_multitenant_local/installer/staging/app/backend/public/)",
       "Bash(cd /c/sites/pos_multitenant_local/installer/staging/app/backend && rm -rf dist && mv dist_new dist && echo \"dist swapped OK\" && ls dist/ | head -5)",
       "Bash(cd /c/sites/pos_multitenant_local/installer/staging/app/backend && rm -rf dist && mv dist_new dist && echo \"dist OK\")",
-      "Bash(cd \"C:\\\\sites\\\\pos_multitenant_local\\\\installer\" && powershell -File \"build-exe.ps1\" -Version \"2.2.21\" -Mode local -RuntimeSource \"v1.0.0\")"
+      "Bash(cd \"C:\\\\sites\\\\pos_multitenant_local\\\\installer\" && powershell -File \"build-exe.ps1\" -Version \"2.2.21\" -Mode local -RuntimeSource \"v1.0.0\")",
+      "Bash(mysql -h 127.0.0.1 -P 3306 -u pos_iados -ppos_iados_2024 pos_iados -e \"SHOW GRANTS FOR 'pos_iados'@'%';\" 2>/dev/null; mysql -h 127.0.0.1 -P 3306 -u pos_iados -ppos_iados_2024 pos_iados -e \"SHOW TABLES;\" 2>/dev/null | head -5)"
     ]
   }
 }
