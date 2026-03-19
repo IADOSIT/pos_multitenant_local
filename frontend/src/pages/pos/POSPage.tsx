@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { usePOSStore } from '../../store/pos.store';
 import { useAuthStore } from '../../store/auth.store';
 import { offlineActions } from '../../store/offline.store';
-import { productosApi, categoriasApi, cajaApi, tiendasApi, pedidosApi } from '../../api/endpoints';
+import { productosApi, categoriasApi, cajaApi, tiendasApi, pedidosApi, ticketsApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
+import { printComanda } from '../../utils/printTicket';
 import { Producto, Categoria } from '../../types';
 import toast from 'react-hot-toast';
 import CartPanel from '../../components/pos/CartPanel';
@@ -129,6 +130,27 @@ export default function POSPage() {
         total: getTotal(),
       };
       const { data: pedido } = await pedidosApi.crear(data);
+      // Auto-print comanda if configured
+      try {
+        const { data: ticketConfig } = await ticketsApi.getConfig();
+        if (ticketConfig.comanda_enabled && ticketConfig.comanda_auto_print) {
+          printComanda(
+            {
+              mesa: data.mesa,
+              folio: pedido.folio,
+              usuario_nombre: pedido.usuario_nombre || user?.nombre,
+              tipo_servicio: data.tipo_servicio,
+              items: data.items.map((i: any) => ({
+                cantidad: i.cantidad,
+                nombre: i.nombre,
+                precio: i.precio,
+                notas: i.notas,
+              })),
+            },
+            ticketConfig,
+          );
+        }
+      } catch {}
       toast.success(`Pedido ${pedido.folio} enviado - Mesa ${mesaActiva}`);
       clearCart();
       loadCuentasAbiertas();

@@ -12,7 +12,7 @@ const FUENTES = [
   'monospace',
 ];
 
-const TAMANOS = [7, 8, 9, 10, 11, 12];
+const TAMANOS = [7, 8, 9, 10, 11, 12, 13, 14];
 
 export default function TicketsConfig() {
   const [config, setConfig] = useState<any>(null);
@@ -70,8 +70,8 @@ export default function TicketsConfig() {
   const showLogo = config.mostrar_logo && logoUrl;
   const logoCentrado = (config.logo_posicion || 'centro') === 'centro';
   const fontStyle = {
-    fontFamily: config.fuente_familia || 'Courier New',
-    fontSize: `${config.fuente_tamano || 9}pt`,
+    fontFamily: config.fuente_familia || 'Consolas',
+    fontSize: `${config.fuente_tamano || 11}pt`,
   };
 
   return (
@@ -132,13 +132,13 @@ export default function TicketsConfig() {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-xs text-slate-400">Fuente</label>
-              <select value={config.fuente_familia || 'Courier New'} onChange={(e) => update('fuente_familia', e.target.value)} className="input-touch">
+              <select value={config.fuente_familia || 'Consolas'} onChange={(e) => update('fuente_familia', e.target.value)} className="input-touch">
                 {FUENTES.map(f => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
             <div>
               <label className="text-xs text-slate-400">Tamaño (pt)</label>
-              <select value={config.fuente_tamano || 9} onChange={(e) => update('fuente_tamano', Number(e.target.value))} className="input-touch">
+              <select value={config.fuente_tamano || 11} onChange={(e) => update('fuente_tamano', Number(e.target.value))} className="input-touch">
                 {TAMANOS.map(t => <option key={t} value={t}>{t} pt</option>)}
               </select>
             </div>
@@ -184,6 +184,66 @@ export default function TicketsConfig() {
               <span className="text-sm">{label}</span>
             </label>
           ))}
+
+          <div className="flex items-center gap-3">
+            <span className="text-sm">Copias del ticket:</span>
+            <select
+              value={config.copias || 1}
+              onChange={(e) => update('copias', Number(e.target.value))}
+              className="input-touch w-24"
+            >
+              <option value={1}>1 copia</option>
+              <option value={2}>2 copias</option>
+            </select>
+          </div>
+
+          {/* Comandera */}
+          <h3 className="font-bold pt-2 border-t border-slate-700 mt-2">Comandera / Ticket de Orden</h3>
+          <p className="text-xs text-slate-400">Ticket de orden que el mesero puede imprimir para pasar al cajero o cocina.</p>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={!!config.comanda_enabled} onChange={(e) => update('comanda_enabled', e.target.checked)} className="w-5 h-5 rounded" />
+            <span className="text-sm">Activar Comandera</span>
+          </label>
+
+          {config.comanda_enabled && (
+            <div className="space-y-2 pl-2 border-l-2 border-iados-primary/30">
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Encabezado de la comanda</label>
+                <input
+                  value={config.comanda_header || ''}
+                  onChange={(e) => update('comanda_header', e.target.value)}
+                  placeholder="COCINA / CAJA / BAR / ORDEN"
+                  className="input-touch"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-slate-400">Ancho papel</label>
+                  <select value={config.comanda_ancho || 80} onChange={(e) => update('comanda_ancho', Number(e.target.value))} className="input-touch">
+                    <option value={58}>58mm</option>
+                    <option value={80}>80mm</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400">Copias comanda</label>
+                  <select value={config.comanda_copias || 1} onChange={(e) => update('comanda_copias', Number(e.target.value))} className="input-touch">
+                    <option value={1}>1 copia</option>
+                    <option value={2}>2 copias</option>
+                    <option value={3}>3 copias</option>
+                  </select>
+                </div>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={!!config.comanda_auto_print} onChange={(e) => update('comanda_auto_print', e.target.checked)} className="w-5 h-5 rounded" />
+                <span className="text-sm">Auto-imprimir al enviar pedido</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={config.comanda_mostrar_precio !== false} onChange={(e) => update('comanda_mostrar_precio', e.target.checked)} className="w-5 h-5 rounded" />
+                <span className="text-sm">Mostrar precios en comanda</span>
+              </label>
+            </div>
+          )}
 
           <div className="flex gap-2 pt-2">
             <button onClick={handlePreview} className="btn-secondary flex-1">Preview</button>

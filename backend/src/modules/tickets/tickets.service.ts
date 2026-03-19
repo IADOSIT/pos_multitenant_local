@@ -28,9 +28,16 @@ export class TicketsService {
     config.ancho_papel = 80;
     config.columnas = 42;
     config.mostrar_marca_iados = true;
-    config.fuente_familia = 'Courier New';
-    config.fuente_tamano = 9;
+    config.fuente_familia = 'Consolas';
+    config.fuente_tamano = 11;
     config.logo_posicion = 'centro';
+    config.copias = 1;
+    config.comanda_enabled = false;
+    config.comanda_header = 'ORDEN';
+    config.comanda_ancho = 80;
+    config.comanda_auto_print = false;
+    config.comanda_mostrar_precio = true;
+    config.comanda_copias = 1;
     return config;
   }
 

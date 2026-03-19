@@ -3,10 +3,10 @@ import { pedidosApi, ventasApi, ticketsApi, selfOrderApi } from '../../api/endpo
 import { usePOSStore } from '../../store/pos.store';
 import { useAuthStore } from '../../store/auth.store';
 import { useNotificaciones } from '../../hooks/useNotificaciones';
-import { printTicket } from '../../utils/printTicket';
+import { printTicket, printComanda } from '../../utils/printTicket';
 import { resolveUploadUrl } from '../../api/client';
 import toast from 'react-hot-toast';
-import { ClipboardList, Clock, ChefHat, PackageCheck, CreditCard, XCircle, RefreshCw, Smartphone, Check, Ban } from 'lucide-react';
+import { ClipboardList, Clock, ChefHat, PackageCheck, CreditCard, XCircle, RefreshCw, Smartphone, Check, Ban, Receipt } from 'lucide-react';
 import PinConfirmModal from '../../components/ui/PinConfirmModal';
 
 const estadoConfig: Record<string, { label: string; color: string; bg: string; icon: any }> = {
@@ -110,7 +110,7 @@ export default function PedidosPage() {
       // Print ticket
       try {
         const { data: ticketData } = await ticketsApi.preview(data.venta);
-        if (ticketData.raw) printTicket(ticketData.raw, ticketData.ancho_papel, ticketData.fuente_familia, ticketData.fuente_tamano, resolveUploadUrl(ticketData.logo_url), ticketData.logo_posicion);
+        if (ticketData.raw) printTicket(ticketData.raw, ticketData.ancho_papel, ticketData.fuente_familia, ticketData.fuente_tamano, resolveUploadUrl(ticketData.logo_url), ticketData.logo_posicion, ticketData.copias || 1);
       } catch {}
 
       setShowCobrar(false);
@@ -154,6 +154,31 @@ export default function PedidosPage() {
   };
 
   const canManage = ['cajero', 'admin', 'manager', 'superadmin'].includes(user?.rol || '');
+
+  const handlePrintComanda = async (pedido: any) => {
+    try {
+      const { data: ticketConfig } = await ticketsApi.getConfig();
+      if (!ticketConfig.comanda_enabled) {
+        toast.error('Comandera no está activada en Config → Tickets');
+        return;
+      }
+      printComanda(
+        {
+          mesa: pedido.mesa,
+          folio: pedido.folio,
+          usuario_nombre: pedido.usuario_nombre,
+          tipo_servicio: pedido.tipo_servicio,
+          items: (pedido.detalles || []).map((d: any) => ({
+            cantidad: d.cantidad,
+            nombre: d.producto_nombre,
+            precio: d.precio_unitario,
+            notas: d.notas,
+          })),
+        },
+        ticketConfig,
+      );
+    } catch { toast.error('Error al imprimir comanda'); }
+  };
 
   const timeAgo = (date: string) => {
     const diff = Math.floor((Date.now() - new Date(date).getTime()) / 60000);
@@ -280,6 +305,13 @@ export default function PedidosPage() {
                   <CreditCard size={16} className="mr-1" />Cobrar
                 </button>
               )}
+              <button
+                onClick={() => handlePrintComanda(selected)}
+                className="btn-secondary text-xs flex items-center gap-1"
+                title="Imprimir Comanda"
+              >
+                <Receipt size={14} /> Comanda
+              </button>
               <button onClick={() => { setShowCancelar(true); setCancelMotivo(''); }} className="text-red-400 hover:bg-red-900/50 px-3 py-2 rounded-xl text-sm">
                 Cancelar
               </button>
