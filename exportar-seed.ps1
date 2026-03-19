@@ -43,7 +43,7 @@ foreach ($c in $candidates) {
 $tablas = @(
     "tenants", "empresas", "tiendas", "licencias", "users",
     "ticket_configs", "categorias", "productos", "producto_tienda",
-    "cajas", "menu_digital_config", "backup_configs"
+    "cajas", "mesas", "gateway_configs", "menu_digital_config", "backup_configs"
 )
 
 $outFile = Join-Path $ScriptDir "database\03_seed_datos_iniciales.sql"
