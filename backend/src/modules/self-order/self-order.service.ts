@@ -289,6 +289,36 @@ export class SelfOrderService {
     };
   }
 
+  // Obtener tienda pública por slug
+  async getTiendaPublicaBySlug(slug: string, mesa_numero: number) {
+    const rows = await this.dataSource.query(
+      'SELECT id FROM tiendas WHERE slug = ? AND activo = 1',
+      [slug],
+    );
+    if (!rows.length) throw new NotFoundException('Tienda no encontrada');
+    return this.getTiendaPublica(rows[0].id, mesa_numero);
+  }
+
+  // Obtener menú público por slug
+  async getMenuPublicoBySlug(slug: string) {
+    const rows = await this.dataSource.query(
+      'SELECT id FROM tiendas WHERE slug = ? AND activo = 1',
+      [slug],
+    );
+    if (!rows.length) throw new NotFoundException('Tienda no encontrada');
+    return this.getMenuPublico(rows[0].id);
+  }
+
+  // Crear pedido cliente por slug
+  async crearPedidoBySlug(slug: string, mesa_numero: number, body: any) {
+    const rows = await this.dataSource.query(
+      'SELECT id FROM tiendas WHERE slug = ? AND activo = 1',
+      [slug],
+    );
+    if (!rows.length) throw new NotFoundException('Tienda no encontrada');
+    return this.crearPedidoCliente(rows[0].id, mesa_numero, body);
+  }
+
   // Generar QR imprimible como HTML
   async getQRPrintable(tienda_id: number, mesa_id: number, baseUrl: string) {
     const mesa = await this.mesaRepo.findOne({ where: { id: mesa_id, tienda_id, activo: true } });

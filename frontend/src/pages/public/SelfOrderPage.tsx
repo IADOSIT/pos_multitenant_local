@@ -9,7 +9,7 @@ type Step = 'loading' | 'menu' | 'sending' | 'waiting' | 'confirmed' | 'rejected
 interface CartItem { producto_id: number; nombre: string; precio: number; cantidad: number; sku: string; imagen_url?: string; }
 
 export default function SelfOrderPage() {
-  const { tienda_id, mesa_numero } = useParams<{ tienda_id: string; mesa_numero: string }>();
+  const { tienda_id, mesa_numero, slug } = useParams<{ tienda_id?: string; mesa_numero: string; slug?: string }>();
   const [step, setStep] = useState<Step>('loading');
   const [tienda, setTienda] = useState<any>(null);
   const [categorias, setCategorias] = useState<any[]>([]);
@@ -28,7 +28,7 @@ export default function SelfOrderPage() {
   const [encuestaEnviada, setEncuestaEnviada] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const tiendaId = Number(tienda_id);
+  const tiendaId = tienda_id ? Number(tienda_id) : null;
   const mesaNumero = Number(mesa_numero);
 
   useEffect(() => {
@@ -38,10 +38,18 @@ export default function SelfOrderPage() {
 
   const loadTienda = async () => {
     try {
-      const [t, m] = await Promise.all([
-        selfOrderApi.getTienda(tiendaId, mesaNumero),
-        selfOrderApi.getMenu(tiendaId),
-      ]);
+      let t, m;
+      if (slug) {
+        [t, m] = await Promise.all([
+          selfOrderApi.getTiendaBySlug(slug, mesaNumero),
+          selfOrderApi.getMenuBySlug(slug),
+        ]);
+      } else {
+        [t, m] = await Promise.all([
+          selfOrderApi.getTienda(tiendaId!, mesaNumero),
+          selfOrderApi.getMenu(tiendaId!),
+        ]);
+      }
       setTienda(t.data);
       setCategorias(m.data.categorias || []);
       setProductos(m.data.productos || []);
@@ -79,12 +87,15 @@ export default function SelfOrderPage() {
     setStep('sending');
     try {
       const subtotal = cart.reduce((s, i) => s + i.precio * i.cantidad, 0);
-      const { data } = await selfOrderApi.crearPedido(tiendaId, mesaNumero, {
+      const pedidoBody = {
         cliente_nombre: nombre.trim(),
         items: cart.map((i) => ({ producto_id: i.producto_id, nombre: i.nombre, sku: i.sku, precio: i.precio, cantidad: i.cantidad })),
         subtotal,
         total: subtotal,
-      });
+      };
+      const { data } = slug
+        ? await selfOrderApi.crearPedidoBySlug(slug, mesaNumero, pedidoBody)
+        : await selfOrderApi.crearPedido(tiendaId!, mesaNumero, pedidoBody);
       setEncuestaToken(data.encuesta_token);
       setPedidoFolio(data.folio);
       setStep('waiting');

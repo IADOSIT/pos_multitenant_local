@@ -50,6 +50,7 @@ export default function App() {
         <Route path="/kiosco" element={<KioscoPage />} />
         <Route path="/menu/:slug" element={<MenuDigitalPage />} />
         <Route path="/self-order/:tienda_id/:mesa_numero" element={<SelfOrderPage />} />
+        <Route path="/s/:slug/:mesa_numero" element={<SelfOrderPage />} />
 
         <Route path="/" element={<PrivateRoute><MainLayout /></PrivateRoute>}>
           <Route index element={<Navigate to="/pos" />} />

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { mesasApi, usersApi, pedidosApi } from '../../api/endpoints';
+import { mesasApi, usersApi, pedidosApi, tiendasApi } from '../../api/endpoints';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../../store/auth.store';
 import { Grid3X3, Plus, Trash2, Edit2, QrCode, UserCheck, Link2, Unlink, Printer, User, ChevronDown, CreditCard } from 'lucide-react';
 import PayModal from '../../components/pos/PayModal';
+import QRCode from 'qrcode';
 
 // Paleta de colores por mesero
 const MESERO_COLORS = [
@@ -28,6 +29,8 @@ export default function MesasAdmin() {
   const [view, setView] = useState<'mesas' | 'meseros'>('mesas');
   const [dragMesaId, setDragMesaId] = useState<number | null>(null);
   const [pedidoACobrar, setPedidoACobrar] = useState<any>(null);
+  const [qrModal, setQrModal] = useState<{ mesa: any; qrDataUrl: string; url: string } | null>(null);
+  const [tiendaSlug, setTiendaSlug] = useState<string>('');
 
   useEffect(() => { load(); }, []);
 
@@ -46,6 +49,13 @@ export default function MesasAdmin() {
       setPedidosPendientes(p.data || []);
       const meserosList = (u.data || []).filter((u: any) => ['mesero', 'admin', 'superadmin'].includes(u.rol));
       setMeseros(meserosList);
+      // Load tienda slug for QR generation
+      if (user?.tienda_id) {
+        try {
+          const tiendaRes = await tiendasApi.get(user.tienda_id);
+          setTiendaSlug(tiendaRes.data?.slug || '');
+        } catch {}
+      }
     } catch { toast.error('Error cargando mesas'); }
   };
 
@@ -106,9 +116,22 @@ export default function MesasAdmin() {
     } catch { toast.error('Error al separar'); }
   };
 
-  const handlePrintQR = (mesa: any) => {
-    const base = encodeURIComponent(window.location.origin);
-    window.open(`/api/public/self-order/qr/${user?.tienda_id}/${mesa.id}?base=${base}`, '_blank');
+  const handlePrintQR = async (mesa: any) => {
+    const base = window.location.origin;
+    const path = tiendaSlug
+      ? `/s/${tiendaSlug}/${mesa.numero}`
+      : `/self-order/${user?.tienda_id}/${mesa.numero}`;
+    const url = `${base}${path}`;
+
+    try {
+      const qrDataUrl = await QRCode.toDataURL(url, {
+        width: 300, margin: 2,
+        color: { dark: '#1e293b', light: '#ffffff' },
+      });
+      setQrModal({ mesa, qrDataUrl, url });
+    } catch {
+      toast.error('Error generando QR');
+    }
   };
 
   const handlePrintReporte = () => {
@@ -180,6 +203,7 @@ export default function MesasAdmin() {
 
   return (
     <div className="p-4 max-w-5xl mx-auto">
+      <style>{`@media print { body > * { display: none; } #qr-print-area { display: block !important; position: fixed; top: 0; left: 0; width: 100%; background: white; } .fixed { background: transparent !important; } }`}</style>
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
         <h1 className="text-2xl font-bold flex items-center gap-2"><Grid3X3 size={24} /> Gestión de Mesas</h1>
@@ -404,6 +428,40 @@ export default function MesasAdmin() {
           isOnline={true}
           pedido={pedidoACobrar}
         />
+      )}
+
+      {/* Modal QR de Mesa */}
+      {qrModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white text-slate-900 rounded-2xl max-w-sm w-full p-6 space-y-4 text-center" id="qr-print-area">
+            <div className="text-xs text-slate-500 font-medium uppercase tracking-wide">
+              {user?.empresa_nombre || 'Restaurante'}
+            </div>
+            <div className="inline-block bg-slate-900 text-white text-2xl font-black px-6 py-2 rounded-full">
+              Mesa {qrModal.mesa.numero}{qrModal.mesa.nombre ? ` · ${qrModal.mesa.nombre}` : ''}
+            </div>
+            <p className="text-sm font-bold text-slate-800">¡Haz tu pedido aquí!</p>
+            <div className="flex justify-center">
+              <img src={qrModal.qrDataUrl} alt="QR Mesa" className="w-52 h-52 rounded-xl border border-slate-200" />
+            </div>
+            <p className="text-xs text-slate-400">📱 Escanea con tu celular</p>
+            <p className="text-xs text-slate-300 break-all">{qrModal.url}</p>
+            <div className="flex gap-2 mt-2 print:hidden">
+              <button
+                onClick={() => window.print()}
+                className="flex-1 bg-slate-900 text-white py-2 px-4 rounded-xl font-bold text-sm hover:bg-slate-700"
+              >
+                🖨️ Imprimir
+              </button>
+              <button
+                onClick={() => setQrModal(null)}
+                className="flex-1 border border-slate-300 text-slate-700 py-2 px-4 rounded-xl font-bold text-sm hover:bg-slate-100"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

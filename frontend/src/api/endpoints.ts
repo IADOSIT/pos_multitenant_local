@@ -236,6 +236,12 @@ export const selfOrderApi = {
     api.get(`/public/self-order/status/${token}`),
   responderEncuesta: (token: string, data: any) =>
     api.post(`/public/self-order/encuesta/${token}`, data),
+  getTiendaBySlug: (slug: string, mesa_numero: number) =>
+    api.get(`/public/self-order/s/${slug}/${mesa_numero}`),
+  getMenuBySlug: (slug: string) =>
+    api.get(`/public/self-order/s/${slug}/menu/productos`),
+  crearPedidoBySlug: (slug: string, mesa_numero: number, data: any) =>
+    api.post(`/public/self-order/s/${slug}/${mesa_numero}/pedido`, data),
   // Protected (mesero/admin in POS)
   confirmar: (pedido_id: number) => api.post(`/self-order/pedidos/${pedido_id}/confirmar`),
   rechazar: (pedido_id: number, motivo: string) =>

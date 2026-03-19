@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { tiendasApi, empresasApi, menuDigitalApi, pagosGatewayApi } from '../../api/endpoints';
+import { tiendasApi, empresasApi, menuDigitalApi, pagosGatewayApi, mesasApi } from '../../api/endpoints';
 import api, { resolveUploadUrl } from '../../api/client';
 import { useAuthStore } from '../../store/auth.store';
 import TicketsConfig from './TicketsConfig';
@@ -50,6 +50,10 @@ export default function ConfiguracionPage() {
   const [gwSaving, setGwSaving]           = useState(false);
   const [gwShowMpToken, setGwShowMpToken] = useState(false);
   const [gwShowStripeKey, setGwShowStripeKey] = useState(false);
+  // Mesas QR
+  const [mesaQrSelected, setMesaQrSelected] = useState<string>('');
+  const [mesaQrDataUrl, setMesaQrDataUrl] = useState<string>('');
+  const [allMesas, setAllMesas] = useState<any[]>([]);
 
   // Menu Digital
   const [mdStatus, setMdStatus]       = useState<any>(null);
@@ -95,6 +99,15 @@ export default function ConfiguracionPage() {
   // Load menu digital status when a tienda is selected
   useEffect(() => {
     if (selected?.id) loadMenuDigital(selected.id);
+  }, [selected?.id]);
+
+  // Load mesas when selected tienda changes
+  useEffect(() => {
+    if (selected?.id) {
+      mesasApi.list().then(r => setAllMesas(r.data || [])).catch(() => {});
+    } else {
+      setAllMesas([]);
+    }
   }, [selected?.id]);
 
   const loadEmpresa = async () => {
@@ -384,11 +397,10 @@ export default function ConfiguracionPage() {
     try {
       const { data } = await api.get('/health/info');
       setSystemInfo(data);
-      const primaryUrl = data.urls?.network?.[0] || data.urls?.hostname;
-      if (primaryUrl) {
-        const dataUrl = await QRCode.toDataURL(primaryUrl, { width: 200, margin: 2 });
-        setQrDataUrl(dataUrl);
-      }
+      // Always use the current browser origin for the QR — works correctly on VPS and local
+      const qrUrl = window.location.origin;
+      const dataUrl = await QRCode.toDataURL(qrUrl, { width: 200, margin: 2 });
+      setQrDataUrl(dataUrl);
     } catch {}
   };
 
@@ -592,86 +604,109 @@ export default function ConfiguracionPage() {
           <SectionHeader id="red" icon={Wifi} title="Conexion y Red" />
           {expandedSection === 'red' && (
             <div className="card space-y-4">
-              <p className="text-xs" style={{ color: 'rgb(var(--c-text-sub))' }}>
-                URLs para acceder al sistema desde otros equipos en la misma red local.
-              </p>
-
-              {systemInfo ? (
-                <div className="grid sm:grid-cols-2 gap-4">
-                  {/* Lista de URLs */}
-                  <div className="space-y-2">
-                    {/* Local */}
-                    <div className="p-3 rounded-xl bg-iados-card/50 border border-iados-card">
-                      <p className="text-xs text-slate-400 mb-1">Este equipo (local)</p>
+              {/* URL Pública del sistema */}
+              <div>
+                <p className="text-xs font-semibold text-slate-300 mb-2 flex items-center gap-1">
+                  <Globe size={13} /> URL del Sistema
+                </p>
+                <div className="space-y-2">
+                  {/* Current browser origin = the real public URL */}
+                  <div className="p-3 rounded-xl bg-iados-card/50 border border-iados-card">
+                    <p className="text-xs text-slate-400 mb-1">URL actual (navegador)</p>
+                    <div className="flex items-center gap-2">
+                      <code className="text-sm text-green-400 flex-1 break-all">{window.location.origin}</code>
+                      <button onClick={() => handleCopyUrl(window.location.origin)} className="p-1.5 hover:bg-iados-card rounded-lg flex-shrink-0">
+                        {copiedUrl === window.location.origin ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                  {/* Local/network URLs from systemInfo if available */}
+                  {systemInfo?.urls?.network?.map((url: string, i: number) => (
+                    <div key={i} className="p-3 rounded-xl bg-iados-card/50 border border-iados-card">
+                      <p className="text-xs text-slate-400 mb-1">Red local — IP {systemInfo.ips?.[i]}</p>
                       <div className="flex items-center gap-2">
-                        <code className="text-sm text-green-400 flex-1 break-all">{systemInfo.urls?.local}</code>
-                        <button
-                          onClick={() => handleCopyUrl(systemInfo.urls?.local)}
-                          className="p-1.5 hover:bg-iados-card rounded-lg flex-shrink-0 transition-colors"
-                          title="Copiar URL"
-                        >
-                          {copiedUrl === systemInfo.urls?.local ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                        <code className="text-sm text-amber-400 flex-1 break-all">{url.replace(':3000', '')}</code>
+                        <button onClick={() => handleCopyUrl(url.replace(':3000', ''))} className="p-1.5 hover:bg-iados-card rounded-lg flex-shrink-0">
+                          {copiedUrl === url.replace(':3000', '') ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
                         </button>
                       </div>
                     </div>
+                  ))}
+                </div>
+              </div>
 
-                    {/* Hostname */}
-                    <div className="p-3 rounded-xl bg-iados-card/50 border border-iados-card">
-                      <p className="text-xs text-slate-400 mb-1">Por nombre de equipo</p>
-                      <div className="flex items-center gap-2">
-                        <code className="text-sm text-blue-400 flex-1 break-all">{systemInfo.urls?.hostname}</code>
-                        <button
-                          onClick={() => handleCopyUrl(systemInfo.urls?.hostname)}
-                          className="p-1.5 hover:bg-iados-card rounded-lg flex-shrink-0 transition-colors"
-                          title="Copiar URL"
-                        >
-                          {copiedUrl === systemInfo.urls?.hostname ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-                        </button>
-                      </div>
-                    </div>
+              {/* QR de acceso al sistema y QR de Mesa */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-semibold text-slate-300 mb-2">QR Acceso al Sistema</p>
+                  <div className="bg-white p-2 rounded-xl inline-block">
+                    {qrDataUrl && <img src={qrDataUrl} alt="QR acceso" className="w-36 h-36" />}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1 break-all max-w-[180px]">{window.location.origin}</p>
+                </div>
 
-                    {/* Network IPs */}
-                    {systemInfo.urls?.network?.map((url: string, i: number) => (
-                      <div key={i} className="p-3 rounded-xl bg-iados-card/50 border border-iados-card">
-                        <p className="text-xs text-slate-400 mb-1">Por IP de red {systemInfo.ips?.[i] ? `(${systemInfo.ips[i]})` : ''}</p>
-                        <div className="flex items-center gap-2">
-                          <code className="text-sm text-amber-400 flex-1 break-all">{url}</code>
+                {/* QR de Mesa (Self Order) */}
+                {selected && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-300 mb-2">QR de Mesa (Self Order)</p>
+                    <select
+                      value={mesaQrSelected}
+                      onChange={async (e) => {
+                        setMesaQrSelected(e.target.value);
+                        if (e.target.value) {
+                          const mesa = allMesas.find((m: any) => String(m.id) === e.target.value);
+                          if (mesa) {
+                            const slug = selected?.slug;
+                            const path = slug
+                              ? `/s/${slug}/${mesa.numero}`
+                              : `/self-order/${selected.id}/${mesa.numero}`;
+                            const url = `${window.location.origin}${path}`;
+                            const qr = await QRCode.toDataURL(url, { width: 200, margin: 2 });
+                            setMesaQrDataUrl(qr);
+                          }
+                        } else {
+                          setMesaQrDataUrl('');
+                        }
+                      }}
+                      className="input-touch text-sm mb-2 w-full"
+                    >
+                      <option value="">Seleccionar mesa...</option>
+                      {allMesas.map((m: any) => (
+                        <option key={m.id} value={m.id}>Mesa {m.numero}{m.nombre ? ` - ${m.nombre}` : ''}</option>
+                      ))}
+                    </select>
+                    {mesaQrDataUrl && (
+                      <div className="space-y-2">
+                        <div className="bg-white p-2 rounded-xl inline-block">
+                          <img src={mesaQrDataUrl} alt="QR Mesa" className="w-36 h-36" />
+                        </div>
+                        <div>
                           <button
-                            onClick={() => handleCopyUrl(url)}
-                            className="p-1.5 hover:bg-iados-card rounded-lg flex-shrink-0 transition-colors"
-                            title="Copiar URL"
+                            onClick={() => {
+                              const mesa = allMesas.find((m: any) => String(m.id) === mesaQrSelected);
+                              if (mesa) {
+                                const slug = selected?.slug;
+                                const path = slug ? `/s/${slug}/${mesa.numero}` : `/self-order/${selected.id}/${mesa.numero}`;
+                                const w = window.open('', '_blank');
+                                if (w) {
+                                  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>QR Mesa ${mesa.numero}</title><style>body{font-family:Arial,sans-serif;text-align:center;padding:20px;background:white}.card{display:inline-block;border:2px solid #e2e8f0;border-radius:20px;padding:24px;margin:20px auto}@media print{button{display:none}}</style></head><body><div class="card"><div style="font-size:13px;color:#64748b">${selected.nombre || ''}</div><div style="font-size:24px;font-weight:800;background:#0f172a;color:white;padding:6px 20px;border-radius:50px;display:inline-block;margin:8px 0">Mesa ${mesa.numero}${mesa.nombre ? ' · ' + mesa.nombre : ''}</div><br/><img src="${mesaQrDataUrl}" width="200" height="200" style="border-radius:12px"/><br/><p style="font-size:12px;color:#94a3b8">📱 Escanea para hacer tu pedido</p><p style="font-size:10px;color:#cbd5e1">${window.location.origin}${path}</p><br/><button onclick="window.print()" style="background:#0f172a;color:white;padding:10px 24px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">🖨️ Imprimir</button></div></body></html>`);
+                                  w.document.close();
+                                }
+                              }
+                            }}
+                            className="text-xs bg-iados-primary text-white px-3 py-1.5 rounded-lg hover:opacity-90"
                           >
-                            {copiedUrl === url ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                            <Printer size={12} className="inline mr-1" />Imprimir QR Mesa
                           </button>
                         </div>
                       </div>
-                    ))}
-
-                    <div className="pt-1 text-xs text-slate-500">
-                      Servidor: <span className="text-slate-300">{systemInfo.hostname}</span>
-                      {' · '}Modo: <span className={systemInfo.mode === 'online' ? 'text-blue-400' : 'text-green-400'}>{systemInfo.mode}</span>
-                    </div>
+                    )}
+                    {allMesas.length === 0 && (
+                      <p className="text-xs text-slate-500">No hay mesas configuradas para esta tienda.</p>
+                    )}
                   </div>
-
-                  {/* QR Code */}
-                  {qrDataUrl && (
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <p className="text-xs text-slate-400">Escanea para abrir en otro dispositivo</p>
-                      <div className="bg-white p-2 rounded-xl inline-block">
-                        <img src={qrDataUrl} alt="QR acceso red" className="w-44 h-44" />
-                      </div>
-                      <p className="text-xs text-slate-500 text-center max-w-[180px] break-all">
-                        {systemInfo.urls?.network?.[0] || systemInfo.urls?.hostname}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 text-slate-500 text-sm">
-                  <Wifi size={16} className="animate-pulse" />
-                  Obteniendo informacion de red...
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )}
 

@@ -28,6 +28,9 @@ export class Tienda {
   @Column({ length: 50, nullable: true })
   zona_horaria: string;
 
+  @Column({ length: 100, nullable: true })
+  slug: string;
+
   @Column({ type: 'json', nullable: true })
   config_ticket: any;
 

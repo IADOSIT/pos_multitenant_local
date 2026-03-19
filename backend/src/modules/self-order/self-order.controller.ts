@@ -10,6 +10,28 @@ import { SelfOrderService } from './self-order.service';
 export class SelfOrderPublicController {
   constructor(private service: SelfOrderService) {}
 
+  @Get('s/:slug/:mesa_numero')
+  getTiendaBySlug(
+    @Param('slug') slug: string,
+    @Param('mesa_numero', ParseIntPipe) mesa_numero: number,
+  ) {
+    return this.service.getTiendaPublicaBySlug(slug, mesa_numero);
+  }
+
+  @Get('s/:slug/menu/productos')
+  getMenuBySlug(@Param('slug') slug: string) {
+    return this.service.getMenuPublicoBySlug(slug);
+  }
+
+  @Post('s/:slug/:mesa_numero/pedido')
+  crearPedidoBySlug(
+    @Param('slug') slug: string,
+    @Param('mesa_numero', ParseIntPipe) mesa_numero: number,
+    @Body() body: any,
+  ) {
+    return this.service.crearPedidoBySlug(slug, mesa_numero, body);
+  }
+
   @Get(':tienda_id/:mesa_numero')
   getTiendaPublica(
     @Param('tienda_id', ParseIntPipe) tienda_id: number,
