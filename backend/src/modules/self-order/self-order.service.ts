@@ -51,6 +51,17 @@ export class SelfOrderService {
     };
   }
 
+  // Limpia descripciones: quita diacríticos (á→a, é→e, ñ→n) y caracteres no ASCII
+  private cleanDesc(str: string): string {
+    if (!str) return '';
+    return str
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')   // combinating diacritics → base letter
+      .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, '') // remove remaining non-ASCII
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   // Obtener menú publicado para self-order (productos y categorías activos)
   async getMenuPublico(tienda_id: number) {
     const categorias = await this.dataSource.query(
@@ -69,7 +80,10 @@ export class SelfOrderService {
        ORDER BY p.orden ASC, p.nombre ASC`,
       [tienda_id],
     );
-    return { categorias, productos };
+    return {
+      categorias,
+      productos: productos.map((p: any) => ({ ...p, descripcion: this.cleanDesc(p.descripcion) })),
+    };
   }
 
   // Crear pedido desde cliente (sin auth)

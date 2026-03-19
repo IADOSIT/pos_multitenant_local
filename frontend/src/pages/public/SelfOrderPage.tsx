@@ -229,11 +229,21 @@ export default function SelfOrderPage() {
     <div className="min-h-screen bg-slate-900 text-white flex flex-col">
       {/* Header */}
       <div className="bg-slate-800 px-4 py-3 flex items-center justify-between sticky top-0 z-10 shadow-lg">
-        <div>
-          <p className="font-bold text-sm">{tienda?.tienda_nombre}</p>
-          <p className="text-xs text-iados-secondary font-semibold">Mesa {mesaNumero}{tienda?.mesa_nombre ? ` · ${tienda.mesa_nombre}` : ''}</p>
+        <div className="flex items-center gap-2 min-w-0">
+          {tienda?.empresa_logo && (
+            <img
+              src={tienda.empresa_logo}
+              alt="Logo"
+              className="w-9 h-9 rounded-full object-cover shrink-0 border border-slate-600"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
+          )}
+          <div className="min-w-0">
+            <p className="font-bold text-sm truncate">{tienda?.empresa_nombre || tienda?.tienda_nombre}</p>
+            <p className="text-xs text-iados-secondary font-semibold">Mesa {mesaNumero}{tienda?.mesa_nombre ? ` · ${tienda.mesa_nombre}` : ''}</p>
+          </div>
         </div>
-        <button onClick={() => setShowCart(true)} className="relative p-2">
+        <button onClick={() => setShowCart(true)} className="relative p-2 shrink-0">
           <ShoppingCart size={22} />
           {itemCount > 0 && (
             <span className="absolute -top-1 -right-1 bg-iados-secondary text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">{itemCount}</span>
