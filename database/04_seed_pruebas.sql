@@ -1,4 +1,4 @@
--- ============================================================
+﻿-- ============================================================
 -- POS-iaDoS Seed Completo — exportado de VPS sincronizado
 -- Generado: 2026-03-19
 -- ============================================================
@@ -32,6 +32,8 @@ INSERT IGNORE INTO `tenants` VALUES (1,'iaDoS Corp','iados-corp','iaDoS - Inteli
 INSERT IGNORE INTO `tenants` VALUES (4,'Mariscos 2-13\'s San Miguel','mariscos-2-13\'s-san-miguel','Mariscos 2-13\'s San Miguel','',NULL,'8318989580','contacto@mariscos213s.com',NULL,1,'2026-02-18 05:30:37.689786','2026-02-18 05:30:37.689786');
 INSERT IGNORE INTO `empresas` VALUES (1,1,'Restaurante Demo iaDoS','Restaurante Demo SA de CV',NULL,NULL,NULL,NULL,NULL,1,'2026-02-17 07:49:37.000000','2026-02-21 17:42:09.000000',NULL);
 INSERT IGNORE INTO `empresas` VALUES (4,4,'Mariscos 2-13\'s San Miguel',NULL,NULL,NULL,NULL,NULL,'/api/uploads/logo-empresa-4-1771392896645.jpeg',1,'2026-02-18 05:32:42.126201','2026-02-20 08:46:49.000000','{\"tema\": \"default\", \"paleta\": \"default\"}');
+INSERT IGNORE INTO `tiendas` VALUES (1,1,1,'Demo iaDoS',NULL,NULL,NULL,'America/Mexico_City',NULL,NULL,1,'2026-02-17 07:49:37.000000','2026-02-17 07:49:37.000000','{"iva_enabled":false,"iva_incluido":true,"iva_porcentaje":16,"modo_servicio":"mostrador","num_mesas":0,"self_order_enabled":false}','demo-iados-1',0,0);
+INSERT IGNORE INTO `tiendas` VALUES (2,1,1,'Sucursal 2 Demo',NULL,NULL,NULL,'America/Mexico_City',NULL,NULL,1,'2026-02-17 07:49:37.000000','2026-02-17 07:49:37.000000','{"iva_enabled":false,"iva_incluido":true,"iva_porcentaje":16,"modo_servicio":"mostrador","num_mesas":0,"self_order_enabled":false}','demo-iados-2',0,0);
 INSERT IGNORE INTO `tiendas` VALUES (3,4,4,'Mariscos 2-13\'s San Miguel','Apodaca','8318989580','contacto@mariscos213s.com','America/Mexico_City',NULL,'{\"ancho\": 80, \"copias\": 1, \"modelo\": \"\", \"auto_print\": false}',1,'2026-02-18 05:32:42.162669','2026-03-19 09:20:00.245615','{\"num_mesas\": 20, \"iva_enabled\": false, \"iva_incluido\": true, \"modo_servicio\": \"mesa\", \"iva_porcentaje\": 16, \"self_order_url\": \"https://pos.iados.online/\", \"tipo_cobro_mesa\": \"post_pago\", \"self_order_enabled\": true}','mariscos-2-13s-san-miguel-3',3,2);
 INSERT IGNORE INTO `licencias` VALUES (1,1,'INS-E7B5A92B',NULL,'pro','[\"pos\", \"caja\", \"pedidos\", \"reportes\", \"dashboard\"]',10,50,'2026-02-18','2027-12-31',30,1,'activa',NULL,NULL,NULL,'2026-02-18 00:17:57.000000','2026-03-11 19:28:08.226256');
 INSERT IGNORE INTO `licencias` VALUES (6,4,'INS-7C8024B3',NULL,'pro','[\"pos\", \"caja\", \"pedidos\", \"reportes\", \"dashboard\"]',10,50,'2026-02-18','2027-12-31',30,1,'activa',NULL,NULL,NULL,'2026-02-18 05:33:43.067415','2026-03-11 19:28:08.226256');
@@ -177,6 +179,7 @@ INSERT IGNORE INTO `producto_tienda` VALUES (53,4,3,314,NULL,1,0.00);
 INSERT IGNORE INTO `producto_tienda` VALUES (54,4,3,315,NULL,1,0.00);
 INSERT IGNORE INTO `producto_tienda` VALUES (55,4,3,316,NULL,1,0.00);
 INSERT IGNORE INTO `producto_tienda` VALUES (56,4,3,317,NULL,1,0.00);
+INSERT IGNORE INTO `cajas` VALUES (1,1,1,1,1,'Caja Principal','cerrada',0.00,0.00,0.00,0.00,NULL,NULL,NULL,NULL,NULL,NULL,'2026-02-17 07:49:37.000000','2026-02-17 07:49:37.000000');
 INSERT IGNORE INTO `cajas` VALUES (9,4,4,3,7,'Caja-18/2/2026','cerrada',100.00,2429.72,0.00,0.00,2529.72,100.00,-2429.72,'2026-02-18 06:54:59','2026-02-18 07:45:21',NULL,'2026-02-18 06:54:58.957887','2026-02-18 07:45:20.000000');
 INSERT IGNORE INTO `cajas` VALUES (10,4,4,3,7,'Caja-11/3/2026','cerrada',0.00,3855.00,0.00,0.00,0.00,0.00,0.00,'2026-03-11 13:43:54','2026-03-19 09:18:53',NULL,'2026-03-11 13:43:54.169072','2026-03-19 09:18:53.000000');
 INSERT IGNORE INTO `cajas` VALUES (12,4,4,3,7,'Caja-19/3/2026','cerrada',0.00,910.00,0.00,0.00,910.00,0.00,-910.00,'2026-03-19 09:19:34','2026-03-19 09:20:19',NULL,'2026-03-19 09:19:34.068076','2026-03-19 09:20:19.000000');
