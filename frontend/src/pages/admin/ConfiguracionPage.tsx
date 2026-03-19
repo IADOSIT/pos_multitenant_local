@@ -527,7 +527,7 @@ export default function ConfiguracionPage() {
                 </div>
               </div>
               <div className="flex flex-col gap-1">
-                <button onClick={(e) => { e.stopPropagation(); selectTienda(t); setEditingNew(false); }} className="p-1.5 hover:bg-iados-card rounded-lg"><Edit2 size={14} /></button>
+                <button onClick={(e) => { e.stopPropagation(); selectTienda(t); setEditingNew(false); setExpandedSection('general'); }} className="p-1.5 hover:bg-iados-card rounded-lg"><Edit2 size={14} /></button>
                 <button onClick={(e) => { e.stopPropagation(); setDeleteConfirm(t); }} className="p-1.5 hover:bg-red-900/50 rounded-lg text-red-400"><Trash2 size={14} /></button>
               </div>
             </div>

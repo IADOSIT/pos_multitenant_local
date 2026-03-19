@@ -227,28 +227,20 @@ export class ProductosService {
 
   async searchImages(query: string) {
     try {
-      const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&tbm=isch&safe=active`;
-      const res = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept-Language': 'es-MX,es;q=0.9',
-        },
-      });
-      const html = await res.text();
-      const images: { id: number; url: string; thumb: string; alt: string }[] = [];
-      // Extract image URLs from Google Images HTML
-      const regex = /\["(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)",\s*(\d+),\s*(\d+)\]/gi;
-      let match;
-      let id = 0;
-      while ((match = regex.exec(html)) !== null && images.length < 16) {
-        const imgUrl = match[1];
-        if (!imgUrl.includes('gstatic.com') && !imgUrl.includes('google.com')) {
-          images.push({ id: id++, url: imgUrl, thumb: imgUrl, alt: query });
-        }
-      }
-      return images;
+      const apiKey = process.env.PEXELS_API_KEY;
+      if (!apiKey) return [];
+      const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=16&locale=es-MX`;
+      const res = await fetch(url, { headers: { Authorization: apiKey } });
+      if (!res.ok) return [];
+      const json: any = await res.json();
+      return (json.photos || []).map((p: any, i: number) => ({
+        id: i,
+        url: p.src.large || p.src.original,
+        thumb: p.src.medium,
+        alt: p.alt || query,
+      }));
     } catch (err) {
-      this.logger.error('Error buscando imagenes en Google', err);
+      this.logger.error('Error buscando imagenes en Pexels', err);
       return [];
     }
   }
