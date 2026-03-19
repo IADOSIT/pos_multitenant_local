@@ -16,6 +16,8 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install --omit=dev
 COPY --from=builder /app/dist ./dist
+ARG CACHE_BUST=0
+RUN echo "Cache bust: $CACHE_BUST"
 COPY --from=builder /app/uploads ./uploads-builtin
 COPY --from=builder /app/docker-entrypoint.sh /docker-entrypoint.sh
 
