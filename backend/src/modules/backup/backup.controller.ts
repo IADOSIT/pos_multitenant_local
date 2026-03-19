@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Post, Delete, Param, Body, Res, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Put, Post, Delete, Param, Body, Res, ParseIntPipe, UseGuards, Request } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Response } from 'express';
 import { BackupService } from './backup.service';
@@ -29,8 +29,15 @@ export class BackupController {
   }
 
   @Post('ejecutar')
-  ejecutar(@Body() body: { tipo: 'db' | 'excel' | 'completo' }) {
-    return this.backupService.ejecutarBackup(body.tipo || 'completo');
+  ejecutar(
+    @Body() body: { tipo: 'db' | 'excel' | 'completo'; tienda_id?: number },
+    @Request() req: any,
+  ) {
+    return this.backupService.ejecutarBackup(
+      body.tipo || 'completo',
+      req.user,
+      body.tienda_id || undefined,
+    );
   }
 
   @Get('download/:filename')
@@ -51,7 +58,7 @@ export class BackupController {
   }
 
   @Post('limpiar-demo')
-  limpiarDemo(@Body() body: { ventas: boolean; pedidos: boolean; caja: boolean; inventario: boolean }) {
+  limpiarDemo(@Body() body: { ventas: boolean; pedidos: boolean; caja: boolean; inventario: boolean; productos?: boolean; categorias?: boolean }) {
     return this.backupService.limpiarDemoData(body);
   }
 }

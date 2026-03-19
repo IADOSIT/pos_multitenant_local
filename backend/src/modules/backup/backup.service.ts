@@ -4,10 +4,16 @@ import { Repository, DataSource } from 'typeorm';
 import { Cron } from '@nestjs/schedule';
 import * as path from 'path';
 import * as fs from 'fs';
-import { spawn } from 'child_process';
 import * as ExcelJS from 'exceljs';
 import { BackupConfig } from './entities/backup-config.entity';
 import { BackupLog } from './entities/backup-log.entity';
+
+interface BackupScope {
+  tenant_id?: number;
+  empresa_id?: number;
+  tienda_id?: number;
+  rol?: string;
+}
 
 @Injectable()
 export class BackupService implements OnModuleInit {
@@ -19,9 +25,8 @@ export class BackupService implements OnModuleInit {
     @InjectRepository(BackupLog) private logRepo: Repository<BackupLog>,
     @InjectDataSource() private dataSource: DataSource,
   ) {
-    // Carpeta de respaldos en la raíz de instalación (C:\POS-iaDoS\respaldos\)
-    // En dev: <proyecto>/respaldos/
-    this.backupsDir = path.join(process.cwd(), '..', 'respaldos');
+    // Dentro de uploads/ → cae en el volumen Docker pos_uploads y en el EXE bajo C:\POS-iaDoS\app\backend\uploads\
+    this.backupsDir = path.join(process.cwd(), 'uploads', 'respaldos');
     if (!fs.existsSync(this.backupsDir)) {
       fs.mkdirSync(this.backupsDir, { recursive: true });
     }
@@ -64,79 +69,132 @@ export class BackupService implements OnModuleInit {
     }
   }
 
-  private getMysqldumpPath(): string {
-    const candidates = [
-      path.join('C:', 'POS-iaDoS', 'mariadb', 'bin', 'mysqldump.exe'),
-      path.join(process.cwd(), '..', 'mariadb', 'bin', 'mysqldump.exe'),
-    ];
-    for (const p of candidates) {
-      if (fs.existsSync(p)) return p;
-    }
-    return 'mysqldump';
+  // ─────────────────────────────────────────────────────────────
+  // SQL Escape / helpers
+  // ─────────────────────────────────────────────────────────────
+  private escape(v: any): string {
+    if (v === null || v === undefined) return 'NULL';
+    if (typeof v === 'boolean') return v ? '1' : '0';
+    if (typeof v === 'number') return String(v);
+    if (v instanceof Date) return `'${v.toISOString().slice(0, 19).replace('T', ' ')}'`;
+    const s = String(v);
+    return `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r')}'`;
   }
 
-  private getMysqlPath(): string {
-    const candidates = [
-      path.join('C:', 'POS-iaDoS', 'mariadb', 'bin', 'mysql.exe'),
-      path.join(process.cwd(), '..', 'mariadb', 'bin', 'mysql.exe'),
-    ];
-    for (const p of candidates) {
-      if (fs.existsSync(p)) return p;
-    }
-    return 'mysql';
+  private rowsToSQL(table: string, rows: any[]): string {
+    if (!rows.length) return `-- ${table}: sin datos\n`;
+    const cols = Object.keys(rows[0]).map((k) => `\`${k}\``).join(', ');
+    const inserts = rows.map((r) => {
+      const vals = Object.values(r).map((v) => this.escape(v)).join(', ');
+      return `INSERT IGNORE INTO \`${table}\` (${cols}) VALUES (${vals});`;
+    });
+    return `-- ${table}: ${rows.length} filas\n${inserts.join('\n')}\n\n`;
   }
 
-  private realizarBackupDB(): Promise<{ archivo: string; tamano: number }> {
+  private async dumpTable(table: string, sql: string, params: any[]): Promise<string> {
+    try {
+      const rows = await this.dataSource.query(sql, params);
+      return this.rowsToSQL(table, rows);
+    } catch (e) {
+      this.logger.warn(`Backup skip ${table}: ${e.message}`);
+      return `-- ${table}: omitida (${e.message})\n\n`;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // SQL Backup puro Node.js — sin mysqldump
+  // Funciona en VPS Docker, local dev y EXE offline
+  // ─────────────────────────────────────────────────────────────
+  private async realizarBackupSQL(scope: BackupScope, tiendaFilter?: number): Promise<{ archivo: string; tamano: number }> {
     const fecha = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const filename = `backup-db-${fecha}.sql`;
+    const scopeLabel = tiendaFilter
+      ? `t${tiendaFilter}`
+      : scope.empresa_id
+      ? `e${scope.empresa_id}`
+      : `ten${scope.tenant_id}`;
+    const filename = `backup-${scopeLabel}-${fecha}.sql`;
     const filepath = path.join(this.backupsDir, filename);
 
-    const mysqldump = this.getMysqldumpPath();
-    const args = [
-      `-h${process.env.DB_HOST || 'localhost'}`,
-      `-P${process.env.DB_PORT || '3306'}`,
-      `-u${process.env.DB_USERNAME || 'pos_iados'}`,
-      `--password=${process.env.DB_PASSWORD || 'pos_iados_2024'}`,
-      '--skip-lock-tables',   // evita FLUSH TABLES (requiere RELOAD privilege)
-      '--no-tablespaces',
-      '--routines',
-      process.env.DB_NAME || 'pos_iados',
+    const parts: string[] = [
+      '-- POS-iaDoS Backup SQL (generado sin mysqldump)',
+      `-- Fecha: ${new Date().toISOString()}`,
+      `-- Empresa: ${scope.empresa_id ?? 'todas'} | Tienda filtro: ${tiendaFilter ?? 'todas'}`,
+      '',
+      'SET NAMES utf8mb4;',
+      'SET FOREIGN_KEY_CHECKS = 0;',
+      '',
     ];
 
-    return new Promise((resolve, reject) => {
-      const proc = spawn(mysqldump, args, { windowsHide: true });
-      const out = fs.createWriteStream(filepath);
-      proc.stdout.pipe(out);
-      let stderr = '';
-      proc.stderr.on('data', (d) => { stderr += d.toString(); });
-      proc.on('close', (code) => {
-        out.close();
-        // Ignorar warnings de password (exit code 0 con warnings en stderr es OK)
-        const realError = stderr
-          .split('\n')
-          .filter((l) => l.includes('[ERROR]'))
-          .join(' ');
-        if (code !== 0 || realError) {
-          try { fs.unlinkSync(filepath); } catch {}
-          return reject(new Error(`mysqldump: ${(realError || stderr).substring(0, 300)}`));
-        }
-        const stats = fs.statSync(filepath);
-        resolve({ archivo: filename, tamano: stats.size });
-      });
-      proc.on('error', (e) => reject(new Error(`mysqldump no encontrado: ${e.message}`)));
-    });
+    const eid = scope.empresa_id;
+    const tid = tiendaFilter;
+
+    // ── Operacional: ventas ─────────────────────────────────────
+    if (tid) {
+      parts.push(await this.dumpTable('ventas',
+        'SELECT * FROM ventas WHERE tienda_id = ?', [tid]));
+      parts.push(await this.dumpTable('venta_detalles',
+        'SELECT d.* FROM venta_detalles d JOIN ventas v ON d.venta_id = v.id WHERE v.tienda_id = ?', [tid]));
+      parts.push(await this.dumpTable('venta_pagos',
+        'SELECT p.* FROM venta_pagos p JOIN ventas v ON p.venta_id = v.id WHERE v.tienda_id = ?', [tid]));
+      parts.push(await this.dumpTable('pedidos',
+        'SELECT * FROM pedidos WHERE tienda_id = ?', [tid]));
+      parts.push(await this.dumpTable('pedido_detalles',
+        'SELECT d.* FROM pedido_detalles d JOIN pedidos p ON d.pedido_id = p.id WHERE p.tienda_id = ?', [tid]));
+      parts.push(await this.dumpTable('movimientos_caja',
+        'SELECT mc.* FROM movimientos_caja mc JOIN cajas c ON mc.caja_id = c.id WHERE c.tienda_id = ?', [tid]));
+      parts.push(await this.dumpTable('movimientos_inventario',
+        'SELECT * FROM movimientos_inventario WHERE tienda_id = ?', [tid]));
+    } else if (eid) {
+      // Todas las tiendas de la empresa
+      parts.push(await this.dumpTable('ventas',
+        'SELECT v.* FROM ventas v JOIN tiendas t ON v.tienda_id = t.id WHERE t.empresa_id = ?', [eid]));
+      parts.push(await this.dumpTable('venta_detalles',
+        'SELECT d.* FROM venta_detalles d JOIN ventas v ON d.venta_id = v.id JOIN tiendas t ON v.tienda_id = t.id WHERE t.empresa_id = ?', [eid]));
+      parts.push(await this.dumpTable('venta_pagos',
+        'SELECT p.* FROM venta_pagos p JOIN ventas v ON p.venta_id = v.id JOIN tiendas t ON v.tienda_id = t.id WHERE t.empresa_id = ?', [eid]));
+      parts.push(await this.dumpTable('pedidos',
+        'SELECT p.* FROM pedidos p JOIN tiendas t ON p.tienda_id = t.id WHERE t.empresa_id = ?', [eid]));
+      parts.push(await this.dumpTable('pedido_detalles',
+        'SELECT d.* FROM pedido_detalles d JOIN pedidos p ON d.pedido_id = p.id JOIN tiendas t ON p.tienda_id = t.id WHERE t.empresa_id = ?', [eid]));
+      parts.push(await this.dumpTable('movimientos_caja',
+        'SELECT mc.* FROM movimientos_caja mc JOIN cajas c ON mc.caja_id = c.id JOIN tiendas t ON c.tienda_id = t.id WHERE t.empresa_id = ?', [eid]));
+      parts.push(await this.dumpTable('movimientos_inventario',
+        'SELECT mi.* FROM movimientos_inventario mi JOIN tiendas t ON mi.tienda_id = t.id WHERE t.empresa_id = ?', [eid]));
+
+      // ── Catálogo de la empresa ──────────────────────────────
+      parts.push(await this.dumpTable('categorias',
+        'SELECT * FROM categorias WHERE empresa_id = ?', [eid]));
+      parts.push(await this.dumpTable('productos',
+        'SELECT * FROM productos WHERE empresa_id = ?', [eid]));
+      parts.push(await this.dumpTable('producto_tienda',
+        'SELECT pt.* FROM producto_tienda pt JOIN productos p ON pt.producto_id = p.id WHERE p.empresa_id = ?', [eid]));
+    }
+
+    parts.push('SET FOREIGN_KEY_CHECKS = 1;');
+    parts.push('-- Fin del backup POS-iaDoS');
+
+    fs.writeFileSync(filepath, parts.join('\n'), 'utf8');
+    const stats = fs.statSync(filepath);
+    return { archivo: filename, tamano: stats.size };
   }
 
-  private async realizarBackupExcel(): Promise<{ archivo: string; tamano: number }> {
+  // ─────────────────────────────────────────────────────────────
+  // Excel Backup — filtrado por scope
+  // ─────────────────────────────────────────────────────────────
+  private async realizarBackupExcel(scope: BackupScope, tiendaFilter?: number): Promise<{ archivo: string; tamano: number }> {
     const fecha = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const filename = `backup-excel-${fecha}.xlsx`;
+    const scopeLabel = tiendaFilter ? `t${tiendaFilter}` : scope.empresa_id ? `e${scope.empresa_id}` : 'full';
+    const filename = `backup-excel-${scopeLabel}-${fecha}.xlsx`;
     const filepath = path.join(this.backupsDir, filename);
 
     const wb = new ExcelJS.Workbook();
     wb.creator = 'POS-iaDoS';
     wb.created = new Date();
 
-    // Sheet: Ventas
+    const eid = scope.empresa_id;
+    const tid = tiendaFilter;
+
+    // ── Ventas ─────────────────────────────────────────────────
     const wsV = wb.addWorksheet('Ventas');
     wsV.columns = [
       { header: 'Folio', key: 'folio', width: 16 },
@@ -152,21 +210,24 @@ export class BackupService implements OnModuleInit {
     ];
     wsV.getRow(1).font = { bold: true };
     try {
+      const ventaWhere = tid
+        ? 'WHERE v.tienda_id = ?'
+        : eid ? 'JOIN tiendas t ON v.tienda_id = t.id WHERE t.empresa_id = ?' : '';
+      const ventaParams = (tid || eid) ? [tid || eid] : [];
       const ventas = await this.dataSource.query(
         `SELECT v.folio, v.created_at, v.subtotal, v.impuestos, v.descuento, v.total,
                 v.metodo_pago, v.estado,
-                u.nombre AS cajero, t.nombre AS tienda
+                u.nombre AS cajero, ti.nombre AS tienda
          FROM ventas v
          LEFT JOIN users u ON v.usuario_id = u.id
-         LEFT JOIN tiendas t ON v.tienda_id = t.id
-         ORDER BY v.created_at DESC`,
+         LEFT JOIN tiendas ti ON v.tienda_id = ti.id
+         ${ventaWhere}
+         ORDER BY v.created_at DESC`, ventaParams,
       );
       wsV.addRows(ventas);
-    } catch (e) {
-      wsV.addRow({ folio: `Error: ${e.message}` });
-    }
+    } catch (e) { wsV.addRow({ folio: `Error: ${e.message}` }); }
 
-    // Sheet: Detalle Ventas
+    // ── Detalle Ventas ─────────────────────────────────────────
     const wsD = wb.addWorksheet('Detalle Ventas');
     wsD.columns = [
       { header: 'Folio Venta', key: 'folio', width: 16 },
@@ -179,108 +240,125 @@ export class BackupService implements OnModuleInit {
     ];
     wsD.getRow(1).font = { bold: true };
     try {
+      const detWhere = tid
+        ? 'WHERE v.tienda_id = ?'
+        : eid ? 'JOIN tiendas t ON v.tienda_id = t.id WHERE t.empresa_id = ?' : '';
+      const detParams = (tid || eid) ? [tid || eid] : [];
       const detalles = await this.dataSource.query(
         `SELECT v.folio, d.producto_nombre, d.producto_sku, d.cantidad,
                 d.precio_unitario, d.descuento, d.subtotal
          FROM venta_detalles d
          JOIN ventas v ON d.venta_id = v.id
-         ORDER BY v.created_at DESC, d.id`,
+         ${detWhere}
+         ORDER BY v.created_at DESC, d.id`, detParams,
       );
       wsD.addRows(detalles);
-    } catch (e) {
-      wsD.addRow({ folio: `Error: ${e.message}` });
-    }
+    } catch (e) { wsD.addRow({ folio: `Error: ${e.message}` }); }
 
-    // Sheet: Productos
+    // ── Productos ──────────────────────────────────────────────
     const wsP = wb.addWorksheet('Productos');
     wsP.columns = [
       { header: 'SKU', key: 'sku', width: 14 },
       { header: 'Nombre', key: 'nombre', width: 32 },
       { header: 'Categoria', key: 'categoria', width: 20 },
       { header: 'Precio', key: 'precio', width: 12 },
-      { header: 'Stock', key: 'stock', width: 10 },
+      { header: 'Costo', key: 'costo', width: 12 },
+      { header: 'Stock', key: 'stock_actual', width: 10 },
       { header: 'Activo', key: 'activo', width: 8 },
+      { header: 'Disponible', key: 'disponible', width: 10 },
     ];
     wsP.getRow(1).font = { bold: true };
     try {
+      const prodWhere = tid
+        ? 'WHERE p.empresa_id IN (SELECT empresa_id FROM tiendas WHERE id = ?)'
+        : eid ? 'WHERE p.empresa_id = ?' : '';
+      const prodParams = (tid || eid) ? [tid || eid] : [];
       const productos = await this.dataSource.query(
-        `SELECT p.sku, p.nombre, c.nombre AS categoria, p.precio, p.stock, p.activo
+        `SELECT p.sku, p.nombre, c.nombre AS categoria, p.precio, p.costo,
+                p.stock_actual, p.activo, p.disponible
          FROM productos p
          LEFT JOIN categorias c ON p.categoria_id = c.id
-         ORDER BY c.nombre, p.nombre`,
+         ${prodWhere}
+         ORDER BY c.nombre, p.nombre`, prodParams,
       );
       wsP.addRows(productos);
-    } catch (e) {
-      wsP.addRow({ sku: `Error: ${e.message}` });
-    }
+    } catch (e) { wsP.addRow({ sku: `Error: ${e.message}` }); }
 
-    // Sheet: Inventario
+    // ── Inventario ─────────────────────────────────────────────
     const wsI = wb.addWorksheet('Inventario');
     wsI.columns = [
       { header: 'Producto', key: 'producto', width: 32 },
       { header: 'SKU', key: 'sku', width: 14 },
-      { header: 'Stock Actual', key: 'stock', width: 14 },
+      { header: 'Stock Actual', key: 'stock_actual', width: 14 },
       { header: 'Stock Min', key: 'stock_minimo', width: 12 },
-      { header: 'Alerta', key: 'alerta_stock', width: 10 },
     ];
     wsI.getRow(1).font = { bold: true };
     try {
+      const invWhere = tid
+        ? 'WHERE p.empresa_id IN (SELECT empresa_id FROM tiendas WHERE id = ?) AND p.controla_stock = 1'
+        : eid ? 'WHERE p.empresa_id = ? AND p.controla_stock = 1' : 'WHERE p.controla_stock = 1';
+      const invParams = (tid || eid) ? [tid || eid] : [];
       const inv = await this.dataSource.query(
-        `SELECT p.nombre AS producto, p.sku, p.stock, p.stock_minimo, p.alerta_stock
-         FROM productos p WHERE p.controla_inventario = 1 ORDER BY p.nombre`,
+        `SELECT p.nombre AS producto, p.sku, p.stock_actual, p.stock_minimo
+         FROM productos p ${invWhere} ORDER BY p.nombre`, invParams,
       );
       wsI.addRows(inv);
-    } catch {
-      // tabla o columnas pueden no existir — omitir silenciosamente
-    }
+    } catch { /* omitir silenciosamente */ }
 
     await wb.xlsx.writeFile(filepath);
 
-    // Copia fija en raíz: respaldo-diario.xlsx (sobreescribe cada vez)
-    // Así siempre hay un archivo actualizado y fácil de encontrar en C:\POS-iaDoS\
+    // Copia fija respaldo-diario.xlsx en la raíz del directorio de respaldos
     try {
-      const raiz = path.join(process.cwd(), '..');
-      fs.copyFileSync(filepath, path.join(raiz, 'respaldo-diario.xlsx'));
+      fs.copyFileSync(filepath, path.join(this.backupsDir, 'respaldo-diario.xlsx'));
     } catch { /* ignorar si no hay permisos */ }
 
     const stats = fs.statSync(filepath);
     return { archivo: filename, tamano: stats.size };
   }
 
-  async ejecutarBackup(tipo: 'db' | 'excel' | 'completo'): Promise<BackupLog[]> {
+  // ─────────────────────────────────────────────────────────────
+  // Ejecutar backup (punto de entrada principal)
+  // ─────────────────────────────────────────────────────────────
+  async ejecutarBackup(tipo: 'db' | 'excel' | 'completo', user: any = {}, tiendaFilter?: number): Promise<BackupLog[]> {
     const config = await this.getConfig();
-    const logs: BackupLog[] = [];
+    const scope: BackupScope = {
+      tenant_id: user.tenant_id,
+      empresa_id: user.empresa_id,
+      tienda_id: user.tienda_id,
+      rol: user.rol,
+    };
 
+    const logs: BackupLog[] = [];
     const tipos: ('db' | 'excel')[] = [];
     if (tipo === 'db' || tipo === 'completo') tipos.push('db');
     if (tipo === 'excel' || tipo === 'completo') tipos.push('excel');
 
     for (const t of tipos) {
-      const log = this.logRepo.create({ tipo });
+      const log = this.logRepo.create({ tipo: t });
       try {
         const result = t === 'db'
-          ? await this.realizarBackupDB()
-          : await this.realizarBackupExcel();
+          ? await this.realizarBackupSQL(scope, tiendaFilter)
+          : await this.realizarBackupExcel(scope, tiendaFilter);
 
-        log.tipo = t;
         log.archivo = result.archivo;
         log.tamano_bytes = result.tamano;
         log.estado = 'ok';
 
+        // Copiar a carpeta externa (OneDrive, USB, red local) si configurada
         if (config.onedrive_enabled && config.onedrive_carpeta) {
           try {
             const dest = path.join(config.onedrive_carpeta, result.archivo);
             fs.copyFileSync(path.join(this.backupsDir, result.archivo), dest);
             log.onedrive_copiado = true;
           } catch (e) {
-            this.logger.warn(`OneDrive copy failed: ${e.message}`);
+            this.logger.warn(`Copy to carpeta_destino failed: ${e.message}`);
           }
         }
       } catch (e) {
-        log.tipo = t;
         log.archivo = '';
         log.estado = 'error';
         log.error_msg = e.message;
+        this.logger.error(`Backup error (${t}): ${e.message}`);
       }
       await this.logRepo.save(log);
       logs.push(log);
@@ -289,7 +367,6 @@ export class BackupService implements OnModuleInit {
     config.ultimo_backup_at = new Date();
     config.ultimo_backup_estado = logs.every((l) => l.estado === 'ok') ? 'ok' : 'error';
     await this.configRepo.save(config);
-
     await this.limpiarAntiguos(config.retencion_dias);
     return logs;
   }
@@ -299,6 +376,7 @@ export class BackupService implements OnModuleInit {
     try {
       const files = fs.readdirSync(this.backupsDir);
       for (const f of files) {
+        if (f === 'respaldo-diario.xlsx') continue; // no borrar el fijo
         const fp = path.join(this.backupsDir, f);
         if (fs.statSync(fp).mtimeMs < cutoff) {
           fs.unlinkSync(fp);
@@ -324,44 +402,40 @@ export class BackupService implements OnModuleInit {
     return { deleted: true };
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // Restaurar: importa el SQL ejecutando cada statement via DataSource
+  // (funciona en VPS Docker, local dev y EXE — sin mysql binario)
+  // ─────────────────────────────────────────────────────────────
   async restaurarBackup(filename: string): Promise<{ ok: boolean; mensaje: string }> {
     const safe = path.basename(filename);
-    if (!safe.endsWith('.sql')) {
-      throw new Error('Solo se pueden restaurar archivos .sql');
-    }
+    if (!safe.endsWith('.sql')) throw new Error('Solo se pueden restaurar archivos .sql');
     const filepath = path.join(this.backupsDir, safe);
-    if (!fs.existsSync(filepath)) {
-      throw new Error(`Archivo no encontrado: ${safe}`);
+    if (!fs.existsSync(filepath)) throw new Error(`Archivo no encontrado: ${safe}`);
+
+    const content = fs.readFileSync(filepath, 'utf8');
+    // Dividir en statements individuales (separados por ;)
+    const statements = content
+      .split(';')
+      .map((s) => s.trim())
+      .filter((s) => s && !s.startsWith('--'));
+
+    await this.dataSource.query('SET FOREIGN_KEY_CHECKS = 0');
+    let count = 0;
+    try {
+      for (const stmt of statements) {
+        try {
+          await this.dataSource.query(stmt);
+          count++;
+        } catch (e) {
+          this.logger.warn(`Restore statement skip: ${e.message} — ${stmt.slice(0, 80)}`);
+        }
+      }
+    } finally {
+      await this.dataSource.query('SET FOREIGN_KEY_CHECKS = 1');
     }
 
-    const mysql = this.getMysqlPath();
-    const args = [
-      `-h${process.env.DB_HOST || 'localhost'}`,
-      `-P${process.env.DB_PORT || '3306'}`,
-      `-u${process.env.DB_USERNAME || 'pos_iados'}`,
-      `--password=${process.env.DB_PASSWORD || 'pos_iados_2024'}`,
-      process.env.DB_NAME || 'pos_iados',
-    ];
-
-    return new Promise((resolve, reject) => {
-      const proc = spawn(mysql, args, { windowsHide: true });
-      const input = fs.createReadStream(filepath);
-      input.pipe(proc.stdin);
-      let stderr = '';
-      proc.stderr.on('data', (d) => { stderr += d.toString(); });
-      proc.on('close', (code) => {
-        const realError = stderr
-          .split('\n')
-          .filter((l) => l.includes('[ERROR]'))
-          .join(' ');
-        if (code !== 0 || realError) {
-          return reject(new Error(`mysql: ${(realError || stderr).substring(0, 300)}`));
-        }
-        this.logger.log(`Restauracion completada desde: ${safe}`);
-        resolve({ ok: true, mensaje: `Base de datos restaurada desde ${safe}` });
-      });
-      proc.on('error', (e) => reject(new Error(`mysql no encontrado: ${e.message}`)));
-    });
+    this.logger.log(`Restauracion completada: ${safe} — ${count} statements ejecutados`);
+    return { ok: true, mensaje: `Restaurado desde ${safe} (${count} registros importados)` };
   }
 
   async limpiarDemoData(opciones: {
@@ -401,9 +475,10 @@ export class BackupService implements OnModuleInit {
         const [r1] = await this.dataSource.query('SELECT COUNT(*) AS c FROM movimientos_caja');
         await this.dataSource.query('DELETE FROM movimientos_caja');
         resultado.movimientos_caja = Number(r1.c);
-        // Reset cajas totals
         await this.dataSource.query(
-          `UPDATE cajas SET total_ventas = 0, total_entradas = 0, total_salidas = 0, total_esperado = NULL, total_real = NULL, diferencia = NULL, fecha_apertura = NULL, fecha_cierre = NULL, estado = 'cerrada'`,
+          `UPDATE cajas SET total_ventas = 0, total_entradas = 0, total_salidas = 0,
+           total_esperado = NULL, total_real = NULL, diferencia = NULL,
+           fecha_apertura = NULL, fecha_cierre = NULL, estado = 'cerrada'`,
         );
       }
 
@@ -435,7 +510,7 @@ export class BackupService implements OnModuleInit {
     return resultado;
   }
 
-  // Cron: check every hour if it's time for the scheduled backup
+  // Cron: cada hora revisa si es hora del respaldo automático
   @Cron('0 * * * *')
   async scheduledBackup() {
     try {
@@ -451,7 +526,7 @@ export class BackupService implements OnModuleInit {
 
       this.logger.log('Ejecutando respaldo automatico...');
       const tipo = config.incluir_db && config.incluir_excel ? 'completo' : config.incluir_db ? 'db' : 'excel';
-      await this.ejecutarBackup(tipo);
+      await this.ejecutarBackup(tipo, {});
     } catch (e) {
       this.logger.error(`Auto backup error: ${e.message}`);
     }

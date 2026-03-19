@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { backupApi } from '../../api/endpoints';
+import { backupApi, tiendasApi } from '../../api/endpoints';
 import toast from 'react-hot-toast';
 import {
   HardDrive, FileSpreadsheet, RefreshCw, Download, Trash2,
   Clock, CheckCircle, XCircle, UploadCloud, Settings, Play,
   Database, Folder, AlertTriangle, Eraser, RotateCcw, Link2Off,
+  Filter,
 } from 'lucide-react';
 
 const HORAS = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
@@ -29,6 +30,8 @@ export default function MantenimientoPage() {
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState<string | null>(null);
   const [tab, setTab] = useState<'respaldos' | 'configuracion' | 'limpiar' | 'restaurar'>('respaldos');
+  const [tiendas, setTiendas] = useState<any[]>([]);
+  const [tiendaFilter, setTiendaFilter] = useState<number | undefined>(undefined);
 
   // Restaurar state
   const [selectedSqlFile, setSelectedSqlFile] = useState<string | null>(null);
@@ -61,12 +64,15 @@ export default function MantenimientoPage() {
     }
   }, []);
 
-  useEffect(() => { loadAll(); }, [loadAll]);
+  useEffect(() => {
+    loadAll();
+    tiendasApi.list().then((r) => setTiendas(r.data || [])).catch(() => {});
+  }, [loadAll]);
 
   const handleEjecutar = async (tipo: 'db' | 'excel' | 'completo') => {
     setRunning(tipo);
     try {
-      const { data } = await backupApi.ejecutar(tipo);
+      const { data } = await backupApi.ejecutar(tipo, tiendaFilter);
       const errores = data.filter((l: any) => l.estado === 'error');
       if (errores.length > 0) {
         toast.error(`Respaldo con errores: ${errores.map((e: any) => e.error_msg).join(', ')}`);
@@ -193,7 +199,25 @@ export default function MantenimientoPage() {
 
       {/* Acciones manuales */}
       <div className="card mb-6">
-        <h2 className="text-base font-bold mb-3 flex items-center gap-2"><Play size={16} /> Respaldo Manual</h2>
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <h2 className="text-base font-bold flex items-center gap-2"><Play size={16} /> Respaldo Manual</h2>
+          {tiendas.length > 1 && (
+            <label className="flex items-center gap-2 text-sm text-slate-300">
+              <Filter size={14} className="text-slate-400" />
+              <span className="text-slate-400">Filtrar tienda:</span>
+              <select
+                value={tiendaFilter ?? ''}
+                onChange={(e) => setTiendaFilter(e.target.value ? Number(e.target.value) : undefined)}
+                className="input-touch py-1 px-2 text-sm w-44"
+              >
+                <option value="">Toda la empresa</option>
+                {tiendas.map((t) => (
+                  <option key={t.id} value={t.id}>{t.nombre}</option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <button
             onClick={() => handleEjecutar('db')}
@@ -203,7 +227,7 @@ export default function MantenimientoPage() {
             {running === 'db' ? <RefreshCw size={18} className="animate-spin" /> : <Database size={18} />}
             <div className="text-left">
               <p className="font-semibold text-sm">Respaldo BD</p>
-              <p className="text-xs text-slate-400">Exporta .sql completo</p>
+              <p className="text-xs text-slate-400">Ventas, pedidos, catálogo</p>
             </div>
           </button>
 
@@ -450,9 +474,8 @@ export default function MantenimientoPage() {
               <div>
                 <p className="font-bold text-orange-300 text-sm">Accion destructiva e irreversible</p>
                 <p className="text-xs text-orange-200/80 mt-0.5">
-                  Restaurar reemplaza TODA la base de datos con el contenido del archivo seleccionado.
-                  Todos los datos actuales (ventas, pedidos, usuarios, productos) seran sobreescritos.
-                  Genera un respaldo completo antes de continuar.
+                  Importa los datos del archivo .sql usando INSERT IGNORE — no borra lo que ya existe,
+                  solo inserta registros que no estén duplicados. Genera un respaldo antes de continuar.
                 </p>
               </div>
             </div>
@@ -602,16 +625,16 @@ export default function MantenimientoPage() {
             </div>
           </div>
 
-          {/* OneDrive */}
+          {/* Carpeta destino adicional */}
           <div className="card space-y-4">
-            <h3 className="font-bold flex items-center gap-2"><UploadCloud size={16} /> OneDrive / Carpeta de sincronizacion</h3>
+            <h3 className="font-bold flex items-center gap-2"><UploadCloud size={16} /> Carpeta de copia adicional</h3>
             <p className="text-xs text-slate-400">
-              Los respaldos se copian automaticamente a la carpeta de OneDrive sincronizada en este equipo.
-              No se requiere configuracion adicional — solo especifica la ruta local de tu carpeta OneDrive.
+              Copia los respaldos automaticamente a una ruta local: OneDrive, USB, carpeta de red o disco externo.
+              Funciona sin internet — cualquier ruta accesible desde este equipo.
             </p>
 
             <label className="flex items-center justify-between">
-              <p className="text-sm font-medium">Activar copia a OneDrive</p>
+              <p className="text-sm font-medium">Activar copia adicional</p>
               <button
                 onClick={() => setConfig({ ...config, onedrive_enabled: !config.onedrive_enabled })}
                 className={`w-12 h-6 rounded-full transition-colors relative ${config.onedrive_enabled ? 'bg-iados-primary' : 'bg-slate-600'}`}
@@ -623,17 +646,17 @@ export default function MantenimientoPage() {
             {config.onedrive_enabled && (
               <div>
                 <label className="text-xs text-slate-400 mb-1 block flex items-center gap-1">
-                  <Folder size={12} /> Ruta de la carpeta OneDrive en este equipo
+                  <Folder size={12} /> Ruta destino (local, USB o red)
                 </label>
                 <input
                   type="text"
                   value={config.onedrive_carpeta || ''}
                   onChange={(e) => setConfig({ ...config, onedrive_carpeta: e.target.value })}
-                  placeholder="Ej: C:\Users\TuUsuario\OneDrive\POS-Respaldos"
+                  placeholder="Ej: C:\Users\Admin\OneDrive\Respaldos  o  D:\USB\Respaldos"
                   className="input-touch text-sm font-mono"
                 />
                 <p className="text-xs text-slate-500 mt-1">
-                  La carpeta debe existir y estar sincronizada con OneDrive. Los archivos se copian automaticamente despues de cada respaldo.
+                  La carpeta debe existir. Los archivos se copian despues de cada respaldo. En VPS usa una ruta de volumen montado.
                 </p>
               </div>
             )}
