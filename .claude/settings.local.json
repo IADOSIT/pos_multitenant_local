@@ -218,7 +218,8 @@
       "Bash(ssh -o StrictHostKeyChecking=no -o PasswordAuthentication=no root@74.208.149.7 \"docker ps -a --filter name=pos && docker logs pos-iados-api --tail 40 2>&1\" 2>&1 | head -60)",
       "Bash(mysql -h 74.208.149.7 -P 3306 -u root -pU191tl1ebFN2RJR0fld5QhC8U29AhdOQ pos_iados 2>/dev/null <<'EOF'\nSELECT 'productos' t, COUNT\\(*\\) n FROM productos\nUNION SELECT 'usuarios', COUNT\\(*\\) FROM usuarios\nUNION SELECT 'ventas', COUNT\\(*\\) FROM ventas\nUNION SELECT 'tiendas', COUNT\\(*\\) FROM tiendas;\nEOF)",
       "Bash(for t:*)",
-      "Bash(cat > \"C:/sites/pos_multitenant_local/installer/staging/.gitignore\" << 'EOF'\n# Binarios de runtime - no pertenecen en git\nruntime/\n# Build artifacts del frontend\napp/backend/public/\napp/backend/dist/\n# Node modules\napp/backend/node_modules/\nEOF\necho \"Created staging gitignore\")"
+      "Bash(cat > \"C:/sites/pos_multitenant_local/installer/staging/.gitignore\" << 'EOF'\n# Binarios de runtime - no pertenecen en git\nruntime/\n# Build artifacts del frontend\napp/backend/public/\napp/backend/dist/\n# Node modules\napp/backend/node_modules/\nEOF\necho \"Created staging gitignore\")",
+      "Bash(find /c/sites/pos_multitenant_local/frontend -name \"nginx.conf\" -o -name \"*.conf\" 2>/dev/null | head -10)"
     ]
   }
 }
