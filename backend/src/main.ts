@@ -18,7 +18,9 @@ async function bootstrap() {
   app.useGlobalGuards(new LicenciaGuard(licService));
 
   // Static assets BEFORE global prefix so /api/uploads works directly
+  // Primero sirve desde el volumen (uploads de usuario), luego desde builtin (baked en imagen)
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/api/uploads' });
+  app.useStaticAssets(join(process.cwd(), 'uploads-builtin'), { prefix: '/api/uploads' });
   app.setGlobalPrefix('api');
 
   app.enableCors({
