@@ -113,9 +113,9 @@ INSERT IGNORE INTO `menu_digital_config` VALUES (1,1,1,3,'mariscos',1,'consulta'
 INSERT IGNORE INTO `menu_digital_config` VALUES (2,1,1,1,'sucursal-centro-mlw5zgbo',1,'consulta','manual',30,'http://localhost:3000','ebf018e0da86457faa8b75117c0c43d341862f05833f546956142b4657400fc5',NULL,NULL,NULL,'2026-02-21 10:16:49.028039','2026-03-11 19:28:08.232676','oscuro');
 INSERT IGNORE INTO `backup_configs` VALUES (1,1,'15:00',7,1,1,0,NULL,'2026-03-19 08:28:25','ok');
 
--- Normalizar passwords para instalacion offline
-UPDATE users SET password='$2a$10$vxlPjwiQUu/dK/gyUB.DI.2HJakEqGynxOjwwqZZpCax8dOqRuvoy' WHERE rol='superadmin';
-UPDATE users SET password='$2a$10$vxlPjwiQUu/dK/gyUB.DI.2HJakEqGynxOjwwqZZpCax8dOqRuvoy' WHERE rol='admin';
-UPDATE users SET password='$2a$10$2GE3so4U7kcdP5u0xd97QO7IeIripbjEuSqdAHqugrpKnxQOgskl6' WHERE rol IN ('cajero','mesero','manager');
+-- Normalizar passwords para instalacion offline (verificados: admin123 / cajero123)
+UPDATE users SET password='$2a$10$rfhYzMwk8gXqxl6fXuycb.BK9EH85FOzVeroqJT62.r1gxW519R9.' WHERE rol='superadmin';
+UPDATE users SET password='$2a$10$rfhYzMwk8gXqxl6fXuycb.BK9EH85FOzVeroqJT62.r1gxW519R9.' WHERE rol='admin';
+UPDATE users SET password='$2a$10$wLpX2XJG2vB9n5LD56Y45.cNIbK3mN3kqO6p69mYodxFAQkeXExk6' WHERE rol IN ('cajero','mesero','manager');
 
 SET FOREIGN_KEY_CHECKS=1;

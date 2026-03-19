@@ -418,28 +418,6 @@ if ($InstallMode -eq "local") {
             } else {
                 Write-Log "Datos iniciales cargados" "Green"
             }
-
-            # Generar hashes reales con el Node.js instalado para garantizar credenciales correctas
-            Write-Log "  Actualizando passwords con bcryptjs..." "Gray"
-            # Usar ruta absoluta para require (el CWD de Node al lanzarse puede no ser backend/)
-            $bcryptPath = "$InstallDir\backend\node_modules\bcryptjs" -replace '\\', '\\\\'
-            $hashScript = "try{const b=require('$bcryptPath');console.log(b.hashSync('admin123',10)+'|'+b.hashSync('cajero123',10));}catch(e){process.exit(1);}"
-            $ErrorActionPreference = "SilentlyContinue"
-            $hashOut = & "$InstallDir\node\node.exe" -e $hashScript 2>&1
-            $ErrorActionPreference = "Stop"
-            if ($hashOut -match '^\$2[ab]\$') {
-                $parts      = $hashOut -split '\|'
-                $hashAdmin  = $parts[0].Trim()
-                $hashCajero = $parts[1].Trim()
-                $updateSql  = "UPDATE users SET password='$hashAdmin'  WHERE rol IN ('superadmin','admin');" +
-                              "UPDATE users SET password='$hashCajero' WHERE rol IN ('cajero','mesero','manager');"
-                $ErrorActionPreference = "SilentlyContinue"
-                & $MYSQL -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME -e $updateSql 2>&1 | Out-Null
-                $ErrorActionPreference = "Stop"
-                Write-Log "  Passwords generados y aplicados correctamente" "Green"
-            } else {
-                Write-Log "ADVERTENCIA: No se pudieron generar hashes frescos. Usando los del seed." "Yellow"
-            }
         } else {
             Write-Log "ADVERTENCIA: No se encontro archivo de seeds" "Yellow"
         }
@@ -452,6 +430,28 @@ if ($InstallMode -eq "local") {
             Get-Content $seedPruebas -Raw | & $MYSQL -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME 2>&1 | Out-Null
             $ErrorActionPreference = "Stop"
             Write-Log "Datos completos instalados" "Green"
+        }
+
+        # Generar hashes reales con el Node.js instalado DESPUES de todos los seeds
+        # (04_seed hace TRUNCATE+INSERT de users — los hashes del seed deben sobreescribirse aqui)
+        Write-Log "  Actualizando passwords con bcryptjs..." "Gray"
+        $bcryptPath = "$InstallDir\backend\node_modules\bcryptjs" -replace '\\', '\\\\'
+        $hashScript = "try{const b=require('$bcryptPath');console.log(b.hashSync('admin123',10)+'|'+b.hashSync('cajero123',10));}catch(e){process.exit(1);}"
+        $ErrorActionPreference = "SilentlyContinue"
+        $hashOut = & "$InstallDir\node\node.exe" -e $hashScript 2>&1
+        $ErrorActionPreference = "Stop"
+        if ($hashOut -match '^\$2[ab]\$') {
+            $parts      = $hashOut -split '\|'
+            $hashAdmin  = $parts[0].Trim()
+            $hashCajero = $parts[1].Trim()
+            $updateSql  = "UPDATE users SET password='$hashAdmin'  WHERE rol IN ('superadmin','admin');" +
+                          "UPDATE users SET password='$hashCajero' WHERE rol IN ('cajero','mesero','manager');"
+            $ErrorActionPreference = "SilentlyContinue"
+            & $MYSQL -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME -e $updateSql 2>&1 | Out-Null
+            $ErrorActionPreference = "Stop"
+            Write-Log "  Passwords generados y aplicados correctamente" "Green"
+        } else {
+            Write-Log "ADVERTENCIA: No se pudieron generar hashes frescos. Usando los del seed." "Yellow"
         }
     } else {
         Write-Log "Base de datos ya tiene datos, saltando seeds" "Gray"
