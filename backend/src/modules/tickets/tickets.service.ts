@@ -47,7 +47,7 @@ export class TicketsService {
 
   async updateConfig(id: number, data: Partial<TicketConfig>) {
     // Strip auto-managed and immutable fields; replace null/undefined numerics with their defaults
-    const { id: _id, created_at, tenant_id, empresa_id, tienda_id, ...rest } = data as any;
+    const { id: _id, created_at, updated_at, tenant_id, empresa_id, tienda_id, ...rest } = data as any;
     const clean: any = {};
     for (const [k, v] of Object.entries(rest)) {
       if (v !== undefined) clean[k] = v;
