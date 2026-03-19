@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
+import { Repository, Between, DataSource } from 'typeorm';
 import { Venta, VentaDetalle, VentaPago, VentaEstado } from './venta.entity';
 import { Auditoria } from './auditoria.entity';
 import { Caja, CajaEstado } from '../caja/caja.entity';
@@ -12,7 +12,26 @@ export class VentasService {
     @InjectRepository(Venta) private ventasRepo: Repository<Venta>,
     @InjectRepository(Auditoria) private auditoriaRepo: Repository<Auditoria>,
     @InjectRepository(Caja) private cajaRepo: Repository<Caja>,
+    @InjectDataSource() private dataSource: DataSource,
   ) {}
+
+  private async generateFolio(tienda_id: number): Promise<string> {
+    return this.dataSource.transaction(async (manager) => {
+      const [tienda] = await manager.query(
+        'SELECT folio_venta_counter, nombre FROM tiendas WHERE id = ? FOR UPDATE',
+        [tienda_id],
+      );
+      const newCounter = (tienda?.folio_venta_counter || 0) + 1;
+      await manager.query(
+        'UPDATE tiendas SET folio_venta_counter = ? WHERE id = ?',
+        [newCounter, tienda_id],
+      );
+      const initial = (tienda?.nombre || 'X')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z]/g, '')
+        .charAt(0).toUpperCase() || 'X';
+      return `I${initial}${String(newCounter).padStart(8, '0')}`;
+    });
+  }
 
   async crear(data: any, scope: any) {
     const caja = await this.cajaRepo.findOne({
@@ -20,7 +39,7 @@ export class VentasService {
     });
     if (!caja) throw new BadRequestException('La caja no está abierta');
 
-    const folio = `V-${Date.now().toString(36).toUpperCase()}`;
+    const folio = await this.generateFolio(scope.tienda_id);
 
     const venta = this.ventasRepo.create({
       tenant_id: scope.tenant_id,

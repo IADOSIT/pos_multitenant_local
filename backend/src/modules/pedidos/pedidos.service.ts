@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, Logger, Optional } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
+import { Repository, In, DataSource } from 'typeorm';
 import { Pedido, PedidoDetalle, PedidoEstado } from './pedido.entity';
 import { VentasService } from '../ventas/ventas.service';
 import { NotificacionesService } from '../notificaciones/notificaciones.service';
@@ -14,11 +14,30 @@ export class PedidosService {
     @InjectRepository(Pedido) private pedidosRepo: Repository<Pedido>,
     private ventasService: VentasService,
     private notificacionesService: NotificacionesService,
+    @InjectDataSource() private dataSource: DataSource,
     @Optional() private selfOrderService?: SelfOrderService,
   ) {}
 
+  private async generateFolio(tienda_id: number): Promise<string> {
+    return this.dataSource.transaction(async (manager) => {
+      const [tienda] = await manager.query(
+        'SELECT folio_pedido_counter, nombre FROM tiendas WHERE id = ? FOR UPDATE',
+        [tienda_id],
+      );
+      const newCounter = (tienda?.folio_pedido_counter || 0) + 1;
+      await manager.query(
+        'UPDATE tiendas SET folio_pedido_counter = ? WHERE id = ?',
+        [newCounter, tienda_id],
+      );
+      const initial = (tienda?.nombre || 'X')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z]/g, '')
+        .charAt(0).toUpperCase() || 'X';
+      return `I${initial}${String(newCounter).padStart(8, '0')}`;
+    });
+  }
+
   async crear(data: any, scope: any) {
-    const folio = `P-${Date.now().toString(36).toUpperCase()}`;
+    const folio = await this.generateFolio(scope.tienda_id);
 
     const pedido = this.pedidosRepo.create({
       tenant_id: scope.tenant_id,

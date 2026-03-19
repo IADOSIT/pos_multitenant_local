@@ -220,7 +220,8 @@
       "Bash(for t:*)",
       "Bash(cat > \"C:/sites/pos_multitenant_local/installer/staging/.gitignore\" << 'EOF'\n# Binarios de runtime - no pertenecen en git\nruntime/\n# Build artifacts del frontend\napp/backend/public/\napp/backend/dist/\n# Node modules\napp/backend/node_modules/\nEOF\necho \"Created staging gitignore\")",
       "Bash(find /c/sites/pos_multitenant_local/frontend -name \"nginx.conf\" -o -name \"*.conf\" 2>/dev/null | head -10)",
-      "Bash(cd /c/sites/pos_multitenant_local/backend && node -e \"\nconst mysql = require\\('mysql2/promise'\\);\n\\(async \\(\\) => {\n  const conn = await mysql.createConnection\\({\n    host: '74.208.149.7', port: 3306,\n    user: 'root', password: 'U191tl1ebFN2RJR0fld5QhC8U29AhdOQ',\n    database: 'pos_iados'\n  }\\);\n  const [rows] = await conn.query\\('SELECT id, nombre, imagen_url FROM productos WHERE imagen_url IS NOT NULL AND imagen_url != \\\\\"\\\\\" LIMIT 10'\\);\n  console.log\\(JSON.stringify\\(rows, null, 2\\)\\);\n  await conn.end\\(\\);\n}\\)\\(\\).catch\\(e => console.error\\(e.message\\)\\);\n\" 2>&1)"
+      "Bash(cd /c/sites/pos_multitenant_local/backend && node -e \"\nconst mysql = require\\('mysql2/promise'\\);\n\\(async \\(\\) => {\n  const conn = await mysql.createConnection\\({\n    host: '74.208.149.7', port: 3306,\n    user: 'root', password: 'U191tl1ebFN2RJR0fld5QhC8U29AhdOQ',\n    database: 'pos_iados'\n  }\\);\n  const [rows] = await conn.query\\('SELECT id, nombre, imagen_url FROM productos WHERE imagen_url IS NOT NULL AND imagen_url != \\\\\"\\\\\" LIMIT 10'\\);\n  console.log\\(JSON.stringify\\(rows, null, 2\\)\\);\n  await conn.end\\(\\);\n}\\)\\(\\).catch\\(e => console.error\\(e.message\\)\\);\n\" 2>&1)",
+      "Bash(cd /c/sites/pos_multitenant_local/backend && ./node_modules/.bin/tsc --noEmit 2>&1 | head -20)"
     ]
   }
 }

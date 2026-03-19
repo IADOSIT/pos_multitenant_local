@@ -44,6 +44,8 @@ export default function ConfiguracionPage() {
   const [systemInfo, setSystemInfo] = useState<any>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [copiedUrl, setCopiedUrl] = useState<string>('');
+  const [meseroQrs, setMeseroQrs] = useState<{ label: string; url: string; qrDataUrl: string; tipo: 'internet' | 'local' | 'hostname' }[]>([]);
+  const [loadingQrs, setLoadingQrs] = useState(false);
   // Pagos Gateway
   const [gwConfig, setGwConfig]           = useState<any>(null);
   const [gwForm, setGwForm]               = useState<any>({});
@@ -411,6 +413,52 @@ export default function ConfiguracionPage() {
     }).catch(() => toast.error('No se pudo copiar'));
   };
 
+  const buildMeseroQrs = useCallback(async () => {
+    setLoadingQrs(true);
+    try {
+      const origin = window.location.origin;
+      const isLocal = /localhost|127\.0\.0\.1/.test(origin);
+      const entries: { label: string; url: string; tipo: 'internet' | 'local' | 'hostname' }[] = [];
+
+      // Always: current browser origin
+      entries.push({
+        label: isLocal ? 'Este equipo (localhost)' : 'Acceso por Internet',
+        url: origin,
+        tipo: isLocal ? 'local' : 'internet',
+      });
+
+      if (isLocal && systemInfo) {
+        // Hostname
+        if (systemInfo.hostname && systemInfo.hostname !== 'localhost') {
+          const u = new URL(origin);
+          u.hostname = systemInfo.hostname;
+          entries.push({ label: `Por nombre de equipo (${systemInfo.hostname})`, url: u.toString(), tipo: 'hostname' });
+        }
+        // Network IPs
+        for (const ip of (systemInfo.ips || [])) {
+          const u = new URL(origin);
+          u.hostname = ip;
+          entries.push({ label: `Red WiFi local (${ip})`, url: u.toString(), tipo: 'local' });
+        }
+      }
+
+      // Generate QR for each
+      const withQr = await Promise.all(
+        entries.map(async (e) => ({
+          ...e,
+          qrDataUrl: await QRCode.toDataURL(e.url, { width: 200, margin: 2, color: { dark: '#1e293b', light: '#ffffff' } }),
+        }))
+      );
+      setMeseroQrs(withQr);
+    } finally {
+      setLoadingQrs(false);
+    }
+  }, [systemInfo]);
+
+  useEffect(() => {
+    if (expandedSection === 'red') buildMeseroQrs();
+  }, [expandedSection, buildMeseroQrs]);
+
   const toggleSection = (s: string) => setExpandedSection(expandedSection === s ? '' : s);
 
   const SectionHeader = ({ id, icon: Icon, title }: { id: string; icon: any; title: string }) => (
@@ -603,110 +651,159 @@ export default function ConfiguracionPage() {
           {/* Seccion: Conexion y Red */}
           <SectionHeader id="red" icon={Wifi} title="Conexion y Red" />
           {expandedSection === 'red' && (
-            <div className="card space-y-4">
-              {/* URL Pública del sistema */}
+            <div className="card space-y-5">
               <div>
-                <p className="text-xs font-semibold text-slate-300 mb-2 flex items-center gap-1">
-                  <Globe size={13} /> URL del Sistema
+                <h4 className="font-semibold text-sm mb-1">QR de Acceso para Meseros / Cajeros</h4>
+                <p className="text-xs" style={{ color: 'rgb(var(--c-text-sub))' }}>
+                  El mesero escanea el QR con su celular y abre el sistema directamente. Cada QR usa un método de conexión diferente — imprime el que aplique a tu instalación.
                 </p>
-                <div className="space-y-2">
-                  {/* Current browser origin = the real public URL */}
-                  <div className="p-3 rounded-xl bg-iados-card/50 border border-iados-card">
-                    <p className="text-xs text-slate-400 mb-1">URL actual (navegador)</p>
-                    <div className="flex items-center gap-2">
-                      <code className="text-sm text-green-400 flex-1 break-all">{window.location.origin}</code>
-                      <button onClick={() => handleCopyUrl(window.location.origin)} className="p-1.5 hover:bg-iados-card rounded-lg flex-shrink-0">
-                        {copiedUrl === window.location.origin ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-                      </button>
-                    </div>
-                  </div>
-                  {/* Local/network URLs from systemInfo if available */}
-                  {systemInfo?.urls?.network?.map((url: string, i: number) => (
-                    <div key={i} className="p-3 rounded-xl bg-iados-card/50 border border-iados-card">
-                      <p className="text-xs text-slate-400 mb-1">Red local — IP {systemInfo.ips?.[i]}</p>
-                      <div className="flex items-center gap-2">
-                        <code className="text-sm text-amber-400 flex-1 break-all">{url.replace(':3000', '')}</code>
-                        <button onClick={() => handleCopyUrl(url.replace(':3000', ''))} className="p-1.5 hover:bg-iados-card rounded-lg flex-shrink-0">
-                          {copiedUrl === url.replace(':3000', '') ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+              </div>
+
+              {loadingQrs ? (
+                <div className="flex items-center gap-2 text-slate-500 text-sm">
+                  <Wifi size={16} className="animate-pulse" /> Generando QR...
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {meseroQrs.map((q, i) => (
+                    <div key={i} className="rounded-xl border border-iados-card p-4 space-y-2 text-center">
+                      {/* Badge tipo */}
+                      <div className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${
+                        q.tipo === 'internet' ? 'bg-blue-900/40 text-blue-300' :
+                        q.tipo === 'hostname' ? 'bg-purple-900/40 text-purple-300' :
+                        'bg-amber-900/40 text-amber-300'
+                      }`}>
+                        {q.tipo === 'internet' ? <Globe size={10} /> : q.tipo === 'hostname' ? <Monitor size={10} /> : <Wifi size={10} />}
+                        {q.tipo === 'internet' ? 'Internet / VPS' : q.tipo === 'hostname' ? 'Nombre Equipo' : 'Red Local'}
+                      </div>
+
+                      <p className="text-xs font-medium" style={{ color: 'rgb(var(--c-text-sub))' }}>{q.label}</p>
+
+                      <div className="bg-white p-2 rounded-xl inline-block mx-auto">
+                        <img src={q.qrDataUrl} alt={q.label} className="w-36 h-36" />
+                      </div>
+
+                      <code className="text-xs text-slate-400 break-all block">{q.url}</code>
+
+                      <div className="flex gap-1 justify-center">
+                        <button
+                          onClick={() => handleCopyUrl(q.url)}
+                          className="text-xs px-2 py-1 rounded-lg bg-iados-card hover:opacity-80 flex items-center gap-1"
+                        >
+                          {copiedUrl === q.url ? <Check size={11} className="text-green-400" /> : <Copy size={11} />}
+                          Copiar
+                        </button>
+                        <button
+                          onClick={() => {
+                            const w = window.open('', '_blank');
+                            if (!w) return;
+                            w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>QR Acceso — ${q.label}</title>
+                              <style>
+                                body{font-family:Arial,sans-serif;text-align:center;padding:32px;background:#fff;color:#1e293b}
+                                .card{display:inline-block;border:2px solid #e2e8f0;border-radius:20px;padding:28px 24px;max-width:320px}
+                                .badge{display:inline-block;background:#0f172a;color:#fff;font-size:13px;font-weight:700;padding:6px 18px;border-radius:50px;margin:10px 0}
+                                .url{font-size:11px;color:#94a3b8;margin-top:8px;word-break:break-all}
+                                .steps{text-align:left;background:#f8fafc;border-radius:12px;padding:14px 16px;margin-top:12px;font-size:12px}
+                                .steps h4{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:8px}
+                                .step{margin-bottom:6px;color:#334155}
+                                button{background:#0f172a;color:#fff;padding:10px 24px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-top:16px}
+                                @media print{button{display:none}}
+                              </style></head>
+                              <body><div class="card">
+                                <div style="font-size:22px;font-weight:800">POS-iaDoS</div>
+                                <div class="badge">${q.label}</div>
+                                <br/>
+                                <img src="${q.qrDataUrl}" width="200" height="200" style="border-radius:12px;border:1px solid #e2e8f0"/>
+                                <div class="url">${q.url}</div>
+                                <div class="steps">
+                                  <h4>Cómo conectarse</h4>
+                                  <div class="step">📱 <strong>1.</strong> Abre la cámara de tu celular</div>
+                                  <div class="step">🔍 <strong>2.</strong> Apunta al código QR</div>
+                                  <div class="step">🔑 <strong>3.</strong> Inicia sesión con tu usuario y PIN</div>
+                                </div>
+                                <button onclick="window.print()">🖨️ Imprimir</button>
+                              </div></body></html>`);
+                            w.document.close();
+                          }}
+                          className="text-xs px-2 py-1 rounded-lg bg-iados-primary text-white hover:opacity-80 flex items-center gap-1"
+                        >
+                          <Printer size={11} /> Imprimir
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
+              )}
 
-              {/* QR de acceso al sistema y QR de Mesa */}
-              <div className="grid sm:grid-cols-2 gap-4">
+              {/* Info additional */}
+              {systemInfo && (
+                <p className="text-xs text-slate-600">
+                  Servidor: <span className="text-slate-400">{systemInfo.hostname}</span>
+                  {' · '}Modo: <span className={systemInfo.mode === 'online' ? 'text-blue-400' : 'text-green-400'}>{systemInfo.mode || 'local'}</span>
+                </p>
+              )}
+
+              {/* QR de Mesa (Self Order) */}
+              {selected && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-300 mb-2">QR Acceso al Sistema</p>
-                  <div className="bg-white p-2 rounded-xl inline-block">
-                    {qrDataUrl && <img src={qrDataUrl} alt="QR acceso" className="w-36 h-36" />}
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1 break-all max-w-[180px]">{window.location.origin}</p>
-                </div>
-
-                {/* QR de Mesa (Self Order) */}
-                {selected && (
-                  <div>
-                    <p className="text-xs font-semibold text-slate-300 mb-2">QR de Mesa (Self Order)</p>
-                    <select
-                      value={mesaQrSelected}
-                      onChange={async (e) => {
-                        setMesaQrSelected(e.target.value);
-                        if (e.target.value) {
-                          const mesa = allMesas.find((m: any) => String(m.id) === e.target.value);
-                          if (mesa) {
-                            const slug = selected?.slug;
-                            const path = slug
-                              ? `/s/${slug}/${mesa.numero}`
-                              : `/self-order/${selected.id}/${mesa.numero}`;
-                            const url = `${window.location.origin}${path}`;
-                            const qr = await QRCode.toDataURL(url, { width: 200, margin: 2 });
-                            setMesaQrDataUrl(qr);
-                          }
-                        } else {
-                          setMesaQrDataUrl('');
+                  <p className="text-xs font-semibold text-slate-300 mb-2">QR de Mesa (Self Order)</p>
+                  <select
+                    value={mesaQrSelected}
+                    onChange={async (e) => {
+                      setMesaQrSelected(e.target.value);
+                      if (e.target.value) {
+                        const mesa = allMesas.find((m: any) => String(m.id) === e.target.value);
+                        if (mesa) {
+                          const slug = selected?.slug;
+                          const path = slug
+                            ? `/s/${slug}/${mesa.numero}`
+                            : `/self-order/${selected.id}/${mesa.numero}`;
+                          const url = `${window.location.origin}${path}`;
+                          const qr = await QRCode.toDataURL(url, { width: 200, margin: 2 });
+                          setMesaQrDataUrl(qr);
                         }
-                      }}
-                      className="input-touch text-sm mb-2 w-full"
-                    >
-                      <option value="">Seleccionar mesa...</option>
-                      {allMesas.map((m: any) => (
-                        <option key={m.id} value={m.id}>Mesa {m.numero}{m.nombre ? ` - ${m.nombre}` : ''}</option>
-                      ))}
-                    </select>
-                    {mesaQrDataUrl && (
-                      <div className="space-y-2">
-                        <div className="bg-white p-2 rounded-xl inline-block">
-                          <img src={mesaQrDataUrl} alt="QR Mesa" className="w-36 h-36" />
-                        </div>
-                        <div>
-                          <button
-                            onClick={() => {
-                              const mesa = allMesas.find((m: any) => String(m.id) === mesaQrSelected);
-                              if (mesa) {
-                                const slug = selected?.slug;
-                                const path = slug ? `/s/${slug}/${mesa.numero}` : `/self-order/${selected.id}/${mesa.numero}`;
-                                const w = window.open('', '_blank');
-                                if (w) {
-                                  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>QR Mesa ${mesa.numero}</title><style>body{font-family:Arial,sans-serif;text-align:center;padding:20px;background:white}.card{display:inline-block;border:2px solid #e2e8f0;border-radius:20px;padding:24px;margin:20px auto}@media print{button{display:none}}</style></head><body><div class="card"><div style="font-size:13px;color:#64748b">${selected.nombre || ''}</div><div style="font-size:24px;font-weight:800;background:#0f172a;color:white;padding:6px 20px;border-radius:50px;display:inline-block;margin:8px 0">Mesa ${mesa.numero}${mesa.nombre ? ' · ' + mesa.nombre : ''}</div><br/><img src="${mesaQrDataUrl}" width="200" height="200" style="border-radius:12px"/><br/><p style="font-size:12px;color:#94a3b8">📱 Escanea para hacer tu pedido</p><p style="font-size:10px;color:#cbd5e1">${window.location.origin}${path}</p><br/><button onclick="window.print()" style="background:#0f172a;color:white;padding:10px 24px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">🖨️ Imprimir</button></div></body></html>`);
-                                  w.document.close();
-                                }
-                              }
-                            }}
-                            className="text-xs bg-iados-primary text-white px-3 py-1.5 rounded-lg hover:opacity-90"
-                          >
-                            <Printer size={12} className="inline mr-1" />Imprimir QR Mesa
-                          </button>
-                        </div>
+                      } else {
+                        setMesaQrDataUrl('');
+                      }
+                    }}
+                    className="input-touch text-sm mb-2 w-full"
+                  >
+                    <option value="">Seleccionar mesa...</option>
+                    {allMesas.map((m: any) => (
+                      <option key={m.id} value={m.id}>Mesa {m.numero}{m.nombre ? ` - ${m.nombre}` : ''}</option>
+                    ))}
+                  </select>
+                  {mesaQrDataUrl && (
+                    <div className="space-y-2">
+                      <div className="bg-white p-2 rounded-xl inline-block">
+                        <img src={mesaQrDataUrl} alt="QR Mesa" className="w-36 h-36" />
                       </div>
-                    )}
-                    {allMesas.length === 0 && (
-                      <p className="text-xs text-slate-500">No hay mesas configuradas para esta tienda.</p>
-                    )}
-                  </div>
-                )}
-              </div>
+                      <div>
+                        <button
+                          onClick={() => {
+                            const mesa = allMesas.find((m: any) => String(m.id) === mesaQrSelected);
+                            if (mesa) {
+                              const slug = selected?.slug;
+                              const path = slug ? `/s/${slug}/${mesa.numero}` : `/self-order/${selected.id}/${mesa.numero}`;
+                              const w = window.open('', '_blank');
+                              if (w) {
+                                w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>QR Mesa ${mesa.numero}</title><style>body{font-family:Arial,sans-serif;text-align:center;padding:20px;background:white}.card{display:inline-block;border:2px solid #e2e8f0;border-radius:20px;padding:24px;margin:20px auto}@media print{button{display:none}}</style></head><body><div class="card"><div style="font-size:13px;color:#64748b">${selected.nombre || ''}</div><div style="font-size:24px;font-weight:800;background:#0f172a;color:white;padding:6px 20px;border-radius:50px;display:inline-block;margin:8px 0">Mesa ${mesa.numero}${mesa.nombre ? ' · ' + mesa.nombre : ''}</div><br/><img src="${mesaQrDataUrl}" width="200" height="200" style="border-radius:12px"/><br/><p style="font-size:12px;color:#94a3b8">📱 Escanea para hacer tu pedido</p><p style="font-size:10px;color:#cbd5e1">${window.location.origin}${path}</p><br/><button onclick="window.print()" style="background:#0f172a;color:white;padding:10px 24px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">🖨️ Imprimir</button></div></body></html>`);
+                                w.document.close();
+                              }
+                            }
+                          }}
+                          className="text-xs bg-iados-primary text-white px-3 py-1.5 rounded-lg hover:opacity-90"
+                        >
+                          <Printer size={12} className="inline mr-1" />Imprimir QR Mesa
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {allMesas.length === 0 && (
+                    <p className="text-xs text-slate-500">No hay mesas configuradas para esta tienda.</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

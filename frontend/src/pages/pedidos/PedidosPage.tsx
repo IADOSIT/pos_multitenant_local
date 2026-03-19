@@ -207,6 +207,12 @@ export default function PedidosPage() {
                         {p.self_order && <Smartphone size={11} className="text-iados-secondary" />}
                       </p>
                       <p className="text-xs text-slate-500">{p.usuario_nombre || (p.self_order ? p.cliente_nombre || 'Cliente' : 'Mesero')}</p>
+                      {p.tipo_servicio === 'para_llevar' && (
+                        <span className="text-xs bg-amber-900/40 text-amber-300 px-2 py-0.5 rounded-full">🏃 Para llevar</span>
+                      )}
+                      {p.tipo_servicio === 'en_sitio' && (
+                        <span className="text-xs bg-blue-900/40 text-blue-300 px-2 py-0.5 rounded-full">🍽️ En sitio</span>
+                      )}
                     </div>
                   </div>
                   <span className={`px-2 py-1 rounded-lg text-xs flex items-center gap-1 ${cfg.bg} ${cfg.color}`}>

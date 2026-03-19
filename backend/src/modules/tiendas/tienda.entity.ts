@@ -31,6 +31,12 @@ export class Tienda {
   @Column({ length: 100, nullable: true })
   slug: string;
 
+  @Column({ default: 0 })
+  folio_pedido_counter: number;
+
+  @Column({ default: 0 })
+  folio_venta_counter: number;
+
   @Column({ type: 'json', nullable: true })
   config_ticket: any;
 
