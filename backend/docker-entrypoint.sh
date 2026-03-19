@@ -33,9 +33,17 @@ done
 
 echo "[OK] MySQL listo"
 
-# Copiar imágenes estáticas built-in al volumen (sin sobreescribir uploads del usuario)
+# Sincronizar imágenes seed al volumen
+# - img/ se fuerza siempre (seed images: mariscos, logos demo) → garantiza versión fresca
+# - resto usa -n (no clobber) para no sobreescribir uploads del usuario
 if [ -d "/app/uploads-builtin" ]; then
-  echo "[*] Sincronizando imágenes estáticas al volumen..."
+  echo "[*] Sincronizando imágenes al volumen..."
+  mkdir -p /app/uploads
+  # Fuerza seed images (img/) — sobreescribe stale/corruptas del volumen
+  if [ -d "/app/uploads-builtin/img" ]; then
+    cp -rf /app/uploads-builtin/img /app/uploads/ 2>/dev/null || true
+  fi
+  # Todo lo demás sin sobreescribir (uploads de usuario)
   cp -rn /app/uploads-builtin/. /app/uploads/ 2>/dev/null || true
   echo "[OK] Imágenes sincronizadas"
 fi
