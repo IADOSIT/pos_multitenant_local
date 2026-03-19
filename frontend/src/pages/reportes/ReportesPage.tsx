@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { cajaApi, dashboardApi } from '../../api/endpoints';
+import { cajaApi, dashboardApi, ventasApi, ticketsApi } from '../../api/endpoints';
 import { useAuthStore } from '../../store/auth.store';
+import { printTicket } from '../../utils/printTicket';
 import toast from 'react-hot-toast';
 import {
   FileText, FileSpreadsheet, Download, Calendar, TrendingUp,
-  DollarSign, Receipt, ShoppingBag, Ban, ChevronDown, ChevronUp, Loader2,
+  DollarSign, Receipt, ShoppingBag, Ban, ChevronDown, ChevronUp, Loader2, Printer,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -38,6 +39,17 @@ export default function ReportesPage() {
       const { data } = await cajaApi.list();
       setCajas(data || []);
     } catch { toast.error('Error cargando cajas'); }
+  };
+
+  const handleReprint = async (ventaId: number) => {
+    try {
+      const { data: venta } = await ventasApi.get(ventaId);
+      const { data } = await ticketsApi.preview(venta);
+      // preview devuelve { raw, lines, ancho_papel, fuente_familia, fuente_tamano, logo_url, logo_posicion }
+      printTicket(data.raw, data.ancho_papel, data.fuente_familia, data.fuente_tamano, data.logo_url, data.logo_posicion, 1);
+    } catch {
+      toast.error('Error al reimprimir ticket');
+    }
   };
 
   const loadReporte = async (cajaId: number) => {
@@ -477,7 +489,8 @@ export default function ReportesPage() {
                             <th className="pb-2 pr-3 text-right">Total</th>
                             <th className="pb-2 pr-3 text-right">Efectivo</th>
                             <th className="pb-2 pr-3 text-right">Tarjeta</th>
-                            <th className="pb-2 text-right">Transf.</th>
+                            <th className="pb-2 pr-3 text-right">Transf.</th>
+                            <th className="pb-2"></th>
                           </tr>
                         </thead>
                         <tbody>
@@ -493,7 +506,18 @@ export default function ReportesPage() {
                               <td className="py-2 pr-3 text-right font-bold">${Number(v.total).toFixed(2)}</td>
                               <td className="py-2 pr-3 text-right">${Number(v.pago_efectivo || 0).toFixed(2)}</td>
                               <td className="py-2 pr-3 text-right">${Number(v.pago_tarjeta || 0).toFixed(2)}</td>
-                              <td className="py-2 text-right">${Number(v.pago_transferencia || 0).toFixed(2)}</td>
+                              <td className="py-2 pr-3 text-right">${Number(v.pago_transferencia || 0).toFixed(2)}</td>
+                              <td className="py-2">
+                                {v.estado === 'completada' && (
+                                  <button
+                                    onClick={() => handleReprint(v.id)}
+                                    className="p-1.5 rounded-lg hover:bg-iados-primary/20 text-slate-400 hover:text-white"
+                                    title="Reimprimir ticket"
+                                  >
+                                    <Printer size={14} />
+                                  </button>
+                                )}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
