@@ -46,7 +46,23 @@ export class TicketsService {
   }
 
   async updateConfig(id: number, data: Partial<TicketConfig>) {
-    await this.repo.update(id, data);
+    // Strip auto-managed and immutable fields; replace null/undefined numerics with their defaults
+    const { id: _id, created_at, tenant_id, empresa_id, tienda_id, ...rest } = data as any;
+    const clean: any = {};
+    for (const [k, v] of Object.entries(rest)) {
+      if (v !== undefined) clean[k] = v;
+    }
+    // Garantizar que campos int no sean null (causaría constraint violation en MariaDB)
+    const intDefaults: Record<string, number> = {
+      ancho_papel: 80, columnas: 42, fuente_tamano: 11,
+      copias: 1, comanda_ancho: 80, comanda_copias: 1,
+    };
+    for (const [col, def] of Object.entries(intDefaults)) {
+      if (clean[col] === null || clean[col] === '' || isNaN(Number(clean[col]))) {
+        clean[col] = def;
+      }
+    }
+    await this.repo.update(id, clean);
     return this.repo.findOne({ where: { id } });
   }
 

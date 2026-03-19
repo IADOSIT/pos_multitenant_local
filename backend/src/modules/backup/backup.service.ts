@@ -438,6 +438,32 @@ export class BackupService implements OnModuleInit {
     return { ok: true, mensaje: `Restaurado desde ${safe} (${count} registros importados)` };
   }
 
+  async importarSQLBuffer(buffer: Buffer): Promise<{ ok: boolean; mensaje: string }> {
+    const content = buffer.toString('utf8');
+    const statements = content
+      .split(';')
+      .map((s) => s.trim())
+      .filter((s) => s && !s.startsWith('--'));
+
+    await this.dataSource.query('SET FOREIGN_KEY_CHECKS = 0');
+    let count = 0;
+    try {
+      for (const stmt of statements) {
+        try {
+          await this.dataSource.query(stmt);
+          count++;
+        } catch (e) {
+          this.logger.warn(`Import statement skip: ${e.message} — ${stmt.slice(0, 80)}`);
+        }
+      }
+    } finally {
+      await this.dataSource.query('SET FOREIGN_KEY_CHECKS = 1');
+    }
+
+    this.logger.log(`Importacion desde archivo: ${count} statements ejecutados`);
+    return { ok: true, mensaje: `Importacion completada (${count} registros procesados)` };
+  }
+
   async limpiarDemoData(opciones: {
     ventas: boolean;
     pedidos: boolean;

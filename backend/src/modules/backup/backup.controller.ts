@@ -1,5 +1,6 @@
-import { Controller, Get, Put, Post, Delete, Param, Body, Res, ParseIntPipe, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Put, Post, Delete, Param, Body, Res, ParseIntPipe, UseGuards, Request, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { BackupService } from './backup.service';
 
@@ -55,6 +56,14 @@ export class BackupController {
   @Post('restaurar')
   restaurar(@Body() body: { filename: string }) {
     return this.backupService.restaurarBackup(body.filename);
+  }
+
+  @Post('import')
+  @UseInterceptors(FileInterceptor('file'))
+  importarSQL(@UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('No se recibio archivo');
+    if (!file.originalname.endsWith('.sql')) throw new BadRequestException('Solo se permiten archivos .sql');
+    return this.backupService.importarSQLBuffer(file.buffer);
   }
 
   @Post('limpiar-demo')

@@ -286,4 +286,9 @@ export const backupApi = {
   limpiarDemo:  (data: { ventas: boolean; pedidos: boolean; caja: boolean; inventario: boolean; productos?: boolean; categorias?: boolean }) =>
     api.post('/backup/limpiar-demo', data),
   restaurar:    (filename: string) => api.post('/backup/restaurar', { filename }),
+  importFile:   (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return api.post('/backup/import', form);
+  },
 };

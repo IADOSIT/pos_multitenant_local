@@ -38,6 +38,11 @@ export default function MantenimientoPage() {
   const [restaurarConfirmText, setRestaurarConfirmText] = useState('');
   const [restaurando, setRestaurando] = useState(false);
 
+  // Importar desde computadora
+  const [localSqlFile, setLocalSqlFile] = useState<File | null>(null);
+  const [importarConfirmText, setImportarConfirmText] = useState('');
+  const [importando, setImportando] = useState(false);
+
   // Limpiar demo state
   const [limpiarOpts, setLimpiarOpts] = useState({
     ventas: true, pedidos: true, caja: false, inventario: false, productos: false, categorias: false,
@@ -150,6 +155,21 @@ export default function MantenimientoPage() {
       toast.error(e.response?.data?.message || 'Error al restaurar la base de datos');
     } finally {
       setRestaurando(false);
+    }
+  };
+
+  const handleImportar = async () => {
+    if (!localSqlFile || importarConfirmText !== 'RESTAURAR') return;
+    setImportando(true);
+    try {
+      const { data } = await backupApi.importFile(localSqlFile);
+      toast.success(data.mensaje || 'Archivo importado correctamente');
+      setImportarConfirmText('');
+      setLocalSqlFile(null);
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Error al importar archivo');
+    } finally {
+      setImportando(false);
     }
   };
 
@@ -548,6 +568,53 @@ export default function MantenimientoPage() {
                 </button>
               </div>
             )}
+
+            {/* Importar desde computadora */}
+            <div className="card space-y-3">
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                <UploadCloud size={15} className="text-blue-400" /> Importar archivo .sql desde tu computadora
+              </h3>
+              <p className="text-xs text-slate-400">
+                Selecciona un archivo .sql de tu equipo. Se ejecutara directamente sin guardarse en el servidor.
+              </p>
+              <label className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer border transition-colors ${localSqlFile ? 'border-blue-500 bg-blue-900/20' : 'border-dashed border-slate-600 hover:border-slate-400'}`}>
+                <UploadCloud size={18} className="text-blue-400 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  {localSqlFile
+                    ? <><p className="text-sm font-mono text-slate-200 truncate">{localSqlFile.name}</p><p className="text-xs text-slate-400">{fmtSize(localSqlFile.size)}</p></>
+                    : <p className="text-sm text-slate-400">Haz clic para seleccionar archivo .sql</p>}
+                </div>
+                <input
+                  type="file"
+                  accept=".sql"
+                  className="hidden"
+                  onChange={(e) => { setLocalSqlFile(e.target.files?.[0] || null); setImportarConfirmText(''); }}
+                />
+              </label>
+              {localSqlFile && (
+                <>
+                  <p className="text-sm text-slate-300">
+                    Para confirmar, escribe <span className="font-mono font-bold text-orange-400">RESTAURAR</span> en el campo:
+                  </p>
+                  <input
+                    type="text"
+                    value={importarConfirmText}
+                    onChange={(e) => setImportarConfirmText(e.target.value)}
+                    placeholder="Escribe RESTAURAR para confirmar"
+                    className="input-touch text-center font-mono tracking-widest"
+                  />
+                  <button
+                    onClick={handleImportar}
+                    disabled={importarConfirmText !== 'RESTAURAR' || importando}
+                    className="w-full py-3 rounded-xl font-bold text-sm bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {importando
+                      ? <><RefreshCw size={16} className="animate-spin" /> Importando...</>
+                      : <><UploadCloud size={16} /> Importar archivo</>}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         );
       })()}
