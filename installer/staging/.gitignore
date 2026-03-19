@@ -1,0 +1,7 @@
+# Binarios de runtime - no pertenecen en git
+runtime/
+# Build artifacts del frontend
+app/backend/public/
+app/backend/dist/
+# Node modules
+app/backend/node_modules/
