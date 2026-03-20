@@ -1050,7 +1050,7 @@ export default function ConfiguracionPage() {
                         >
                           <ExternalLink size={11} /> Abrir menu en navegador
                         </a>
-                        {form.self_order_enabled && (
+                        {mdQr && (
                           <button
                             onClick={() => {
                               const w = window.open('', '_blank');
