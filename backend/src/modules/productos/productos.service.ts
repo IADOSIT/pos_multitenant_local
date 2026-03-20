@@ -41,19 +41,24 @@ export class ProductosService {
   }
 
   create(data: Partial<Producto>) {
-    return this.repo.save(this.repo.create(data));
+    const clean: any = { ...data };
+    if (clean.categoria_id === '' || clean.categoria_id === null) clean.categoria_id = null;
+    if (clean.costo === '' || clean.costo === undefined) delete clean.costo;
+    if (clean.imagen_url === '') clean.imagen_url = null;
+    delete clean.created_at; delete clean.updated_at;
+    return this.repo.save(this.repo.create(clean));
   }
 
   async update(id: number, data: Partial<Producto>) {
-    // Clean empty strings that would fail on numeric/FK columns
-    const clean: any = { ...data };
+    // Strip auto-managed and immutable fields before update
+    const { id: _id, created_at, updated_at, ...rest } = data as any;
+    const clean: any = { ...rest };
     if (clean.categoria_id === '' || clean.categoria_id === null) clean.categoria_id = null;
     if (clean.costo === '' || clean.costo === undefined) delete clean.costo;
     if (clean.imagen_url === '') clean.imagen_url = null;
     // Remove relation objects that TypeORM can't update directly
     delete clean.categoria;
     delete clean.tiendas;
-    delete clean.id;
     await this.repo.update(id, clean);
     return this.findOne(id);
   }

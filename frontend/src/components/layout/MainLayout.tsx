@@ -42,11 +42,13 @@ export default function MainLayout() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dbHost, setDbHost] = useState('...');
+  const [appVersion, setAppVersion] = useState('');
 
   // Fetch DB host from backend health endpoint
   useEffect(() => {
     apiClient.get('/health').then(({ data }) => {
       if (data.db_host) setDbHost(data.db_host);
+      if (data.version) setAppVersion(data.version);
     }).catch(() => setDbHost('?'));
   }, []);
 
@@ -122,7 +124,7 @@ export default function MainLayout() {
               <span className={`text-[10px] font-bold ${isExterno ? 'text-amber-400' : 'text-green-400'}`}>{modoConexion}</span>
             </div>
             <div className="text-[9px] text-slate-500 leading-relaxed space-y-0.5">
-              <div>BD: <span className={isDbExterno ? 'text-amber-400/70' : 'text-green-400/70'}>{dbHost}</span></div>
+              <div>BD: <span className={isDbExterno ? 'text-amber-400/70' : 'text-green-400/70'}>{dbHost}</span>{appVersion && <span className="ml-1 text-slate-600">v{appVersion}</span>}</div>
               <div>API: {backendHost}</div>
               <div>Front: {window.location.host}</div>
             </div>
@@ -193,7 +195,7 @@ export default function MainLayout() {
                 <span className={`text-[10px] font-bold ${isExterno ? 'text-amber-400' : 'text-green-400'}`}>{modoConexion}</span>
               </div>
               <div className="text-[9px] text-slate-500 leading-relaxed mb-2">
-                <div>BD: <span className={isDbExterno ? 'text-amber-400/70' : 'text-green-400/70'}>{dbHost}</span></div>
+                <div>BD: <span className={isDbExterno ? 'text-amber-400/70' : 'text-green-400/70'}>{dbHost}</span>{appVersion && <span className="ml-1 text-slate-600">v{appVersion}</span>}</div>
                 <div>API: {backendHost}</div>
                 <div>Front: {window.location.host}</div>
               </div>

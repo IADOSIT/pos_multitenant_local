@@ -23,7 +23,8 @@ export class EmpresasService {
   }
 
   async update(id: number, data: Partial<Empresa>) {
-    await this.repo.update(id, data);
+    const { id: _id, created_at, updated_at, tiendas, ...clean } = data as any;
+    await this.repo.update(id, clean);
     return this.findOne(id);
   }
 

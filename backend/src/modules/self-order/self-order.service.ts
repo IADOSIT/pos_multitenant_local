@@ -75,10 +75,12 @@ export class SelfOrderService {
     const productos = await this.dataSource.query(
       `SELECT p.id, p.nombre, p.descripcion, p.precio, p.imagen_url, p.categoria_id, p.impuesto_pct, p.unidad
        FROM productos p
-       INNER JOIN producto_tienda pt ON pt.producto_id = p.id AND pt.tienda_id = ?
-       WHERE p.activo = 1 AND p.disponible = 1 AND pt.disponible = 1
+       INNER JOIN tiendas t ON t.id = ? AND t.empresa_id = p.empresa_id
+       LEFT JOIN producto_tienda pt ON pt.producto_id = p.id AND pt.tienda_id = ?
+       WHERE p.activo = 1 AND p.disponible = 1
+         AND (pt.id IS NULL OR pt.disponible = 1)
        ORDER BY p.orden ASC, p.nombre ASC`,
-      [tienda_id],
+      [tienda_id, tienda_id],
     );
     return {
       categorias,

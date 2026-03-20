@@ -1047,6 +1047,47 @@ export default function ConfiguracionPage() {
                         >
                           <ExternalLink size={11} /> Abrir menu en navegador
                         </a>
+                        {form.self_order_enabled && (
+                          <button
+                            onClick={() => {
+                              const w = window.open('', '_blank');
+                              if (!w) return;
+                              const menuUrl = getMenuUrl(mdCfgForm.cloud_url || '', mdCfgForm.slug || '');
+                              w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>QR Menú — ${selected?.nombre || 'Tienda'}</title>
+                                <style>
+                                  body{font-family:Arial,sans-serif;text-align:center;padding:32px;background:#fff;color:#1e293b}
+                                  .card{display:inline-block;border:2px solid #e2e8f0;border-radius:20px;padding:28px 24px;max-width:320px}
+                                  .badge{display:inline-block;background:#0f172a;color:#fff;font-size:13px;font-weight:700;padding:6px 18px;border-radius:50px;margin:10px 0}
+                                  .url{font-size:11px;color:#94a3b8;margin-top:8px;word-break:break-all}
+                                  .steps{text-align:left;background:#f8fafc;border-radius:12px;padding:14px 16px;margin-top:12px;font-size:12px}
+                                  .steps h4{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:8px}
+                                  .step{margin-bottom:6px;color:#334155}
+                                  button{background:#0f172a;color:#fff;padding:10px 24px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-top:16px}
+                                  @media print{button{display:none}}
+                                </style></head>
+                                <body><div class="card">
+                                  <div style="font-size:22px;font-weight:800">${selected?.nombre || 'Menú Digital'}</div>
+                                  <div class="badge">Ordena desde tu celular</div>
+                                  <br/>
+                                  <img src="${mdQr}" width="200" height="200" style="border-radius:12px;border:1px solid #e2e8f0"/>
+                                  <div class="url">${menuUrl}</div>
+                                  <div class="steps">
+                                    <h4>¿Cómo ordenar?</h4>
+                                    <div class="step">📱 <strong>1.</strong> Abre la cámara de tu celular</div>
+                                    <div class="step">🔍 <strong>2.</strong> Apunta al código QR</div>
+                                    <div class="step">🛒 <strong>3.</strong> Elige tus productos del menú</div>
+                                    <div class="step">✅ <strong>4.</strong> Envía tu pedido</div>
+                                    <div class="step">⏳ <strong>5.</strong> Espera en tu lugar, ¡nosotros te atendemos!</div>
+                                  </div>
+                                  <button onclick="window.print()">🖨️ Imprimir</button>
+                                </div></body></html>`);
+                              w.document.close();
+                            }}
+                            className="text-xs px-2 py-1 rounded-lg bg-iados-primary text-white hover:opacity-80 flex items-center gap-1 transition-colors"
+                          >
+                            <Printer size={11} /> Imprimir QR con pasos
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}

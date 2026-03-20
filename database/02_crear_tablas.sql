@@ -1,6 +1,7 @@
 -- ============================================================
 -- POS-iaDoS: Crear todas las tablas
 -- Ejecutar despues de 01_crear_bd_y_usuario.sql
+-- IMPORTANTE: orden de columnas sincronizado con VPS mysqldump
 -- ============================================================
 
 USE pos_iados;
@@ -25,6 +26,7 @@ CREATE TABLE IF NOT EXISTS tenants (
 
 -- ============================================================
 -- 2. EMPRESAS
+-- NOTA: config_apariencia al final (TypeORM lo agregó via ALTER TABLE)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS empresas (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -36,16 +38,17 @@ CREATE TABLE IF NOT EXISTS empresas (
   telefono VARCHAR(20) NULL,
   email VARCHAR(100) NULL,
   logo_url VARCHAR(500) NULL,
-  config_apariencia JSON NULL,
   activo TINYINT(1) NOT NULL DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  config_apariencia JSON NULL,
   INDEX idx_empresas_tenant (tenant_id),
   FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
 -- 3. TIENDAS
+-- NOTA: config_pos, slug, folio_*_counter al final (TypeORM los agregó via ALTER TABLE)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS tiendas (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -58,10 +61,13 @@ CREATE TABLE IF NOT EXISTS tiendas (
   zona_horaria VARCHAR(50) NULL,
   config_ticket JSON NULL,
   config_impresora JSON NULL,
-  config_pos JSON NULL,
   activo TINYINT(1) NOT NULL DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  config_pos JSON NULL,
+  slug VARCHAR(100) NULL,
+  folio_pedido_counter INT NOT NULL DEFAULT 0,
+  folio_venta_counter INT NOT NULL DEFAULT 0,
   INDEX idx_tiendas_tenant_empresa (tenant_id, empresa_id),
   FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -88,6 +94,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- ============================================================
 -- 5. CATEGORIAS
+-- NOTA: imagen_url al final (TypeORM lo agregó via ALTER TABLE)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS categorias (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -95,7 +102,6 @@ CREATE TABLE IF NOT EXISTS categorias (
   empresa_id INT NOT NULL,
   nombre VARCHAR(100) NOT NULL,
   descripcion VARCHAR(500) NULL,
-  imagen_url TEXT NULL,
   color VARCHAR(20) NULL,
   icono VARCHAR(50) NULL,
   orden INT NOT NULL DEFAULT 0,
@@ -104,11 +110,13 @@ CREATE TABLE IF NOT EXISTS categorias (
   tipo_seccion VARCHAR(50) NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  imagen_url TEXT NULL,
   INDEX idx_categorias_tenant_empresa (tenant_id, empresa_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
 -- 6. PRODUCTOS
+-- NOTA: imagen_url al final; codigo_barras antes de unidad (orden VPS)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS productos (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -120,7 +128,6 @@ CREATE TABLE IF NOT EXISTS productos (
   precio DECIMAL(10,2) NOT NULL,
   costo DECIMAL(10,2) NULL,
   categoria_id INT NULL,
-  imagen_url TEXT NULL,
   codigo_barras VARCHAR(50) NULL,
   unidad VARCHAR(20) NULL,
   impuesto_pct DECIMAL(5,2) NOT NULL DEFAULT 0,
@@ -133,6 +140,7 @@ CREATE TABLE IF NOT EXISTS productos (
   modificadores JSON NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  imagen_url TEXT NULL,
   INDEX idx_productos_tenant_empresa (tenant_id, empresa_id),
   INDEX idx_productos_sku (sku, tenant_id, empresa_id),
   FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE SET NULL
@@ -356,13 +364,13 @@ CREATE TABLE IF NOT EXISTS pedido_detalles (
 
 -- ============================================================
 -- 17. TICKET_CONFIGS
+-- NOTA: orden exacto del VPS (logo_url y cols comanda al final via ALTER TABLE)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS ticket_configs (
   id INT AUTO_INCREMENT PRIMARY KEY,
   tenant_id INT NOT NULL,
   empresa_id INT NULL,
   tienda_id INT NULL,
-  logo_url TEXT NULL,
   encabezado_linea1 VARCHAR(200) NULL,
   encabezado_linea2 VARCHAR(200) NULL,
   encabezado_linea3 VARCHAR(200) NULL,
@@ -377,6 +385,17 @@ CREATE TABLE IF NOT EXISTS ticket_configs (
   mostrar_marca_iados TINYINT(1) NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  logo_url TEXT NULL,
+  fuente_familia VARCHAR(50) NULL DEFAULT 'Consolas',
+  fuente_tamano INT NOT NULL DEFAULT 11,
+  logo_posicion VARCHAR(20) NULL DEFAULT 'centro',
+  copias INT NOT NULL DEFAULT 1,
+  comanda_enabled TINYINT(1) NOT NULL DEFAULT 0,
+  comanda_header VARCHAR(100) NULL DEFAULT 'ORDEN',
+  comanda_ancho INT NOT NULL DEFAULT 80,
+  comanda_auto_print TINYINT(1) NOT NULL DEFAULT 0,
+  comanda_mostrar_precio TINYINT(1) NOT NULL DEFAULT 1,
+  comanda_copias INT NOT NULL DEFAULT 1,
   INDEX idx_tc_tenant (tenant_id, empresa_id, tienda_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -442,4 +461,135 @@ CREATE TABLE IF NOT EXISTS licencias (
   notas TEXT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 21. GATEWAY_CONFIGS (TypeORM — pasarelas de pago)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS gateway_configs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tienda_id INT NOT NULL,
+  mp_access_token VARCHAR(500) NULL,
+  mp_public_key VARCHAR(500) NULL,
+  mp_user_id VARCHAR(100) NULL,
+  mp_point_device_id VARCHAR(200) NULL,
+  stripe_secret_key VARCHAR(500) NULL,
+  stripe_publishable_key VARCHAR(500) NULL,
+  stripe_webhook_secret VARCHAR(200) NULL,
+  opciones JSON NULL,
+  activo TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  UNIQUE KEY IDX_gateway_tienda (tienda_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 22. BACKUP_CONFIGS (TypeORM — configuracion de backups)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS backup_configs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  auto_backup_enabled TINYINT(1) NOT NULL DEFAULT 1,
+  auto_backup_hora VARCHAR(5) NOT NULL DEFAULT '02:00',
+  retencion_dias INT NOT NULL DEFAULT 7,
+  incluir_db TINYINT(1) NOT NULL DEFAULT 1,
+  incluir_excel TINYINT(1) NOT NULL DEFAULT 1,
+  onedrive_enabled TINYINT(1) NOT NULL DEFAULT 0,
+  onedrive_carpeta VARCHAR(500) NULL,
+  ultimo_backup_at DATETIME NULL,
+  ultimo_backup_estado VARCHAR(20) NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 23. MENU_DIGITAL_CONFIG (TypeORM)
+-- NOTA: plantilla al final (TypeORM la agregó via ALTER TABLE)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS menu_digital_config (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tenant_id INT NOT NULL,
+  empresa_id INT NOT NULL,
+  tienda_id INT NOT NULL,
+  slug VARCHAR(120) NOT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 0,
+  modo_menu VARCHAR(20) NOT NULL DEFAULT 'consulta',
+  sync_mode VARCHAR(20) NOT NULL DEFAULT 'manual',
+  sync_interval INT NOT NULL DEFAULT 30,
+  cloud_url VARCHAR(500) NULL,
+  api_key VARCHAR(100) NULL,
+  last_published_at DATETIME NULL,
+  last_publish_status VARCHAR(20) NULL,
+  last_publish_error TEXT NULL,
+  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  plantilla VARCHAR(20) NOT NULL DEFAULT 'oscuro',
+  INDEX IDX_mdc_tenant_empresa (tenant_id, empresa_id),
+  UNIQUE KEY UQ_mdc_tienda (tienda_id),
+  UNIQUE KEY UQ_mdc_slug (slug)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 24. MENU_DIGITAL_SNAPSHOT (TypeORM)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS menu_digital_snapshot (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  slug VARCHAR(120) NOT NULL,
+  tenant_id INT NOT NULL,
+  empresa_id INT NOT NULL,
+  tienda_id INT NOT NULL,
+  modo_menu VARCHAR(20) NOT NULL DEFAULT 'consulta',
+  plantilla VARCHAR(20) NOT NULL DEFAULT 'oscuro',
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  tienda_json LONGTEXT NULL,
+  categorias_json LONGTEXT NULL,
+  productos_json LONGTEXT NULL,
+  published_at DATETIME NULL,
+  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  UNIQUE KEY UQ_mds_slug (slug)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 25. MENU_DIGITAL_LOG (TypeORM)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS menu_digital_log (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tienda_id INT NOT NULL,
+  tenant_id INT NOT NULL,
+  productos_count INT NOT NULL DEFAULT 0,
+  images_uploaded INT NOT NULL DEFAULT 0,
+  status VARCHAR(20) NOT NULL,
+  error_message TEXT NULL,
+  duration_ms INT NOT NULL DEFAULT 0,
+  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  INDEX idx_mdl_tienda (tienda_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 26. MESA_ASIGNACIONES (TypeORM)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS mesa_asignaciones (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  mesa_id INT NOT NULL,
+  tienda_id INT NOT NULL,
+  tenant_id INT NOT NULL,
+  empresa_id INT NOT NULL,
+  user_id INT NOT NULL,
+  user_nombre VARCHAR(200) NULL,
+  activo TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  INDEX idx_masa_tienda (tienda_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 27. MESAS_JUNTAS (TypeORM)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS mesas_juntas (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  mesa_principal_id INT NOT NULL,
+  mesa_secundaria_id INT NOT NULL,
+  tienda_id INT NOT NULL,
+  tenant_id INT NOT NULL,
+  empresa_id INT NOT NULL,
+  activo TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  INDEX idx_mj_tienda (tienda_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -31,6 +31,7 @@ export default function MesasAdmin() {
   const [pedidoACobrar, setPedidoACobrar] = useState<any>(null);
   const [qrModal, setQrModal] = useState<{ mesa: any; qrDataUrl: string; url: string } | null>(null);
   const [tiendaSlug, setTiendaSlug] = useState<string>('');
+  const [selfOrderBaseUrl, setSelfOrderBaseUrl] = useState<string>('');
 
   useEffect(() => { load(); }, []);
 
@@ -49,11 +50,16 @@ export default function MesasAdmin() {
       setPedidosPendientes(p.data || []);
       const meserosList = (u.data || []).filter((u: any) => ['mesero', 'admin', 'superadmin'].includes(u.rol));
       setMeseros(meserosList);
-      // Load tienda slug for QR generation
+      // Load tienda slug and self_order_url for QR generation
       if (user?.tienda_id) {
         try {
           const tiendaRes = await tiendasApi.get(user.tienda_id);
           setTiendaSlug(tiendaRes.data?.slug || '');
+          const cp = tiendaRes.data?.config_pos || {};
+          // Use configured self_order_url (may be IP for EXE) or fallback to current origin
+          if (cp.self_order_url) {
+            setSelfOrderBaseUrl(cp.self_order_url.replace(/\/$/, ''));
+          }
         } catch {}
       }
     } catch { toast.error('Error cargando mesas'); }
@@ -117,7 +123,7 @@ export default function MesasAdmin() {
   };
 
   const handlePrintQR = async (mesa: any) => {
-    const base = window.location.origin;
+    const base = selfOrderBaseUrl || window.location.origin;
     const path = tiendaSlug
       ? `/s/${tiendaSlug}/${mesa.numero}`
       : `/self-order/${user?.tienda_id}/${mesa.numero}`;

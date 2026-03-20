@@ -76,6 +76,13 @@ if (Test-Path $ModeFile) {
 }
 Write-Log "Modo de instalacion: $InstallMode" "Cyan"
 
+# Leer version del paquete
+$AppVersion = ""
+$versionFile = Join-Path $InstallerPath "version.json"
+if (Test-Path $versionFile) {
+    $AppVersion = (Get-Content $versionFile -Raw | ConvertFrom-Json).version
+}
+
 # Numero de pasos segun modo
 $TotalPasos = if ($InstallMode -eq "local") { 8 } else { 6 }
 
@@ -289,6 +296,73 @@ $ErrorActionPreference = "Stop"
 
 Write-Log "Base de datos '$DB_NAME' creada" "Green"
 
+# Crear tablas con el orden de columnas correcto (sincronizado con seeds VPS)
+# IMPORTANTE: debe ejecutarse ANTES que el backend para que TypeORM no altere el orden
+$schemaFile = "$InstallDir\database\02_crear_tablas.sql"
+if (Test-Path $schemaFile) {
+    Write-Log "  Creando estructura de tablas..." "Gray"
+    $ErrorActionPreference = "SilentlyContinue"
+    $schemaOut = Get-Content $schemaFile -Raw | & $MYSQL -f -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME 2>&1
+    $ErrorActionPreference = "Stop"
+    Write-Log "  Estructura de tablas creada" "Green"
+} else {
+    Write-Log "ADVERTENCIA: No se encontro 02_crear_tablas.sql" "Yellow"
+}
+
+# -----------------------------------------------------------------------
+# SEEDS ANTES DEL BACKEND: tablas ya existen con orden VPS correcto.
+# TypeORM solo agrega columnas faltantes AL FINAL (no toca datos existentes).
+# -----------------------------------------------------------------------
+Write-Log "  Cargando datos iniciales (ANTES del backend)..." "Gray"
+
+$seedFile03 = "$InstallDir\database\03_seed_datos_iniciales.sql"
+if (Test-Path $seedFile03) {
+    $ErrorActionPreference = "SilentlyContinue"
+    $s03out = Get-Content $seedFile03 -Raw | & $MYSQL -f -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME 2>&1
+    $s03exit = $LASTEXITCODE
+    $ErrorActionPreference = "Stop"
+    if ($s03exit -ne 0 -or ("$s03out" -match "ERROR 1[^0289]")) {
+        Write-Log "  ADVERTENCIA seed 03: $s03out" "Yellow"
+    } else {
+        Write-Log "  03_seed ejecutado OK" "Green"
+    }
+} else {
+    Write-Log "  ADVERTENCIA: No se encontro 03_seed_datos_iniciales.sql" "Yellow"
+}
+
+$seedFile04 = "$InstallDir\database\04_seed_pruebas.sql"
+if (Test-Path $seedFile04) {
+    $ErrorActionPreference = "SilentlyContinue"
+    Get-Content $seedFile04 -Raw | & $MYSQL -f -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME 2>&1 | Out-Null
+    $ErrorActionPreference = "Stop"
+    Write-Log "  04_seed ejecutado OK" "Green"
+} else {
+    Write-Log "  ADVERTENCIA: No se encontro 04_seed_pruebas.sql" "Yellow"
+}
+
+# Generar hashes frescos con bcryptjs (Node ya fue copiado en PASO 1)
+Write-Log "  Actualizando passwords con bcryptjs..." "Gray"
+$bcryptPath2 = "$InstallDir\backend\node_modules\bcryptjs" -replace '\\', '\\\\'
+$hashScript2  = "try{const b=require('$bcryptPath2');console.log(b.hashSync('admin123',10)+'|'+b.hashSync('cajero123',10));}catch(e){process.exit(1);}"
+$ErrorActionPreference = "SilentlyContinue"
+$hashOut2 = & "$InstallDir\node\node.exe" -e $hashScript2 2>&1
+$ErrorActionPreference = "Stop"
+if ($hashOut2 -match '^\$2[ab]\$') {
+    $hparts     = $hashOut2 -split '\|'
+    $hAdmin     = $hparts[0].Trim()
+    $hCajero    = $hparts[1].Trim()
+    $updSql     = "UPDATE users SET password='$hAdmin'  WHERE rol IN ('superadmin','admin');" +
+                  "UPDATE users SET password='$hCajero' WHERE rol IN ('cajero','mesero','manager');"
+    $ErrorActionPreference = "SilentlyContinue"
+    & $MYSQL -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME -e $updSql 2>&1 | Out-Null
+    $ErrorActionPreference = "Stop"
+    Write-Log "  Passwords bcryptjs aplicados" "Green"
+} else {
+    Write-Log "  ADVERTENCIA: No se pudo generar hash bcryptjs. Usando hash del seed." "Yellow"
+}
+
+Write-Log "Datos iniciales listos antes del arranque del backend" "Green"
+
 } # fin bloque local (MariaDB)
 
 # =============================================================================
@@ -331,6 +405,7 @@ JWT_SECRET=$jwtSecret
 JWT_EXPIRES_IN=8h
 FRONTEND_URL=http://localhost:$BackendPort
 INSTALL_MODE=local
+APP_VERSION=$AppVersion
 "@
 $envContent | Set-Content "$InstallDir\backend\.env"
 Write-Log "Backend configurado (.env generado)" "Green"
@@ -393,68 +468,20 @@ if (-not $tableReady) {
 Write-Log "Backend corriendo en puerto $BackendPort" "Green"
 
 # =============================================================================
-# PASO 7: Ejecutar seeds (solo modo local)
+# PASO 7: Seeds ya ejecutados antes del backend (solo confirmar)
 # =============================================================================
 if ($InstallMode -eq "local") {
-    Write-Log "Paso 7/$TotalPasos`: Cargando datos iniciales..." "Yellow"
+    Write-Log "Paso 7/$TotalPasos`: Verificando datos iniciales..." "Yellow"
     $ErrorActionPreference = "SilentlyContinue"
     $checkResult = & $MYSQL -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME -N -e "SELECT COUNT(*) FROM tenants;" 2>&1
     $ErrorActionPreference = "Stop"
-    # MariaDB incluye un Warning de password en stderr (mezclado con 2>&1).
-    # Extraer solo la linea numerica para evitar que el warning rompa la comparacion.
     $countLine = $checkResult | Where-Object { "$_" -match '^\d+$' } | Select-Object -Last 1
-    $checkTrim = if ($countLine) { ("$countLine").Trim() } else { "" }
-    $checkStr  = [string]$checkResult
-    if ($checkTrim -eq "0" -or [string]::IsNullOrEmpty($checkTrim) -or $checkStr -match "doesn't exist" -or $checkStr -match "ERROR 1" -or $LASTEXITCODE -ne 0) {
-        $seedFile = "$InstallDir\database\03_seed_datos_iniciales.sql"
-        if (Test-Path $seedFile) {
-            Write-Log "  Ejecutando seeds..." "Gray"
-            $ErrorActionPreference = "SilentlyContinue"
-            $seedOutput = Get-Content $seedFile -Raw | & $MYSQL -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME 2>&1
-            $seedExit = $LASTEXITCODE
-            $ErrorActionPreference = "Stop"
-            if ($seedExit -ne 0 -or ($seedOutput -match "ERROR 1")) {
-                Write-Log "ADVERTENCIA seed: $seedOutput" "Yellow"
-            } else {
-                Write-Log "Datos iniciales cargados" "Green"
-            }
-        } else {
-            Write-Log "ADVERTENCIA: No se encontro archivo de seeds" "Yellow"
-        }
-
-        # --- Seeds de prueba: SIEMPRE se instalan (productos, mesas, categorias completas) ---
-        $seedPruebas = "$InstallDir\database\04_seed_pruebas.sql"
-        if (Test-Path $seedPruebas) {
-            Write-Log "  Instalando datos completos (04_seed)..." "Gray"
-            $ErrorActionPreference = "SilentlyContinue"
-            Get-Content $seedPruebas -Raw | & $MYSQL -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME 2>&1 | Out-Null
-            $ErrorActionPreference = "Stop"
-            Write-Log "Datos completos instalados" "Green"
-        }
-
-        # Generar hashes reales con el Node.js instalado DESPUES de todos los seeds
-        # (04_seed hace TRUNCATE+INSERT de users — los hashes del seed deben sobreescribirse aqui)
-        Write-Log "  Actualizando passwords con bcryptjs..." "Gray"
-        $bcryptPath = "$InstallDir\backend\node_modules\bcryptjs" -replace '\\', '\\\\'
-        $hashScript = "try{const b=require('$bcryptPath');console.log(b.hashSync('admin123',10)+'|'+b.hashSync('cajero123',10));}catch(e){process.exit(1);}"
-        $ErrorActionPreference = "SilentlyContinue"
-        $hashOut = & "$InstallDir\node\node.exe" -e $hashScript 2>&1
-        $ErrorActionPreference = "Stop"
-        if ($hashOut -match '^\$2[ab]\$') {
-            $parts      = $hashOut -split '\|'
-            $hashAdmin  = $parts[0].Trim()
-            $hashCajero = $parts[1].Trim()
-            $updateSql  = "UPDATE users SET password='$hashAdmin'  WHERE rol IN ('superadmin','admin');" +
-                          "UPDATE users SET password='$hashCajero' WHERE rol IN ('cajero','mesero','manager');"
-            $ErrorActionPreference = "SilentlyContinue"
-            & $MYSQL -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME -e $updateSql 2>&1 | Out-Null
-            $ErrorActionPreference = "Stop"
-            Write-Log "  Passwords generados y aplicados correctamente" "Green"
-        } else {
-            Write-Log "ADVERTENCIA: No se pudieron generar hashes frescos. Usando los del seed." "Yellow"
-        }
+    $checkTrim = if ($countLine) { ("$countLine").Trim() } else { "0" }
+    Write-Log "  Tenants en BD: $checkTrim" "Gray"
+    if ($checkTrim -eq "0") {
+        Write-Log "ADVERTENCIA: Seeds no cargaron ningun tenant. Revise los logs." "Yellow"
     } else {
-        Write-Log "Base de datos ya tiene datos, saltando seeds" "Gray"
+        Write-Log "Datos iniciales confirmados ($checkTrim tenants)" "Green"
     }
 } else {
     Write-Log "Modo online: seeds omitidos (BD en nube ya tiene datos)" "Cyan"

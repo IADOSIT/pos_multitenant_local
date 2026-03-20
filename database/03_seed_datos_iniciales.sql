@@ -112,7 +112,7 @@ INSERT IGNORE INTO `mesas` VALUES (4,4,4,3,4,'','',4,1,'2026-03-19 07:28:03.9013
 INSERT IGNORE INTO `mesas` VALUES (5,4,4,3,5,'','',4,1,'2026-03-19 07:28:08.851602','2026-03-19 07:28:08.851602');
 INSERT IGNORE INTO `mesas` VALUES (6,4,4,3,6,'','',4,1,'2026-03-19 07:28:14.462248','2026-03-19 07:28:14.462248');
 INSERT IGNORE INTO `gateway_configs` VALUES (1,3,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{\"mp_qr_habilitado\": false, \"stripe_habilitado\": false, \"mp_point_habilitado\": false, \"comision_mp_porcentaje\": 3.49, \"confirmacion_automatica\": true, \"comision_stripe_porcentaje\": 3.6}',1,'2026-03-19 01:48:43.750556','2026-03-19 01:48:43.750556');
-INSERT IGNORE INTO `menu_digital_config` VALUES (1,1,1,3,'mariscos',1,'consulta','manual',30,'http://localhost:3000','291e95d74e25e613d93ee9d6ad53b82421513257017fb3a26ffde4c577c90624','2026-03-19 09:17:33','success',NULL,'2026-02-21 10:09:04.611177','2026-03-19 09:17:32.000000','oscuro');
+INSERT IGNORE INTO `menu_digital_config` VALUES (1,4,4,3,'mariscos',1,'consulta','manual',30,'http://localhost:3000','291e95d74e25e613d93ee9d6ad53b82421513257017fb3a26ffde4c577c90624','2026-03-19 09:17:33','success',NULL,'2026-02-21 10:09:04.611177','2026-03-19 09:17:32.000000','oscuro');
 INSERT IGNORE INTO `menu_digital_config` VALUES (2,1,1,1,'sucursal-centro-mlw5zgbo',1,'consulta','manual',30,'http://localhost:3000','ebf018e0da86457faa8b75117c0c43d341862f05833f546956142b4657400fc5',NULL,NULL,NULL,'2026-02-21 10:16:49.028039','2026-03-11 19:28:08.232676','oscuro');
 INSERT IGNORE INTO `backup_configs` VALUES (1,1,'15:00',7,1,1,0,NULL,'2026-03-19 08:28:25','ok');
 

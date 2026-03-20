@@ -32,7 +32,8 @@ export class MesasService {
   }
 
   async update(id: number, data: Partial<Mesa>) {
-    await this.mesaRepo.update(id, data);
+    const { id: _id, created_at, updated_at, ...clean } = data as any;
+    await this.mesaRepo.update(id, clean);
     return this.findOne(id);
   }
 

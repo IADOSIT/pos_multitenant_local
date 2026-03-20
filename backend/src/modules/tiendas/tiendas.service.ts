@@ -49,7 +49,8 @@ export class TiendasService {
   }
 
   async update(id: number, data: Partial<Tienda>) {
-    await this.repo.update(id, data);
+    const { id: _id, created_at, updated_at, ...clean } = data as any;
+    await this.repo.update(id, clean);
     const tienda = await this.repo.findOne({ where: { id } });
     if (tienda && !tienda.slug) {
       tienda.slug = this.generateSlug(tienda.nombre, tienda.id);

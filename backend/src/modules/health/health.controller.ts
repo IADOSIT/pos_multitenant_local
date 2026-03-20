@@ -17,6 +17,7 @@ export class HealthController {
         brand: 'iaDoS',
         db: 'connected',
         db_host: process.env.DB_HOST || 'localhost',
+        version: process.env.APP_VERSION || '',
         timestamp: new Date().toISOString(),
       };
     } catch (err) {

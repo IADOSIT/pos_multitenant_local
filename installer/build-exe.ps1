@@ -71,6 +71,9 @@ if (-not (Test-Path "$FrontendSrcDir\package.json")) {
 }
 
 $env:VITE_API_URL = "/api"
+# Limpiar dist-prod antes de compilar para evitar acumulacion de bundles JS viejos
+$distProdDir = Join-Path $FrontendSrcDir "dist-prod"
+if (Test-Path $distProdDir) { Remove-Item -Recurse -Force $distProdDir }
 $buildResult = & cmd /c "cd /d `"$FrontendSrcDir`" && npm run build 2>&1"
 $buildExitCode = $LASTEXITCODE
 $FrontendDistDir = Join-Path $ProjectDir "frontend\dist-prod"
@@ -86,6 +89,27 @@ if ($buildExitCode -ne 0) {
     }
 }
 Write-OK "Frontend compilado correctamente"
+
+# =============================================================================
+# 1b. Compilar TypeScript del backend
+# =============================================================================
+Write-Step "Compilando TypeScript del backend..."
+$BackendDir  = Join-Path $ProjectDir "backend"
+$DistNew     = Join-Path $ProjectDir "installer\staging\app\backend\dist_new"
+$DistFinal   = Join-Path $ProjectDir "installer\staging\app\backend\dist"
+$tscResult   = & cmd /c "cd /d `"$BackendDir`" && npx tsc -p tsconfig.json --outDir `"$DistNew`" --incremental false 2>&1"
+$tscExit     = $LASTEXITCODE
+if ($tscExit -ne 0) {
+    Write-Warn "tsc reporto advertencias (codigo $tscExit) — verificando dist_new..."
+}
+if (Test-Path "$DistNew\main.js") {
+    if (Test-Path $DistFinal) { Remove-Item -Recurse -Force $DistFinal }
+    Rename-Item -Path $DistNew -NewName "dist"
+    Write-OK "Backend TypeScript compilado"
+} else {
+    Write-Host $tscResult
+    Write-Fail "Compilacion TypeScript fallo — dist_new\main.js no encontrado"
+}
 
 # =============================================================================
 # 2. Generar icono ICO desde logo-iados.png
@@ -221,8 +245,13 @@ Write-Step "Sincronizando seeds..."
 $DbSrcDir  = Join-Path $ProjectDir "database"
 $DbDestDir = Join-Path $StagingDir "app\database"
 if (Test-Path $DbSrcDir) {
+    # Limpiar y recrear para no arrastrar dumps/hotfixes de builds anteriores
+    if (Test-Path $DbDestDir) { Remove-Item -Recurse -Force $DbDestDir }
     New-Item -ItemType Directory -Path $DbDestDir -Force | Out-Null
-    Copy-Item -Path "$DbSrcDir\*.sql" -Destination $DbDestDir -Force
+    # Solo copiar los seeds numerados (01-04), excluir dumps temporales y hotfixes
+    Get-ChildItem "$DbSrcDir\*.sql" | Where-Object { $_.Name -match '^0[1-4]_' } | ForEach-Object {
+        Copy-Item -Path $_.FullName -Destination $DbDestDir -Force
+    }
     $seedCount = (Get-ChildItem $DbDestDir -Filter "*.sql").Count
     Write-OK "Seeds sincronizados: $seedCount archivos .sql"
 } else {

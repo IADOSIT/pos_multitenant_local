@@ -23,10 +23,10 @@ export class CategoriasService {
   }
 
   async update(id: number, data: Partial<Categoria>) {
-    const clean: any = { ...data };
+    const { id: _id, created_at, updated_at, ...rest } = data as any;
+    const clean: any = { ...rest };
     if (clean.imagen_url === '') clean.imagen_url = null;
     delete clean.productos;
-    delete clean.id;
     await this.repo.update(id, clean);
     return this.findOne(id);
   }
