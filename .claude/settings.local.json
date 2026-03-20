@@ -271,7 +271,8 @@
       "Bash(SRC32=installer/output/POS-iaDoS-Local-v2.2.32-src SRC33=installer/output/POS-iaDoS-Local-v2.2.33-src __NEW_LINE_37623dccb951660c__ echo '=== node ===' ls -la $SRC32/runtime/node/ echo --- ls -la $SRC33/runtime/node/ __NEW_LINE_37623dccb951660c__ echo '=== uploads ===' find $SRC32/app/backend/uploads)",
       "Bash(cd /c/sites/pos_multitenant_local\nls -la installer/output/POS-iaDoS-Local-v2.2.32-src/runtime/node/node.exe\nls -la installer/output/POS-iaDoS-Local-v2.2.33-src/runtime/node/node.exe\n\necho \"=== uploads 32 ===\"\nls installer/output/POS-iaDoS-Local-v2.2.32-src/app/backend/ 2>/dev/null\necho \"=== uploads 33 ===\"\nls installer/output/POS-iaDoS-Local-v2.2.33-src/app/backend/ 2>/dev/null)",
       "Bash(find /c/sites/pos_multitenant_local/frontend/src -name \"SelfOrder*\" -o -name \"*self-order*\" -o -name \"*selforder*\" 2>/dev/null | grep -i \".tsx\\\\|.ts\")",
-      "Bash(powershell.exe -ExecutionPolicy Bypass -Command \"& 'C:/sites/pos_multitenant_local/installer/build-exe.ps1' -Version '2.2.37' -Mode local -RuntimeSource 'v1.0.0' *> 'C:/sites/pos_multitenant_local/installer/build-exe.log'\" 2>&1; echo \"Exit: $?\")"
+      "Bash(powershell.exe -ExecutionPolicy Bypass -Command \"& 'C:/sites/pos_multitenant_local/installer/build-exe.ps1' -Version '2.2.37' -Mode local -RuntimeSource 'v1.0.0' *> 'C:/sites/pos_multitenant_local/installer/build-exe.log'\" 2>&1; echo \"Exit: $?\")",
+      "Bash(cd /c/sites/pos_multitenant_local && powershell.exe -ExecutionPolicy Bypass -Command \"& './installer/build-exe.ps1' -Mode local -RuntimeSource 'v1.0.0'\" 2>&1 | head -80)"
     ]
   }
 }
