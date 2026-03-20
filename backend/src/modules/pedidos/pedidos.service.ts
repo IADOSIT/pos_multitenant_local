@@ -263,6 +263,39 @@ export class PedidosService {
     return { pedido, venta };
   }
 
+  async actualizarItems(id: number, data: any) {
+    const pedido = await this.findOne(id);
+    if (!pedido) throw new BadRequestException('Pedido no encontrado');
+    if (pedido.estado === PedidoEstado.ENTREGADO) throw new BadRequestException('Pedido ya cerrado');
+    if (pedido.estado === PedidoEstado.CANCELADO) throw new BadRequestException('Pedido cancelado');
+
+    await this.pedidosRepo.manager.delete(PedidoDetalle, { pedido_id: id });
+
+    const detalles = data.items.map((item: any) => ({
+      pedido_id: id,
+      producto_id: item.producto_id,
+      producto_nombre: item.nombre,
+      producto_sku: item.sku,
+      cantidad: item.cantidad,
+      precio_unitario: item.precio,
+      descuento: item.descuento || 0,
+      impuesto: item.impuesto || 0,
+      subtotal: item.cantidad * item.precio - (item.descuento || 0),
+      modificadores: item.modificadores,
+      notas: item.notas,
+    }));
+    await this.pedidosRepo.manager.save(PedidoDetalle, detalles);
+
+    pedido.subtotal = data.subtotal;
+    pedido.impuestos = data.impuestos || 0;
+    pedido.total = data.total;
+    if (data.cliente_nombre !== undefined) pedido.cliente_nombre = data.cliente_nombre;
+    await this.pedidosRepo.save(pedido);
+
+    this.logger.log(`Pedido ${pedido.folio} items actualizados - $${data.total}`);
+    return this.findOne(id);
+  }
+
   async cancelar(id: number, motivo: string, scope: any) {
     const pedido = await this.findOne(id);
     if (!pedido) throw new BadRequestException('Pedido no encontrado');

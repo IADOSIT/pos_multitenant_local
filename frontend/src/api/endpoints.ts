@@ -113,6 +113,7 @@ export const pedidosApi = {
   updateEstado: (id: number, estado: string) => api.patch(`/pedidos/${id}/estado`, { estado }),
   cobrar: (id: number, pagoData: any) => api.post(`/pedidos/${id}/cobrar`, pagoData),
   cobrarParcial: (id: number, pagoData: any) => api.post(`/pedidos/${id}/cobrar-parcial`, pagoData),
+  actualizarItems: (id: number, data: any) => api.put(`/pedidos/${id}/items`, data),
   cancelar: (id: number, motivo: string) => api.post(`/pedidos/${id}/cancelar`, { motivo }),
 };
 

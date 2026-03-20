@@ -6,9 +6,12 @@ interface Props {
   onEnviarPedido?: () => void;
   onAbrirCuenta?: () => void;
   cuentaAbiertaEnabled?: boolean;
+  pedidoActivo?: any;
+  onActualizarCuenta?: () => void;
+  onCancelarEdicion?: () => void;
 }
 
-export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuentaAbiertaEnabled }: Props) {
+export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuentaAbiertaEnabled, pedidoActivo, onActualizarCuenta, onCancelarEdicion }: Props) {
   const { cart, updateQuantity, removeFromCart, clearCart, getSubtotal, getImpuestos, getTotal, cajaActiva, modoServicio, tipoCobro, mesaActiva, setMesaActiva, tipoServicio, setTipoServicio } = usePOSStore();
 
   const isMesa = modoServicio === 'mesa';
@@ -24,6 +27,18 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuenta
           <button onClick={clearCart} className="text-sm text-red-400 hover:text-red-300">Limpiar</button>
         )}
       </div>
+
+      {/* Banner modo edición cuenta abierta */}
+      {pedidoActivo && (
+        <div className="px-3 py-2 bg-orange-500/20 border-b border-orange-500/40 flex items-center justify-between">
+          <span className="text-sm text-orange-300 font-medium">
+            ✏️ Mesa {pedidoActivo.mesa} · {pedidoActivo.folio}
+          </span>
+          <button onClick={onCancelarEdicion} className="text-orange-400 hover:text-orange-200 text-xs underline">
+            Cancelar edición
+          </button>
+        </div>
+      )}
 
       {/* Mesa selector */}
       {isMesa && (
@@ -138,6 +153,23 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuenta
             >
               <Send size={20} /> Enviar Pedido
             </button>
+          ) : pedidoActivo ? (
+            <div className="space-y-2 mt-3">
+              <button
+                onClick={onActualizarCuenta}
+                disabled={cart.length === 0}
+                className="btn-secondary w-full flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <BookOpen size={18} /> Actualizar Mesa {pedidoActivo.mesa}
+              </button>
+              <button
+                onClick={onPay}
+                disabled={!cajaActiva || cart.length === 0}
+                className="btn-accent w-full text-lg disabled:opacity-50"
+              >
+                Cobrar Mesa {pedidoActivo.mesa} — ${getTotal().toFixed(2)}
+              </button>
+            </div>
           ) : (
             <div className="flex gap-2 mt-3">
               {cuentaAbiertaEnabled && onAbrirCuenta && (

@@ -10,7 +10,7 @@ import toast from 'react-hot-toast';
 import CartPanel from '../../components/pos/CartPanel';
 import PayModal from '../../components/pos/PayModal';
 import AbrirCuentaModal from '../../components/pos/AbrirCuentaModal';
-import { Search, ShoppingBag, Wifi, WifiOff, CreditCard, X, Clock, RefreshCw } from 'lucide-react';
+import { Search, ShoppingBag, Wifi, WifiOff, CreditCard, X, Clock, RefreshCw, Trash2 } from 'lucide-react';
 
 export default function POSPage() {
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -24,6 +24,7 @@ export default function POSPage() {
   const [pedidoACobrar, setPedidoACobrar] = useState<any>(null);
   const [showAbrirCuenta, setShowAbrirCuenta] = useState(false);
   const [cuentaAbiertaEnabled, setCuentaAbiertaEnabled] = useState(false);
+  const [pedidoActivo, setPedidoActivo] = useState<any>(null);
 
   const { user } = useAuthStore();
   const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, setMesaActiva, tipoServicio, clearCart } = usePOSStore();
@@ -222,8 +223,70 @@ export default function POSPage() {
         en_pos: true,
       } as Producto, Number(d.cantidad));
     });
+    setPedidoActivo(pedido);
     setShowCuentas(false);
-    toast.success(`Mesa ${pedido.mesa} cargada al carrito`);
+    toast.success(`Mesa ${pedido.mesa} cargada — agrega items y actualiza o cobra`);
+  };
+
+  const handleCancelarCuenta = async (pedido: any) => {
+    if (!confirm(`¿Cancelar cuenta Mesa ${pedido.mesa} (${pedido.folio})? Esta acción no se puede deshacer.`)) return;
+    try {
+      await pedidosApi.cancelar(pedido.id, 'Cancelado desde Cuentas Abiertas');
+      if (pedidoActivo?.id === pedido.id) { setPedidoActivo(null); clearCart(); }
+      loadCuentasAbiertas();
+      toast.success(`Mesa ${pedido.mesa} cancelada`);
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Error al cancelar cuenta');
+    }
+  };
+
+  const buildItemsFromCart = () => cart.map((i) => ({
+    producto_id: i.producto_id,
+    nombre: i.nombre,
+    sku: i.sku,
+    precio: i.precio,
+    cantidad: i.cantidad,
+    descuento: i.descuento,
+    impuesto: i.impuesto,
+    modificadores: i.modificadores,
+    notas: i.notas,
+  }));
+
+  const handleActualizarCuenta = async () => {
+    if (!pedidoActivo || cart.length === 0) return;
+    try {
+      await pedidosApi.actualizarItems(pedidoActivo.id, {
+        items: buildItemsFromCart(),
+        subtotal: getSubtotal(),
+        impuestos: getImpuestos(),
+        total: getTotal(),
+      });
+      clearCart();
+      setPedidoActivo(null);
+      loadCuentasAbiertas();
+      setShowCuentas(true);
+      toast.success(`Mesa ${pedidoActivo.mesa} actualizada`);
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Error al actualizar cuenta');
+    }
+  };
+
+  const handleCobrarConPedidoActivo = async () => {
+    if (!pedidoActivo) return;
+    try {
+      const { data: updated } = await pedidosApi.actualizarItems(pedidoActivo.id, {
+        items: buildItemsFromCart(),
+        subtotal: getSubtotal(),
+        impuestos: getImpuestos(),
+        total: getTotal(),
+      });
+      clearCart();
+      setPedidoActivo(null);
+      setPedidoACobrar(updated);
+      setShowPay(true);
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Error al preparar cobro');
+    }
   };
 
   const handleCobrarPedido = (pedido: any) => {
@@ -359,10 +422,16 @@ export default function POSPage() {
       <div className={`${cartVisible ? 'fixed inset-0 z-40 lg:relative' : 'hidden lg:flex'} lg:w-96 flex flex-col bg-iados-surface border-l border-slate-700`}>
         <button className="lg:hidden absolute top-2 right-2 z-50 p-2 text-slate-400" onClick={() => setCartVisible(false)}>✕</button>
         <CartPanel
-          onPay={() => { setShowPay(true); setCartVisible(false); setPedidoACobrar(null); }}
+          onPay={() => {
+            if (pedidoActivo) { handleCobrarConPedidoActivo(); setCartVisible(false); }
+            else { setShowPay(true); setCartVisible(false); setPedidoACobrar(null); }
+          }}
           onEnviarPedido={handleEnviarPedido}
           onAbrirCuenta={() => { setShowAbrirCuenta(true); setCartVisible(false); }}
           cuentaAbiertaEnabled={cuentaAbiertaEnabled}
+          pedidoActivo={pedidoActivo}
+          onActualizarCuenta={handleActualizarCuenta}
+          onCancelarEdicion={() => { setPedidoActivo(null); clearCart(); }}
         />
       </div>
 
@@ -465,6 +534,12 @@ export default function POSPage() {
                         className="btn-secondary text-xs px-3 py-2 flex items-center gap-1"
                       >
                         <ShoppingBag size={13} /> Cargar
+                      </button>
+                      <button
+                        onClick={() => handleCancelarCuenta(p)}
+                        className="text-xs px-3 py-2 flex items-center gap-1 rounded-xl border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-colors"
+                      >
+                        <Trash2 size={13} /> Cancelar
                       </button>
                     </div>
                   </div>
