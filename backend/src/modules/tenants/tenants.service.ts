@@ -26,7 +26,8 @@ export class TenantsService {
   }
 
   async update(id: number, data: Partial<Tenant>) {
-    await this.repo.update(id, data);
+    const { id: _id, created_at, updated_at, empresas, ...clean } = data as any;
+    await this.repo.update(id, clean);
     return this.findOne(id);
   }
 

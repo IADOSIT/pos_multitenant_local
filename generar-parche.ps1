@@ -81,6 +81,19 @@ Write-Host "  Deteniendo servicio..." -ForegroundColor Yellow
 & `$NSSM stop `$SVC 2>&1 | Out-Null
 Start-Sleep 3
 
+Write-Host "  Actualizando version en .env..." -ForegroundColor Yellow
+`$envFile = "`$InstallDir\backend\.env"
+if (Test-Path `$envFile) {
+    `$envContent = Get-Content `$envFile -Raw
+    if (`$envContent -match 'APP_VERSION=') {
+        `$envContent = `$envContent -replace 'APP_VERSION=.*', 'APP_VERSION=$Version'
+    } else {
+        `$envContent = `$envContent.TrimEnd() + "`nAPP_VERSION=$Version`n"
+    }
+    `$envContent | Set-Content `$envFile -Encoding UTF8 -NoNewline
+    Write-Host "    OK: APP_VERSION=$Version en .env" -ForegroundColor Green
+}
+
 Write-Host "  Aplicando archivos..." -ForegroundColor Yellow
 `$changed = @($changedJson)
 foreach (`$item in `$changed) {
@@ -92,6 +105,15 @@ foreach (`$item in `$changed) {
         Copy-Item -Path `$src -Destination `$dest -Recurse -Force
         Write-Host "    OK: `$item" -ForegroundColor Green
     }
+}
+
+Write-Host "  Actualizando version.json..." -ForegroundColor Yellow
+`$vjFile = "`$InstallDir\version.json"
+if (Test-Path `$vjFile) {
+    `$vj = Get-Content `$vjFile -Raw | ConvertFrom-Json
+    `$vj.version = "$Version"
+    `$vj | ConvertTo-Json | Set-Content `$vjFile -Encoding UTF8
+    Write-Host "    OK: version.json -> $Version" -ForegroundColor Green
 }
 
 Write-Host "  Reiniciando servicio..." -ForegroundColor Yellow

@@ -259,7 +259,8 @@ export class LicenciasService {
 
   // ---- SUPERADMIN: update license directly ----
   async update(id: number, data: Partial<Licencia>) {
-    await this.repo.update(id, data);
+    const { id: _id, created_at, updated_at, ...clean } = data as any;
+    await this.repo.update(id, clean);
     return this.repo.findOne({ where: { id } });
   }
 
