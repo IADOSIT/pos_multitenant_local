@@ -90,6 +90,7 @@ export default function ConfiguracionPage() {
     self_order_enabled: false,
     self_order_url: '',
     habilitar_cuenta_abierta: false,
+    mostrar_so_pendiente_en_pos: false,
     // Impresora config
     impresora_modelo: '',
     impresora_ancho: 80,
@@ -169,6 +170,7 @@ export default function ConfiguracionPage() {
       self_order_enabled: cp.self_order_enabled || false,
       self_order_url: cp.self_order_url || '',
       habilitar_cuenta_abierta: cp.habilitar_cuenta_abierta || false,
+      mostrar_so_pendiente_en_pos: cp.mostrar_so_pendiente_en_pos || false,
       impresora_modelo: ci.modelo || '',
       impresora_ancho: ci.ancho || 80,
       impresora_auto_print: ci.auto_print || false,
@@ -193,6 +195,7 @@ export default function ConfiguracionPage() {
           self_order_enabled: form.self_order_enabled,
           self_order_url: form.self_order_url || undefined,
           habilitar_cuenta_abierta: form.habilitar_cuenta_abierta,
+          mostrar_so_pendiente_en_pos: form.mostrar_so_pendiente_en_pos,
           iva_enabled: form.iva_enabled,
           iva_porcentaje: form.iva_porcentaje,
           iva_incluido: form.iva_incluido,
@@ -245,7 +248,7 @@ export default function ConfiguracionPage() {
       nombre: '', direccion: '', telefono: '', email: '',
       zona_horaria: 'America/Mexico_City',
       iva_enabled: false, iva_porcentaje: 16, iva_incluido: true,
-      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false,
+      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false, mostrar_so_pendiente_en_pos: false,
       impresora_modelo: '', impresora_ancho: 80, impresora_auto_print: false, impresora_copias: 1,
     });
   };
@@ -1032,7 +1035,7 @@ export default function ConfiguracionPage() {
                   )}
 
                   {/* QR + enlace */}
-                  {mdQr && mdCfgForm.is_active && (
+                  {mdQr && (
                     <div className="flex gap-4 items-center">
                       <div className="bg-white p-2 rounded-xl flex-shrink-0">
                         <img src={mdQr} alt="QR Menu" className="w-28 h-28" />
@@ -1050,8 +1053,7 @@ export default function ConfiguracionPage() {
                         >
                           <ExternalLink size={11} /> Abrir menu en navegador
                         </a>
-                        {mdQr && (
-                          <button
+                        <button
                             onClick={() => {
                               const w = window.open('', '_blank');
                               if (!w) return;
@@ -1090,7 +1092,6 @@ export default function ConfiguracionPage() {
                           >
                             <Printer size={11} /> Imprimir QR con pasos
                           </button>
-                        )}
                       </div>
                     </div>
                   )}
@@ -1177,6 +1178,22 @@ export default function ConfiguracionPage() {
                       <div>
                         <span className="text-sm font-medium">Habilitar Cuentas Abiertas</span>
                         <p className="text-xs text-slate-500">Muestra botón "Cuenta" en el carrito para abrir una cuenta sin cobrar</p>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Alerta Self Order en POS */}
+                  <div className="border-t border-slate-700 pt-3 mt-3">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.mostrar_so_pendiente_en_pos}
+                        onChange={(e) => setForm({ ...form, mostrar_so_pendiente_en_pos: e.target.checked })}
+                        className="w-5 h-5 accent-iados-primary rounded"
+                      />
+                      <div>
+                        <span className="text-sm font-medium">Mostrar alerta Self Order en POS</span>
+                        <p className="text-xs text-slate-500">Muestra en el POS los pedidos de mesa pendientes de confirmar al cliente</p>
                       </div>
                     </label>
                   </div>

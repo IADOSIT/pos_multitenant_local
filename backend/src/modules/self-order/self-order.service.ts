@@ -186,21 +186,24 @@ export class SelfOrderService {
     if (!pedido) throw new NotFoundException('Pedido no encontrado');
     if (!pedido.self_order) throw new BadRequestException('No es un pedido self-order');
 
-    pedido.mesero_confirmado = true;
-    pedido.mesero_id = scope.sub || scope.id;
-    pedido.mesero_nombre = scope.nombre;
-    pedido.estado = PedidoEstado.EN_ELABORACION;
-    await this.pedidoRepo.save(pedido);
+    await this.pedidoRepo.update(pedido_id, {
+      mesero_confirmado: true,
+      mesero_id: scope.sub || scope.id,
+      mesero_nombre: scope.nombre,
+      estado: PedidoEstado.EN_ELABORACION,
+    });
+
+    const updated = await this.pedidoRepo.findOne({ where: { id: pedido_id } });
 
     this.notificacionesService.emitToTienda(scope.tienda_id, 'pedido_actualizado', {
-      id: pedido.id,
+      id: pedido_id,
       folio: pedido.folio,
       mesa: pedido.mesa,
-      estado: pedido.estado,
+      estado: PedidoEstado.EN_ELABORACION,
       mesero_confirmado: true,
     });
 
-    return pedido;
+    return updated;
   }
 
   // Rechazar pedido self-order

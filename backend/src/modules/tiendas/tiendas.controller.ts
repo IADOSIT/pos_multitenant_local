@@ -15,6 +15,7 @@ export class TiendasController {
   findAll(@TenantScope() scope) { return this.service.findAll(scope); }
 
   @Get(':id')
+  @Roles('superadmin', 'admin', 'manager', 'cajero', 'mesero')
   findOne(@Param('id', ParseIntPipe) id: number) { return this.service.findOne(id); }
 
   @Post()

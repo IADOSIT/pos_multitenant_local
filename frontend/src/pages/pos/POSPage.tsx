@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { usePOSStore } from '../../store/pos.store';
 import { useAuthStore } from '../../store/auth.store';
 import { offlineActions } from '../../store/offline.store';
-import { productosApi, categoriasApi, cajaApi, tiendasApi, pedidosApi, ticketsApi } from '../../api/endpoints';
+import { productosApi, categoriasApi, cajaApi, tiendasApi, pedidosApi, ticketsApi, selfOrderApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
 import { printComanda } from '../../utils/printTicket';
 import { Producto, Categoria } from '../../types';
@@ -25,6 +25,7 @@ export default function POSPage() {
   const [showAbrirCuenta, setShowAbrirCuenta] = useState(false);
   const [cuentaAbiertaEnabled, setCuentaAbiertaEnabled] = useState(false);
   const [pedidoActivo, setPedidoActivo] = useState<any>(null);
+  const [mostrarSoPendienteEnPos, setMostrarSoPendienteEnPos] = useState(false);
 
   const { user } = useAuthStore();
   const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, setMesaActiva, tipoServicio, clearCart } = usePOSStore();
@@ -67,6 +68,7 @@ export default function POSPage() {
           incluido: data.config_pos.iva_incluido ?? true,
         });
         setCuentaAbiertaEnabled(data.config_pos.habilitar_cuenta_abierta || false);
+        setMostrarSoPendienteEnPos(data.config_pos.mostrar_so_pendiente_en_pos || false);
       }
     } catch {}
   };
@@ -228,6 +230,16 @@ export default function POSPage() {
     toast.success(`Mesa ${pedido.mesa} cargada — agrega items y actualiza o cobra`);
   };
 
+  const handleConfirmarSO = async (pedido: any) => {
+    try {
+      await selfOrderApi.confirmar(pedido.id);
+      toast.success(`Mesa ${pedido.mesa} confirmada al cliente`);
+      loadCuentasAbiertas();
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Error al confirmar');
+    }
+  };
+
   const handleCancelarCuenta = async (pedido: any) => {
     if (!confirm(`¿Cancelar cuenta Mesa ${pedido.mesa} (${pedido.folio})? Esta acción no se puede deshacer.`)) return;
     try {
@@ -361,6 +373,23 @@ export default function POSPage() {
             )}
           </button>
         </div>
+
+        {/* Banner Self Order pendientes de confirmar */}
+        {mostrarSoPendienteEnPos && cuentasAbiertas.filter(p => p.self_order && !p.mesero_confirmado && p.estado === 'recibido').length > 0 && (
+          <div className="bg-orange-600/20 border-b border-orange-500/40 px-3 py-2 space-y-1">
+            {cuentasAbiertas.filter(p => p.self_order && !p.mesero_confirmado && p.estado === 'recibido').map((p) => (
+              <div key={p.id} className="flex items-center justify-between gap-2 text-sm">
+                <span className="text-orange-300 font-bold animate-pulse">📱 Mesa {p.mesa} — {p.folio} · ${Number(p.total).toFixed(2)}</span>
+                <button
+                  onClick={() => handleConfirmarSO(p)}
+                  className="shrink-0 bg-orange-500 hover:bg-orange-400 text-white text-xs font-bold px-3 py-1 rounded-lg"
+                >
+                  Confirmar
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Categorias - scroll horizontal */}
         <div className="flex gap-2 p-3 overflow-x-auto shrink-0 bg-iados-dark/50">

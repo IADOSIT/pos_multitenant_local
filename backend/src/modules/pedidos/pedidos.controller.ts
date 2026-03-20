@@ -65,7 +65,7 @@ export class PedidosController {
   }
 
   @Post(':id/cancelar')
-  @Roles('superadmin', 'admin', 'manager')
+  @Roles('superadmin', 'admin', 'manager', 'cajero')
   cancelar(@Param('id', ParseIntPipe) id: number, @Body('motivo') motivo: string, @TenantScope() scope) {
     return this.service.cancelar(id, motivo, scope);
   }

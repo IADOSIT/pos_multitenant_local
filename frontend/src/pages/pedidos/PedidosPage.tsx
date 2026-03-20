@@ -219,11 +219,18 @@ export default function PedidosPage() {
               <div
                 key={p.id}
                 onClick={() => setSelected(p)}
-                className={`card cursor-pointer hover:ring-2 hover:ring-iados-secondary transition-all ${selected?.id === p.id ? 'ring-2 ring-iados-primary' : ''}`}
+                className={`card cursor-pointer hover:ring-2 hover:ring-iados-secondary transition-all ${selected?.id === p.id ? 'ring-2 ring-iados-primary' : ''} ${p.self_order && !p.mesero_confirmado && p.estado === 'recibido' ? 'ring-2 ring-orange-500' : ''}`}
               >
+                {/* Banner self-order pendiente de confirmar */}
+                {p.self_order && !p.mesero_confirmado && p.estado === 'recibido' && (
+                  <div className="flex items-center justify-center gap-2 bg-orange-500 text-white text-sm font-bold py-2 px-3 rounded-t-xl -mx-4 -mt-4 mb-3 animate-pulse">
+                    <Smartphone size={15} />
+                    ⚠️ PENDIENTE CONFIRMAR AL CLIENTE
+                  </div>
+                )}
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <div className="w-12 h-12 bg-iados-primary rounded-xl flex items-center justify-center font-bold text-xl">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-xl ${p.self_order && !p.mesero_confirmado && p.estado === 'recibido' ? 'bg-orange-500' : 'bg-iados-primary'}`}>
                       {p.mesa}
                     </div>
                     <div>

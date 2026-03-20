@@ -110,16 +110,30 @@ export default function SelfOrderPage() {
     pollRef.current = setInterval(async () => {
       try {
         const { data } = await selfOrderApi.getStatus(token);
-        if (data.estado === 'en_elaboracion' || data.mesero_confirmado) setStep('confirmed');
-        if (data.estado === 'cancelado') { setStep('rejected'); clearInterval(pollRef.current!); }
         if (data.encuesta_lista) {
           clearInterval(pollRef.current!);
-          // Sonido de notificación
           try { new Audio('/notification.mp3').play(); } catch {}
           setStep('encuesta');
+        } else if (data.estado === 'cancelado') {
+          clearInterval(pollRef.current!);
+          setStep('rejected');
+        } else if (data.mesero_confirmado || data.estado === 'en_elaboracion' || data.estado === 'listo_para_entrega' || data.estado === 'entregado') {
+          clearInterval(pollRef.current!);
+          setStep('confirmed');
+          // reiniciar polling solo para detectar encuesta
+          pollRef.current = setInterval(async () => {
+            try {
+              const { data: d2 } = await selfOrderApi.getStatus(token);
+              if (d2.encuesta_lista) {
+                clearInterval(pollRef.current!);
+                try { new Audio('/notification.mp3').play(); } catch {}
+                setStep('encuesta');
+              }
+            } catch {}
+          }, 5000);
         }
       } catch {}
-    }, 5000);
+    }, 3000);
   };
 
   const handleEncuesta = async () => {
