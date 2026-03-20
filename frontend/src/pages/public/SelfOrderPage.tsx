@@ -325,9 +325,9 @@ export default function SelfOrderPage() {
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium">{item.nombre}</p>
-                    <p className="text-xs text-slate-400">${item.precio.toFixed(2)} c/u</p>
+                    <p className="text-xs text-slate-400">${Number(item.precio).toFixed(2)} c/u</p>
                   </div>
-                  <p className="font-bold text-sm">${(item.precio * item.cantidad).toFixed(2)}</p>
+                  <p className="font-bold text-sm">${(Number(item.precio) * item.cantidad).toFixed(2)}</p>
                 </div>
               ))}
             </div>

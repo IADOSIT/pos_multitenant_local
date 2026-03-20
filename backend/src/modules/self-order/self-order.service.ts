@@ -354,7 +354,7 @@ export class SelfOrderService {
 
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const QRCode = require('qrcode');
-    const qrDataUrl: string = await QRCode.toDataURL(url, { width: 300, margin: 2, color: { dark: '#1e293b', light: '#ffffff' } });
+    const qrDataUrl: string = await QRCode.toDataURL(url, { width: 300, margin: 2, color: { dark: '#000000', light: '#ffffff' } });
 
     const logoHtml = tienda.logo_url
       ? `<img src="${baseUrl}${tienda.logo_url}" alt="logo" style="max-height:60px;margin-bottom:8px;" />`
@@ -371,18 +371,18 @@ export class SelfOrderService {
     body { font-family: 'Segoe UI', Arial, sans-serif; background: #fff; color: #1e293b; }
     .card { width: 320px; margin: 20px auto; border: 2px solid #e2e8f0; border-radius: 20px; padding: 28px 24px; text-align: center; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
     .logo-area { margin-bottom: 12px; }
-    .empresa { font-size: 13px; color: #64748b; font-weight: 500; margin-bottom: 4px; }
+    .empresa { font-size: 13px; color: #334155; font-weight: 600; margin-bottom: 4px; }
     .mesa-badge { display: inline-block; background: #0f172a; color: #fff; font-size: 28px; font-weight: 800; padding: 8px 28px; border-radius: 50px; margin: 10px 0; letter-spacing: 1px; }
     .headline { font-size: 17px; font-weight: 700; color: #0f172a; margin: 10px 0 4px; }
-    .subline { font-size: 13px; color: #64748b; margin-bottom: 14px; }
-    .qr-img { width: 200px; height: 200px; margin: 0 auto; display: block; border-radius: 12px; border: 1px solid #e2e8f0; }
-    .escanea { font-size: 12px; color: #94a3b8; margin: 8px 0 16px; }
-    .steps { text-align: left; background: #f8fafc; border-radius: 12px; padding: 14px 16px; margin-top: 4px; }
-    .steps h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 10px; }
+    .subline { font-size: 13px; color: #334155; font-weight: 500; margin-bottom: 14px; }
+    .qr-img { width: 200px; height: 200px; margin: 0 auto; display: block; border-radius: 12px; border: 2px solid #0f172a; }
+    .escanea { font-size: 12px; color: #1e293b; font-weight: 600; margin: 8px 0 16px; }
+    .steps { text-align: left; background: #f1f5f9; border-radius: 12px; padding: 14px 16px; margin-top: 4px; border: 1px solid #cbd5e1; }
+    .steps h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #334155; font-weight: 700; margin-bottom: 10px; }
     .step { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
     .step-icon { font-size: 18px; line-height: 1.2; flex-shrink: 0; }
-    .step-text { font-size: 12px; color: #334155; line-height: 1.4; }
-    .step-text strong { display: block; font-size: 12px; color: #0f172a; }
+    .step-text { font-size: 12px; color: #1e293b; line-height: 1.4; }
+    .step-text strong { display: block; font-size: 12px; color: #0f172a; font-weight: 700; }
     .btn-print { display: block; width: 100%; margin-top: 16px; padding: 12px; background: #0f172a; color: #fff; border: none; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; letter-spacing: 0.5px; }
     .btn-print:hover { background: #1e293b; }
     @media print { .btn-print { display: none; } body { margin: 0; } .card { box-shadow: none; margin: 0; border: 1px solid #ccc; } }
