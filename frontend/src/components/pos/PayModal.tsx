@@ -332,7 +332,7 @@ export default function PayModal({ onClose, isOnline, pedido }: Props) {
               Reimprimir Ticket
             </button>
           )}
-          <button onClick={onClose} className="btn-primary w-full text-lg">
+          <button onClick={() => onClose()} className="btn-primary w-full text-lg">
             Nueva Venta
           </button>
         </div>
@@ -353,7 +353,7 @@ export default function PayModal({ onClose, isOnline, pedido }: Props) {
               </p>
             )}
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-iados-card rounded-xl"><X size={24} /></button>
+          <button onClick={() => onClose()} className="p-2 hover:bg-iados-card rounded-xl"><X size={24} /></button>
         </div>
 
         <div className="text-center mb-6">

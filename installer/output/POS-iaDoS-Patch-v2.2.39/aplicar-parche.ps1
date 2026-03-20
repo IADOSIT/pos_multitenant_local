@@ -5,7 +5,7 @@ $SVC  = "PosIaDos-Backend"
 $PATCH = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 Write-Host ""
-Write-Host "  POS-iaDoS Parche v2.2.37" -ForegroundColor Cyan
+Write-Host "  POS-iaDoS Parche v2.2.39" -ForegroundColor Cyan
 Write-Host ""
 
 Write-Host "  Deteniendo servicio..." -ForegroundColor Yellow
@@ -17,14 +17,14 @@ $envFile = "$InstallDir\backend\.env"
 if (Test-Path $envFile) {
     $envContent = Get-Content $envFile -Raw
     if ($envContent -match 'APP_VERSION=') {
-        $envContent = $envContent -replace 'APP_VERSION=.*', 'APP_VERSION=2.2.37'
+        $envContent = $envContent -replace 'APP_VERSION=.*', 'APP_VERSION=2.2.39'
     } else {
         $envContent = $envContent.TrimEnd() + "
-APP_VERSION=2.2.37
+APP_VERSION=2.2.39
 "
     }
     $envContent | Set-Content $envFile -Encoding UTF8 -NoNewline
-    Write-Host "    OK: APP_VERSION=2.2.37 en .env" -ForegroundColor Green
+    Write-Host "    OK: APP_VERSION=2.2.39 en .env" -ForegroundColor Green
 }
 
 Write-Host "  Aplicando archivos..." -ForegroundColor Yellow
@@ -44,9 +44,9 @@ Write-Host "  Actualizando version.json..." -ForegroundColor Yellow
 $vjFile = "$InstallDir\version.json"
 if (Test-Path $vjFile) {
     $vj = Get-Content $vjFile -Raw | ConvertFrom-Json
-    $vj.version = "2.2.37"
+    $vj.version = "2.2.39"
     $vj | ConvertTo-Json | Set-Content $vjFile -Encoding UTF8
-    Write-Host "    OK: version.json -> 2.2.37" -ForegroundColor Green
+    Write-Host "    OK: version.json -> 2.2.39" -ForegroundColor Green
 }
 
 Write-Host "  Reiniciando servicio..." -ForegroundColor Yellow
@@ -66,7 +66,7 @@ for ($i = 0; $i -lt 20; $i++) {
 }
 Write-Host ""
 if ($ok) {
-    Write-Host "  PARCHE v2.2.37 APLICADO Y BACKEND OK" -ForegroundColor Green
+    Write-Host "  PARCHE v2.2.39 APLICADO Y BACKEND OK" -ForegroundColor Green
 } else {
     Write-Host "  ADVERTENCIA: Backend no respondio en 60s. Revisa ESTADO.bat" -ForegroundColor Yellow
 }
