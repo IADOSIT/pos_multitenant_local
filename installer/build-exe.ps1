@@ -17,11 +17,24 @@
 param(
     [ValidateSet("local","online")]
     [string]$Mode          = "local",
-    [string]$Version       = "2.1.0",
+    [string]$Version       = "",
     [string]$OutputDir     = "output",
     [string]$InnoSetupPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
     [string]$RuntimeSource = "v1.0.0"
 )
+
+# Auto-detectar version desde staging/version.json si no se paso como parametro
+if (-not $Version) {
+    $vjPath = Join-Path $PSScriptRoot "staging\version.json"
+    if (Test-Path $vjPath) {
+        $vj = Get-Content $vjPath -Raw | ConvertFrom-Json
+        $parts = $vj.version -split '\.'
+        $Version = "$($parts[0]).$($parts[1]).$([int]$parts[2]+1)"
+    } else {
+        $Version = "2.2.37"
+    }
+    Write-Host "  Version auto-detectada: v$Version" -ForegroundColor Cyan
+}
 
 $ErrorActionPreference = "Stop"
 $ScriptDir  = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -485,4 +498,48 @@ Write-Host "  Proximos pasos:" -ForegroundColor White
 Write-Host "    1. Probar el EXE en maquina limpia" -ForegroundColor Yellow
 Write-Host "    2. git add -A && git commit -m 'release: v$Version-$Mode'" -ForegroundColor Yellow
 Write-Host "    3. git tag v$Version-$Mode" -ForegroundColor Yellow
+Write-Host ""
+
+# =============================================================================
+# 10. Actualizar archivos de version en el proyecto
+# =============================================================================
+Write-Step "Actualizando version en archivos del proyecto..."
+
+# staging/version.json
+$vjPath = Join-Path $ScriptDir "staging\version.json"
+@{ version = $Version; build_date = (Get-Date -Format "yyyy-MM-dd HH:mm:ss"); product = "POS-iaDoS"; company = "iaDoS" } |
+    ConvertTo-Json | Set-Content $vjPath -Encoding UTF8
+Write-OK "staging/version.json -> $Version"
+
+# backend/loc.env
+$locEnv = Join-Path $ProjectDir "backend\loc.env"
+if (Test-Path $locEnv) {
+    $c = Get-Content $locEnv -Raw
+    if ($c -match 'APP_VERSION=') { $c = $c -replace 'APP_VERSION=.*', "APP_VERSION=$Version" }
+    else { $c = $c.TrimEnd() + "`nAPP_VERSION=$Version`n" }
+    $c | Set-Content $locEnv -Encoding UTF8 -NoNewline
+    Write-OK "backend/loc.env -> APP_VERSION=$Version"
+}
+
+# backend/ext.env
+$extEnv = Join-Path $ProjectDir "backend\ext.env"
+if (Test-Path $extEnv) {
+    $c = Get-Content $extEnv -Raw
+    if ($c -match 'APP_VERSION=') { $c = $c -replace 'APP_VERSION=.*', "APP_VERSION=$Version" }
+    else { $c = $c.TrimEnd() + "`nAPP_VERSION=$Version`n" }
+    $c | Set-Content $extEnv -Encoding UTF8 -NoNewline
+    Write-OK "backend/ext.env -> APP_VERSION=$Version"
+}
+
+# docker-compose.yml
+$dcPath = Join-Path $ProjectDir "docker-compose.yml"
+if (Test-Path $dcPath) {
+    $c = Get-Content $dcPath -Raw
+    $c = $c -replace 'APP_VERSION:.*', "APP_VERSION: `"$Version`""
+    $c | Set-Content $dcPath -Encoding UTF8 -NoNewline
+    Write-OK "docker-compose.yml -> APP_VERSION=$Version"
+}
+
+Write-Host ""
+Write-Host "  Version $Version registrada en todos los archivos." -ForegroundColor Green
 Write-Host ""

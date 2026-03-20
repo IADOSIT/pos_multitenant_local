@@ -153,6 +153,26 @@ pause
 @{ version = $Version; patch_date = (Get-Date -Format "yyyy-MM-dd HH:mm:ss"); type = "patch" } |
     ConvertTo-Json | Set-Content "$PATCH_DIR\version.json"
 
+# Sincronizar version en archivos del proyecto (para que el proximo parche/EXE use esta version como base)
+@{ version = $Version; build_date = (Get-Date -Format "yyyy-MM-dd HH:mm:ss"); product = "POS-iaDoS"; company = "iaDoS" } |
+    ConvertTo-Json | Set-Content "$DIR\installer\staging\version.json" -Encoding UTF8
+
+foreach ($envFile in @("$DIR\backend\loc.env", "$DIR\backend\ext.env")) {
+    if (Test-Path $envFile) {
+        $c = Get-Content $envFile -Raw
+        if ($c -match 'APP_VERSION=') { $c = $c -replace 'APP_VERSION=.*', "APP_VERSION=$Version" }
+        else { $c = $c.TrimEnd() + "`nAPP_VERSION=$Version`n" }
+        $c | Set-Content $envFile -Encoding UTF8 -NoNewline
+    }
+}
+
+$dcPath = "$DIR\docker-compose.yml"
+if (Test-Path $dcPath) {
+    $c = Get-Content $dcPath -Raw
+    $c = $c -replace 'APP_VERSION:.*', "APP_VERSION: `"$Version`""
+    $c | Set-Content $dcPath -Encoding UTF8 -NoNewline
+}
+
 # Crear ZIP
 if (Test-Path $PATCH_ZIP) { Remove-Item $PATCH_ZIP -Force }
 Add-Type -AssemblyName System.IO.Compression.FileSystem

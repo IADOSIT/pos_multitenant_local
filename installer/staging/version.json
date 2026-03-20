@@ -1,6 +1,6 @@
-{
-  "version": "2.2.36",
-  "build_date": "2026-03-20",
-  "product": "POS-iaDoS",
-  "company": "iaDoS"
+﻿{
+    "build_date":  "2026-03-20 07:29:25",
+    "company":  "iaDoS",
+    "version":  "2.2.37",
+    "product":  "POS-iaDoS"
 }
