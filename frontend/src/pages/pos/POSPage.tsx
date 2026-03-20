@@ -322,7 +322,7 @@ export default function POSPage() {
       {/* Modal de pago */}
       {showPay && (
         <PayModal
-          onClose={() => { setShowPay(false); setPedidoACobrar(null); loadCuentasAbiertas(); }}
+          onClose={(mantenerAbierta) => { setShowPay(false); setPedidoACobrar(null); loadCuentasAbiertas(); if (mantenerAbierta) setShowCuentas(true); }}
           isOnline={isOnline}
           pedido={pedidoACobrar}
         />

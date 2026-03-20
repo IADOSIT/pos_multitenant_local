@@ -9,7 +9,7 @@ import QRCode from 'qrcode';
 import { X, DollarSign, CreditCard, ArrowRightLeft, Banknote, Printer, ShoppingBag, Wifi, Smartphone, RotateCw, CheckCircle2, XCircle } from 'lucide-react';
 
 interface Props {
-  onClose: () => void;
+  onClose: (mantenerAbierta?: boolean) => void;
   isOnline: boolean;
   pedido?: any; // si se pasa, cobrar este pedido en lugar del carrito
 }
@@ -260,7 +260,7 @@ export default function PayModal({ onClose, isOnline, pedido }: Props) {
           const { data } = await pedidosApi.cobrarParcial(pedido.id, pagoData);
           generarEImprimir(data.venta);
           toast.success(`Pago Mesa ${pedido.mesa} registrado — cuenta sigue abierta`);
-          onClose();
+          onClose(true);
         } else {
           const { data } = await pedidosApi.cobrar(pedido.id, pagoData);
           generarEImprimir(data.venta);
