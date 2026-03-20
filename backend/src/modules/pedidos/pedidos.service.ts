@@ -264,42 +264,47 @@ export class PedidosService {
   }
 
   async actualizarItems(id: number, data: any) {
-    const pedido = await this.findOne(id);
-    if (!pedido) throw new BadRequestException('Pedido no encontrado');
-    if (pedido.estado === PedidoEstado.ENTREGADO) throw new BadRequestException('Pedido ya cerrado');
-    if (pedido.estado === PedidoEstado.CANCELADO) throw new BadRequestException('Pedido cancelado');
+    try {
+      const pedido = await this.findOne(id);
+      if (!pedido) throw new BadRequestException('Pedido no encontrado');
+      if (pedido.estado === PedidoEstado.ENTREGADO) throw new BadRequestException('Pedido ya cerrado');
+      if (pedido.estado === PedidoEstado.CANCELADO) throw new BadRequestException('Pedido cancelado');
 
-    await this.dataSource.query('DELETE FROM pedido_detalles WHERE pedido_id = ?', [id]);
+      await this.dataSource.query('DELETE FROM pedido_detalles WHERE pedido_id = ?', [id]);
 
-    for (const item of data.items) {
-      await this.dataSource.query(
-        `INSERT INTO pedido_detalles
-          (pedido_id, producto_id, producto_nombre, producto_sku, cantidad, precio_unitario, descuento, impuesto, subtotal, modificadores, notas)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          id,
-          item.producto_id,
-          item.nombre,
-          item.sku,
-          item.cantidad,
-          item.precio,
-          item.descuento || 0,
-          item.impuesto || 0,
-          item.cantidad * item.precio - (item.descuento || 0),
-          item.modificadores ? JSON.stringify(item.modificadores) : null,
-          item.notas || null,
-        ],
-      );
+      for (const item of data.items) {
+        await this.dataSource.query(
+          `INSERT INTO pedido_detalles
+            (pedido_id, producto_id, producto_nombre, producto_sku, cantidad, precio_unitario, descuento, impuesto, subtotal, modificadores, notas)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            id,
+            item.producto_id,
+            item.nombre,
+            item.sku,
+            item.cantidad,
+            item.precio,
+            item.descuento || 0,
+            item.impuesto || 0,
+            item.cantidad * item.precio - (item.descuento || 0),
+            item.modificadores ? JSON.stringify(item.modificadores) : null,
+            item.notas || null,
+          ],
+        );
+      }
+
+      pedido.subtotal = data.subtotal;
+      pedido.impuestos = data.impuestos || 0;
+      pedido.total = data.total;
+      if (data.cliente_nombre !== undefined) pedido.cliente_nombre = data.cliente_nombre;
+      await this.pedidosRepo.save(pedido);
+
+      this.logger.log(`Pedido ${pedido.folio} items actualizados - $${data.total}`);
+      return this.findOne(id);
+    } catch (e: any) {
+      this.logger.error('actualizarItems error:', e?.message, e?.stack);
+      throw new BadRequestException(`Error actualizando pedido: ${e?.message || e}`);
     }
-
-    pedido.subtotal = data.subtotal;
-    pedido.impuestos = data.impuestos || 0;
-    pedido.total = data.total;
-    if (data.cliente_nombre !== undefined) pedido.cliente_nombre = data.cliente_nombre;
-    await this.pedidosRepo.save(pedido);
-
-    this.logger.log(`Pedido ${pedido.folio} items actualizados - $${data.total}`);
-    return this.findOne(id);
   }
 
   async cancelar(id: number, motivo: string, scope: any) {
