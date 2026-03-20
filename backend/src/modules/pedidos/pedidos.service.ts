@@ -269,22 +269,28 @@ export class PedidosService {
     if (pedido.estado === PedidoEstado.ENTREGADO) throw new BadRequestException('Pedido ya cerrado');
     if (pedido.estado === PedidoEstado.CANCELADO) throw new BadRequestException('Pedido cancelado');
 
-    await this.pedidosRepo.manager.delete(PedidoDetalle, { pedido_id: id });
+    await this.dataSource.query('DELETE FROM pedido_detalles WHERE pedido_id = ?', [id]);
 
-    const detalles = data.items.map((item: any) => ({
-      pedido_id: id,
-      producto_id: item.producto_id,
-      producto_nombre: item.nombre,
-      producto_sku: item.sku,
-      cantidad: item.cantidad,
-      precio_unitario: item.precio,
-      descuento: item.descuento || 0,
-      impuesto: item.impuesto || 0,
-      subtotal: item.cantidad * item.precio - (item.descuento || 0),
-      modificadores: item.modificadores,
-      notas: item.notas,
-    }));
-    await this.pedidosRepo.manager.save(PedidoDetalle, detalles);
+    for (const item of data.items) {
+      await this.dataSource.query(
+        `INSERT INTO pedido_detalles
+          (pedido_id, producto_id, producto_nombre, producto_sku, cantidad, precio_unitario, descuento, impuesto, subtotal, modificadores, notas)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id,
+          item.producto_id,
+          item.nombre,
+          item.sku,
+          item.cantidad,
+          item.precio,
+          item.descuento || 0,
+          item.impuesto || 0,
+          item.cantidad * item.precio - (item.descuento || 0),
+          item.modificadores ? JSON.stringify(item.modificadores) : null,
+          item.notas || null,
+        ],
+      );
+    }
 
     pedido.subtotal = data.subtotal;
     pedido.impuestos = data.impuestos || 0;
