@@ -80,7 +80,7 @@ CREATE TABLE `backup_configs` (
 
 LOCK TABLES `backup_configs` WRITE;
 /*!40000 ALTER TABLE `backup_configs` DISABLE KEYS */;
-INSERT INTO `backup_configs` VALUES (1,1,'15:00',7,1,1,0,NULL,'2026-03-19 08:28:25','ok');
+INSERT INTO `backup_configs` VALUES (1,1,'15:00',7,1,1,0,NULL,'2026-03-20 15:00:00','ok');
 /*!40000 ALTER TABLE `backup_configs` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -101,7 +101,7 @@ CREATE TABLE `backup_logs` (
   `onedrive_copiado` tinyint NOT NULL DEFAULT '0',
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -110,7 +110,7 @@ CREATE TABLE `backup_logs` (
 
 LOCK TABLES `backup_logs` WRITE;
 /*!40000 ALTER TABLE `backup_logs` DISABLE KEYS */;
-INSERT INTO `backup_logs` VALUES (1,'excel','backup-excel-2026-03-11T21-51-24.xlsx',12652,'ok',NULL,0,'2026-03-11 15:51:25.221578'),(2,'excel','backup-excel-2026-03-11T21-51-26.xlsx',12652,'ok',NULL,0,'2026-03-11 15:51:26.946499'),(3,'db','',NULL,'error','mysqldump: mysqldump: [Warning] Using a password on the command line interface can be insecure.\r\nmysqldump: [ERROR] unknown option \'--skip-ssl\'.\r\n',0,'2026-03-11 15:51:29.960952'),(4,'db','',NULL,'error','mysqldump: mysqldump: [Warning] Using a password on the command line interface can be insecure.\r\nmysqldump: [ERROR] unknown option \'--skip-ssl\'.\r\n',0,'2026-03-11 15:51:56.008268'),(5,'excel','backup-excel-2026-03-11T21-51-56.xlsx',12652,'ok',NULL,0,'2026-03-11 15:51:56.130361'),(6,'db','',NULL,'error','mysqldump: mysqldump: [Warning] Using a password on the command line interface can be insecure.\r\nmysqldump: Couldn\'t execute \'FLUSH /*!40101 LOCAL */ TABLES\': Access denied; you need (at least one of) the RELOAD or FLUSH_TABLES privilege(s) for this operation (1227)\r\n',0,'2026-03-11 15:54:07.468288'),(7,'excel','backup-excel-2026-03-11T21-54-12.xlsx',12972,'ok',NULL,0,'2026-03-11 15:54:13.147418'),(8,'db','',NULL,'error','mysqldump: mysqldump: [Warning] Using a password on the command line interface can be insecure.\r\nmysqldump: Couldn\'t execute \'FLUSH /*!40101 LOCAL */ TABLES\': Access denied; you need (at least one of) the RELOAD or FLUSH_TABLES privilege(s) for this operation (1227)\r\n',0,'2026-03-11 15:54:16.401059'),(9,'excel','backup-excel-2026-03-11T21-54-16.xlsx',12972,'ok',NULL,0,'2026-03-11 15:54:16.540582'),(10,'db','backup-db-2026-03-12T01-30-31.sql',100253,'ok',NULL,0,'2026-03-11 19:30:31.764555'),(11,'db','backup-db-2026-03-12T01-31-33.sql',100344,'ok',NULL,0,'2026-03-11 19:31:33.742542'),(12,'db','backup-db-2026-03-17T21-00-00.sql',99477,'ok',NULL,0,'2026-03-17 15:00:01.019917'),(13,'excel','backup-excel-2026-03-17T21-00-01.xlsx',8913,'ok',NULL,0,'2026-03-17 15:00:01.198233'),(14,'db','',NULL,'error','mysqldump no encontrado: spawn mysqldump ENOENT',0,'2026-03-18 21:35:53.031179'),(15,'db','',NULL,'error','mysqldump no encontrado: spawn mysqldump ENOENT',0,'2026-03-18 21:36:01.692262'),(16,'excel','backup-excel-2026-03-18T21-36-01.xlsx',8912,'ok',NULL,0,'2026-03-18 21:36:01.788082'),(17,'db','backup-e4-2026-03-19T08-28-24.sql',55821,'ok',NULL,0,'2026-03-19 08:28:24.708574'),(18,'excel','backup-excel-e4-2026-03-19T08-28-24.xlsx',11518,'ok',NULL,0,'2026-03-19 08:28:24.826541');
+INSERT INTO `backup_logs` VALUES (1,'excel','backup-excel-2026-03-11T21-51-24.xlsx',12652,'ok',NULL,0,'2026-03-11 15:51:25.221578'),(2,'excel','backup-excel-2026-03-11T21-51-26.xlsx',12652,'ok',NULL,0,'2026-03-11 15:51:26.946499'),(3,'db','',NULL,'error','mysqldump: mysqldump: [Warning] Using a password on the command line interface can be insecure.\r\nmysqldump: [ERROR] unknown option \'--skip-ssl\'.\r\n',0,'2026-03-11 15:51:29.960952'),(4,'db','',NULL,'error','mysqldump: mysqldump: [Warning] Using a password on the command line interface can be insecure.\r\nmysqldump: [ERROR] unknown option \'--skip-ssl\'.\r\n',0,'2026-03-11 15:51:56.008268'),(5,'excel','backup-excel-2026-03-11T21-51-56.xlsx',12652,'ok',NULL,0,'2026-03-11 15:51:56.130361'),(6,'db','',NULL,'error','mysqldump: mysqldump: [Warning] Using a password on the command line interface can be insecure.\r\nmysqldump: Couldn\'t execute \'FLUSH /*!40101 LOCAL */ TABLES\': Access denied; you need (at least one of) the RELOAD or FLUSH_TABLES privilege(s) for this operation (1227)\r\n',0,'2026-03-11 15:54:07.468288'),(7,'excel','backup-excel-2026-03-11T21-54-12.xlsx',12972,'ok',NULL,0,'2026-03-11 15:54:13.147418'),(8,'db','',NULL,'error','mysqldump: mysqldump: [Warning] Using a password on the command line interface can be insecure.\r\nmysqldump: Couldn\'t execute \'FLUSH /*!40101 LOCAL */ TABLES\': Access denied; you need (at least one of) the RELOAD or FLUSH_TABLES privilege(s) for this operation (1227)\r\n',0,'2026-03-11 15:54:16.401059'),(9,'excel','backup-excel-2026-03-11T21-54-16.xlsx',12972,'ok',NULL,0,'2026-03-11 15:54:16.540582'),(10,'db','backup-db-2026-03-12T01-30-31.sql',100253,'ok',NULL,0,'2026-03-11 19:30:31.764555'),(11,'db','backup-db-2026-03-12T01-31-33.sql',100344,'ok',NULL,0,'2026-03-11 19:31:33.742542'),(12,'db','backup-db-2026-03-17T21-00-00.sql',99477,'ok',NULL,0,'2026-03-17 15:00:01.019917'),(13,'excel','backup-excel-2026-03-17T21-00-01.xlsx',8913,'ok',NULL,0,'2026-03-17 15:00:01.198233'),(14,'db','',NULL,'error','mysqldump no encontrado: spawn mysqldump ENOENT',0,'2026-03-18 21:35:53.031179'),(15,'db','',NULL,'error','mysqldump no encontrado: spawn mysqldump ENOENT',0,'2026-03-18 21:36:01.692262'),(16,'excel','backup-excel-2026-03-18T21-36-01.xlsx',8912,'ok',NULL,0,'2026-03-18 21:36:01.788082'),(17,'db','backup-e4-2026-03-19T08-28-24.sql',55821,'ok',NULL,0,'2026-03-19 08:28:24.708574'),(18,'excel','backup-excel-e4-2026-03-19T08-28-24.xlsx',11518,'ok',NULL,0,'2026-03-19 08:28:24.826541'),(19,'db','backup-tenundefined-2026-03-20T15-00-00.sql',229,'ok',NULL,0,'2026-03-20 15:00:00.031774'),(20,'excel','backup-excel-full-2026-03-20T15-00-00.xlsx',11963,'ok',NULL,0,'2026-03-20 15:00:00.182506');
 /*!40000 ALTER TABLE `backup_logs` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1188,4 +1188,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-03-20  8:59:59
+-- Dump completed on 2026-03-20  9:59:58

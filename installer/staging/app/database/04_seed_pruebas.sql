@@ -1,4 +1,4 @@
--- POS-iaDoS Seed -- exportado VPS 2026-03-20 09:00:05
+-- POS-iaDoS Seed -- exportado VPS 2026-03-20 10:00:03
 USE pos_iados;
 SET SESSION check_constraint_checks=OFF;
 SET FOREIGN_KEY_CHECKS=0;

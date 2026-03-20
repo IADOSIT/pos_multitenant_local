@@ -293,11 +293,13 @@ export class PedidosService {
         );
       }
 
-      pedido.subtotal = data.subtotal;
-      pedido.impuestos = data.impuestos || 0;
-      pedido.total = data.total;
-      if (data.cliente_nombre !== undefined) pedido.cliente_nombre = data.cliente_nombre;
-      await this.pedidosRepo.save(pedido);
+      const updateFields: any = {
+        subtotal: data.subtotal,
+        impuestos: data.impuestos || 0,
+        total: data.total,
+      };
+      if (data.cliente_nombre !== undefined) updateFields.cliente_nombre = data.cliente_nombre;
+      await this.pedidosRepo.update(id, updateFields);
 
       this.logger.log(`Pedido ${pedido.folio} items actualizados - $${data.total}`);
       return this.findOne(id);
