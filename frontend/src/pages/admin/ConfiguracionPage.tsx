@@ -89,6 +89,7 @@ export default function ConfiguracionPage() {
     num_mesas: 20,
     self_order_enabled: false,
     self_order_url: '',
+    habilitar_cuenta_abierta: false,
     // Impresora config
     impresora_modelo: '',
     impresora_ancho: 80,
@@ -167,6 +168,7 @@ export default function ConfiguracionPage() {
       num_mesas: cp.num_mesas || 20,
       self_order_enabled: cp.self_order_enabled || false,
       self_order_url: cp.self_order_url || '',
+      habilitar_cuenta_abierta: cp.habilitar_cuenta_abierta || false,
       impresora_modelo: ci.modelo || '',
       impresora_ancho: ci.ancho || 80,
       impresora_auto_print: ci.auto_print || false,
@@ -190,6 +192,7 @@ export default function ConfiguracionPage() {
           num_mesas: form.num_mesas,
           self_order_enabled: form.self_order_enabled,
           self_order_url: form.self_order_url || undefined,
+          habilitar_cuenta_abierta: form.habilitar_cuenta_abierta,
           iva_enabled: form.iva_enabled,
           iva_porcentaje: form.iva_porcentaje,
           iva_incluido: form.iva_incluido,
@@ -242,7 +245,7 @@ export default function ConfiguracionPage() {
       nombre: '', direccion: '', telefono: '', email: '',
       zona_horaria: 'America/Mexico_City',
       iva_enabled: false, iva_porcentaje: 16, iva_incluido: true,
-      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '',
+      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false,
       impresora_modelo: '', impresora_ancho: 80, impresora_auto_print: false, impresora_copias: 1,
     });
   };
@@ -1160,6 +1163,22 @@ export default function ConfiguracionPage() {
                       <option value="America/Cancun">Cancun (EST)</option>
                       <option value="America/Hermosillo">Hermosillo (MST)</option>
                     </select>
+                  </div>
+
+                  {/* Cuentas Abiertas */}
+                  <div className="border-t border-slate-700 pt-3 mt-3">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.habilitar_cuenta_abierta}
+                        onChange={(e) => setForm({ ...form, habilitar_cuenta_abierta: e.target.checked })}
+                        className="w-5 h-5 accent-iados-primary rounded"
+                      />
+                      <div>
+                        <span className="text-sm font-medium">Habilitar Cuentas Abiertas</span>
+                        <p className="text-xs text-slate-500">Muestra botón "Cuenta" en el carrito para abrir una cuenta sin cobrar</p>
+                      </div>
+                    </label>
                   </div>
 
                   {/* IVA */}

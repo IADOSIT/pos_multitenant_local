@@ -9,6 +9,7 @@ import { Producto, Categoria } from '../../types';
 import toast from 'react-hot-toast';
 import CartPanel from '../../components/pos/CartPanel';
 import PayModal from '../../components/pos/PayModal';
+import AbrirCuentaModal from '../../components/pos/AbrirCuentaModal';
 import { Search, ShoppingBag, Wifi, WifiOff, CreditCard, X, Clock, RefreshCw } from 'lucide-react';
 
 export default function POSPage() {
@@ -21,9 +22,11 @@ export default function POSPage() {
   const [cuentasAbiertas, setCuentasAbiertas] = useState<any[]>([]);
   const [showCuentas, setShowCuentas] = useState(false);
   const [pedidoACobrar, setPedidoACobrar] = useState<any>(null);
+  const [showAbrirCuenta, setShowAbrirCuenta] = useState(false);
+  const [cuentaAbiertaEnabled, setCuentaAbiertaEnabled] = useState(false);
 
   const { user } = useAuthStore();
-  const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, tipoServicio, clearCart } = usePOSStore();
+  const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, setMesaActiva, tipoServicio, clearCart } = usePOSStore();
 
   const loadCuentasAbiertas = useCallback(async () => {
     try {
@@ -62,6 +65,7 @@ export default function POSPage() {
           porcentaje: data.config_pos.iva_porcentaje ?? 16,
           incluido: data.config_pos.iva_incluido ?? true,
         });
+        setCuentaAbiertaEnabled(data.config_pos.habilitar_cuenta_abierta || false);
       }
     } catch {}
   };
@@ -157,6 +161,47 @@ export default function POSPage() {
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Error al enviar pedido');
     }
+  };
+
+  const handleAbrirCuentaDesdeModal = async (mesa: number, cliente: string) => {
+    if (cart.length === 0) return;
+    try {
+      const data = {
+        mesa,
+        cliente_nombre: cliente || undefined,
+        tipo_servicio: tipoServicio,
+        items: cart.map((i) => ({
+          producto_id: i.producto_id,
+          nombre: i.nombre,
+          sku: i.sku,
+          precio: i.precio,
+          cantidad: i.cantidad,
+          descuento: i.descuento,
+          impuesto: i.impuesto,
+          modificadores: i.modificadores,
+          notas: i.notas,
+        })),
+        subtotal: getSubtotal(),
+        impuestos: getImpuestos(),
+        total: getTotal(),
+      };
+      const { data: pedido } = await pedidosApi.crear(data);
+      clearCart();
+      setShowAbrirCuenta(false);
+      setMesaActiva(null);
+      loadCuentasAbiertas();
+      setShowCuentas(true);
+      toast.success(`Mesa ${mesa} — cuenta abierta (${pedido.folio})`);
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Error al abrir cuenta');
+      throw e;
+    }
+  };
+
+  const handleCobrarDesdeCuentaModal = (mesa: number, cliente: string) => {
+    setMesaActiva(mesa);
+    setShowAbrirCuenta(false);
+    setShowPay(true);
   };
 
   const handleCargarAlCarrito = (pedido: any) => {
@@ -316,8 +361,20 @@ export default function POSPage() {
         <CartPanel
           onPay={() => { setShowPay(true); setCartVisible(false); setPedidoACobrar(null); }}
           onEnviarPedido={handleEnviarPedido}
+          onAbrirCuenta={() => { setShowAbrirCuenta(true); setCartVisible(false); }}
+          cuentaAbiertaEnabled={cuentaAbiertaEnabled}
         />
       </div>
+
+      {/* Modal Abrir Cuenta */}
+      {showAbrirCuenta && (
+        <AbrirCuentaModal
+          mesaInicial={mesaActiva}
+          onClose={() => setShowAbrirCuenta(false)}
+          onAbrirCuenta={handleAbrirCuentaDesdeModal}
+          onCobrar={handleCobrarDesdeCuentaModal}
+        />
+      )}
 
       {/* Modal de pago */}
       {showPay && (

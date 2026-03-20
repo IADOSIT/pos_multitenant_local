@@ -1,12 +1,14 @@
 import { usePOSStore } from '../../store/pos.store';
-import { Minus, Plus, Trash2, ShoppingCart, Send } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingCart, Send, BookOpen } from 'lucide-react';
 
 interface Props {
   onPay: () => void;
   onEnviarPedido?: () => void;
+  onAbrirCuenta?: () => void;
+  cuentaAbiertaEnabled?: boolean;
 }
 
-export default function CartPanel({ onPay, onEnviarPedido }: Props) {
+export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuentaAbiertaEnabled }: Props) {
   const { cart, updateQuantity, removeFromCart, clearCart, getSubtotal, getImpuestos, getTotal, cajaActiva, modoServicio, tipoCobro, mesaActiva, setMesaActiva, tipoServicio, setTipoServicio } = usePOSStore();
 
   const isMesa = modoServicio === 'mesa';
@@ -137,13 +139,26 @@ export default function CartPanel({ onPay, onEnviarPedido }: Props) {
               <Send size={20} /> Enviar Pedido
             </button>
           ) : (
-            <button
-              onClick={onPay}
-              disabled={!cajaActiva || (isMesa && !mesaActiva)}
-              className="btn-accent w-full text-lg mt-3 disabled:opacity-50"
-            >
-              Cobrar ${getTotal().toFixed(2)}
-            </button>
+            <div className="flex gap-2 mt-3">
+              {cuentaAbiertaEnabled && onAbrirCuenta && (
+                <button
+                  onClick={onAbrirCuenta}
+                  disabled={cart.length === 0}
+                  className="btn-secondary flex-none flex items-center justify-center gap-1 px-3 disabled:opacity-50"
+                  title="Abrir Cuenta"
+                >
+                  <BookOpen size={18} />
+                  <span className="text-sm">Cuenta</span>
+                </button>
+              )}
+              <button
+                onClick={onPay}
+                disabled={!cajaActiva || (isMesa && !mesaActiva)}
+                className="btn-accent flex-1 text-lg disabled:opacity-50"
+              >
+                Cobrar ${getTotal().toFixed(2)}
+              </button>
+            </div>
           )}
         </div>
       )}

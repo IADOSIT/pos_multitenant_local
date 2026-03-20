@@ -1,0 +1,99 @@
+import { useState } from 'react';
+import { X, BookOpen, CreditCard } from 'lucide-react';
+
+interface Props {
+  mesaInicial?: number | null;
+  onClose: () => void;
+  onAbrirCuenta: (mesa: number, cliente: string) => void;
+  onCobrar: (mesa: number, cliente: string) => void;
+}
+
+export default function AbrirCuentaModal({ mesaInicial, onClose, onAbrirCuenta, onCobrar }: Props) {
+  const [mesa, setMesa] = useState<string>(mesaInicial ? String(mesaInicial) : '');
+  const [cliente, setCliente] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const mesaNum = Number(mesa);
+  const canSubmit = mesaNum > 0;
+
+  const handleAbrirCuenta = async () => {
+    if (!canSubmit) return;
+    setLoading(true);
+    try {
+      await onAbrirCuenta(mesaNum, cliente.trim());
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCobrar = () => {
+    if (!canSubmit) return;
+    onCobrar(mesaNum, cliente.trim());
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="card max-w-sm w-full space-y-5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <BookOpen size={20} className="text-iados-secondary" />
+            Abrir Cuenta
+          </h2>
+          <button onClick={onClose} className="p-2 hover:bg-iados-card rounded-xl">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm text-slate-400 mb-1 block">Mesa <span className="text-red-400">*</span></label>
+            <input
+              type="number"
+              min="1"
+              value={mesa}
+              onChange={(e) => setMesa(e.target.value)}
+              placeholder="Número de mesa"
+              className="input-touch text-center text-2xl font-bold"
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-slate-400 mb-1 block">Cliente <span className="text-slate-500">(opcional)</span></label>
+            <input
+              type="text"
+              value={cliente}
+              onChange={(e) => setCliente(e.target.value)}
+              placeholder="Nombre del cliente"
+              className="input-touch"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2 pt-2">
+          <button
+            onClick={handleAbrirCuenta}
+            disabled={!canSubmit || loading}
+            className="btn-secondary w-full flex items-center justify-center gap-2 text-base disabled:opacity-50"
+          >
+            <BookOpen size={18} />
+            {loading ? 'Abriendo...' : 'Abrir Cuenta (sin cobrar)'}
+          </button>
+
+          <button
+            onClick={handleCobrar}
+            disabled={!canSubmit || loading}
+            className="btn-accent w-full flex items-center justify-center gap-2 text-base disabled:opacity-50"
+          >
+            <CreditCard size={18} />
+            Cobrar Ahora
+          </button>
+
+          <button onClick={onClose} className="w-full py-2 text-sm text-slate-400 hover:text-slate-200">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

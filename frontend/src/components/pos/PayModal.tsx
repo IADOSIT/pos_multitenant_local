@@ -646,14 +646,6 @@ export default function PayModal({ onClose, isOnline, pedido }: Props) {
           {loading ? 'Procesando...' : pedido ? `Cobrar Mesa ${pedido.mesa} — $${total.toFixed(2)}` : `Completar Venta $${total.toFixed(2)}`}
         </button>
 
-        <button
-          onClick={() => handlePay(true)}
-          disabled={!canPay() || loading}
-          className="w-full mt-2 py-3 px-4 rounded-xl border border-iados-secondary/50 text-iados-secondary hover:bg-iados-secondary/10 text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          <ShoppingBag size={16} />
-          Cobrar y mantener cuenta abierta
-        </button>
       </div>
     </div>
   );
