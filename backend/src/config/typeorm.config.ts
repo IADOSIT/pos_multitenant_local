@@ -11,7 +11,7 @@ export const dataSourceOptions: DataSourceOptions = {
   database: process.env.DB_DATABASE || 'pos_iados',
   entities: [__dirname + '/../modules/**/*.entity{.ts,.js}'],
   migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
-  // synchronize = false: usamos init SQL en Docker o migraciones manuales
+  // synchronize: true — TypeORM auto-migra columnas/tablas nuevas en cada arranque
   synchronize: true,
   // En desarrollo: log completo. En producción: solo DDL + errores (visible en logs del instalador)
   logging: process.env.NODE_ENV === 'development' ? true : ['schema', 'warn', 'error'],

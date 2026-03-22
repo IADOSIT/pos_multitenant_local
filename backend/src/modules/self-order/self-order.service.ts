@@ -253,9 +253,9 @@ export class SelfOrderService {
 
   // KPIs para dashboard self-order
   async getKPIs(scope: any, desde?: string, hasta?: string) {
-    const dateFilter = desde && hasta
-      ? `AND p.created_at BETWEEN '${desde}' AND '${hasta} 23:59:59'`
-      : '';
+    const hasDate = !!(desde && hasta);
+    const dateClause = hasDate ? 'AND p.created_at BETWEEN ? AND ?' : '';
+    const dateParams: any[] = hasDate ? [desde, `${hasta} 23:59:59`] : [];
 
     const [stats] = await this.dataSource.query(`
       SELECT
@@ -263,19 +263,21 @@ export class SelfOrderService {
         COUNT(CASE WHEN p.self_order = 1 THEN 1 END) as total_self_order,
         COUNT(CASE WHEN p.venta_id IS NOT NULL THEN 1 END) as pedidos_cobrados,
         COUNT(CASE WHEN p.estado = 'cancelado' THEN 1 END) as pedidos_cancelados,
+        COUNT(CASE WHEN p.estado = 'cancelado' THEN 1 END) as rechazados,
+        SUM(CASE WHEN p.venta_id IS NOT NULL THEN p.total ELSE 0 END) as total_ventas,
         AVG(CASE WHEN p.venta_id IS NOT NULL THEN p.total END) as ticket_promedio,
         AVG(CASE WHEN p.mesero_confirmado = 1 THEN
           TIMESTAMPDIFF(SECOND, p.created_at, p.updated_at) END) as seg_confirmacion_promedio
       FROM pedidos p
-      WHERE p.tienda_id = ? AND p.self_order = 1 ${dateFilter}
-    `, [scope.tienda_id]);
+      WHERE p.tienda_id = ? AND p.self_order = 1 ${dateClause}
+    `, [scope.tienda_id, ...dateParams]);
 
     const porMesa = await this.dataSource.query(`
       SELECT p.mesa, COUNT(*) as total, SUM(CASE WHEN p.venta_id IS NOT NULL THEN p.total ELSE 0 END) as ventas
       FROM pedidos p
-      WHERE p.tienda_id = ? AND p.self_order = 1 ${dateFilter}
+      WHERE p.tienda_id = ? AND p.self_order = 1 ${dateClause}
       GROUP BY p.mesa ORDER BY total DESC LIMIT 10
-    `, [scope.tienda_id]);
+    `, [scope.tienda_id, ...dateParams]);
 
     const porMesero = await this.dataSource.query(`
       SELECT p.mesero_nombre, p.mesero_id,
@@ -284,15 +286,16 @@ export class SelfOrderService {
         AVG(e.calificacion_servicio) as calificacion_promedio
       FROM pedidos p
       LEFT JOIN encuestas_servicio e ON e.pedido_id = p.id AND e.completada = 1
-      WHERE p.tienda_id = ? AND p.self_order = 1 AND p.mesero_id IS NOT NULL ${dateFilter}
+      WHERE p.tienda_id = ? AND p.self_order = 1 AND p.mesero_id IS NOT NULL ${dateClause}
       GROUP BY p.mesero_id, p.mesero_nombre ORDER BY ventas_total DESC
-    `, [scope.tienda_id]);
+    `, [scope.tienda_id, ...dateParams]);
 
     const encuestaKPIs = await this.encuestasService.getKPIs(scope, desde, hasta);
 
+    const encDateClause = hasDate ? 'AND created_at BETWEEN ? AND ?' : '';
     const totalEncuestas = await this.dataSource.query(
-      `SELECT COUNT(*) as total FROM encuestas_servicio WHERE tienda_id = ? ${desde && hasta ? `AND created_at BETWEEN '${desde}' AND '${hasta} 23:59:59'` : ''}`,
-      [scope.tienda_id],
+      `SELECT COUNT(*) as total FROM encuestas_servicio WHERE tienda_id = ? ${encDateClause}`,
+      [scope.tienda_id, ...dateParams],
     );
 
     const tasaEncuestas = totalEncuestas[0]?.total > 0

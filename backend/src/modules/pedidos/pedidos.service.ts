@@ -256,6 +256,11 @@ export class PedidosService {
     };
 
     const venta = await this.ventasService.crear(ventaData, scope);
+
+    // Vincular venta al pedido (igual que cobrar() completo)
+    venta.pedido_id = pedido.id;
+    await this.pedidosRepo.manager.getRepository('Venta').save(venta);
+
     pedido.cuenta_abierta = true;
     await this.pedidosRepo.save(pedido);
 
