@@ -22,7 +22,7 @@
       FRONTEND_URL: http://localhost,http://localhost:8081,https://posapi.iados.online
       APP_VERSION: "2.2.52"
     volumes:
-      - pos_uploads:/app/uploads
+      - ./backend/uploads:/app/uploads
     networks:
       - web_network
 
@@ -39,10 +39,6 @@
       - "8081:80"
     networks:
       - web_network
-
-volumes:
-  pos_uploads:
-    driver: local
 
 networks:
   web_network:
