@@ -18,11 +18,10 @@ async function bootstrap() {
   app.useGlobalGuards(new LicenciaGuard(licService));
 
   // Static assets BEFORE global prefix so /api/uploads works directly
-  // uploads-builtin PRIMERO (seed images horneadas en la imagen Docker, siempre correctas)
-  // uploads volumen SEGUNDO (imágenes subidas por el usuario — UUIDs únicos, no colisionan)
-  // Esto evita que archivos corruptos/stale del volumen tapen las seed images
-  app.useStaticAssets(join(process.cwd(), 'uploads-builtin'), { prefix: '/api/uploads' });
+  // uploads PRIMERO (bind mount del repo en VPS / uploads del usuario) — fuente autoritativa
+  // uploads-builtin SEGUNDO — fallback si el archivo no existe en uploads
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/api/uploads' });
+  app.useStaticAssets(join(process.cwd(), 'uploads-builtin'), { prefix: '/api/uploads' });
   app.setGlobalPrefix('api');
 
   app.enableCors({
