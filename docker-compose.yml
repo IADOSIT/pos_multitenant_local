@@ -20,7 +20,7 @@
       JWT_SECRET: iados_jwt_secret_key_production_2024_cambiar
       JWT_EXPIRES_IN: 8h
       FRONTEND_URL: http://localhost,http://localhost:8081,https://posapi.iados.online
-      APP_VERSION: "2.2.53"
+      APP_VERSION: "2.2.54"
     volumes:
       - ./backend/uploads:/app/uploads
     networks:
