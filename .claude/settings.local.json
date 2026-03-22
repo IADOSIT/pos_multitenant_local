@@ -273,7 +273,8 @@
       "Bash(find /c/sites/pos_multitenant_local/frontend/src -name \"SelfOrder*\" -o -name \"*self-order*\" -o -name \"*selforder*\" 2>/dev/null | grep -i \".tsx\\\\|.ts\")",
       "Bash(powershell.exe -ExecutionPolicy Bypass -Command \"& 'C:/sites/pos_multitenant_local/installer/build-exe.ps1' -Version '2.2.37' -Mode local -RuntimeSource 'v1.0.0' *> 'C:/sites/pos_multitenant_local/installer/build-exe.log'\" 2>&1; echo \"Exit: $?\")",
       "Bash(cd /c/sites/pos_multitenant_local && powershell.exe -ExecutionPolicy Bypass -Command \"& './installer/build-exe.ps1' -Mode local -RuntimeSource 'v1.0.0'\" 2>&1 | head -80)",
-      "Bash(cd /c/sites/pos_multitenant_local/frontend && VITE_API_URL=/api npm run build 2>&1 | tail -5)"
+      "Bash(cd /c/sites/pos_multitenant_local/frontend && VITE_API_URL=/api npm run build 2>&1 | tail -5)",
+      "Bash(find /c/sites/pos_multitenant_local -name \"Dockerfile*\" -o -name \"docker-entrypoint*\" 2>/dev/null | head -10\nls /c/sites/pos_multitenant_local/)"
     ]
   }
 }
