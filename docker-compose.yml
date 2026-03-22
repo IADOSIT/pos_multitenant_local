@@ -37,6 +37,8 @@
     restart: unless-stopped
     ports:
       - "8081:80"
+    volumes:
+      - ./backend/uploads/img:/usr/share/nginx/html/img:ro
     networks:
       - web_network
 
