@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260319-3"
+        CACHE_BUST: "20260322-1"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
@@ -32,13 +32,11 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: /api
+        VITE_API_URL: https://posapi.iados.online/api
     container_name: pos-iados-web
     restart: unless-stopped
     ports:
       - "8081:80"
-    volumes:
-      - ./backend/uploads/img:/usr/share/nginx/html/img:ro
     networks:
       - web_network
 
