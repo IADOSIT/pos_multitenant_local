@@ -34,18 +34,21 @@ done
 echo "[OK] MySQL listo"
 
 # Sincronizar imágenes seed al volumen
-# - img/ se fuerza siempre (seed images: mariscos, logos demo) → garantiza versión fresca
-# - resto usa -n (no clobber) para no sobreescribir uploads del usuario
+# Si uploads/img ya tiene archivos (bind mount activo desde git), NO sobreescribir
+# Si uploads/img está vacío (volumen nombrado recién creado), copiar desde builtin
 if [ -d "/app/uploads-builtin" ]; then
-  echo "[*] Sincronizando imágenes al volumen..."
+  echo "[*] Verificando imágenes..."
   mkdir -p /app/uploads
-  # Fuerza seed images (img/) — sobreescribe stale/corruptas del volumen
-  if [ -d "/app/uploads-builtin/img" ]; then
-    cp -rf /app/uploads-builtin/img /app/uploads/ 2>/dev/null || true
+  IMG_COUNT=$(find /app/uploads/img -type f 2>/dev/null | wc -l)
+  if [ "$IMG_COUNT" -gt "0" ]; then
+    echo "[OK] uploads/img tiene $IMG_COUNT archivos (bind mount activo) — no se sobreescribe"
+    # Solo copiar archivos que NO existen en uploads (sin tocar img/)
+    cp -rn /app/uploads-builtin/. /app/uploads/ 2>/dev/null || true
+  else
+    echo "[*] uploads/img vacío — copiando desde builtin..."
+    cp -rn /app/uploads-builtin/. /app/uploads/ 2>/dev/null || true
+    echo "[OK] Imágenes inicializadas desde builtin"
   fi
-  # Todo lo demás sin sobreescribir (uploads de usuario)
-  cp -rn /app/uploads-builtin/. /app/uploads/ 2>/dev/null || true
-  echo "[OK] Imágenes sincronizadas"
 fi
 
 echo "[*] Iniciando backend..."
