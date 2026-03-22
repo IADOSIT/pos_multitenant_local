@@ -32,7 +32,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: https://posapi.iados.online/api
+        VITE_API_URL: /api
     container_name: pos-iados-web
     restart: unless-stopped
     ports:
