@@ -323,6 +323,7 @@ export default function MantenimientoPage() {
                     <th className="pb-2 pr-4">Fecha</th>
                     <th className="pb-2 pr-4">Tamano</th>
                     <th className="pb-2 pr-4">OneDrive</th>
+                    <th className="pb-2 pr-4">SFTP</th>
                     <th className="pb-2"></th>
                   </tr>
                 </thead>
@@ -344,6 +345,13 @@ export default function MantenimientoPage() {
                         <td className="py-2 pr-4">
                           {log?.onedrive_copiado
                             ? <UploadCloud size={14} className="text-blue-400" />
+                            : <span className="text-slate-600 text-xs">—</span>}
+                        </td>
+                        <td className="py-2 pr-4">
+                          {log?.sftp_subido
+                            ? <UploadCloud size={14} className="text-green-400" title="Subido a SFTP" />
+                            : log?.sftp_error
+                            ? <span className="text-red-400 text-xs" title={log.sftp_error}>!</span>
                             : <span className="text-slate-600 text-xs">—</span>}
                         </td>
                         <td className="py-2">
@@ -725,6 +733,86 @@ export default function MantenimientoPage() {
                 <p className="text-xs text-slate-500 mt-1">
                   La carpeta debe existir. Los archivos se copian despues de cada respaldo. En VPS usa una ruta de volumen montado.
                 </p>
+              </div>
+            )}
+          </div>
+
+          {/* SFTP */}
+          <div className="card space-y-4">
+            <h3 className="font-bold flex items-center gap-2"><UploadCloud size={16} /> Respaldo en la nube (SFTP)</h3>
+            <p className="text-xs text-slate-400">
+              Sube los respaldos automaticamente al servidor SFTP después de cada backup.
+              Los archivos se guardan en el directorio configurado del servidor.
+            </p>
+
+            <label className="flex items-center justify-between">
+              <p className="text-sm font-medium">Activar envío SFTP</p>
+              <button
+                onClick={() => setConfig({ ...config, sftp_enabled: !config.sftp_enabled })}
+                className={`w-12 h-6 rounded-full transition-colors relative ${config.sftp_enabled ? 'bg-iados-primary' : 'bg-slate-600'}`}
+              >
+                <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${config.sftp_enabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
+              </button>
+            </label>
+
+            {config.sftp_enabled && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2">
+                    <label className="text-xs text-slate-400 mb-1 block">Host SFTP</label>
+                    <input
+                      type="text"
+                      value={config.sftp_host || ''}
+                      onChange={(e) => setConfig({ ...config, sftp_host: e.target.value })}
+                      placeholder="sftp.iados.online"
+                      className="input-touch text-sm font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1 block">Puerto</label>
+                    <input
+                      type="number"
+                      value={config.sftp_port || 22}
+                      onChange={(e) => setConfig({ ...config, sftp_port: parseInt(e.target.value) || 22 })}
+                      className="input-touch text-sm font-mono"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1 block">Usuario</label>
+                    <input
+                      type="text"
+                      value={config.sftp_usuario || ''}
+                      onChange={(e) => setConfig({ ...config, sftp_usuario: e.target.value })}
+                      placeholder="admin"
+                      className="input-touch text-sm font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1 block">Contraseña</label>
+                    <input
+                      type="password"
+                      value={config.sftp_password || ''}
+                      onChange={(e) => setConfig({ ...config, sftp_password: e.target.value })}
+                      placeholder="••••••••"
+                      className="input-touch text-sm font-mono"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 mb-1 block">Directorio remoto</label>
+                  <input
+                    type="text"
+                    value={config.sftp_directorio || ''}
+                    onChange={(e) => setConfig({ ...config, sftp_directorio: e.target.value })}
+                    placeholder="/pos-iados/backups"
+                    className="input-touch text-sm font-mono"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Se crea automaticamente si no existe. Usa una subcarpeta exclusiva para esta app.
+                  </p>
+                </div>
               </div>
             )}
           </div>

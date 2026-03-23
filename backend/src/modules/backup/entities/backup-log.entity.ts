@@ -23,6 +23,12 @@ export class BackupLog {
   @Column({ default: false })
   onedrive_copiado: boolean;
 
+  @Column({ default: false })
+  sftp_subido: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  sftp_error: string;
+
   @CreateDateColumn()
   created_at: Date;
 }

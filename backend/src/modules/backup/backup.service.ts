@@ -5,6 +5,8 @@ import { Cron } from '@nestjs/schedule';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as ExcelJS from 'exceljs';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const SftpClient = require('ssh2-sftp-client');
 import { BackupConfig } from './entities/backup-config.entity';
 import { BackupLog } from './entities/backup-log.entity';
 
@@ -317,6 +319,35 @@ export class BackupService implements OnModuleInit {
   }
 
   // ─────────────────────────────────────────────────────────────
+  // SFTP Upload — sube archivo al servidor SFTP configurado
+  // ─────────────────────────────────────────────────────────────
+  private async uploadViaSFTP(config: BackupConfig, localFile: string, filename: string): Promise<void> {
+    const sftp = new SftpClient();
+    try {
+      await sftp.connect({
+        host: config.sftp_host,
+        port: config.sftp_port || 22,
+        username: config.sftp_usuario,
+        password: config.sftp_password,
+        readyTimeout: 20000,
+        retries: 1,
+      });
+
+      const remoteDir = config.sftp_directorio || '/pos-iados/backups';
+      // Asegurar que el directorio remoto existe
+      try {
+        await sftp.mkdir(remoteDir, true);
+      } catch { /* ya existe */ }
+
+      const remotePath = `${remoteDir}/${filename}`;
+      await sftp.put(localFile, remotePath);
+      this.logger.log(`SFTP upload OK: ${remotePath}`);
+    } finally {
+      await sftp.end();
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
   // Ejecutar backup (punto de entrada principal)
   // ─────────────────────────────────────────────────────────────
   async ejecutarBackup(tipo: 'db' | 'excel' | 'completo', user: any = {}, tiendaFilter?: number): Promise<BackupLog[]> {
@@ -352,6 +383,18 @@ export class BackupService implements OnModuleInit {
             log.onedrive_copiado = true;
           } catch (e) {
             this.logger.warn(`Copy to carpeta_destino failed: ${e.message}`);
+          }
+        }
+
+        // Subir a SFTP si está habilitado
+        if (config.sftp_enabled && config.sftp_host && config.sftp_usuario && config.sftp_password) {
+          try {
+            const localPath = path.join(this.backupsDir, result.archivo);
+            await this.uploadViaSFTP(config, localPath, result.archivo);
+            log.sftp_subido = true;
+          } catch (e) {
+            this.logger.warn(`SFTP upload failed: ${e.message}`);
+            log.sftp_error = e.message;
           }
         }
       } catch (e) {

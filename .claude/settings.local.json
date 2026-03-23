@@ -276,7 +276,8 @@
       "Bash(cd /c/sites/pos_multitenant_local/frontend && VITE_API_URL=/api npm run build 2>&1 | tail -5)",
       "Bash(find /c/sites/pos_multitenant_local -name \"Dockerfile*\" -o -name \"docker-entrypoint*\" 2>/dev/null | head -10\nls /c/sites/pos_multitenant_local/)",
       "Bash(ls /c/sites/pos_multitenant_local/frontend/public/img/ 2>/dev/null\nls /c/sites/pos_multitenant_local/frontend/public/img/mariscos213s/ 2>/dev/null | wc -l\nls /c/sites/pos_multitenant_local/backend/uploads/img/mariscos213s/ | wc -l)",
-      "Bash(find /c/sites/pos_multitenant_local/frontend/public/img -name \"*.jpeg\" -o -name \"*.jpg\" -o -name \"*.png\" 2>/dev/null | wc -l\nfind /c/sites/pos_multitenant_local/backend/uploads/img/mariscos213s -name \"*.jpeg\" 2>/dev/null | wc -l)"
+      "Bash(find /c/sites/pos_multitenant_local/frontend/public/img -name \"*.jpeg\" -o -name \"*.jpg\" -o -name \"*.png\" 2>/dev/null | wc -l\nfind /c/sites/pos_multitenant_local/backend/uploads/img/mariscos213s -name \"*.jpeg\" 2>/dev/null | wc -l)",
+      "Bash(find /c/sites/pos_multitenant_local/frontend/src -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" \\\\\\) 2>/dev/null | head -100)"
     ]
   }
 }

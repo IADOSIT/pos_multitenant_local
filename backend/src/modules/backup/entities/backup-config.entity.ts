@@ -26,6 +26,24 @@ export class BackupConfig {
   @Column({ length: 500, nullable: true })
   onedrive_carpeta: string;
 
+  @Column({ default: false })
+  sftp_enabled: boolean;
+
+  @Column({ length: 255, nullable: true, default: 'sftp.iados.online' })
+  sftp_host: string;
+
+  @Column({ type: 'int', nullable: true, default: 22 })
+  sftp_port: number;
+
+  @Column({ length: 100, nullable: true, default: 'admin' })
+  sftp_usuario: string;
+
+  @Column({ length: 255, nullable: true })
+  sftp_password: string;
+
+  @Column({ length: 500, nullable: true, default: '/pos-iados/backups' })
+  sftp_directorio: string;
+
   @Column({ type: 'datetime', nullable: true })
   ultimo_backup_at: Date;
 
