@@ -477,27 +477,59 @@ export class BackupService implements OnModuleInit {
   // ─────────────────────────────────────────────────────────────
   // Test FileBrowser — login + listar directorio
   // ─────────────────────────────────────────────────────────────
-  async testSFTP(): Promise<{ ok: boolean; mensaje: string }> {
+  async testSFTP(): Promise<{ ok: boolean; mensaje: string; detalle?: string }> {
     const config = await this.getConfig();
+
+    // Paso 1: validar que haya config
     if (!config.sftp_host || !config.sftp_usuario || !config.sftp_password) {
-      return { ok: false, mensaje: 'Faltan credenciales: URL, usuario o contraseña' };
+      return {
+        ok: false,
+        mensaje: 'Faltan credenciales',
+        detalle: `sftp_host="${config.sftp_host}" usuario="${config.sftp_usuario}" pass=${config.sftp_password ? '***' : 'VACIO'}`,
+      };
     }
+
+    let base = (config.sftp_host || '').trim().replace(/\/$/, '');
+    if (base && !base.startsWith('http')) base = `https://${base}`;
+    const remoteDir = (config.sftp_directorio || '/pos-iados/backups').replace(/\/$/, '');
+    const loginUrl = `${base}/api/login`;
+
+    // Paso 2: login
+    let token: string;
     try {
-      let base = (config.sftp_host || '').trim().replace(/\/$/, '');
-      if (base && !base.startsWith('http')) base = `https://${base}`;
-      const token = await this.fileBrowserLogin(config);
-      const remoteDir = (config.sftp_directorio || '/pos-iados/backups').replace(/\/$/, '');
-
-      await this.fileBrowserMkdir(base, token, remoteDir);
-
-      const res = await fetch(`${base}/api/resources${remoteDir}/`, {
-        headers: { 'X-Auth': token },
+      const res = await fetch(loginUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: config.sftp_usuario, password: config.sftp_password }),
       });
-      if (!res.ok && res.status !== 404) throw new Error(`No se puede listar ${remoteDir} (${res.status})`);
-      return { ok: true, mensaje: `Conexion exitosa a ${base} — directorio ${remoteDir} listo` };
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        return { ok: false, mensaje: `Login fallido (HTTP ${res.status})`, detalle: `URL: ${loginUrl} | Respuesta: ${body.slice(0, 200)}` };
+      }
+      token = await res.text();
     } catch (e) {
-      return { ok: false, mensaje: `Error: ${e.message}` };
+      return { ok: false, mensaje: `No se pudo conectar al servidor`, detalle: `URL: ${loginUrl} | Error: ${e.message}` };
     }
+
+    // Paso 3: crear directorio
+    try {
+      await this.fileBrowserMkdir(base, token, remoteDir);
+    } catch (e) {
+      return { ok: false, mensaje: `Directorio no accesible`, detalle: `Dir: ${remoteDir} | Error: ${e.message}` };
+    }
+
+    // Paso 4: listar directorio
+    try {
+      const res = await fetch(`${base}/api/resources${remoteDir}/`, { headers: { 'X-Auth': token } });
+      if (!res.ok && res.status !== 404) {
+        return { ok: false, mensaje: `No se puede listar directorio (HTTP ${res.status})`, detalle: `${base}/api/resources${remoteDir}/` };
+      }
+    } catch (e) {
+      return { ok: false, mensaje: `Error listando directorio`, detalle: e.message };
+    }
+
+    this.logger.log(`FileBrowser test OK: ${base} dir=${remoteDir}`);
+    return { ok: true, mensaje: `Conexion exitosa a ${base} — directorio ${remoteDir} listo` };
   }
 
   // ─────────────────────────────────────────────────────────────

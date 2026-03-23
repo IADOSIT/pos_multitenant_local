@@ -42,7 +42,7 @@ export default function MantenimientoPage() {
 
   // SFTP test state
   const [testingFtp, setTestingFtp] = useState(false);
-  const [ftpTestResult, setFtpTestResult] = useState<{ ok: boolean; mensaje: string } | null>(null);
+  const [ftpTestResult, setFtpTestResult] = useState<{ ok: boolean; mensaje: string; detalle?: string } | null>(null);
 
   // Importar desde computadora
   const [localSqlFile, setLocalSqlFile] = useState<File | null>(null);
@@ -899,9 +899,14 @@ export default function MantenimientoPage() {
                       : <><Play size={14} /> Guardar y probar conexion SFTP</>}
                   </button>
                   {ftpTestResult && (
-                    <div className={`flex items-start gap-2 p-3 rounded-xl text-sm ${ftpTestResult.ok ? 'bg-green-900/20 text-green-300' : 'bg-red-900/20 text-red-300'}`}>
-                      {ftpTestResult.ok ? <CheckCircle size={15} className="shrink-0 mt-0.5" /> : <XCircle size={15} className="shrink-0 mt-0.5" />}
-                      {ftpTestResult.mensaje}
+                    <div className={`p-3 rounded-xl text-sm space-y-1 ${ftpTestResult.ok ? 'bg-green-900/20 text-green-300' : 'bg-red-900/20 text-red-300'}`}>
+                      <div className="flex items-start gap-2">
+                        {ftpTestResult.ok ? <CheckCircle size={15} className="shrink-0 mt-0.5" /> : <XCircle size={15} className="shrink-0 mt-0.5" />}
+                        <span className="font-semibold">{ftpTestResult.mensaje}</span>
+                      </div>
+                      {ftpTestResult.detalle && (
+                        <p className="text-xs font-mono opacity-80 pl-5 break-all">{ftpTestResult.detalle}</p>
+                      )}
                     </div>
                   )}
                 </div>
