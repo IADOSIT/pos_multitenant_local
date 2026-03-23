@@ -349,7 +349,7 @@ export default function MantenimientoPage() {
                         </td>
                         <td className="py-2 pr-4">
                           {log?.sftp_subido
-                            ? <UploadCloud size={14} className="text-green-400" title="Subido a SFTP" />
+                            ? <span title="Subido a SFTP"><UploadCloud size={14} className="text-green-400" /></span>
                             : log?.sftp_error
                             ? <span className="text-red-400 text-xs" title={log.sftp_error}>!</span>
                             : <span className="text-slate-600 text-xs">—</span>}
