@@ -508,7 +508,9 @@ export class BackupService implements OnModuleInit {
       }
       token = await res.text();
     } catch (e) {
-      return { ok: false, mensaje: `No se pudo conectar al servidor`, detalle: `URL: ${loginUrl} | Error: ${e.message}` };
+      const cause = (e as any)?.cause;
+      const causeMsg = cause ? ` | Causa: ${cause.code || cause.message || JSON.stringify(cause)}` : '';
+      return { ok: false, mensaje: `No se pudo conectar al servidor FileBrowser`, detalle: `URL: ${loginUrl} | Error: ${e.message}${causeMsg}` };
     }
 
     // Paso 3: crear directorio

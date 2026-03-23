@@ -171,7 +171,9 @@ export default function MantenimientoPage() {
       const { data } = await backupApi.testSftp();
       setFtpTestResult(data);
     } catch (e: any) {
-      setFtpTestResult({ ok: false, mensaje: e.response?.data?.message || 'Error de conexion' });
+      const status = e.response?.status;
+      const msg = e.response?.data?.message || e.response?.data?.error || e.message || 'Sin respuesta del servidor';
+      setFtpTestResult({ ok: false, mensaje: `Error HTTP ${status || '?'}: ${msg}`, detalle: e.response?.data ? JSON.stringify(e.response.data).slice(0, 300) : undefined });
     } finally {
       setTestingFtp(false);
     }
@@ -890,7 +892,7 @@ export default function MantenimientoPage() {
                 {/* Boton probar conexion */}
                 <div className="pt-2 border-t border-slate-700 space-y-2">
                   <button
-                    onClick={async () => { await handleSaveConfig(); handleTestFtp(); }}
+                    onClick={async () => { await handleSaveConfig(); await handleTestFtp(); }}
                     disabled={testingFtp}
                     className="w-full py-2.5 rounded-xl text-sm font-semibold border border-blue-600 text-blue-300 hover:bg-blue-900/30 disabled:opacity-50 flex items-center justify-center gap-2"
                   >
