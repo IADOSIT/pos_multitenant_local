@@ -418,6 +418,7 @@ export class BackupService implements OnModuleInit {
         port: config.sftp_port || 22,
         username: config.sftp_usuario,
         password: config.sftp_password,
+        tryKeyboard: true,
         readyTimeout: 20000,
         retries: 1,
       });
@@ -451,6 +452,7 @@ export class BackupService implements OnModuleInit {
         port: config.sftp_port || 22,
         username: config.sftp_usuario,
         password: config.sftp_password,
+        tryKeyboard: true,
         readyTimeout: 15000,
         retries: 0,
       });
