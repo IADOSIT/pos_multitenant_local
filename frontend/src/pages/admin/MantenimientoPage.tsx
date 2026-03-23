@@ -282,7 +282,7 @@ export default function MantenimientoPage() {
             {running === 'db' ? <RefreshCw size={18} className="animate-spin" /> : <Database size={18} />}
             <div className="text-left">
               <p className="font-semibold text-sm">Respaldo BD</p>
-              <p className="text-xs text-slate-400">Ventas, pedidos, catálogo</p>
+              <p className="text-xs text-slate-400">Config + catálogo + operacional</p>
             </div>
           </button>
 
@@ -310,6 +310,9 @@ export default function MantenimientoPage() {
             </div>
           </button>
         </div>
+        <p className="text-xs text-slate-500 mt-3">
+          El Respaldo BD incluye todas las tablas de la tienda: configuracion (cajas, mesas, tickets, pasarelas, menu digital), catalogo (categorias, productos) y operacional (ventas, pedidos, movimientos, encuestas).
+        </p>
       </div>
 
       {/* Tabs */}

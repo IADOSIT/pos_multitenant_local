@@ -148,7 +148,8 @@ export class BackupService implements OnModuleInit {
   // Nombre del archivo = nombre de la tienda + fecha
   // ─────────────────────────────────────────────────────────────
   private async realizarBackupSQL(scope: BackupScope, tiendaFilter?: number): Promise<{ archivo: string; tamano: number }> {
-    const tid = tiendaFilter;
+    // Fallback: si no hay filtro explícito, usar la tienda del usuario autenticado
+    const tid = tiendaFilter ?? scope.tienda_id;
     const eid = scope.empresa_id;
 
     // Resolver nombre de tienda/empresa para el filename
@@ -230,7 +231,24 @@ export class BackupService implements OnModuleInit {
         [tid], `pedido_id IN (SELECT id FROM pedidos WHERE tienda_id = ${tid})`));
 
     } else if (eid) {
-      // Sin tienda específica — catálogo + operacional de toda la empresa
+      // Empresa completa — todas las tiendas con config + catálogo + operacional
+      parts.push(await this.dumpDeleteInsert('tiendas',
+        'SELECT * FROM tiendas WHERE empresa_id = ?', [eid], `empresa_id = ${eid}`));
+      parts.push(await this.dumpDeleteInsert('cajas',
+        'SELECT c.* FROM cajas c JOIN tiendas t ON c.tienda_id = t.id WHERE t.empresa_id = ?',
+        [eid], `tienda_id IN (SELECT id FROM tiendas WHERE empresa_id = ${eid})`));
+      parts.push(await this.dumpDeleteInsert('mesas',
+        'SELECT m.* FROM mesas m JOIN tiendas t ON m.tienda_id = t.id WHERE t.empresa_id = ?',
+        [eid], `tienda_id IN (SELECT id FROM tiendas WHERE empresa_id = ${eid})`));
+      parts.push(await this.dumpDeleteInsert('ticket_configs',
+        'SELECT tc.* FROM ticket_configs tc JOIN tiendas t ON tc.tienda_id = t.id WHERE t.empresa_id = ?',
+        [eid], `tienda_id IN (SELECT id FROM tiendas WHERE empresa_id = ${eid})`));
+      parts.push(await this.dumpDeleteInsert('gateway_configs',
+        'SELECT gc.* FROM gateway_configs gc JOIN tiendas t ON gc.tienda_id = t.id WHERE t.empresa_id = ?',
+        [eid], `tienda_id IN (SELECT id FROM tiendas WHERE empresa_id = ${eid})`));
+      parts.push(await this.dumpDeleteInsert('menu_digital_config',
+        'SELECT mc.* FROM menu_digital_config mc JOIN tiendas t ON mc.tienda_id = t.id WHERE t.empresa_id = ?',
+        [eid], `tienda_id IN (SELECT id FROM tiendas WHERE empresa_id = ${eid})`));
       parts.push(await this.dumpDeleteInsert('categorias',
         'SELECT * FROM categorias WHERE empresa_id = ?', [eid], `empresa_id = ${eid}`));
       parts.push(await this.dumpDeleteInsert('productos',
@@ -243,22 +261,25 @@ export class BackupService implements OnModuleInit {
         [eid], `tienda_id IN (SELECT id FROM tiendas WHERE empresa_id = ${eid})`));
       parts.push(await this.dumpDeleteInsert('venta_detalles',
         'SELECT d.* FROM venta_detalles d JOIN ventas v ON d.venta_id = v.id JOIN tiendas t ON v.tienda_id = t.id WHERE t.empresa_id = ?',
-        [eid], `venta_id IN (SELECT id FROM ventas v JOIN tiendas t ON v.tienda_id = t.id WHERE t.empresa_id = ${eid})`));
+        [eid], `venta_id IN (SELECT id FROM ventas v2 JOIN tiendas t ON v2.tienda_id = t.id WHERE t.empresa_id = ${eid})`));
       parts.push(await this.dumpDeleteInsert('venta_pagos',
         'SELECT p.* FROM venta_pagos p JOIN ventas v ON p.venta_id = v.id JOIN tiendas t ON v.tienda_id = t.id WHERE t.empresa_id = ?',
-        [eid], `venta_id IN (SELECT id FROM ventas v JOIN tiendas t ON v.tienda_id = t.id WHERE t.empresa_id = ${eid})`));
+        [eid], `venta_id IN (SELECT id FROM ventas v2 JOIN tiendas t ON v2.tienda_id = t.id WHERE t.empresa_id = ${eid})`));
       parts.push(await this.dumpDeleteInsert('pedidos',
         'SELECT p.* FROM pedidos p JOIN tiendas t ON p.tienda_id = t.id WHERE t.empresa_id = ?',
         [eid], `tienda_id IN (SELECT id FROM tiendas WHERE empresa_id = ${eid})`));
       parts.push(await this.dumpDeleteInsert('pedido_detalles',
         'SELECT d.* FROM pedido_detalles d JOIN pedidos p ON d.pedido_id = p.id JOIN tiendas t ON p.tienda_id = t.id WHERE t.empresa_id = ?',
-        [eid], `pedido_id IN (SELECT id FROM pedidos p JOIN tiendas t ON p.tienda_id = t.id WHERE t.empresa_id = ${eid})`));
+        [eid], `pedido_id IN (SELECT id FROM pedidos p2 JOIN tiendas t ON p2.tienda_id = t.id WHERE t.empresa_id = ${eid})`));
       parts.push(await this.dumpDeleteInsert('movimientos_caja',
         'SELECT mc.* FROM movimientos_caja mc JOIN cajas c ON mc.caja_id = c.id JOIN tiendas t ON c.tienda_id = t.id WHERE t.empresa_id = ?',
-        [eid], `caja_id IN (SELECT id FROM cajas c JOIN tiendas t ON c.tienda_id = t.id WHERE t.empresa_id = ${eid})`));
+        [eid], `caja_id IN (SELECT id FROM cajas c2 JOIN tiendas t ON c2.tienda_id = t.id WHERE t.empresa_id = ${eid})`));
       parts.push(await this.dumpDeleteInsert('movimientos_inventario',
         'SELECT mi.* FROM movimientos_inventario mi JOIN tiendas t ON mi.tienda_id = t.id WHERE t.empresa_id = ?',
         [eid], `tienda_id IN (SELECT id FROM tiendas WHERE empresa_id = ${eid})`));
+      parts.push(await this.dumpDeleteInsert('encuestas_servicio',
+        'SELECT es.* FROM encuestas_servicio es JOIN pedidos p ON es.pedido_id = p.id JOIN tiendas t ON p.tienda_id = t.id WHERE t.empresa_id = ?',
+        [eid], `pedido_id IN (SELECT id FROM pedidos p2 JOIN tiendas t ON p2.tienda_id = t.id WHERE t.empresa_id = ${eid})`));
     }
 
     parts.push('SET FOREIGN_KEY_CHECKS = 1;');
