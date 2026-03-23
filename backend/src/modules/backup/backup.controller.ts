@@ -53,6 +53,16 @@ export class BackupController {
     return this.backupService.deleteLog(id);
   }
 
+  @Post('test-sftp')
+  testSFTP() {
+    return this.backupService.testSFTP();
+  }
+
+  @Post('validar')
+  validar(@Body() body: { filename: string }) {
+    return this.backupService.validarBackup(body.filename);
+  }
+
   @Post('restaurar')
   restaurar(@Body() body: { filename: string }) {
     return this.backupService.restaurarBackup(body.filename);

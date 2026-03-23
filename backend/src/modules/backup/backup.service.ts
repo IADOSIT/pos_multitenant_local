@@ -104,76 +104,165 @@ export class BackupService implements OnModuleInit {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // SQL Backup puro Node.js — sin mysqldump
-  // Funciona en VPS Docker, local dev y EXE offline
+  // Helpers: sanitize nombre para filename, DELETE+INSERT dump
+  // ─────────────────────────────────────────────────────────────
+  private sanitizeName(name: string): string {
+    return name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9\s-]/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .slice(0, 40);
+  }
+
+  private async dumpDeleteInsert(
+    table: string,
+    selectSql: string,
+    params: any[],
+    deleteWhere: string,
+  ): Promise<string> {
+    try {
+      const rows = await this.dataSource.query(selectSql, params);
+      if (!rows.length) return `-- ${table}: sin datos\n\n`;
+      const cols = Object.keys(rows[0]).map((k) => `\`${k}\``).join(', ');
+      const inserts = rows.map((r) => {
+        const vals = Object.values(r).map((v) => this.escape(v)).join(', ');
+        return `INSERT INTO \`${table}\` (${cols}) VALUES (${vals});`;
+      });
+      return [
+        `-- === ${table}: ${rows.length} filas ===`,
+        `DELETE FROM \`${table}\` WHERE ${deleteWhere};`,
+        ...inserts,
+        '',
+        '',
+      ].join('\n');
+    } catch (e) {
+      this.logger.warn(`Backup skip ${table}: ${e.message}`);
+      return `-- ${table}: omitida (${e.message})\n\n`;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // SQL Backup completo por tienda (DELETE + INSERT)
+  // Nombre del archivo = nombre de la tienda + fecha
   // ─────────────────────────────────────────────────────────────
   private async realizarBackupSQL(scope: BackupScope, tiendaFilter?: number): Promise<{ archivo: string; tamano: number }> {
+    const tid = tiendaFilter;
+    const eid = scope.empresa_id;
+
+    // Resolver nombre de tienda/empresa para el filename
+    let label = 'backup';
+    let empresaId = eid;
+
+    if (tid) {
+      const [t] = await this.dataSource.query(
+        'SELECT nombre, empresa_id FROM tiendas WHERE id = ?', [tid],
+      );
+      if (t) { label = this.sanitizeName(t.nombre); empresaId = t.empresa_id; }
+    } else if (eid) {
+      const [e] = await this.dataSource.query('SELECT nombre FROM empresas WHERE id = ?', [eid]);
+      if (e) label = this.sanitizeName(e.nombre);
+    }
+
     const fecha = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const scopeLabel = tiendaFilter
-      ? `t${tiendaFilter}`
-      : scope.empresa_id
-      ? `e${scope.empresa_id}`
-      : `ten${scope.tenant_id}`;
-    const filename = `backup-${scopeLabel}-${fecha}.sql`;
+    const filename = `${label}-${fecha}.sql`;
     const filepath = path.join(this.backupsDir, filename);
 
     const parts: string[] = [
-      '-- POS-iaDoS Backup SQL (generado sin mysqldump)',
-      `-- Fecha: ${new Date().toISOString()}`,
-      `-- Empresa: ${scope.empresa_id ?? 'todas'} | Tienda filtro: ${tiendaFilter ?? 'todas'}`,
+      '-- POS-iaDoS Backup Completo (DELETE + INSERT)',
+      `-- TIENDA: ${label}`,
+      `-- TIENDA_ID: ${tid ?? 'null'}`,
+      `-- EMPRESA_ID: ${empresaId ?? 'null'}`,
+      `-- TENANT_ID: ${scope.tenant_id ?? 'null'}`,
+      `-- FECHA: ${new Date().toISOString()}`,
       '',
       'SET NAMES utf8mb4;',
       'SET FOREIGN_KEY_CHECKS = 0;',
       '',
     ];
 
-    const eid = scope.empresa_id;
-    const tid = tiendaFilter;
+    if (tid && empresaId) {
+      // ── Config de la tienda ────────────────────────────────
+      parts.push(await this.dumpDeleteInsert('tiendas',
+        'SELECT * FROM tiendas WHERE id = ?', [tid], `id = ${tid}`));
+      parts.push(await this.dumpDeleteInsert('cajas',
+        'SELECT * FROM cajas WHERE tienda_id = ?', [tid], `tienda_id = ${tid}`));
+      parts.push(await this.dumpDeleteInsert('mesas',
+        'SELECT * FROM mesas WHERE tienda_id = ?', [tid], `tienda_id = ${tid}`));
+      parts.push(await this.dumpDeleteInsert('ticket_configs',
+        'SELECT * FROM ticket_configs WHERE tienda_id = ?', [tid], `tienda_id = ${tid}`));
+      parts.push(await this.dumpDeleteInsert('gateway_configs',
+        'SELECT * FROM gateway_configs WHERE tienda_id = ?', [tid], `tienda_id = ${tid}`));
+      parts.push(await this.dumpDeleteInsert('menu_digital_config',
+        'SELECT * FROM menu_digital_config WHERE tienda_id = ?', [tid], `tienda_id = ${tid}`));
 
-    // ── Operacional: ventas ─────────────────────────────────────
-    if (tid) {
-      parts.push(await this.dumpTable('ventas',
-        'SELECT * FROM ventas WHERE tienda_id = ?', [tid]));
-      parts.push(await this.dumpTable('venta_detalles',
-        'SELECT d.* FROM venta_detalles d JOIN ventas v ON d.venta_id = v.id WHERE v.tienda_id = ?', [tid]));
-      parts.push(await this.dumpTable('venta_pagos',
-        'SELECT p.* FROM venta_pagos p JOIN ventas v ON p.venta_id = v.id WHERE v.tienda_id = ?', [tid]));
-      parts.push(await this.dumpTable('pedidos',
-        'SELECT * FROM pedidos WHERE tienda_id = ?', [tid]));
-      parts.push(await this.dumpTable('pedido_detalles',
-        'SELECT d.* FROM pedido_detalles d JOIN pedidos p ON d.pedido_id = p.id WHERE p.tienda_id = ?', [tid]));
-      parts.push(await this.dumpTable('movimientos_caja',
-        'SELECT mc.* FROM movimientos_caja mc JOIN cajas c ON mc.caja_id = c.id WHERE c.tienda_id = ?', [tid]));
-      parts.push(await this.dumpTable('movimientos_inventario',
-        'SELECT * FROM movimientos_inventario WHERE tienda_id = ?', [tid]));
+      // ── Catálogo de la empresa ─────────────────────────────
+      parts.push(await this.dumpDeleteInsert('categorias',
+        'SELECT * FROM categorias WHERE empresa_id = ?', [empresaId], `empresa_id = ${empresaId}`));
+      parts.push(await this.dumpDeleteInsert('productos',
+        'SELECT * FROM productos WHERE empresa_id = ?', [empresaId], `empresa_id = ${empresaId}`));
+      parts.push(await this.dumpDeleteInsert('producto_tienda',
+        'SELECT pt.* FROM producto_tienda pt JOIN productos p ON pt.producto_id = p.id WHERE p.empresa_id = ?',
+        [empresaId], `producto_id IN (SELECT id FROM productos WHERE empresa_id = ${empresaId})`));
+
+      // ── Operacional ────────────────────────────────────────
+      parts.push(await this.dumpDeleteInsert('ventas',
+        'SELECT * FROM ventas WHERE tienda_id = ?', [tid], `tienda_id = ${tid}`));
+      parts.push(await this.dumpDeleteInsert('venta_detalles',
+        'SELECT d.* FROM venta_detalles d JOIN ventas v ON d.venta_id = v.id WHERE v.tienda_id = ?',
+        [tid], `venta_id IN (SELECT id FROM ventas WHERE tienda_id = ${tid})`));
+      parts.push(await this.dumpDeleteInsert('venta_pagos',
+        'SELECT p.* FROM venta_pagos p JOIN ventas v ON p.venta_id = v.id WHERE v.tienda_id = ?',
+        [tid], `venta_id IN (SELECT id FROM ventas WHERE tienda_id = ${tid})`));
+      parts.push(await this.dumpDeleteInsert('pedidos',
+        'SELECT * FROM pedidos WHERE tienda_id = ?', [tid], `tienda_id = ${tid}`));
+      parts.push(await this.dumpDeleteInsert('pedido_detalles',
+        'SELECT d.* FROM pedido_detalles d JOIN pedidos p ON d.pedido_id = p.id WHERE p.tienda_id = ?',
+        [tid], `pedido_id IN (SELECT id FROM pedidos WHERE tienda_id = ${tid})`));
+      parts.push(await this.dumpDeleteInsert('movimientos_caja',
+        'SELECT mc.* FROM movimientos_caja mc JOIN cajas c ON mc.caja_id = c.id WHERE c.tienda_id = ?',
+        [tid], `caja_id IN (SELECT id FROM cajas WHERE tienda_id = ${tid})`));
+      parts.push(await this.dumpDeleteInsert('movimientos_inventario',
+        'SELECT * FROM movimientos_inventario WHERE tienda_id = ?', [tid], `tienda_id = ${tid}`));
+      parts.push(await this.dumpDeleteInsert('encuestas_servicio',
+        'SELECT es.* FROM encuestas_servicio es JOIN pedidos p ON es.pedido_id = p.id WHERE p.tienda_id = ?',
+        [tid], `pedido_id IN (SELECT id FROM pedidos WHERE tienda_id = ${tid})`));
+
     } else if (eid) {
-      // Todas las tiendas de la empresa
-      parts.push(await this.dumpTable('ventas',
-        'SELECT v.* FROM ventas v JOIN tiendas t ON v.tienda_id = t.id WHERE t.empresa_id = ?', [eid]));
-      parts.push(await this.dumpTable('venta_detalles',
-        'SELECT d.* FROM venta_detalles d JOIN ventas v ON d.venta_id = v.id JOIN tiendas t ON v.tienda_id = t.id WHERE t.empresa_id = ?', [eid]));
-      parts.push(await this.dumpTable('venta_pagos',
-        'SELECT p.* FROM venta_pagos p JOIN ventas v ON p.venta_id = v.id JOIN tiendas t ON v.tienda_id = t.id WHERE t.empresa_id = ?', [eid]));
-      parts.push(await this.dumpTable('pedidos',
-        'SELECT p.* FROM pedidos p JOIN tiendas t ON p.tienda_id = t.id WHERE t.empresa_id = ?', [eid]));
-      parts.push(await this.dumpTable('pedido_detalles',
-        'SELECT d.* FROM pedido_detalles d JOIN pedidos p ON d.pedido_id = p.id JOIN tiendas t ON p.tienda_id = t.id WHERE t.empresa_id = ?', [eid]));
-      parts.push(await this.dumpTable('movimientos_caja',
-        'SELECT mc.* FROM movimientos_caja mc JOIN cajas c ON mc.caja_id = c.id JOIN tiendas t ON c.tienda_id = t.id WHERE t.empresa_id = ?', [eid]));
-      parts.push(await this.dumpTable('movimientos_inventario',
-        'SELECT mi.* FROM movimientos_inventario mi JOIN tiendas t ON mi.tienda_id = t.id WHERE t.empresa_id = ?', [eid]));
-
-      // ── Catálogo de la empresa ──────────────────────────────
-      parts.push(await this.dumpTable('categorias',
-        'SELECT * FROM categorias WHERE empresa_id = ?', [eid]));
-      parts.push(await this.dumpTable('productos',
-        'SELECT * FROM productos WHERE empresa_id = ?', [eid]));
-      parts.push(await this.dumpTable('producto_tienda',
-        'SELECT pt.* FROM producto_tienda pt JOIN productos p ON pt.producto_id = p.id WHERE p.empresa_id = ?', [eid]));
+      // Sin tienda específica — catálogo + operacional de toda la empresa
+      parts.push(await this.dumpDeleteInsert('categorias',
+        'SELECT * FROM categorias WHERE empresa_id = ?', [eid], `empresa_id = ${eid}`));
+      parts.push(await this.dumpDeleteInsert('productos',
+        'SELECT * FROM productos WHERE empresa_id = ?', [eid], `empresa_id = ${eid}`));
+      parts.push(await this.dumpDeleteInsert('producto_tienda',
+        'SELECT pt.* FROM producto_tienda pt JOIN productos p ON pt.producto_id = p.id WHERE p.empresa_id = ?',
+        [eid], `producto_id IN (SELECT id FROM productos WHERE empresa_id = ${eid})`));
+      parts.push(await this.dumpDeleteInsert('ventas',
+        'SELECT v.* FROM ventas v JOIN tiendas t ON v.tienda_id = t.id WHERE t.empresa_id = ?',
+        [eid], `tienda_id IN (SELECT id FROM tiendas WHERE empresa_id = ${eid})`));
+      parts.push(await this.dumpDeleteInsert('venta_detalles',
+        'SELECT d.* FROM venta_detalles d JOIN ventas v ON d.venta_id = v.id JOIN tiendas t ON v.tienda_id = t.id WHERE t.empresa_id = ?',
+        [eid], `venta_id IN (SELECT id FROM ventas v JOIN tiendas t ON v.tienda_id = t.id WHERE t.empresa_id = ${eid})`));
+      parts.push(await this.dumpDeleteInsert('venta_pagos',
+        'SELECT p.* FROM venta_pagos p JOIN ventas v ON p.venta_id = v.id JOIN tiendas t ON v.tienda_id = t.id WHERE t.empresa_id = ?',
+        [eid], `venta_id IN (SELECT id FROM ventas v JOIN tiendas t ON v.tienda_id = t.id WHERE t.empresa_id = ${eid})`));
+      parts.push(await this.dumpDeleteInsert('pedidos',
+        'SELECT p.* FROM pedidos p JOIN tiendas t ON p.tienda_id = t.id WHERE t.empresa_id = ?',
+        [eid], `tienda_id IN (SELECT id FROM tiendas WHERE empresa_id = ${eid})`));
+      parts.push(await this.dumpDeleteInsert('pedido_detalles',
+        'SELECT d.* FROM pedido_detalles d JOIN pedidos p ON d.pedido_id = p.id JOIN tiendas t ON p.tienda_id = t.id WHERE t.empresa_id = ?',
+        [eid], `pedido_id IN (SELECT id FROM pedidos p JOIN tiendas t ON p.tienda_id = t.id WHERE t.empresa_id = ${eid})`));
+      parts.push(await this.dumpDeleteInsert('movimientos_caja',
+        'SELECT mc.* FROM movimientos_caja mc JOIN cajas c ON mc.caja_id = c.id JOIN tiendas t ON c.tienda_id = t.id WHERE t.empresa_id = ?',
+        [eid], `caja_id IN (SELECT id FROM cajas c JOIN tiendas t ON c.tienda_id = t.id WHERE t.empresa_id = ${eid})`));
+      parts.push(await this.dumpDeleteInsert('movimientos_inventario',
+        'SELECT mi.* FROM movimientos_inventario mi JOIN tiendas t ON mi.tienda_id = t.id WHERE t.empresa_id = ?',
+        [eid], `tienda_id IN (SELECT id FROM tiendas WHERE empresa_id = ${eid})`));
     }
 
     parts.push('SET FOREIGN_KEY_CHECKS = 1;');
-    parts.push('-- Fin del backup POS-iaDoS');
+    parts.push('-- FIN DEL BACKUP POS-iaDoS');
 
     fs.writeFileSync(filepath, parts.join('\n'), 'utf8');
     const stats = fs.statSync(filepath);
@@ -345,6 +434,79 @@ export class BackupService implements OnModuleInit {
     } finally {
       await sftp.end();
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Test SFTP — verifica conexión y acceso al directorio
+  // ─────────────────────────────────────────────────────────────
+  async testSFTP(): Promise<{ ok: boolean; mensaje: string }> {
+    const config = await this.getConfig();
+    if (!config.sftp_host || !config.sftp_usuario || !config.sftp_password) {
+      return { ok: false, mensaje: 'Faltan credenciales: host, usuario o contraseña' };
+    }
+    const sftp = new SftpClient();
+    try {
+      await sftp.connect({
+        host: config.sftp_host,
+        port: config.sftp_port || 22,
+        username: config.sftp_usuario,
+        password: config.sftp_password,
+        readyTimeout: 15000,
+        retries: 0,
+      });
+      const remoteDir = config.sftp_directorio || '/pos-iados/backups';
+      try { await sftp.mkdir(remoteDir, true); } catch { /* ya existe */ }
+      await sftp.list(remoteDir);
+      return { ok: true, mensaje: `Conexion exitosa a ${config.sftp_host} — directorio ${remoteDir} accesible` };
+    } catch (e) {
+      return { ok: false, mensaje: `Error: ${e.message}` };
+    } finally {
+      try { await sftp.end(); } catch { /* ignorar */ }
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Validar backup antes de restaurar
+  // Verifica: archivo legible, metadatos, BD accesible, tienda existe
+  // ─────────────────────────────────────────────────────────────
+  async validarBackup(filename: string): Promise<{ ok: boolean; info: any; error?: string }> {
+    const safe = path.basename(filename);
+    if (!safe.endsWith('.sql')) return { ok: false, info: null, error: 'Solo archivos .sql' };
+    const filepath = path.join(this.backupsDir, safe);
+    if (!fs.existsSync(filepath)) return { ok: false, info: null, error: 'Archivo no encontrado' };
+
+    const content = fs.readFileSync(filepath, 'utf8');
+    const lines = content.split('\n').slice(0, 10);
+    const meta: any = { archivo: safe };
+    for (const line of lines) {
+      const m1 = line.match(/^-- TIENDA: (.+)$/);       if (m1) meta.tienda_nombre = m1[1].trim();
+      const m2 = line.match(/^-- TIENDA_ID: (.+)$/);    if (m2) meta.tienda_id = m2[1].trim();
+      const m3 = line.match(/^-- EMPRESA_ID: (.+)$/);   if (m3) meta.empresa_id = m3[1].trim();
+      const m4 = line.match(/^-- FECHA: (.+)$/);        if (m4) meta.fecha_backup = m4[1].trim();
+    }
+    meta.total_inserts = (content.match(/^INSERT INTO/gm) || []).length;
+    meta.total_deletes = (content.match(/^DELETE FROM/gm) || []).length;
+    meta.tamano_bytes = fs.statSync(filepath).size;
+
+    // Verificar BD accesible
+    try {
+      await this.dataSource.query('SELECT 1');
+      meta.db_ok = true;
+    } catch {
+      return { ok: false, info: meta, error: 'No se puede conectar a la base de datos' };
+    }
+
+    // Verificar que la tienda existe en la BD actual
+    if (meta.tienda_id && meta.tienda_id !== 'null') {
+      try {
+        const [t] = await this.dataSource.query(
+          'SELECT nombre FROM tiendas WHERE id = ?', [parseInt(meta.tienda_id)],
+        );
+        meta.tienda_actual = t?.nombre || '⚠️ Tienda no encontrada en BD actual';
+      } catch { meta.tienda_actual = 'Error verificando tienda'; }
+    }
+
+    return { ok: true, info: meta };
   }
 
   // ─────────────────────────────────────────────────────────────

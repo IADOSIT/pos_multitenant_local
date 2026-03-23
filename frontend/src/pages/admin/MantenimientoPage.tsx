@@ -37,6 +37,12 @@ export default function MantenimientoPage() {
   const [selectedSqlFile, setSelectedSqlFile] = useState<string | null>(null);
   const [restaurarConfirmText, setRestaurarConfirmText] = useState('');
   const [restaurando, setRestaurando] = useState(false);
+  const [validandoBK, setValidandoBK] = useState(false);
+  const [validacionInfo, setValidacionInfo] = useState<any>(null);
+
+  // SFTP test state
+  const [testingFtp, setTestingFtp] = useState(false);
+  const [ftpTestResult, setFtpTestResult] = useState<{ ok: boolean; mensaje: string } | null>(null);
 
   // Importar desde computadora
   const [localSqlFile, setLocalSqlFile] = useState<File | null>(null);
@@ -143,6 +149,34 @@ export default function MantenimientoPage() {
     }
   };
 
+  const handleSelectSqlFile = async (filename: string) => {
+    setSelectedSqlFile(filename);
+    setRestaurarConfirmText('');
+    setValidacionInfo(null);
+    setValidandoBK(true);
+    try {
+      const { data } = await backupApi.validar(filename);
+      setValidacionInfo(data);
+    } catch {
+      setValidacionInfo({ ok: false, error: 'No se pudo validar el archivo' });
+    } finally {
+      setValidandoBK(false);
+    }
+  };
+
+  const handleTestFtp = async () => {
+    setTestingFtp(true);
+    setFtpTestResult(null);
+    try {
+      const { data } = await backupApi.testSftp();
+      setFtpTestResult(data);
+    } catch (e: any) {
+      setFtpTestResult({ ok: false, mensaje: e.response?.data?.message || 'Error de conexion' });
+    } finally {
+      setTestingFtp(false);
+    }
+  };
+
   const handleRestaurar = async () => {
     if (!selectedSqlFile || restaurarConfirmText !== 'RESTAURAR') return;
     setRestaurando(true);
@@ -151,6 +185,7 @@ export default function MantenimientoPage() {
       toast.success(data.mensaje || 'Base de datos restaurada correctamente');
       setRestaurarConfirmText('');
       setSelectedSqlFile(null);
+      setValidacionInfo(null);
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Error al restaurar la base de datos');
     } finally {
@@ -502,8 +537,8 @@ export default function MantenimientoPage() {
               <div>
                 <p className="font-bold text-orange-300 text-sm">Accion destructiva e irreversible</p>
                 <p className="text-xs text-orange-200/80 mt-0.5">
-                  Importa los datos del archivo .sql usando INSERT IGNORE — no borra lo que ya existe,
-                  solo inserta registros que no estén duplicados. Genera un respaldo antes de continuar.
+                  Borra los datos actuales de ESA tienda y los reemplaza con los del respaldo (DELETE + INSERT).
+                  Las demas tiendas no se ven afectadas. Genera un respaldo antes de continuar.
                 </p>
               </div>
             </div>
@@ -535,7 +570,7 @@ export default function MantenimientoPage() {
                         name="sql-file"
                         value={f.archivo}
                         checked={selectedSqlFile === f.archivo}
-                        onChange={() => { setSelectedSqlFile(f.archivo); setRestaurarConfirmText(''); }}
+                        onChange={() => handleSelectSqlFile(f.archivo)}
                         className="accent-orange-500"
                       />
                       <Database size={15} className="text-blue-400 shrink-0" />
@@ -549,31 +584,77 @@ export default function MantenimientoPage() {
               )}
             </div>
 
-            {/* Confirmacion */}
+            {/* Validacion + Confirmacion */}
             {selectedSqlFile && (
-              <div className="card space-y-3">
-                <p className="text-sm text-slate-300">
-                  Restaurando: <span className="font-mono text-orange-300">{selectedSqlFile}</span>
-                </p>
-                <p className="text-sm text-slate-300">
-                  Para confirmar, escribe <span className="font-mono font-bold text-orange-400">RESTAURAR</span> en el campo:
-                </p>
-                <input
-                  type="text"
-                  value={restaurarConfirmText}
-                  onChange={(e) => setRestaurarConfirmText(e.target.value)}
-                  placeholder="Escribe RESTAURAR para confirmar"
-                  className="input-touch text-center font-mono tracking-widest"
-                />
-                <button
-                  onClick={handleRestaurar}
-                  disabled={restaurarConfirmText !== 'RESTAURAR' || restaurando}
-                  className="w-full py-3 rounded-xl font-bold text-sm bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {restaurando
-                    ? <><RefreshCw size={16} className="animate-spin" /> Restaurando base de datos...</>
-                    : <><RotateCcw size={16} /> Restaurar base de datos</>}
-                </button>
+              <div className="card space-y-4">
+                <p className="text-sm font-mono text-orange-300 truncate">{selectedSqlFile}</p>
+
+                {/* Panel de validacion */}
+                {validandoBK && (
+                  <div className="flex items-center gap-2 text-slate-400 text-sm">
+                    <RefreshCw size={14} className="animate-spin" /> Validando archivo y base de datos...
+                  </div>
+                )}
+
+                {!validandoBK && validacionInfo && (
+                  <div className={`rounded-xl p-4 space-y-2 border ${validacionInfo.ok ? 'bg-green-900/20 border-green-700/40' : 'bg-red-900/20 border-red-700/40'}`}>
+                    {validacionInfo.ok ? (
+                      <>
+                        <p className="text-sm font-bold text-green-300 flex items-center gap-2">
+                          <CheckCircle size={15} /> Backup validado — listo para restaurar
+                        </p>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-300 mt-2">
+                          <span className="text-slate-500">Tienda en backup:</span>
+                          <span className="font-semibold">{validacionInfo.info?.tienda_nombre || '—'}</span>
+                          <span className="text-slate-500">Tienda en BD actual:</span>
+                          <span className="font-semibold">{validacionInfo.info?.tienda_actual || '—'}</span>
+                          <span className="text-slate-500">Fecha del backup:</span>
+                          <span>{validacionInfo.info?.fecha_backup ? new Date(validacionInfo.info.fecha_backup).toLocaleString('es-MX') : '—'}</span>
+                          <span className="text-slate-500">Registros a insertar:</span>
+                          <span className="text-blue-300 font-semibold">{validacionInfo.info?.total_inserts ?? 0}</span>
+                          <span className="text-slate-500">Tablas a limpiar:</span>
+                          <span className="text-orange-300 font-semibold">{validacionInfo.info?.total_deletes ?? 0}</span>
+                          <span className="text-slate-500">BD accesible:</span>
+                          <span className={validacionInfo.info?.db_ok ? 'text-green-400' : 'text-red-400'}>
+                            {validacionInfo.info?.db_ok ? '✓ OK' : '✗ Error'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-orange-200/70 mt-2 border-t border-orange-700/30 pt-2">
+                          Esta operacion borrara los datos actuales de la tienda <strong>{validacionInfo.info?.tienda_nombre}</strong> y los reemplazara con los del backup. Las demas tiendas no se veran afectadas.
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-red-300 flex items-center gap-2">
+                        <XCircle size={15} /> {validacionInfo.error || 'Error al validar'}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Confirmacion — solo si validacion ok */}
+                {!validandoBK && validacionInfo?.ok && (
+                  <>
+                    <p className="text-sm text-slate-300">
+                      Escribe <span className="font-mono font-bold text-orange-400">RESTAURAR</span> para confirmar:
+                    </p>
+                    <input
+                      type="text"
+                      value={restaurarConfirmText}
+                      onChange={(e) => setRestaurarConfirmText(e.target.value)}
+                      placeholder="RESTAURAR"
+                      className="input-touch text-center font-mono tracking-widest"
+                    />
+                    <button
+                      onClick={handleRestaurar}
+                      disabled={restaurarConfirmText !== 'RESTAURAR' || restaurando}
+                      className="w-full py-3 rounded-xl font-bold text-sm bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {restaurando
+                        ? <><RefreshCw size={16} className="animate-spin" /> Restaurando base de datos...</>
+                        : <><RotateCcw size={16} /> Restaurar base de datos</>}
+                    </button>
+                  </>
+                )}
               </div>
             )}
 
@@ -812,6 +893,25 @@ export default function MantenimientoPage() {
                   <p className="text-xs text-slate-500 mt-1">
                     Se crea automaticamente si no existe. Usa una subcarpeta exclusiva para esta app.
                   </p>
+                </div>
+
+                {/* Boton probar conexion */}
+                <div className="pt-2 border-t border-slate-700 space-y-2">
+                  <button
+                    onClick={async () => { await handleSaveConfig(); handleTestFtp(); }}
+                    disabled={testingFtp}
+                    className="w-full py-2.5 rounded-xl text-sm font-semibold border border-blue-600 text-blue-300 hover:bg-blue-900/30 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {testingFtp
+                      ? <><RefreshCw size={14} className="animate-spin" /> Probando conexion...</>
+                      : <><Play size={14} /> Guardar y probar conexion SFTP</>}
+                  </button>
+                  {ftpTestResult && (
+                    <div className={`flex items-start gap-2 p-3 rounded-xl text-sm ${ftpTestResult.ok ? 'bg-green-900/20 text-green-300' : 'bg-red-900/20 text-red-300'}`}>
+                      {ftpTestResult.ok ? <CheckCircle size={15} className="shrink-0 mt-0.5" /> : <XCircle size={15} className="shrink-0 mt-0.5" />}
+                      {ftpTestResult.mensaje}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
