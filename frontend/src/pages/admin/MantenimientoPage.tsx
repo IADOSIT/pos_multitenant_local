@@ -823,10 +823,10 @@ export default function MantenimientoPage() {
 
           {/* SFTP */}
           <div className="card space-y-4">
-            <h3 className="font-bold flex items-center gap-2"><UploadCloud size={16} /> Respaldo en la nube (SFTP)</h3>
+            <h3 className="font-bold flex items-center gap-2"><UploadCloud size={16} /> Respaldo en la nube (FileBrowser)</h3>
             <p className="text-xs text-slate-400">
-              Sube los respaldos automaticamente al servidor SFTP después de cada backup.
-              Los archivos se guardan en el directorio configurado del servidor.
+              Sube los respaldos automaticamente al servidor FileBrowser despues de cada backup.
+              Ingresa la URL base del servidor (ej: https://sftp.iados.online).
             </p>
 
             <label className="flex items-center justify-between">
@@ -841,26 +841,15 @@ export default function MantenimientoPage() {
 
             {config.sftp_enabled && (
               <div className="space-y-3">
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="col-span-2">
-                    <label className="text-xs text-slate-400 mb-1 block">Host SFTP</label>
-                    <input
-                      type="text"
-                      value={config.sftp_host || ''}
-                      onChange={(e) => setConfig({ ...config, sftp_host: e.target.value })}
-                      placeholder="sftp.iados.online"
-                      className="input-touch text-sm font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-400 mb-1 block">Puerto</label>
-                    <input
-                      type="number"
-                      value={config.sftp_port || 22}
-                      onChange={(e) => setConfig({ ...config, sftp_port: parseInt(e.target.value) || 22 })}
-                      className="input-touch text-sm font-mono"
-                    />
-                  </div>
+                <div>
+                  <label className="text-xs text-slate-400 mb-1 block">URL FileBrowser</label>
+                  <input
+                    type="text"
+                    value={config.sftp_host || ''}
+                    onChange={(e) => setConfig({ ...config, sftp_host: e.target.value })}
+                    placeholder="https://sftp.iados.online"
+                    className="input-touch text-sm font-mono"
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>

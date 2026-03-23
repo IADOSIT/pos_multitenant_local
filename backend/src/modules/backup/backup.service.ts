@@ -429,62 +429,71 @@ export class BackupService implements OnModuleInit {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // SFTP Upload — sube archivo al servidor SFTP configurado
+  // FileBrowser API helpers
+  // sftp_host = URL base  ej: https://sftp.iados.online
+  // sftp_directorio = carpeta remota  ej: /pos-iados/backups
   // ─────────────────────────────────────────────────────────────
-  private async uploadViaSFTP(config: BackupConfig, localFile: string, filename: string): Promise<void> {
-    const sftp = new SftpClient();
-    try {
-      await sftp.connect({
-        host: config.sftp_host,
-        port: config.sftp_port || 22,
-        username: config.sftp_usuario,
-        password: config.sftp_password,
-        tryKeyboard: true,
-        readyTimeout: 20000,
-        retries: 1,
-      });
+  private async fileBrowserLogin(config: BackupConfig): Promise<string> {
+    const base = (config.sftp_host || '').replace(/\/$/, '');
+    const res = await fetch(`${base}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: config.sftp_usuario, password: config.sftp_password }),
+    });
+    if (!res.ok) throw new Error(`Login FileBrowser fallido (${res.status})`);
+    return res.text(); // devuelve el JWT como texto plano
+  }
 
-      const remoteDir = config.sftp_directorio || '/pos-iados/backups';
-      // Asegurar que el directorio remoto existe
-      try {
-        await sftp.mkdir(remoteDir, true);
-      } catch { /* ya existe */ }
-
-      const remotePath = `${remoteDir}/${filename}`;
-      await sftp.put(localFile, remotePath);
-      this.logger.log(`SFTP upload OK: ${remotePath}`);
-    } finally {
-      await sftp.end();
+  private async fileBrowserMkdir(base: string, token: string, remotePath: string): Promise<void> {
+    // FileBrowser crea directorio con POST al path terminado en /
+    const url = `${base}/api/resources${remotePath}/`;
+    const res = await fetch(url, { method: 'POST', headers: { 'X-Auth': token } });
+    // 200 = created, 409 = ya existe — ambos son OK
+    if (!res.ok && res.status !== 409) {
+      this.logger.warn(`FileBrowser mkdir ${remotePath}: ${res.status}`);
     }
   }
 
+  private async uploadViaFileBrowser(config: BackupConfig, localFile: string, filename: string): Promise<void> {
+    const base = (config.sftp_host || '').replace(/\/$/, '');
+    const token = await this.fileBrowserLogin(config);
+    const remoteDir = (config.sftp_directorio || '/pos-iados/backups').replace(/\/$/, '');
+
+    await this.fileBrowserMkdir(base, token, remoteDir);
+
+    const fileBuffer = fs.readFileSync(localFile);
+    const remotePath = `${remoteDir}/${filename}`;
+    const res = await fetch(`${base}/api/resources${remotePath}?override=true`, {
+      method: 'POST',
+      headers: { 'X-Auth': token, 'Content-Type': 'application/octet-stream' },
+      body: fileBuffer,
+    });
+    if (!res.ok) throw new Error(`FileBrowser upload fallido (${res.status}): ${await res.text()}`);
+    this.logger.log(`FileBrowser upload OK: ${remotePath}`);
+  }
+
   // ─────────────────────────────────────────────────────────────
-  // Test SFTP — verifica conexión y acceso al directorio
+  // Test FileBrowser — login + listar directorio
   // ─────────────────────────────────────────────────────────────
   async testSFTP(): Promise<{ ok: boolean; mensaje: string }> {
     const config = await this.getConfig();
     if (!config.sftp_host || !config.sftp_usuario || !config.sftp_password) {
-      return { ok: false, mensaje: 'Faltan credenciales: host, usuario o contraseña' };
+      return { ok: false, mensaje: 'Faltan credenciales: URL, usuario o contraseña' };
     }
-    const sftp = new SftpClient();
     try {
-      await sftp.connect({
-        host: config.sftp_host,
-        port: config.sftp_port || 22,
-        username: config.sftp_usuario,
-        password: config.sftp_password,
-        tryKeyboard: true,
-        readyTimeout: 15000,
-        retries: 0,
+      const base = config.sftp_host.replace(/\/$/, '');
+      const token = await this.fileBrowserLogin(config);
+      const remoteDir = (config.sftp_directorio || '/pos-iados/backups').replace(/\/$/, '');
+
+      await this.fileBrowserMkdir(base, token, remoteDir);
+
+      const res = await fetch(`${base}/api/resources${remoteDir}/`, {
+        headers: { 'X-Auth': token },
       });
-      const remoteDir = config.sftp_directorio || '/pos-iados/backups';
-      try { await sftp.mkdir(remoteDir, true); } catch { /* ya existe */ }
-      await sftp.list(remoteDir);
-      return { ok: true, mensaje: `Conexion exitosa a ${config.sftp_host} — directorio ${remoteDir} accesible` };
+      if (!res.ok && res.status !== 404) throw new Error(`No se puede listar ${remoteDir} (${res.status})`);
+      return { ok: true, mensaje: `Conexion exitosa a ${base} — directorio ${remoteDir} listo` };
     } catch (e) {
       return { ok: false, mensaje: `Error: ${e.message}` };
-    } finally {
-      try { await sftp.end(); } catch { /* ignorar */ }
     }
   }
 
@@ -571,14 +580,14 @@ export class BackupService implements OnModuleInit {
           }
         }
 
-        // Subir a SFTP si está habilitado
+        // Subir a FileBrowser si está habilitado
         if (config.sftp_enabled && config.sftp_host && config.sftp_usuario && config.sftp_password) {
           try {
             const localPath = path.join(this.backupsDir, result.archivo);
-            await this.uploadViaSFTP(config, localPath, result.archivo);
+            await this.uploadViaFileBrowser(config, localPath, result.archivo);
             log.sftp_subido = true;
           } catch (e) {
-            this.logger.warn(`SFTP upload failed: ${e.message}`);
+            this.logger.warn(`FileBrowser upload failed: ${e.message}`);
             log.sftp_error = e.message;
           }
         }
