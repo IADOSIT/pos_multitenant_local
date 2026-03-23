@@ -433,6 +433,8 @@ export class BackupService implements OnModuleInit {
   // sftp_host = URL base  ej: https://sftp.iados.online
   // sftp_directorio = carpeta remota  ej: /pos-iados/backups
   // ─────────────────────────────────────────────────────────────
+  private fbSignal(ms = 7000) { return AbortSignal.timeout(ms); }
+
   private async fileBrowserLogin(config: BackupConfig): Promise<string> {
     let base = (config.sftp_host || '').trim().replace(/\/$/, '');
     if (base && !base.startsWith('http')) base = `https://${base}`;
@@ -440,16 +442,15 @@ export class BackupService implements OnModuleInit {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: config.sftp_usuario, password: config.sftp_password }),
+      signal: this.fbSignal(),
     });
     if (!res.ok) throw new Error(`Login FileBrowser fallido (${res.status})`);
-    return res.text(); // devuelve el JWT como texto plano
+    return res.text();
   }
 
   private async fileBrowserMkdir(base: string, token: string, remotePath: string): Promise<void> {
-    // FileBrowser crea directorio con POST al path terminado en /
     const url = `${base}/api/resources${remotePath}/`;
-    const res = await fetch(url, { method: 'POST', headers: { 'X-Auth': token } });
-    // 200 = created, 409 = ya existe — ambos son OK
+    const res = await fetch(url, { method: 'POST', headers: { 'X-Auth': token }, signal: this.fbSignal() });
     if (!res.ok && res.status !== 409) {
       this.logger.warn(`FileBrowser mkdir ${remotePath}: ${res.status}`);
     }
@@ -469,6 +470,7 @@ export class BackupService implements OnModuleInit {
       method: 'POST',
       headers: { 'X-Auth': token, 'Content-Type': 'application/octet-stream' },
       body: fileBuffer,
+      signal: this.fbSignal(30000),
     });
     if (!res.ok) throw new Error(`FileBrowser upload fallido (${res.status}): ${await res.text()}`);
     this.logger.log(`FileBrowser upload OK: ${remotePath}`);

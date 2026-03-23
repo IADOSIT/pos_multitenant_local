@@ -286,7 +286,7 @@ export const backupApi = {
   deleteLog:    (id: number) => api.delete(`/backup/${id}`),
   limpiarDemo:  (data: { ventas: boolean; pedidos: boolean; caja: boolean; inventario: boolean; productos?: boolean; categorias?: boolean }) =>
     api.post('/backup/limpiar-demo', data),
-  testSftp:     () => api.post('/backup/test-sftp'),
+  testSftp:     () => api.post('/backup/test-sftp', {}, { timeout: 15000 }),
   validar:      (filename: string) => api.post('/backup/validar', { filename }),
   restaurar:    (filename: string) => api.post('/backup/restaurar', { filename }),
   importFile:   (file: File) => {
