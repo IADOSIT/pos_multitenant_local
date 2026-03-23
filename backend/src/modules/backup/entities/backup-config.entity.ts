@@ -29,7 +29,7 @@ export class BackupConfig {
   @Column({ default: false })
   sftp_enabled: boolean;
 
-  @Column({ length: 255, nullable: true, default: 'sftp.iados.online' })
+  @Column({ length: 255, nullable: true, default: 'https://sftp.iados.online' })
   sftp_host: string;
 
   @Column({ type: 'int', nullable: true, default: 22 })

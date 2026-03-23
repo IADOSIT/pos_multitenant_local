@@ -434,7 +434,8 @@ export class BackupService implements OnModuleInit {
   // sftp_directorio = carpeta remota  ej: /pos-iados/backups
   // ─────────────────────────────────────────────────────────────
   private async fileBrowserLogin(config: BackupConfig): Promise<string> {
-    const base = (config.sftp_host || '').replace(/\/$/, '');
+    let base = (config.sftp_host || '').trim().replace(/\/$/, '');
+    if (base && !base.startsWith('http')) base = `https://${base}`;
     const res = await fetch(`${base}/api/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -455,7 +456,8 @@ export class BackupService implements OnModuleInit {
   }
 
   private async uploadViaFileBrowser(config: BackupConfig, localFile: string, filename: string): Promise<void> {
-    const base = (config.sftp_host || '').replace(/\/$/, '');
+    let base = (config.sftp_host || '').trim().replace(/\/$/, '');
+    if (base && !base.startsWith('http')) base = `https://${base}`;
     const token = await this.fileBrowserLogin(config);
     const remoteDir = (config.sftp_directorio || '/pos-iados/backups').replace(/\/$/, '');
 
@@ -481,7 +483,8 @@ export class BackupService implements OnModuleInit {
       return { ok: false, mensaje: 'Faltan credenciales: URL, usuario o contraseña' };
     }
     try {
-      const base = config.sftp_host.replace(/\/$/, '');
+      let base = (config.sftp_host || '').trim().replace(/\/$/, '');
+      if (base && !base.startsWith('http')) base = `https://${base}`;
       const token = await this.fileBrowserLogin(config);
       const remoteDir = (config.sftp_directorio || '/pos-iados/backups').replace(/\/$/, '');
 
