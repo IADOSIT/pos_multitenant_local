@@ -26,6 +26,7 @@ export default function POSPage() {
   const [cuentaAbiertaEnabled, setCuentaAbiertaEnabled] = useState(false);
   const [pedidoActivo, setPedidoActivo] = useState<any>(null);
   const [mostrarSoPendienteEnPos, setMostrarSoPendienteEnPos] = useState(false);
+  const [notasPorItem, setNotasPorItem] = useState(false);
 
   const { user } = useAuthStore();
   const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, setMesaActiva, tipoServicio, clearCart } = usePOSStore();
@@ -69,6 +70,7 @@ export default function POSPage() {
         });
         setCuentaAbiertaEnabled(data.config_pos.habilitar_cuenta_abierta || false);
         setMostrarSoPendienteEnPos(data.config_pos.mostrar_so_pendiente_en_pos || false);
+        setNotasPorItem(data.config_pos.notas_por_item || false);
       }
     } catch {}
   };
@@ -458,6 +460,7 @@ export default function POSPage() {
           onEnviarPedido={handleEnviarPedido}
           onAbrirCuenta={() => { setShowAbrirCuenta(true); setCartVisible(false); }}
           cuentaAbiertaEnabled={cuentaAbiertaEnabled}
+          notasPorItem={notasPorItem}
           pedidoActivo={pedidoActivo}
           onActualizarCuenta={handleActualizarCuenta}
           onCancelarEdicion={() => { setPedidoActivo(null); clearCart(); }}

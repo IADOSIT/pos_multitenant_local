@@ -91,6 +91,7 @@ export default function ConfiguracionPage() {
     self_order_url: '',
     habilitar_cuenta_abierta: false,
     mostrar_so_pendiente_en_pos: false,
+    notas_por_item: false,
     // Impresora config
     impresora_modelo: '',
     impresora_ancho: 80,
@@ -171,6 +172,7 @@ export default function ConfiguracionPage() {
       self_order_url: cp.self_order_url || '',
       habilitar_cuenta_abierta: cp.habilitar_cuenta_abierta || false,
       mostrar_so_pendiente_en_pos: cp.mostrar_so_pendiente_en_pos || false,
+      notas_por_item: cp.notas_por_item || false,
       impresora_modelo: ci.modelo || '',
       impresora_ancho: ci.ancho || 80,
       impresora_auto_print: ci.auto_print || false,
@@ -196,6 +198,7 @@ export default function ConfiguracionPage() {
           self_order_url: form.self_order_url || undefined,
           habilitar_cuenta_abierta: form.habilitar_cuenta_abierta,
           mostrar_so_pendiente_en_pos: form.mostrar_so_pendiente_en_pos,
+          notas_por_item: form.notas_por_item,
           iva_enabled: form.iva_enabled,
           iva_porcentaje: form.iva_porcentaje,
           iva_incluido: form.iva_incluido,
@@ -248,7 +251,7 @@ export default function ConfiguracionPage() {
       nombre: '', direccion: '', telefono: '', email: '',
       zona_horaria: 'America/Mexico_City',
       iva_enabled: false, iva_porcentaje: 16, iva_incluido: true,
-      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false, mostrar_so_pendiente_en_pos: false,
+      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false, mostrar_so_pendiente_en_pos: false, notas_por_item: false,
       impresora_modelo: '', impresora_ancho: 80, impresora_auto_print: false, impresora_copias: 1,
     });
   };
@@ -1194,6 +1197,22 @@ export default function ConfiguracionPage() {
                       <div>
                         <span className="text-sm font-medium">Mostrar alerta Self Order en POS</span>
                         <p className="text-xs text-slate-500">Muestra en el POS los pedidos de mesa pendientes de confirmar al cliente</p>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Notas por ítem */}
+                  <div className="border-t border-slate-700 pt-3 mt-3">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.notas_por_item}
+                        onChange={(e) => setForm({ ...form, notas_por_item: e.target.checked })}
+                        className="w-5 h-5 accent-iados-primary rounded"
+                      />
+                      <div>
+                        <span className="text-sm font-medium">Notas por ítem en carrito</span>
+                        <p className="text-xs text-slate-500">Permite agregar nota/modificación a cada producto (toca el ítem para editarla)</p>
                       </div>
                     </label>
                   </div>

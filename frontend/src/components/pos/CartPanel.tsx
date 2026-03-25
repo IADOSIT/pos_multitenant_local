@@ -1,18 +1,22 @@
+import { useState } from 'react';
 import { usePOSStore } from '../../store/pos.store';
-import { Minus, Plus, Trash2, ShoppingCart, Send, BookOpen } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingCart, Send, BookOpen, MessageSquare } from 'lucide-react';
 
 interface Props {
   onPay: () => void;
   onEnviarPedido?: () => void;
   onAbrirCuenta?: () => void;
   cuentaAbiertaEnabled?: boolean;
+  notasPorItem?: boolean;
   pedidoActivo?: any;
   onActualizarCuenta?: () => void;
   onCancelarEdicion?: () => void;
 }
 
-export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuentaAbiertaEnabled, pedidoActivo, onActualizarCuenta, onCancelarEdicion }: Props) {
-  const { cart, updateQuantity, removeFromCart, clearCart, getSubtotal, getImpuestos, getTotal, cajaActiva, modoServicio, tipoCobro, mesaActiva, setMesaActiva, tipoServicio, setTipoServicio } = usePOSStore();
+export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuentaAbiertaEnabled, notasPorItem, pedidoActivo, onActualizarCuenta, onCancelarEdicion }: Props) {
+  const { cart, updateQuantity, removeFromCart, clearCart, updateItemNotes, getSubtotal, getImpuestos, getTotal, cajaActiva, modoServicio, tipoCobro, mesaActiva, setMesaActiva, tipoServicio, setTipoServicio } = usePOSStore();
+  const [editingNotaId, setEditingNotaId] = useState<string | null>(null);
+  const [notaTemp, setNotaTemp] = useState('');
 
   const isMesa = modoServicio === 'mesa';
   const isPostPago = isMesa && tipoCobro === 'post_pago';
@@ -92,36 +96,79 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuenta
           </div>
         ) : (
           cart.map((item) => (
-            <div key={item.id} className="bg-iados-card rounded-xl p-3 flex gap-3">
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{item.nombre}</p>
-                <p className="text-xs text-slate-400">${Number(item.precio).toFixed(2)} c/u</p>
-                {item.notas && <p className="text-xs text-iados-accent mt-1">{item.notas}</p>}
+            <div key={item.id} className="bg-iados-card rounded-xl p-3">
+              <div className="flex gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{item.nombre}</p>
+                  <p className="text-xs text-slate-400">${Number(item.precio).toFixed(2)} c/u</p>
+                  {notasPorItem && editingNotaId !== item.id && item.notas && (
+                    <p
+                      className="text-xs text-iados-accent mt-1 cursor-pointer"
+                      onClick={() => { setEditingNotaId(item.id); setNotaTemp(item.notas || ''); }}
+                    >{item.notas}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {notasPorItem && (
+                    <button
+                      onClick={() => { setEditingNotaId(item.id); setNotaTemp(item.notas || ''); }}
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center active:scale-90 ${item.notas ? 'bg-iados-primary/30 text-iados-accent' : 'bg-iados-surface text-slate-500'}`}
+                      title="Agregar nota"
+                    >
+                      <MessageSquare size={14} />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => updateQuantity(item.id, item.cantidad - 1)}
+                    className="w-8 h-8 rounded-lg bg-iados-surface flex items-center justify-center active:scale-90"
+                  >
+                    <Minus size={14} />
+                  </button>
+                  <span className="w-8 text-center font-bold">{item.cantidad}</span>
+                  <button
+                    onClick={() => updateQuantity(item.id, item.cantidad + 1)}
+                    className="w-8 h-8 rounded-lg bg-iados-surface flex items-center justify-center active:scale-90"
+                  >
+                    <Plus size={14} />
+                  </button>
+                  <button
+                    onClick={() => removeFromCart(item.id)}
+                    className="w-8 h-8 rounded-lg bg-red-900/50 text-red-400 flex items-center justify-center active:scale-90 ml-1"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+                <div className="text-right shrink-0 w-20">
+                  <p className="font-bold">${item.subtotal.toFixed(2)}</p>
+                </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => updateQuantity(item.id, item.cantidad - 1)}
-                  className="w-8 h-8 rounded-lg bg-iados-surface flex items-center justify-center active:scale-90"
-                >
-                  <Minus size={14} />
-                </button>
-                <span className="w-8 text-center font-bold">{item.cantidad}</span>
-                <button
-                  onClick={() => updateQuantity(item.id, item.cantidad + 1)}
-                  className="w-8 h-8 rounded-lg bg-iados-surface flex items-center justify-center active:scale-90"
-                >
-                  <Plus size={14} />
-                </button>
-                <button
-                  onClick={() => removeFromCart(item.id)}
-                  className="w-8 h-8 rounded-lg bg-red-900/50 text-red-400 flex items-center justify-center active:scale-90 ml-1"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-              <div className="text-right shrink-0 w-20">
-                <p className="font-bold">${item.subtotal.toFixed(2)}</p>
-              </div>
+              {notasPorItem && editingNotaId === item.id && (
+                <div className="mt-2 flex gap-2">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={notaTemp}
+                    onChange={(e) => setNotaTemp(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { updateItemNotes(item.id, notaTemp.trim()); setEditingNotaId(null); }
+                      if (e.key === 'Escape') { setEditingNotaId(null); }
+                    }}
+                    placeholder="Nota: sin cebolla, extra queso…"
+                    className="input-touch text-xs py-1 flex-1"
+                    maxLength={100}
+                  />
+                  <button
+                    onClick={() => { updateItemNotes(item.id, notaTemp.trim()); setEditingNotaId(null); }}
+                    className="px-3 py-1 bg-iados-primary rounded-lg text-xs font-medium"
+                  >OK</button>
+                  {item.notas && (
+                    <button
+                      onClick={() => { updateItemNotes(item.id, ''); setEditingNotaId(null); }}
+                      className="px-2 py-1 bg-red-900/50 text-red-400 rounded-lg text-xs"
+                    >×</button>
+                  )}
+                </div>
+              )}
             </div>
           ))
         )}

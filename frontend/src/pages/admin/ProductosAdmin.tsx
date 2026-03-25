@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { productosApi } from '../../api/endpoints';
+import { productosApi, categoriasApi } from '../../api/endpoints';
 import toast from 'react-hot-toast';
 import { Plus, Upload, Download, Search, Edit2, Package, Trash2, Image, X, ImagePlus } from 'lucide-react';
 
 export default function ProductosAdmin() {
   const [productos, setProductos] = useState<any[]>([]);
+  const [categorias, setCategorias] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
   const [busqueda, setBusqueda] = useState('');
@@ -23,7 +24,11 @@ export default function ProductosAdmin() {
   useEffect(() => { load(); }, []);
 
   const load = async () => {
-    try { const { data } = await productosApi.list(); setProductos(data); } catch {}
+    try {
+      const [pRes, cRes] = await Promise.all([productosApi.list(), categoriasApi.list()]);
+      setProductos(pRes.data);
+      setCategorias(cRes.data);
+    } catch {}
   };
 
   const handleSave = async () => {
@@ -210,6 +215,15 @@ export default function ProductosAdmin() {
             <input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder="SKU" className="input-touch" />
             <input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} placeholder="Nombre" className="input-touch" />
             <input value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} placeholder="Descripcion" className="input-touch" />
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Categoria</label>
+              <select value={form.categoria_id} onChange={(e) => setForm({ ...form, categoria_id: e.target.value })} className="input-touch">
+                <option value="">-- Sin categoría --</option>
+                {categorias.map((c) => (
+                  <option key={c.id} value={String(c.id)}>{c.nombre}</option>
+                ))}
+              </select>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <input value={form.precio} onChange={(e) => setForm({ ...form, precio: e.target.value })} placeholder="Precio" type="number" className="input-touch" />
               <input value={form.costo} onChange={(e) => setForm({ ...form, costo: e.target.value })} placeholder="Costo" type="number" className="input-touch" />
@@ -281,7 +295,7 @@ export default function ProductosAdmin() {
             {imageResults.length === 0 && !searchingImages && (
               <p className="text-center text-slate-500 text-sm">Escribe un termino y presiona Buscar</p>
             )}
-            <p className="text-xs text-slate-500 text-center">Busqueda de imagenes en Google</p>
+            <p className="text-xs text-slate-500 text-center">Busqueda de imagenes via Pexels</p>
           </div>
         </div>
       )}
