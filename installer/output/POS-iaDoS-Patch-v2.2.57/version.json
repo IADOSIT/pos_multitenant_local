@@ -1,10 +1,5 @@
 {
-    "patch_date":  "2026-03-30 00:00:00",
+    "patch_date":  "2026-04-12 22:25:55",
     "version":  "2.2.57",
-    "type":  "patch",
-    "fixes": [
-        "Selector de categoria visible al agregar/editar producto",
-        "APLICAR.bat solicita permisos admin (UAC) automaticamente",
-        "Servicio backend se reinicia correctamente al aplicar parche"
-    ]
+    "type":  "patch"
 }

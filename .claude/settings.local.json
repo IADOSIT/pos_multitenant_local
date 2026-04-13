@@ -280,7 +280,13 @@
       "Bash(find /c/sites/pos_multitenant_local/frontend/src -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" \\\\\\) 2>/dev/null | head -100)",
       "Bash(powershell -Command \"Start-Process powershell -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File \\\\\"C:/sites/pos_multitenant_local/installer/build-exe.ps1\\\\\" -Mode local' -Verb RunAs -Wait\" 2>&1\necho \"EXIT: $?\")",
       "Bash(sort -k6,7)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "Bash(export PATH=\"/c/Program Files/nodejs:$PATH\")",
+      "Bash(VITE_API_URL=/api npm run build)",
+      "Bash(export PATH=\"/c/Program Files/nodejs:/c/Program Files/nodejs/node_modules/.bin:$PATH\")",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(rm -rf dist)",
+      "Bash(mv dist_new dist)"
     ]
   }
 }
