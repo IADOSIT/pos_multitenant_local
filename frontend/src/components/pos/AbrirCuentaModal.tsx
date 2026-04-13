@@ -3,24 +3,29 @@ import { X, BookOpen, CreditCard } from 'lucide-react';
 
 interface Props {
   mesaInicial?: number | null;
+  tipoServicio?: 'en_sitio' | 'para_llevar';
+  datosEnvioEnabled?: boolean;
   onClose: () => void;
-  onAbrirCuenta: (mesa: number, cliente: string) => void;
-  onCobrar: (mesa: number, cliente: string) => void;
+  onAbrirCuenta: (mesa: number, cliente: string, telefono: string, direccion: string) => void;
+  onCobrar: (mesa: number, cliente: string, telefono: string, direccion: string) => void;
 }
 
-export default function AbrirCuentaModal({ mesaInicial, onClose, onAbrirCuenta, onCobrar }: Props) {
+export default function AbrirCuentaModal({ mesaInicial, tipoServicio, datosEnvioEnabled, onClose, onAbrirCuenta, onCobrar }: Props) {
   const [mesa, setMesa] = useState<string>(mesaInicial ? String(mesaInicial) : '');
   const [cliente, setCliente] = useState('');
+  const [telefono, setTelefono] = useState('');
+  const [direccion, setDireccion] = useState('');
   const [loading, setLoading] = useState(false);
 
   const mesaNum = Number(mesa);
   const canSubmit = mesaNum > 0;
+  const mostrarDatosEnvio = datosEnvioEnabled && tipoServicio === 'para_llevar';
 
   const handleAbrirCuenta = async () => {
     if (!canSubmit) return;
     setLoading(true);
     try {
-      await onAbrirCuenta(mesaNum, cliente.trim());
+      await onAbrirCuenta(mesaNum, cliente.trim(), telefono.trim(), direccion.trim());
     } finally {
       setLoading(false);
     }
@@ -28,7 +33,7 @@ export default function AbrirCuentaModal({ mesaInicial, onClose, onAbrirCuenta, 
 
   const handleCobrar = () => {
     if (!canSubmit) return;
-    onCobrar(mesaNum, cliente.trim());
+    onCobrar(mesaNum, cliente.trim(), telefono.trim(), direccion.trim());
   };
 
   return (
@@ -68,6 +73,33 @@ export default function AbrirCuentaModal({ mesaInicial, onClose, onAbrirCuenta, 
               className="input-touch"
             />
           </div>
+
+          {mostrarDatosEnvio && (
+            <>
+              <div>
+                <label className="text-sm text-orange-400 mb-1 block">🥡 Teléfono <span className="text-slate-500">(opcional)</span></label>
+                <input
+                  type="tel"
+                  value={telefono}
+                  onChange={(e) => setTelefono(e.target.value)}
+                  placeholder="Teléfono de contacto"
+                  className="input-touch"
+                  maxLength={20}
+                />
+              </div>
+              <div>
+                <label className="text-sm text-orange-400 mb-1 block">Dirección de entrega <span className="text-slate-500">(opcional)</span></label>
+                <input
+                  type="text"
+                  value={direccion}
+                  onChange={(e) => setDireccion(e.target.value)}
+                  placeholder="Calle, número, colonia..."
+                  className="input-touch"
+                  maxLength={200}
+                />
+              </div>
+            </>
+          )}
         </div>
 
         <div className="space-y-2 pt-2">

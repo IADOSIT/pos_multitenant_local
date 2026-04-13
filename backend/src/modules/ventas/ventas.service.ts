@@ -60,6 +60,8 @@ export class VentasService {
       cambio: data.cambio || 0,
       notas: data.notas,
       cliente_nombre: data.cliente_nombre,
+      cliente_telefono: data.cliente_telefono,
+      cliente_direccion: data.cliente_direccion,
       tipo_servicio: data.tipo_servicio || 'en_sitio',
       sincronizado: !data.folio_offline,
       detalles: data.items.map((item: any) => ({

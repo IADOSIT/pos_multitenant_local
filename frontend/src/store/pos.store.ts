@@ -17,6 +17,10 @@ interface POSState {
   tipoCobro: 'pago_inmediato' | 'post_pago';
   tipoServicio: 'en_sitio' | 'para_llevar';
   ivaConfig: IvaConfig;
+  notaPedido: string;
+  clienteNombre: string;
+  clienteTelefono: string;
+  clienteDireccion: string;
 
   setCajaActiva: (caja: CajaActiva | null) => void;
   setCategoriaActiva: (id: number | null) => void;
@@ -25,6 +29,10 @@ interface POSState {
   setTipoCobro: (tipo: 'pago_inmediato' | 'post_pago') => void;
   setTipoServicio: (tipo: 'en_sitio' | 'para_llevar') => void;
   setIvaConfig: (config: IvaConfig) => void;
+  setNotaPedido: (v: string) => void;
+  setClienteNombre: (v: string) => void;
+  setClienteTelefono: (v: string) => void;
+  setClienteDireccion: (v: string) => void;
 
   addToCart: (producto: Producto, cantidad?: number) => void;
   removeFromCart: (itemId: string) => void;
@@ -47,6 +55,10 @@ export const usePOSStore = create<POSState>((set, get) => ({
   tipoCobro: 'pago_inmediato',
   tipoServicio: 'en_sitio',
   ivaConfig: { enabled: false, porcentaje: 16, incluido: true },
+  notaPedido: '',
+  clienteNombre: '',
+  clienteTelefono: '',
+  clienteDireccion: '',
 
   setCajaActiva: (caja) => set({ cajaActiva: caja }),
   setCategoriaActiva: (id) => set({ categoriaActiva: id }),
@@ -55,6 +67,10 @@ export const usePOSStore = create<POSState>((set, get) => ({
   setTipoCobro: (tipo) => set({ tipoCobro: tipo }),
   setTipoServicio: (tipo) => set({ tipoServicio: tipo }),
   setIvaConfig: (config) => set({ ivaConfig: config }),
+  setNotaPedido: (v) => set({ notaPedido: v }),
+  setClienteNombre: (v) => set({ clienteNombre: v }),
+  setClienteTelefono: (v) => set({ clienteTelefono: v }),
+  setClienteDireccion: (v) => set({ clienteDireccion: v }),
 
   addToCart: (producto, cantidad = 1) => {
     const cart = get().cart;
@@ -109,7 +125,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
   updateItemNotes: (itemId, notas) =>
     set({ cart: get().cart.map((i) => (i.id === itemId ? { ...i, notas } : i)) }),
 
-  clearCart: () => set({ cart: [] }),
+  clearCart: () => set({ cart: [], notaPedido: '', clienteNombre: '', clienteTelefono: '', clienteDireccion: '' }),
 
   getSubtotal: () => {
     const { cart, ivaConfig } = get();

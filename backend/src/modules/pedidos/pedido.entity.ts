@@ -54,6 +54,12 @@ export class Pedido {
   @Column({ length: 200, nullable: true })
   cliente_nombre: string;
 
+  @Column({ length: 20, nullable: true })
+  cliente_telefono: string;
+
+  @Column({ length: 300, nullable: true })
+  cliente_direccion: string;
+
   @Column({ nullable: true })
   venta_id: number;
 

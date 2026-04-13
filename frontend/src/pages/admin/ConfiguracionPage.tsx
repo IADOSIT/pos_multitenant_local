@@ -92,6 +92,8 @@ export default function ConfiguracionPage() {
     habilitar_cuenta_abierta: false,
     mostrar_so_pendiente_en_pos: false,
     notas_por_item: false,
+    notas_pedido_enabled: false,
+    datos_envio_enabled: false,
     // Impresora config
     impresora_modelo: '',
     impresora_ancho: 80,
@@ -173,6 +175,8 @@ export default function ConfiguracionPage() {
       habilitar_cuenta_abierta: cp.habilitar_cuenta_abierta || false,
       mostrar_so_pendiente_en_pos: cp.mostrar_so_pendiente_en_pos || false,
       notas_por_item: cp.notas_por_item || false,
+      notas_pedido_enabled: cp.notas_pedido_enabled || false,
+      datos_envio_enabled: cp.datos_envio_enabled || false,
       impresora_modelo: ci.modelo || '',
       impresora_ancho: ci.ancho || 80,
       impresora_auto_print: ci.auto_print || false,
@@ -199,6 +203,8 @@ export default function ConfiguracionPage() {
           habilitar_cuenta_abierta: form.habilitar_cuenta_abierta,
           mostrar_so_pendiente_en_pos: form.mostrar_so_pendiente_en_pos,
           notas_por_item: form.notas_por_item,
+          notas_pedido_enabled: form.notas_pedido_enabled,
+          datos_envio_enabled: form.datos_envio_enabled,
           iva_enabled: form.iva_enabled,
           iva_porcentaje: form.iva_porcentaje,
           iva_incluido: form.iva_incluido,
@@ -251,7 +257,7 @@ export default function ConfiguracionPage() {
       nombre: '', direccion: '', telefono: '', email: '',
       zona_horaria: 'America/Mexico_City',
       iva_enabled: false, iva_porcentaje: 16, iva_incluido: true,
-      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false, mostrar_so_pendiente_en_pos: false, notas_por_item: false,
+      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false, mostrar_so_pendiente_en_pos: false, notas_por_item: false, notas_pedido_enabled: false, datos_envio_enabled: false,
       impresora_modelo: '', impresora_ancho: 80, impresora_auto_print: false, impresora_copias: 1,
     });
   };
@@ -1213,6 +1219,38 @@ export default function ConfiguracionPage() {
                       <div>
                         <span className="text-sm font-medium">Notas por ítem en carrito</span>
                         <p className="text-xs text-slate-500">Permite agregar nota/modificación a cada producto (toca el ítem para editarla)</p>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Nota general del pedido */}
+                  <div className="border-t border-slate-700 pt-3 mt-3">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.notas_pedido_enabled}
+                        onChange={(e) => setForm({ ...form, notas_pedido_enabled: e.target.checked })}
+                        className="w-5 h-5 accent-iados-primary rounded"
+                      />
+                      <div>
+                        <span className="text-sm font-medium">Nota general del pedido</span>
+                        <p className="text-xs text-slate-500">Campo de texto libre en el carrito para instrucciones generales (sin cebolla, alergia, etc.)</p>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Datos de entrega (para llevar) */}
+                  <div className="border-t border-slate-700 pt-3 mt-3">
+                    <label className="flex items-center gap-3 cursor-pointer mb-2">
+                      <input
+                        type="checkbox"
+                        checked={form.datos_envio_enabled}
+                        onChange={(e) => setForm({ ...form, datos_envio_enabled: e.target.checked })}
+                        className="w-5 h-5 accent-iados-primary rounded"
+                      />
+                      <div>
+                        <span className="text-sm font-medium">Datos de entrega (para llevar)</span>
+                        <p className="text-xs text-slate-500">Muestra campos de nombre, teléfono y dirección cuando el pedido es para llevar</p>
                       </div>
                     </label>
                   </div>

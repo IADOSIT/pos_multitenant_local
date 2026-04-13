@@ -91,8 +91,17 @@ export class TicketsService {
     lines.push(`Folio: ${venta.folio}`);
     lines.push(`Fecha: ${new Date(venta.created_at).toLocaleString('es-MX')}`);
     if (config.mostrar_cajero) lines.push(`Cajero: ${this.s(venta.usuario_nombre || 'N/A')}`);
-    if (venta.notas) lines.push(`Nota: ${this.s(venta.notas)}`);
     lines.push('-'.repeat(w));
+
+    // Datos de entrega (para llevar)
+    if (venta.tipo_servicio === 'para_llevar' && (venta.cliente_nombre || venta.cliente_telefono || venta.cliente_direccion)) {
+      if (venta.cliente_nombre) lines.push(`Cliente: ${this.s(venta.cliente_nombre)}`);
+      if (venta.cliente_telefono) lines.push(`Tel:     ${this.s(venta.cliente_telefono)}`);
+      if (venta.cliente_direccion) lines.push(`Dir:     ${this.s(venta.cliente_direccion)}`);
+      lines.push('-'.repeat(w));
+    }
+
+    if (venta.notas) lines.push(`Nota: ${this.s(venta.notas)}`);
 
     // Encabezado productos
     lines.push(this.formatLine('Producto', 'Cant', 'Precio', 'Subt', w));
@@ -106,6 +115,7 @@ export class TicketsService {
         `$${Number(d.subtotal).toFixed(2)}`,
         w,
       ));
+      if (d.notas) lines.push(`  > ${this.s(d.notas).substring(0, w - 4)}`);
     });
 
     lines.push('-'.repeat(w));

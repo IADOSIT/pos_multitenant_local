@@ -27,9 +27,11 @@ export default function POSPage() {
   const [pedidoActivo, setPedidoActivo] = useState<any>(null);
   const [mostrarSoPendienteEnPos, setMostrarSoPendienteEnPos] = useState(false);
   const [notasPorItem, setNotasPorItem] = useState(false);
+  const [notasPedidoEnabled, setNotasPedidoEnabled] = useState(false);
+  const [datosEnvioEnabled, setDatosEnvioEnabled] = useState(false);
 
   const { user } = useAuthStore();
-  const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, setMesaActiva, tipoServicio, clearCart } = usePOSStore();
+  const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, setMesaActiva, tipoServicio, clearCart, notaPedido, clienteNombre, clienteTelefono, clienteDireccion } = usePOSStore();
 
   const loadCuentasAbiertas = useCallback(async () => {
     try {
@@ -71,6 +73,9 @@ export default function POSPage() {
         setCuentaAbiertaEnabled(data.config_pos.habilitar_cuenta_abierta || false);
         setMostrarSoPendienteEnPos(data.config_pos.mostrar_so_pendiente_en_pos || false);
         setNotasPorItem(data.config_pos.notas_por_item || false);
+        setNotasPedidoEnabled(data.config_pos.notas_pedido_enabled || false);
+        setDatosEnvioEnabled(data.config_pos.datos_envio_enabled || false);
+
       }
     } catch {}
   };
@@ -123,6 +128,10 @@ export default function POSPage() {
       const data = {
         mesa: mesaActiva,
         tipo_servicio: tipoServicio,
+        notas: notaPedido || undefined,
+        cliente_nombre: clienteNombre || undefined,
+        cliente_telefono: clienteTelefono || undefined,
+        cliente_direccion: clienteDireccion || undefined,
         items: cart.map((i) => ({
           producto_id: i.producto_id,
           nombre: i.nombre,
@@ -168,13 +177,16 @@ export default function POSPage() {
     }
   };
 
-  const handleAbrirCuentaDesdeModal = async (mesa: number, cliente: string) => {
+  const handleAbrirCuentaDesdeModal = async (mesa: number, cliente: string, telefono: string, direccion: string) => {
     if (cart.length === 0) return;
     try {
       const data = {
         mesa,
-        cliente_nombre: cliente || undefined,
         tipo_servicio: tipoServicio,
+        notas: notaPedido || undefined,
+        cliente_nombre: cliente || clienteNombre || undefined,
+        cliente_telefono: telefono || clienteTelefono || undefined,
+        cliente_direccion: direccion || clienteDireccion || undefined,
         items: cart.map((i) => ({
           producto_id: i.producto_id,
           nombre: i.nombre,
@@ -203,7 +215,7 @@ export default function POSPage() {
     }
   };
 
-  const handleCobrarDesdeCuentaModal = (mesa: number, cliente: string) => {
+  const handleCobrarDesdeCuentaModal = (mesa: number, _cliente: string, _telefono: string, _direccion: string) => {
     setMesaActiva(mesa);
     setShowAbrirCuenta(false);
     setShowPay(true);
@@ -461,6 +473,8 @@ export default function POSPage() {
           onAbrirCuenta={() => { setShowAbrirCuenta(true); setCartVisible(false); }}
           cuentaAbiertaEnabled={cuentaAbiertaEnabled}
           notasPorItem={notasPorItem}
+          notasPedidoEnabled={notasPedidoEnabled}
+          datosEnvioEnabled={datosEnvioEnabled}
           pedidoActivo={pedidoActivo}
           onActualizarCuenta={handleActualizarCuenta}
           onCancelarEdicion={() => { setPedidoActivo(null); clearCart(); }}
@@ -471,6 +485,8 @@ export default function POSPage() {
       {showAbrirCuenta && (
         <AbrirCuentaModal
           mesaInicial={mesaActiva}
+          tipoServicio={tipoServicio}
+          datosEnvioEnabled={datosEnvioEnabled}
           onClose={() => setShowAbrirCuenta(false)}
           onAbrirCuenta={handleAbrirCuentaDesdeModal}
           onCobrar={handleCobrarDesdeCuentaModal}

@@ -17,7 +17,7 @@ interface Props {
 type MetodoPago = 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto' | 'mp_qr' | 'mp_point' | 'stripe';
 
 export default function PayModal({ onClose, isOnline, pedido }: Props) {
-  const { cart, getSubtotal, getImpuestos, getTotal, clearCart, cajaActiva, tipoServicio } = usePOSStore();
+  const { cart, getSubtotal, getImpuestos, getTotal, clearCart, cajaActiva, tipoServicio, notaPedido, clienteNombre, clienteTelefono, clienteDireccion } = usePOSStore();
   const total = pedido ? Number(pedido.total) : getTotal();
   const [metodo, setMetodo] = useState<MetodoPago>('efectivo');
   const [pagoEfectivo, setPagoEfectivo] = useState('');
@@ -231,6 +231,10 @@ export default function PayModal({ onClose, isOnline, pedido }: Props) {
     pago_transferencia: metodo === 'transferencia' || metodo === 'mixto' ? Number(pagoTransferencia || total) : null,
     cambio,
     tipo_servicio: tipoServicio,
+    notas: notaPedido || undefined,
+    cliente_nombre: clienteNombre || undefined,
+    cliente_telefono: clienteTelefono || undefined,
+    cliente_direccion: clienteDireccion || undefined,
     gateway: isGatewayMethod(metodo) ? metodo : undefined,
     gateway_transaccion_id: isGatewayMethod(metodo) ? gwTransaccionIdRef.current : undefined,
     pagos: [],

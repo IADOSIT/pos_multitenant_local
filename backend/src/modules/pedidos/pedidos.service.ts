@@ -53,6 +53,8 @@ export class PedidosService {
       total: data.total,
       notas: data.notas,
       cliente_nombre: data.cliente_nombre,
+      cliente_telefono: data.cliente_telefono,
+      cliente_direccion: data.cliente_direccion,
       tipo_servicio: data.tipo_servicio || 'en_sitio',
       detalles: data.items.map((item: any) => ({
         producto_id: item.producto_id,
@@ -189,6 +191,9 @@ export class PedidosService {
       cambio: pagoData.cambio || 0,
       notas: `Mesa ${pedido.mesa}${pedido.notas ? ' | ' + pedido.notas : ''}`,
       cliente_nombre: pedido.cliente_nombre,
+      cliente_telefono: pedido.cliente_telefono,
+      cliente_direccion: pedido.cliente_direccion,
+      tipo_servicio: pedido.tipo_servicio,
       pagos: pagoData.pagos || [],
     };
 
@@ -251,6 +256,8 @@ export class PedidosService {
       cambio: pagoData.cambio || 0,
       notas: `Mesa ${pedido.mesa} - Pago parcial${pedido.notas ? ' | ' + pedido.notas : ''}`,
       cliente_nombre: pedido.cliente_nombre,
+      cliente_telefono: pedido.cliente_telefono,
+      cliente_direccion: pedido.cliente_direccion,
       tipo_servicio: pedido.tipo_servicio,
       pagos: pagoData.pagos || [],
     };
@@ -303,7 +310,10 @@ export class PedidosService {
         impuestos: data.impuestos || 0,
         total: data.total,
       };
+      if (data.notas !== undefined) updateFields.notas = data.notas;
       if (data.cliente_nombre !== undefined) updateFields.cliente_nombre = data.cliente_nombre;
+      if (data.cliente_telefono !== undefined) updateFields.cliente_telefono = data.cliente_telefono;
+      if (data.cliente_direccion !== undefined) updateFields.cliente_direccion = data.cliente_direccion;
       await this.pedidosRepo.update(id, updateFields);
 
       this.logger.log(`Pedido ${pedido.folio} items actualizados - $${data.total}`);

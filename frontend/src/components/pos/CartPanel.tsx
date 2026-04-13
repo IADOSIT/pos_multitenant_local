@@ -8,13 +8,15 @@ interface Props {
   onAbrirCuenta?: () => void;
   cuentaAbiertaEnabled?: boolean;
   notasPorItem?: boolean;
+  notasPedidoEnabled?: boolean;
+  datosEnvioEnabled?: boolean;
   pedidoActivo?: any;
   onActualizarCuenta?: () => void;
   onCancelarEdicion?: () => void;
 }
 
-export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuentaAbiertaEnabled, notasPorItem, pedidoActivo, onActualizarCuenta, onCancelarEdicion }: Props) {
-  const { cart, updateQuantity, removeFromCart, clearCart, updateItemNotes, getSubtotal, getImpuestos, getTotal, cajaActiva, modoServicio, tipoCobro, mesaActiva, setMesaActiva, tipoServicio, setTipoServicio } = usePOSStore();
+export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuentaAbiertaEnabled, notasPorItem, notasPedidoEnabled, datosEnvioEnabled, pedidoActivo, onActualizarCuenta, onCancelarEdicion }: Props) {
+  const { cart, updateQuantity, removeFromCart, clearCart, updateItemNotes, getSubtotal, getImpuestos, getTotal, cajaActiva, modoServicio, tipoCobro, mesaActiva, setMesaActiva, tipoServicio, setTipoServicio, notaPedido, setNotaPedido, clienteNombre, setClienteNombre, clienteTelefono, setClienteTelefono, clienteDireccion, setClienteDireccion } = usePOSStore();
   const [editingNotaId, setEditingNotaId] = useState<string | null>(null);
   const [notaTemp, setNotaTemp] = useState('');
 
@@ -171,6 +173,54 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuenta
               )}
             </div>
           ))
+        )}
+
+        {/* Nota general del pedido */}
+        {notasPedidoEnabled && cart.length > 0 && (
+          <div className="mt-2 pt-3 border-t border-slate-700">
+            <label className="text-xs text-slate-400 mb-1 block">Nota del pedido</label>
+            <textarea
+              value={notaPedido}
+              onChange={(e) => setNotaPedido(e.target.value)}
+              placeholder="Ej: sin cebolla, extra salsa, alergia a..."
+              className="input-touch text-sm resize-none w-full"
+              rows={2}
+              maxLength={300}
+            />
+          </div>
+        )}
+
+        {/* Datos de entrega (para llevar) */}
+        {datosEnvioEnabled && tipoServicio === 'para_llevar' && cart.length > 0 && (
+          <div className="mt-2 pt-3 border-t border-orange-500/30">
+            <p className="text-xs text-orange-400 font-medium mb-2">🥡 Datos de entrega</p>
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={clienteNombre}
+                onChange={(e) => setClienteNombre(e.target.value)}
+                placeholder="Nombre del cliente"
+                className="input-touch text-sm"
+                maxLength={100}
+              />
+              <input
+                type="tel"
+                value={clienteTelefono}
+                onChange={(e) => setClienteTelefono(e.target.value)}
+                placeholder="Teléfono"
+                className="input-touch text-sm"
+                maxLength={20}
+              />
+              <input
+                type="text"
+                value={clienteDireccion}
+                onChange={(e) => setClienteDireccion(e.target.value)}
+                placeholder="Dirección de entrega"
+                className="input-touch text-sm"
+                maxLength={200}
+              />
+            </div>
+          </div>
         )}
       </div>
 
