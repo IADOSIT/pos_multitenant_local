@@ -1,4 +1,4 @@
--- POS-iaDoS Seed -- exportado VPS 2026-04-13 00:00:20
+-- POS-iaDoS Seed -- exportado VPS 2026-04-13 04:00:19
 USE pos_iados;
 SET SESSION check_constraint_checks=OFF;
 SET FOREIGN_KEY_CHECKS=0;
@@ -36,3 +36,34 @@ INSERT IGNORE INTO `licencias` VALUES (1,1,'INS-E7B5A92B',NULL,'pro','[\"pos\", 
 INSERT IGNORE INTO `tiendas` VALUES (3,4,4,'Mariscos 2-13\'s San Miguel','Apodaca','','contacto@mariscos213s.com','America/Mexico_City',NULL,'{\"ancho\": 80, \"copias\": 1, \"modelo\": \"\", \"auto_print\": false}',1,'2026-02-18 05:32:42.162669','2026-04-07 17:47:12.399847','{\"num_mesas\": 20, \"iva_enabled\": false, \"iva_incluido\": true, \"modo_servicio\": \"autoservicio\", \"iva_porcentaje\": 16, \"notas_por_item\": false, \"self_order_url\": \"https://pos.iados.online/\", \"tipo_cobro_mesa\": \"post_pago\", \"self_order_enabled\": false, \"habilitar_cuenta_abierta\": true, \"mostrar_so_pendiente_en_pos\": true}','mariscos-2-13s-san-miguel-3',10,3);
 INSERT IGNORE INTO `empresas` VALUES (1,1,'Restaurante Demo iaDoS','Restaurante Demo SA de CV',NULL,NULL,NULL,NULL,NULL,1,'2026-02-17 07:49:37.000000','2026-02-21 17:42:09.000000',NULL),(4,4,'Mariscos 2-13\'s San Miguel',NULL,NULL,NULL,NULL,NULL,'/api/uploads/logo-empresa-4-1771392896645.jpeg',1,'2026-02-18 05:32:42.126201','2026-02-20 08:46:49.000000','{\"tema\": \"default\", \"paleta\": \"default\"}');
 INSERT IGNORE INTO `tenants` VALUES (1,'iaDoS Corp','iados-corp','iaDoS - Inteligencia Artificial DevOps Solutions',NULL,NULL,'555-IADOS','info@iados.mx',NULL,1,'2026-02-17 07:49:37.000000','2026-02-17 07:49:37.000000'),(4,'Mariscos 2-13\'s San Miguel','mariscos-2-13\'s-san-miguel','Mariscos 2-13\'s San Miguel','',NULL,'8318989580','contacto@mariscos213s.com',NULL,1,'2026-02-18 05:30:37.689786','2026-02-18 05:30:37.689786');
+
+-- ============================================================
+-- FIXES automáticos (no depender del install.ps1 para dev local)
+-- ============================================================
+
+-- FIX 1: Hashes verificados (admin123 / cajero123) para desarrollo local
+-- install.ps1 los regenera igualmente en instalación EXE
+UPDATE users SET password='$2a$10$rfhYzMwk8gXqxl6fXuycb.BK9EH85FOzVeroqJT62.r1gxW519R9.' WHERE rol IN ('superadmin','admin');
+UPDATE users SET password='$2a$10$wLpX2XJG2vB9n5LD56Y45.cNIbK3mN3kqO6p69mYodxFAQkeXExk6' WHERE rol IN ('cajero','mesero','manager');
+
+-- FIX 2: producto_tienda — vincular los 56 productos de Mariscos 2-13's a tienda 3
+-- Sin esto el menú digital (self-order) no muestra productos
+INSERT IGNORE INTO `producto_tienda` (tenant_id, tienda_id, producto_id, precio_local, disponible, stock) VALUES
+(4,3,262,NULL,1,0),(4,3,263,NULL,1,0),(4,3,264,NULL,1,0),(4,3,265,NULL,1,0),
+(4,3,266,NULL,1,0),(4,3,267,NULL,1,0),(4,3,268,NULL,1,0),(4,3,269,NULL,1,0),
+(4,3,270,NULL,1,0),(4,3,271,NULL,1,0),(4,3,272,NULL,1,0),(4,3,273,NULL,1,0),
+(4,3,274,NULL,1,0),(4,3,275,NULL,1,0),(4,3,276,NULL,1,0),(4,3,277,NULL,1,0),
+(4,3,278,NULL,1,0),(4,3,279,NULL,1,0),(4,3,280,NULL,1,0),(4,3,281,NULL,1,0),
+(4,3,282,NULL,1,0),(4,3,283,NULL,1,0),(4,3,284,NULL,1,0),(4,3,285,NULL,1,0),
+(4,3,286,NULL,1,0),(4,3,287,NULL,1,0),(4,3,288,NULL,1,0),(4,3,289,NULL,1,0),
+(4,3,290,NULL,1,0),(4,3,291,NULL,1,0),(4,3,292,NULL,1,0),(4,3,293,NULL,1,0),
+(4,3,294,NULL,1,0),(4,3,295,NULL,1,0),(4,3,296,NULL,1,0),(4,3,297,NULL,1,0),
+(4,3,298,NULL,1,0),(4,3,299,NULL,1,0),(4,3,300,NULL,1,0),(4,3,301,NULL,1,0),
+(4,3,302,NULL,1,0),(4,3,303,NULL,1,0),(4,3,304,NULL,1,0),(4,3,305,NULL,1,0),
+(4,3,306,NULL,1,0),(4,3,307,NULL,1,0),(4,3,308,NULL,1,0),(4,3,309,NULL,1,0),
+(4,3,310,NULL,1,0),(4,3,311,NULL,1,0),(4,3,312,NULL,1,0),(4,3,313,NULL,1,0),
+(4,3,314,NULL,1,0),(4,3,315,NULL,1,0),(4,3,316,NULL,1,0),(4,3,317,NULL,1,0);
+
+-- FIX 3: Imagen faltante — producto 299 (Agua Chile Verde Grande)
+-- La imagen subida no existe localmente; usar la imagen estándar del aguachile verde
+UPDATE productos SET imagen_url='/api/uploads/img/mariscos213s/aguachile-verde.jpeg' WHERE id=299 AND (imagen_url IS NULL OR imagen_url NOT LIKE '%mariscos213s%');

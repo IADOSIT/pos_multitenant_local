@@ -1,6 +1,10 @@
 param([switch]$Registrar, [int]$CadaHoras = 1)
 $ErrorActionPreference = "SilentlyContinue"
 
+# Forzar UTF-8 para leer stdout de mysqldump correctamente (evita corrupción de ñ, é, etc.)
+$prevOutputEncoding = [Console]::OutputEncoding
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+
 $VPS_HOST = "74.208.149.7"; $VPS_PORT = "3306"; $VPS_USER = "root"
 $VPS_PASS = "U191tl1ebFN2RJR0fld5QhC8U29AhdOQ"; $VPS_DB = "pos_iados"
 $LOC_HOST = "localhost"; $LOC_PORT = "3306"; $LOC_USER = "pos_iados"
@@ -77,8 +81,28 @@ foreach ($t in $TABLES_INSERT) {
     $data = & $DUMP_EXE -h $VPS_HOST -P $VPS_PORT -u $VPS_USER -p"$VPS_PASS" --no-create-info --skip-triggers --compact --insert-ignore --single-transaction --skip-lock-tables --default-character-set=utf8mb4 $VPS_DB $t 2>$null
     if ($data) { [System.IO.File]::AppendAllLines($SEED, [string[]]$data, [System.Text.UTF8Encoding]::new($false)) }
 }
+# Agregar fixes automáticos al final del seed (se sobreescriben en cada sync)
+$fixes = @(
+    "",
+    "-- ============================================================",
+    "-- FIXES automáticos (no depender del install.ps1 para dev local)",
+    "-- ============================================================",
+    "",
+    "-- FIX 1: Hashes verificados (admin123 / cajero123) para desarrollo local",
+    "UPDATE users SET password='\$2a\$10\$rfhYzMwk8gXqxl6fXuycb.BK9EH85FOzVeroqJT62.r1gxW519R9.' WHERE rol IN ('superadmin','admin');",
+    "UPDATE users SET password='\$2a\$10\$wLpX2XJG2vB9n5LD56Y45.cNIbK3mN3kqO6p69mYodxFAQkeXExk6' WHERE rol IN ('cajero','mesero','manager');",
+    "",
+    "-- FIX 2: producto_tienda -- vincular todos los productos activos de Mariscos 2-13's (empresa_id=4) a tienda 3",
+    "INSERT IGNORE INTO ``producto_tienda`` (tenant_id, tienda_id, producto_id, precio_local, disponible, stock)",
+    "  SELECT p.tenant_id, 3, p.id, NULL, 1, 0 FROM productos p WHERE p.empresa_id = 4 AND p.activo = 1;",
+    "",
+    "-- FIX 3: Imagen faltante para productos que usan imágenes subidas no disponibles localmente",
+    "UPDATE productos SET imagen_url='/api/uploads/img/mariscos213s/aguachile-verde.jpeg' WHERE id=299 AND (imagen_url IS NULL OR imagen_url NOT LIKE '%mariscos213s%');"
+)
+[System.IO.File]::AppendAllLines($SEED, [string[]]$fixes, [System.Text.UTF8Encoding]::new($false))
+
 $seedKB = [math]::Round((Get-Item $SEED).Length / 1KB, 0)
-wl "  Seed generado: $seedKB KB" "Green"
+wl "  Seed generado: $seedKB KB (con fixes automáticos)" "Green"
 
 wl "Paso 4/4: Copiando seed a staging..." "Yellow"
 if (Test-Path (Split-Path $SEED2)) { Copy-Item $SEED $SEED2 -Force; wl "  Copiado a staging OK" "Green" }
@@ -95,3 +119,6 @@ Write-Host "  Tenants: $cT  |  Usuarios: $cU  |  Productos: $cP" -ForegroundColo
 Write-Host "  Seed: $SEED" -ForegroundColor Gray
 Write-Host ""
 wl "Sync OK: T=$cT U=$cU P=$cP" "Green"
+
+# Restaurar encoding
+[Console]::OutputEncoding = $prevOutputEncoding
