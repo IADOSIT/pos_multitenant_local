@@ -25,6 +25,8 @@ import MesasAdmin from './pages/admin/MesasAdmin';
 import SelfOrderDashboard from './pages/admin/SelfOrderDashboard';
 import SelfOrderPage from './pages/public/SelfOrderPage';
 import CatalogosPage from './pages/admin/CatalogosPage';
+import InventarioDualPage from './pages/inventario/InventarioDualPage';
+import PerfilNegocioPage from './pages/admin/PerfilNegocioPage';
 
 function PrivateRoute({ children, roles }: { children: JSX.Element; roles?: string[] }) {
   const { isAuthenticated, user } = useAuthStore();
@@ -101,6 +103,16 @@ export default function App() {
           } />
           <Route path="admin/tenants" element={
             <PrivateRoute roles={['superadmin']}><TenantsAdmin /></PrivateRoute>
+          } />
+          <Route path="inventario-dual" element={
+            <PrivateRoute roles={['superadmin', 'admin', 'manager', 'cajero']}>
+              <InventarioDualPage />
+            </PrivateRoute>
+          } />
+          <Route path="admin/perfil-negocio" element={
+            <PrivateRoute roles={['superadmin', 'admin']}>
+              <PerfilNegocioPage />
+            </PrivateRoute>
           } />
         </Route>
       </Routes>

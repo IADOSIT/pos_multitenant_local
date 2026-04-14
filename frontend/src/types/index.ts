@@ -6,6 +6,7 @@ export interface User {
   tenant_id: number;
   empresa_id: number;
   tienda_id: number;
+  modulo?: string | null;
   empresa_nombre?: string;
   empresa_logo?: string;
   config_apariencia?: { tema: string; paleta: string } | null;
@@ -87,4 +88,38 @@ export interface KPI {
   top_productos: { nombre: string; cantidad: number; total: number }[];
   ventas_por_hora: number[];
   metodos_pago: Record<string, number>;
+}
+
+export interface PerfilNegocio {
+  id: number;
+  clave: string;
+  nombre: string;
+  descripcion?: string;
+  config?: {
+    modulos?: string[];
+    modulos_config?: Record<string, { label: string; color: string; icono: string }>;
+    inventario_critico?: boolean;
+    alertas_stock?: boolean;
+    productos_base?: any[];
+  };
+  activo: boolean;
+}
+
+export interface TenantPerfil {
+  id: number;
+  tenant_id: number;
+  perfil_clave: string;
+  config_override?: any;
+  activo: boolean;
+}
+
+export interface AlertaStock {
+  id: number;
+  sku: string;
+  nombre: string;
+  stock_actual: number;
+  stock_minimo: number;
+  unidad: string;
+  modulo?: string;
+  deficit: number;
 }

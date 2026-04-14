@@ -342,6 +342,15 @@ if (Test-Path $seedFile04) {
     Write-Log "  ADVERTENCIA: No se encontro 04_seed_pruebas.sql" "Yellow"
 }
 
+# 05 - Perfil Carbon+Hielo (columnas modulo + tablas de perfiles)
+$seedFile05 = "$InstallDir\database\05_perfil_carbon_hielo.sql"
+if (Test-Path $seedFile05) {
+    $ErrorActionPreference = "SilentlyContinue"
+    Get-Content $seedFile05 -Raw | & $MYSQL -f -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME 2>&1 | Out-Null
+    $ErrorActionPreference = "Stop"
+    Write-Log "  05_seed ejecutado OK" "Green"
+}
+
 # Generar hashes frescos con bcryptjs (Node ya fue copiado en PASO 1)
 Write-Log "  Actualizando passwords con bcryptjs..." "Gray"
 $bcryptPath2 = "$InstallDir\backend\node_modules\bcryptjs" -replace '\\', '\\\\'
@@ -429,7 +438,23 @@ if ($adminEmailTrim -ne "" -and $adminEmailTrim.Contains("@")) {
 
         $clientSql = @"
 SET FOREIGN_KEY_CHECKS=0;
+SET SESSION check_constraint_checks=OFF;
 SET NAMES utf8mb4;
+
+-- Limpiar TODOS los datos demo antes de insertar datos reales del cliente
+TRUNCATE TABLE ``ticket_configs``;
+TRUNCATE TABLE ``licencias``;
+TRUNCATE TABLE ``users``;
+TRUNCATE TABLE ``tiendas``;
+TRUNCATE TABLE ``empresas``;
+TRUNCATE TABLE ``tenants``;
+
+-- Resetear auto_increment para que el cliente quede en ID=1
+ALTER TABLE ``tenants``  AUTO_INCREMENT = 1;
+ALTER TABLE ``empresas`` AUTO_INCREMENT = 1;
+ALTER TABLE ``tiendas``  AUTO_INCREMENT = 1;
+ALTER TABLE ``users``    AUTO_INCREMENT = 1;
+ALTER TABLE ``licencias`` AUTO_INCREMENT = 1;
 
 INSERT INTO ``tenants`` (nombre, slug, activo, created_at, updated_at)
   VALUES ('$eNombre', '$eSlug', 1, NOW(), NOW());
@@ -439,8 +464,8 @@ INSERT INTO ``empresas`` (tenant_id, nombre, activo, created_at, updated_at)
   VALUES (@t, '$eNombre', 1, NOW(), NOW());
 SET @e = LAST_INSERT_ID();
 
-INSERT INTO ``tiendas`` (tenant_id, empresa_id, nombre, timezone, activo, created_at, updated_at,
-  config_pos, slug, folio_venta_counter, folio_orden_counter)
+INSERT INTO ``tiendas`` (tenant_id, empresa_id, nombre, zona_horaria, activo, created_at, updated_at,
+  config_pos, slug, folio_venta_counter, folio_pedido_counter)
   VALUES (@t, @e, '$eNombre', 'America/Mexico_City', 1, NOW(), NOW(),
   '{"iva_enabled":false,"iva_incluido":true,"iva_porcentaje":16,"modo_servicio":"mostrador","num_mesas":0,"self_order_enabled":false}',
   CONCAT('$eSlug-', FLOOR(RAND()*9000+1000)), 0, 0);
@@ -481,10 +506,14 @@ SET FOREIGN_KEY_CHECKS=1;
 "@
 
         $ErrorActionPreference = "SilentlyContinue"
-        $clientSql | & $MYSQL -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME 2>&1 | Out-Null
+        $clientSqlOut = $clientSql | & $MYSQL -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME 2>&1
+        $clientSqlExit = $LASTEXITCODE
         $ErrorActionPreference = "Stop"
 
-        Write-Log "  Tenant '$nombreNegTrim' creado (licencia permanente)" "Green"
+        if ($clientSqlExit -ne 0 -or ("$clientSqlOut" -match "ERROR [0-9]")) {
+            Write-Log "  ERROR en alta cliente: $clientSqlOut" "Red"
+        } else {
+            Write-Log "  Tenant '$nombreNegTrim' creado (licencia permanente)" "Green"
         Write-Log "  Admin:  $adminEmailTrim  /  admin123  /  PIN 0000" "Green"
         Write-Log "  Cajero: $emailCajero  /  cajero123  /  PIN 1234" "Green"
         Write-Log "  Mesero: $emailMesero  /  mesero123  /  PIN 5678" "Green"
@@ -535,6 +564,7 @@ CONECTAR CELULARES Y TABLETS (en la misma red WiFi)
 - Con meseros en tableta  : Configuracion > POS > Self Order
 "@ | Set-Content "$InstallDir\CREDENCIALES.txt" -Encoding UTF8
         Write-Log "Credenciales guardadas en: $InstallDir\CREDENCIALES.txt" "Cyan"
+        } # fin else SQL ok
 
     } else {
         Write-Log "ADVERTENCIA: No se pudo generar hash para el cliente. Verifique bcryptjs." "Yellow"

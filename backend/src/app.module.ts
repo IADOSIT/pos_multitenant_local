@@ -32,6 +32,7 @@ import { MesasModule } from './modules/mesas/mesas.module';
 import { SelfOrderModule } from './modules/self-order/self-order.module';
 import { EncuestasModule } from './modules/encuestas/encuestas.module';
 import { PagosGatewayModule } from './modules/pagos-gateway/pagos-gateway.module';
+import { PerfilesModule } from './modules/perfiles/perfiles.module';
 
 // En SERVER LOCAL/EXTERNO: servir desde frontend/dist-prod (build con plantillas).
 // En SERVER OFFLINE (exe instalado): dist-prod no existe → cae a backend/public.
@@ -76,6 +77,7 @@ const _staticRoot = existsSync(_distProd)
     SelfOrderModule,
     EncuestasModule,
     PagosGatewayModule,
+    PerfilesModule,
   ],
   providers: [SchemaSyncService],
 })

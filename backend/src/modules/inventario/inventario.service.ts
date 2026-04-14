@@ -176,6 +176,20 @@ export class InventarioService {
     return results;
   }
 
+  async listStockPorModulo(scope: any, modulo?: string) {
+    const where: any = {
+      tenant_id: scope.tenant_id,
+      empresa_id: scope.empresa_id,
+      activo: true,
+    };
+    if (modulo) where.modulo = modulo;
+    return this.prodRepo.find({
+      where,
+      select: ['id', 'sku', 'nombre', 'stock_actual', 'stock_minimo', 'controla_stock', 'unidad', 'costo', 'precio', 'imagen_url', 'modulo'],
+      order: { nombre: 'ASC' },
+    });
+  }
+
   // CSV Export current stock
   async exportCSV(scope: any): Promise<string> {
     const productos = await this.prodRepo.find({

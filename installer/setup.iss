@@ -187,7 +187,7 @@ end;
 
 function GetDemoDataFlag(Param: String): String;
 begin
-  if IsTaskSelected('demodata') then Result := '1' else Result := '0';
+  if WizardIsTaskSelected('demodata') then Result := '1' else Result := '0';
 end;
 
 function GetAdminEmail(Param: String): String;

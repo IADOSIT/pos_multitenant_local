@@ -7,6 +7,7 @@ export interface TenantRequest extends Request {
     empresa_id: number;
     tienda_id: number;
     rol: string;
+    modulo?: string | null;
   };
 }
 
@@ -20,6 +21,7 @@ export class TenantScopeMiddleware implements NestMiddleware {
         empresa_id: user.empresa_id,
         tienda_id: user.tienda_id,
         rol: user.rol,
+        modulo: user.modulo || null,
       };
     }
     next();

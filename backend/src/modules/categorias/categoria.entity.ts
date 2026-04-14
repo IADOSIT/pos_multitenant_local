@@ -40,6 +40,9 @@ export class Categoria {
   @Column({ length: 50, nullable: true })
   tipo_seccion: string;
 
+  @Column({ length: 50, nullable: true, default: null })
+  modulo: string;
+
   @CreateDateColumn()
   created_at: Date;
 

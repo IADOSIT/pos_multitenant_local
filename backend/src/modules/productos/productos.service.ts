@@ -29,8 +29,13 @@ export class ProductosService {
   }
 
   findForPOS(scope: any) {
+    const where: any = { tenant_id: scope.tenant_id, empresa_id: scope.empresa_id, activo: true, disponible: true };
+    const adminRoles = ['admin', 'superadmin', 'manager'];
+    if (scope.modulo && !adminRoles.includes(scope.rol)) {
+      where.modulo = scope.modulo;
+    }
     return this.repo.find({
-      where: { tenant_id: scope.tenant_id, empresa_id: scope.empresa_id, activo: true, disponible: true },
+      where,
       relations: ['categoria'],
       order: { categoria: { orden: 'ASC' }, orden: 'ASC' },
     });

@@ -34,6 +34,7 @@ export class AuthService {
       empresa_id: user.empresa_id,
       tienda_id: user.tienda_id,
       nombre: user.nombre,
+      modulo: (user as any).modulo || null,
     };
 
     const empresa = user.empresa_id ? await this.empresaRepo.findOne({ where: { id: user.empresa_id } }) : null;
@@ -48,6 +49,7 @@ export class AuthService {
         tenant_id: user.tenant_id,
         empresa_id: user.empresa_id,
         tienda_id: user.tienda_id,
+        modulo: (user as any).modulo || null,
         empresa_nombre: empresa?.nombre || null,
         empresa_logo: empresa?.logo_url || null,
         config_apariencia: empresa?.config_apariencia || null,
@@ -72,6 +74,7 @@ export class AuthService {
       empresa_id: user.empresa_id,
       tienda_id: user.tienda_id,
       nombre: user.nombre,
+      modulo: (user as any).modulo || null,
     };
 
     const empresa2 = user.empresa_id ? await this.empresaRepo.findOne({ where: { id: user.empresa_id } }) : null;
@@ -86,6 +89,7 @@ export class AuthService {
         tenant_id: user.tenant_id,
         empresa_id: user.empresa_id,
         tienda_id: user.tienda_id,
+        modulo: (user as any).modulo || null,
         empresa_nombre: empresa2?.nombre || null,
         empresa_logo: empresa2?.logo_url || null,
         config_apariencia: empresa2?.config_apariencia || null,

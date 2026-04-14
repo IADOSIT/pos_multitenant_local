@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Param, Body, Res, UseGuards, UseInterceptors, UploadedFile, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Put, Param, Body, Res, Query, UseGuards, UseInterceptors, UploadedFile, ParseIntPipe } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -57,5 +57,11 @@ export class InventarioController {
   @UseInterceptors(FileInterceptor('file'))
   csvImport(@UploadedFile() file: Express.Multer.File, @TenantScope() scope) {
     return this.service.importCSV(file.buffer, scope);
+  }
+
+  @Get('stock-modulo')
+  @Roles('superadmin', 'admin', 'manager', 'cajero')
+  listStockPorModulo(@TenantScope() scope, @Query('modulo') modulo?: string) {
+    return this.service.listStockPorModulo(scope, modulo);
   }
 }

@@ -86,7 +86,9 @@ if (-not (Test-Path "$FrontendSrcDir\package.json")) {
 $env:VITE_API_URL = "/api"
 # Limpiar dist-prod antes de compilar para evitar acumulacion de bundles JS viejos
 $distProdDir = Join-Path $FrontendSrcDir "dist-prod"
-if (Test-Path $distProdDir) { Remove-Item -Recurse -Force $distProdDir }
+if (Test-Path $distProdDir) {
+    & cmd /c "rd /s /q `"$distProdDir`"" | Out-Null
+}
 $buildResult = & cmd /c "cd /d `"$FrontendSrcDir`" && npm run build 2>&1"
 $buildExitCode = $LASTEXITCODE
 $FrontendDistDir = Join-Path $ProjectDir "frontend\dist-prod"
@@ -105,23 +107,27 @@ Write-OK "Frontend compilado correctamente"
 
 # =============================================================================
 # 1b. Compilar TypeScript del backend
+# Compila a backend/dist (propio del proyecto, sin problemas de permisos).
+# Despues del staging copy, el dist fresco sobreescribe el de staging en el output.
 # =============================================================================
 Write-Step "Compilando TypeScript del backend..."
 $BackendDir  = Join-Path $ProjectDir "backend"
-$DistNew     = Join-Path $ProjectDir "installer\staging\app\backend\dist_new"
-$DistFinal   = Join-Path $ProjectDir "installer\staging\app\backend\dist"
-$tscResult   = & cmd /c "cd /d `"$BackendDir`" && npx tsc -p tsconfig.json --outDir `"$DistNew`" --incremental false 2>&1"
+$BackendDist = Join-Path $ProjectDir "backend\dist"
+$tscResult   = & cmd /c "cd /d `"$BackendDir`" && npx tsc -p tsconfig.json --outDir `"$BackendDist`" --incremental false 2>&1"
 $tscExit     = $LASTEXITCODE
 if ($tscExit -ne 0) {
-    Write-Warn "tsc reporto advertencias (codigo $tscExit) — verificando dist_new..."
+    Write-Warn "tsc reporto advertencias (codigo $tscExit)"
 }
-if (Test-Path "$DistNew\main.js") {
-    if (Test-Path $DistFinal) { Remove-Item -Recurse -Force $DistFinal }
-    Rename-Item -Path $DistNew -NewName "dist"
-    Write-OK "Backend TypeScript compilado"
+if (Test-Path "$BackendDist\main.js") {
+    Write-OK "Backend TypeScript compilado -> backend\dist"
 } else {
     Write-Host $tscResult
-    Write-Fail "Compilacion TypeScript fallo — dist_new\main.js no encontrado"
+    Write-Fail "Compilacion TypeScript fallo - backend\dist\main.js no encontrado"
+}
+# Limpiar dist_new residual si existe
+$DistNewLegacy = Join-Path $ProjectDir "installer\staging\app\backend\dist_new"
+if (Test-Path $DistNewLegacy) {
+    Remove-Item -Recurse -Force $DistNewLegacy -ErrorAction SilentlyContinue
 }
 
 # =============================================================================
@@ -252,7 +258,7 @@ if (-not (Test-Path $issFile)) { Write-Fail "setup.iss no encontrado" }
 Write-OK "setup.iss encontrado"
 
 # =============================================================================
-# 4a. Sincronizar seeds desde database/ → staging/app/database/
+# 4a. Sincronizar seeds desde database/ -> staging/app/database/
 # =============================================================================
 Write-Step "Sincronizando seeds..."
 $DbSrcDir  = Join-Path $ProjectDir "database"
@@ -261,8 +267,8 @@ if (Test-Path $DbSrcDir) {
     # Limpiar y recrear para no arrastrar dumps/hotfixes de builds anteriores
     if (Test-Path $DbDestDir) { Remove-Item -Recurse -Force $DbDestDir }
     New-Item -ItemType Directory -Path $DbDestDir -Force | Out-Null
-    # Solo copiar los seeds numerados (01-04), excluir dumps temporales y hotfixes
-    Get-ChildItem "$DbSrcDir\*.sql" | Where-Object { $_.Name -match '^0[1-4]_' } | ForEach-Object {
+    # Solo copiar los seeds numerados (01-05), excluir dumps temporales y hotfixes
+    Get-ChildItem "$DbSrcDir\*.sql" | Where-Object { $_.Name -match '^0[1-5]_' } | ForEach-Object {
         Copy-Item -Path $_.FullName -Destination $DbDestDir -Force
     }
     $seedCount = (Get-ChildItem $DbDestDir -Filter "*.sql").Count
@@ -306,50 +312,66 @@ Write-Info "Copiando app desde staging..."
 Copy-Item -Path "$StagingDir\app\*" -Destination "$MergedDir\app" -Recurse -Force
 Write-OK "App copiada (staging)"
 
-# --- Sincronizar node_modules desde backend real (TODOS, incluyendo deps transitivas) ---
-# Itera TODOS los directorios en backend/node_modules y copia los que falten en staging.
-# Esto incluye dependencias transitivas (ej. cron requerido por @nestjs/schedule).
-Write-Info "Sincronizando node_modules del backend (incluyendo deps transitivas)..."
+# --- Sobrescribir dist con el compilado fresco (bypass permisos staging) ---
+Write-Info "Actualizando dist del backend con compilado fresco..."
+$DestDist = "$MergedDir\app\backend\dist"
+if (Test-Path $DestDist) { Remove-Item -Recurse -Force $DestDist }
+Copy-Item -Path $BackendDist -Destination $DestDist -Recurse -Force
+$distCount = (Get-ChildItem $DestDist -Recurse -File).Count
+Write-OK "Backend dist actualizado ($distCount archivos)"
+
+# --- node_modules: reusar build anterior si existe (mucho mas rapido) ---
+Write-Info "Preparando node_modules del backend..."
 $SrcNM  = Join-Path $ProjectDir "backend\node_modules"
 $DestNM = "$MergedDir\app\backend\node_modules"
+
+# Buscar build anterior para reusar node_modules (evita copiar todo desde cero)
+$OutputFullDir = Join-Path $ScriptDir $OutputDir
+$PrevSrc = Get-ChildItem $OutputFullDir -Directory -Filter "POS-iaDoS-*-v*-src" -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -ne "$OutputName-src" -and (Test-Path "$($_.FullName)\app\backend\node_modules") } |
+    Sort-Object LastWriteTime -Desc | Select-Object -First 1
+
+if ($PrevSrc) {
+    Write-Info "Reutilizando node_modules de $($PrevSrc.Name) (robocopy delta)..."
+    $prevNM = "$($PrevSrc.FullName)\app\backend\node_modules"
+    & robocopy $prevNM $DestNM /E /NP /NFL /NDL /LOG:NUL | Out-Null
+    Write-OK "node_modules base copiados de build anterior"
+}
+
+# Sincronizar paquetes faltantes desde backend/node_modules real
 $synced = 0
 if (Test-Path $SrcNM) {
     Get-ChildItem -Path $SrcNM -Directory | ForEach-Object {
         $pkgName = $_.Name
-        $src  = $_.FullName
         $dest = Join-Path $DestNM $pkgName
         if (-not (Test-Path $dest)) {
-            Copy-Item -Path $src -Destination $dest -Recurse -Force
+            Copy-Item -Path $_.FullName -Destination $dest -Recurse -Force
             $synced++
         }
     }
-    # Manejar paquetes con scope (@nestjs, @types, etc.)
     Get-ChildItem -Path $SrcNM -Directory -Filter "@*" | ForEach-Object {
-        $scopeDir = $_.FullName
-        $scopeName = $_.Name
+        $scopeDir = $_.FullName; $scopeName = $_.Name
         Get-ChildItem -Path $scopeDir -Directory | ForEach-Object {
-            $pkgName = "$scopeName\$($_.Name)"
-            $src  = $_.FullName
-            $dest = Join-Path $DestNM $pkgName
+            $dest = Join-Path $DestNM "$scopeName\$($_.Name)"
             if (-not (Test-Path $dest)) {
                 New-Item -ItemType Directory -Path (Split-Path $dest) -Force | Out-Null
-                Copy-Item -Path $src -Destination $dest -Recurse -Force
+                Copy-Item -Path $_.FullName -Destination $dest -Recurse -Force
                 $synced++
             }
         }
     }
 }
-if ($synced -gt 0) { Write-OK "node_modules: $synced paquetes sincronizados (transitivas incluidas)" }
-else               { Write-OK "node_modules: al dia" }
+if ($synced -gt 0) { Write-OK "node_modules: $synced paquetes nuevos sincronizados" }
+else               { Write-OK "node_modules: al dia (sin paquetes nuevos)" }
 
-# --- Uploads: logos, imágenes de menú (viven en backend/uploads del proyecto, no en staging) ---
+# --- Uploads: logos, imagenes de menu (viven en backend/uploads del proyecto, no en staging) ---
 $UploadsDir = Join-Path $ProjectDir "backend\uploads"
 $DestUploads = "$MergedDir\app\backend\uploads"
 New-Item -ItemType Directory -Path $DestUploads -Force | Out-Null
 if (Test-Path $UploadsDir) {
     Copy-Item -Path "$UploadsDir\*" -Destination $DestUploads -Recurse -Force
     $uploadCount = (Get-ChildItem $DestUploads -Recurse -File).Count
-    Write-OK "Uploads copiados: $uploadCount archivos (logos, menú)"
+    Write-OK "Uploads copiados: $uploadCount archivos (logos, menu)"
 } else {
     Write-Warn "backend\uploads\ no existe - se creara carpeta vacia (logos se suben desde el admin)"
 }
@@ -524,11 +546,15 @@ if (Test-Path $locEnv) {
 # backend/ext.env
 $extEnv = Join-Path $ProjectDir "backend\ext.env"
 if (Test-Path $extEnv) {
-    $c = Get-Content $extEnv -Raw
-    if ($c -match 'APP_VERSION=') { $c = $c -replace 'APP_VERSION=.*', "APP_VERSION=$Version" }
-    else { $c = $c.TrimEnd() + "`nAPP_VERSION=$Version`n" }
-    $c | Set-Content $extEnv -Encoding UTF8 -NoNewline
-    Write-OK "backend/ext.env -> APP_VERSION=$Version"
+    try {
+        $c = Get-Content $extEnv -Raw
+        if ($c -match 'APP_VERSION=') { $c = $c -replace 'APP_VERSION=.*', "APP_VERSION=$Version" }
+        else { $c = $c.TrimEnd() + "`nAPP_VERSION=$Version`n" }
+        $c | Set-Content $extEnv -Encoding UTF8 -NoNewline
+        Write-OK "backend/ext.env -> APP_VERSION=$Version"
+    } catch {
+        Write-Warn "backend/ext.env no actualizado (archivo protegido - no critico)"
+    }
 }
 
 # docker-compose.yml

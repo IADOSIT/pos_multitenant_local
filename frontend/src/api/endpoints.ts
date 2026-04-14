@@ -295,3 +295,13 @@ export const backupApi = {
     return api.post('/backup/import', form);
   },
 };
+
+// Perfiles de Negocio
+export const perfilesApi = {
+  getActivo:      ()                     => api.get('/perfiles/activo'),
+  activar:        (perfil_clave: string) => api.post('/perfiles/activar', { perfil_clave }),
+  desactivar:     (clave: string)        => api.delete(`/perfiles/desactivar/${clave}`),
+  alertasStock:   (modulo?: string)      => api.get('/perfiles/alertas-stock', { params: modulo ? { modulo } : {} }),
+  resumenModulo:  (modulo: string)       => api.get(`/perfiles/resumen/${modulo}`),
+  stockPorModulo: (modulo?: string)      => api.get('/inventario/stock-modulo', { params: modulo ? { modulo } : {} }),
+};

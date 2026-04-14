@@ -65,6 +65,9 @@ export class Producto {
   @Column({ type: 'json', nullable: true })
   modificadores: any;
 
+  @Column({ length: 50, nullable: true, default: null })
+  modulo: string;
+
   @CreateDateColumn()
   created_at: Date;
 
