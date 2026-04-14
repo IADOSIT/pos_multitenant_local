@@ -31,4 +31,13 @@ export class DashboardController {
   getPedidosCount(@TenantScope() scope) {
     return this.service.getPedidosPendientes(scope);
   }
+
+  @Get('ventas-categoria')
+  getVentasCategoria(
+    @TenantScope() scope,
+    @Query('desde') desde: string,
+    @Query('hasta') hasta: string,
+  ) {
+    return this.service.getVentasPorCategoria(scope, desde, hasta);
+  }
 }

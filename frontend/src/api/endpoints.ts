@@ -125,6 +125,8 @@ export const dashboardApi = {
     api.get('/dashboard/kpi', { params: { desde, hasta, tienda_id: tiendaId } }),
   tendencia: (semanas?: number) => api.get('/dashboard/tendencia', { params: { semanas } }),
   pedidosCount: () => api.get('/dashboard/pedidos-count'),
+  ventasCategoria: (desde: string, hasta: string) =>
+    api.get('/dashboard/ventas-categoria', { params: { desde, hasta } }),
 };
 
 // Tickets

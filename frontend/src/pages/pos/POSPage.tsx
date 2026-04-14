@@ -70,6 +70,7 @@ export default function POSPage() {
   const [datosEnvioEnabled, setDatosEnvioEnabled] = useState(false);
   const [cantidadesRapidas, setCantidadesRapidas] = useState<number[]>([10, 25, 50, 100]);
   const [qtyModal, setQtyModal] = useState<{ producto: any; qty: number } | null>(null);
+  const [mesaNumeroOculto, setMesaNumeroOculto] = useState(false);
 
   const { user } = useAuthStore();
   const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, setMesaActiva, tipoServicio, clearCart, notaPedido, clienteNombre, clienteTelefono, clienteDireccion } = usePOSStore();
@@ -120,6 +121,7 @@ export default function POSPage() {
         );
         setNotasPedidoEnabled(data.config_pos.notas_pedido_enabled || false);
         setDatosEnvioEnabled(data.config_pos.datos_envio_enabled || false);
+        setMesaNumeroOculto(data.config_pos.mesa_numero_oculto || false);
         const cr = (data.config_pos.cantidades_rapidas || '10,25,50,100')
           .split(',').map((s: string) => parseInt(s.trim(), 10)).filter((n: number) => n > 0);
         setCantidadesRapidas(cr.length ? cr : [10, 25, 50, 100]);
@@ -526,6 +528,7 @@ export default function POSPage() {
           pedidoActivo={pedidoActivo}
           onActualizarCuenta={handleActualizarCuenta}
           onCancelarEdicion={() => { setPedidoActivo(null); clearCart(); }}
+          mesaNumeroOculto={mesaNumeroOculto}
         />
       </div>
 

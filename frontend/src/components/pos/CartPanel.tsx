@@ -16,9 +16,10 @@ interface Props {
   pedidoActivo?: any;
   onActualizarCuenta?: () => void;
   onCancelarEdicion?: () => void;
+  mesaNumeroOculto?: boolean;
 }
 
-export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuentaAbiertaEnabled, notasPorItem, notasRapidas = [], cantidadesRapidas, notasPedidoEnabled, datosEnvioEnabled, pedidoActivo, onActualizarCuenta, onCancelarEdicion }: Props) {
+export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuentaAbiertaEnabled, notasPorItem, notasRapidas = [], cantidadesRapidas, notasPedidoEnabled, datosEnvioEnabled, pedidoActivo, onActualizarCuenta, onCancelarEdicion, mesaNumeroOculto }: Props) {
   const { cart, updateQuantity, removeFromCart, clearCart, updateItemNotes, getSubtotal, getImpuestos, getTotal, cajaActiva, modoServicio, tipoCobro, mesaActiva, setMesaActiva, tipoServicio, setTipoServicio, notaPedido, setNotaPedido, clienteNombre, setClienteNombre, clienteTelefono, setClienteTelefono, clienteDireccion, setClienteDireccion } = usePOSStore();
 
   // Notas por ítem
@@ -109,7 +110,7 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuenta
       )}
 
       {/* Mesa selector */}
-      {isMesa && (
+      {isMesa && !mesaNumeroOculto && (
         <div className="p-3 border-b border-slate-700 bg-iados-card/50">
           <label className="text-xs text-slate-400 mb-1 block">Mesa</label>
           <input

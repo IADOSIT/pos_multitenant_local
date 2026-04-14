@@ -133,4 +133,30 @@ export class DashboardService {
     });
     return { count };
   }
+
+  async getVentasPorCategoria(scope: any, desde: string, hasta: string) {
+    const rows = await this.dataSource.query(
+      `SELECT
+         COALESCE(c.nombre, 'Sin categoría') AS categoria,
+         COUNT(DISTINCT v.id)                AS num_ventas,
+         SUM(vd.cantidad)                    AS total_unidades,
+         SUM(vd.subtotal)                    AS total_ventas
+       FROM ventas v
+       JOIN venta_detalles vd ON vd.venta_id = v.id
+       LEFT JOIN productos p  ON p.id = vd.producto_id
+       LEFT JOIN categorias c ON c.id = p.categoria_id
+       WHERE v.tenant_id = ? AND v.empresa_id = ? AND v.tienda_id = ?
+         AND v.estado = 'completada'
+         AND v.created_at BETWEEN ? AND ?
+       GROUP BY c.id, c.nombre
+       ORDER BY total_ventas DESC`,
+      [scope.tenant_id, scope.empresa_id, scope.tienda_id, desde, hasta],
+    );
+    return rows.map((r: any) => ({
+      categoria: r.categoria,
+      num_ventas: Number(r.num_ventas),
+      total_unidades: Number(r.total_unidades),
+      total_ventas: Number(r.total_ventas),
+    }));
+  }
 }

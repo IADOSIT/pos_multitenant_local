@@ -1,23 +1,43 @@
 import { useState, useEffect } from 'react';
-import { dashboardApi } from '../../api/endpoints';
+import { dashboardApi, tiendasApi } from '../../api/endpoints';
 import { KPI } from '../../types';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, ShoppingBag, Receipt, DollarSign, Ban, ClipboardList, QrCode, Users } from 'lucide-react';
+import { TrendingUp, ShoppingBag, Receipt, DollarSign, Ban, ClipboardList, QrCode, Users, Tag } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../../store/auth.store';
 import SelfOrderDashboard from '../admin/SelfOrderDashboard';
 
 const COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899'];
 
 export default function DashboardPage() {
-  const [tab, setTab] = useState<'ventas' | 'selforder'>('ventas');
+  const [tab, setTab] = useState<'ventas' | 'selforder' | 'categorias'>('ventas');
   const [kpi, setKpi] = useState<KPI | null>(null);
   const [tendencia, setTendencia] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [rango, setRango] = useState('hoy');
   const [pedidosPendientes, setPedidosPendientes] = useState(0);
+  const [categoriasEnabled, setCategoriasEnabled] = useState(false);
+  const [ventasCat, setVentasCat] = useState<any[]>([]);
+  const [loadingCat, setLoadingCat] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuthStore();
 
-  useEffect(() => { loadKPI(); loadTendencia(); loadPedidosCount(); }, [rango]);
+  useEffect(() => {
+    loadKPI(); loadTendencia(); loadPedidosCount();
+    if (tab === 'categorias') loadVentasCat();
+  }, [rango]);
+
+  useEffect(() => {
+    if (user?.tienda_id) {
+      tiendasApi.get(user.tienda_id).then(({ data }) => {
+        setCategoriasEnabled(data?.config_pos?.dashboard_categorias_enabled || false);
+      }).catch(() => {});
+    }
+  }, [user?.tienda_id]);
+
+  useEffect(() => {
+    if (tab === 'categorias') loadVentasCat();
+  }, [tab, rango]);
 
   const loadPedidosCount = async () => {
     try { const { data } = await dashboardApi.pedidosCount(); setPedidosPendientes(data.count); } catch {}
@@ -48,6 +68,15 @@ export default function DashboardPage() {
     } catch {}
   };
 
+  const loadVentasCat = async () => {
+    setLoadingCat(true);
+    try {
+      const { desde, hasta } = getRangoFechas();
+      const { data } = await dashboardApi.ventasCategoria(desde, hasta);
+      setVentasCat(data);
+    } catch {} finally { setLoadingCat(false); }
+  };
+
   const horasData = kpi?.ventas_por_hora?.map((v, i) => ({ hora: `${i}:00`, ventas: v })) || [];
   const pagosData = kpi ? Object.entries(kpi.metodos_pago).filter(([, v]) => v > 0).map(([name, value]) => ({ name, value })) : [];
 
@@ -67,9 +96,101 @@ export default function DashboardPage() {
         >
           <QrCode size={15} /> Self Order
         </button>
+        {categoriasEnabled && (
+          <button
+            onClick={() => setTab('categorias')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-t-lg text-sm font-medium transition-colors ${tab === 'categorias' ? 'bg-iados-primary text-white' : 'text-slate-400 hover:text-white'}`}
+          >
+            <Tag size={15} /> Por Categoría
+          </button>
+        )}
       </div>
 
       {tab === 'selforder' && <SelfOrderDashboard embedded />}
+
+      {tab === 'categorias' && (
+        <div>
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+            <h1 className="text-2xl font-bold">Ventas por Categoría</h1>
+            <div className="flex gap-2">
+              {['hoy', 'semana', 'mes'].map((r) => (
+                <button key={r} onClick={() => setRango(r)} className={`btn-touch text-sm px-4 py-2 ${rango === r ? 'bg-iados-primary' : 'bg-iados-card'}`}>
+                  {r.charAt(0).toUpperCase() + r.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+          {loadingCat ? (
+            <div className="text-center text-slate-400 py-12">Cargando...</div>
+          ) : ventasCat.length === 0 ? (
+            <div className="text-center text-slate-500 py-12">Sin ventas en este período</div>
+          ) : (
+            <div className="grid lg:grid-cols-2 gap-4">
+              {/* Gráfica de barras por categoría */}
+              <div className="card">
+                <h3 className="font-bold mb-3">Ventas por Categoría</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={ventasCat} layout="vertical" margin={{ left: 80 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                    <XAxis type="number" stroke="#94a3b8" fontSize={10} tickFormatter={(v) => `$${v.toFixed(0)}`} />
+                    <YAxis type="category" dataKey="categoria" stroke="#94a3b8" fontSize={11} width={80} />
+                    <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #475569', borderRadius: 8 }} formatter={(v: any) => [`$${Number(v).toFixed(2)}`, 'Total']} />
+                    <Bar dataKey="total_ventas" fill="#3b82f6" radius={[0, 4, 4, 0]}>
+                      {ventasCat.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Tabla detalle */}
+              <div className="card">
+                <h3 className="font-bold mb-3">Detalle por Categoría</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-slate-400 text-xs border-b border-slate-700">
+                        <th className="text-left py-2">Categoría</th>
+                        <th className="text-right py-2">Tickets</th>
+                        <th className="text-right py-2">Unidades</th>
+                        <th className="text-right py-2">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ventasCat.map((c, i) => {
+                        const pct = ventasCat[0]?.total_ventas > 0 ? (c.total_ventas / ventasCat[0].total_ventas) * 100 : 0;
+                        return (
+                          <tr key={i} className="border-b border-slate-800 hover:bg-iados-card/50">
+                            <td className="py-2">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: COLORS[i % COLORS.length] }} />
+                                <span className="truncate max-w-[150px]">{c.categoria}</span>
+                              </div>
+                              <div className="h-1 bg-slate-800 rounded-full mt-1 w-full max-w-[150px] ml-4">
+                                <div className="h-1 rounded-full" style={{ width: `${pct}%`, background: COLORS[i % COLORS.length] }} />
+                              </div>
+                            </td>
+                            <td className="text-right py-2 text-slate-400">{c.num_ventas}</td>
+                            <td className="text-right py-2 text-slate-400">{c.total_unidades}</td>
+                            <td className="text-right py-2 font-bold text-green-400">${Number(c.total_ventas).toFixed(2)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t border-slate-600 text-xs text-slate-400">
+                        <td className="py-2 font-medium">Total</td>
+                        <td className="text-right py-2">{ventasCat.reduce((s, c) => s + c.num_ventas, 0)}</td>
+                        <td className="text-right py-2">{ventasCat.reduce((s, c) => s + c.total_unidades, 0)}</td>
+                        <td className="text-right py-2 font-bold text-white">${ventasCat.reduce((s, c) => s + c.total_ventas, 0).toFixed(2)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {tab === 'ventas' && <>
       <div className="flex items-center justify-between flex-wrap gap-2">

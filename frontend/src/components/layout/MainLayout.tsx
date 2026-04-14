@@ -45,6 +45,7 @@ export default function MainLayout() {
   const [dbHost, setDbHost] = useState('...');
   const [appVersion, setAppVersion] = useState('');
   const [cajeroDashboard, setCajeroDashboard] = useState(false);
+  const [sidebarPermisos, setSidebarPermisos] = useState<Record<string, string[]>>({});
 
   // Fetch DB host from backend health endpoint
   useEffect(() => {
@@ -54,12 +55,14 @@ export default function MainLayout() {
     }).catch(() => setDbHost('?'));
   }, []);
 
-  // Load cajero_dashboard_enabled from config_pos
+  // Load config_pos flags
   useEffect(() => {
     if (user?.tienda_id) {
       import('../../api/endpoints').then(({ tiendasApi }) => {
         tiendasApi.get(user.tienda_id!).then(({ data }) => {
-          setCajeroDashboard(data?.config_pos?.cajero_dashboard_enabled || false);
+          const cp = data?.config_pos || {};
+          setCajeroDashboard(cp.cajero_dashboard_enabled || false);
+          setSidebarPermisos(cp.sidebar_permisos || {});
         }).catch(() => {});
       });
     }
@@ -93,6 +96,11 @@ export default function MainLayout() {
     if (!n.roles.includes(user.rol)) return false;
     // Dashboard for cajero requires the config flag
     if (n.to === '/dashboard' && user.rol === 'cajero') return cajeroDashboard;
+    // sidebar_permisos: if role has a non-empty list configured, restrict to those routes
+    const permList = sidebarPermisos[user.rol];
+    if (permList && permList.length > 0 && !['superadmin'].includes(user.rol)) {
+      return permList.includes(n.to);
+    }
     return true;
   });
 
