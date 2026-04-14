@@ -6,7 +6,9 @@ import { useAuthStore } from '../../store/auth.store';
 import TicketsConfig from './TicketsConfig';
 import { useThemeStore, ThemeName, PaletteName } from '../../store/theme.store';
 import toast from 'react-hot-toast';
-import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff } from 'lucide-react';
+import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers } from 'lucide-react';
+import PerfilNegocioPage from './PerfilNegocioPage';
+import InventarioDualPage from '../inventario/InventarioDualPage';
 import QRCode from 'qrcode';
 
 const THEMES: { key: ThemeName; name: string; desc: string; previewStyle: React.CSSProperties }[] = [
@@ -37,7 +39,7 @@ export default function ConfiguracionPage() {
   const [editingNew, setEditingNew] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<any>(null);
   const [expandedSection, setExpandedSection] = useState<string>('pos');
-  const [configTab, setConfigTab] = useState<'tienda' | 'tickets'>('tienda');
+  const [configTab, setConfigTab] = useState<'tienda' | 'tickets' | 'modulos'>('tienda');
   const [empresaLogo, setEmpresaLogo] = useState<string>('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const logoRef = useRef<HTMLInputElement>(null);
@@ -496,13 +498,14 @@ export default function ConfiguracionPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-slate-700 mb-4">
-        {([
+        {[
           { id: 'tienda',  label: 'Tienda' },
           { id: 'tickets', label: 'Tickets' },
-        ] as const).map(({ id, label }) => (
+          ...(['superadmin', 'admin'].includes(user?.rol || '') ? [{ id: 'modulos', label: 'Modulos' }] : []),
+        ].map(({ id, label }) => (
           <button
             key={id}
-            onClick={() => setConfigTab(id)}
+            onClick={() => setConfigTab(id as any)}
             className={`px-4 py-2 rounded-t-lg text-sm font-medium transition-colors ${
               configTab === id ? 'bg-iados-primary text-white' : 'text-slate-400 hover:text-white hover:bg-iados-card'
             }`}
@@ -513,6 +516,20 @@ export default function ConfiguracionPage() {
       </div>
 
       {configTab === 'tickets' && <TicketsConfig />}
+
+      {configTab === 'modulos' && (
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-base font-bold flex items-center gap-2 mb-3"><Layers size={18} className="text-iados-accent" /> Perfil de Negocio</h2>
+            <PerfilNegocioPage />
+          </div>
+          <hr className="border-slate-700" />
+          <div>
+            <h2 className="text-base font-bold flex items-center gap-2 mb-3"><Layers size={18} className="text-iados-accent" /> Inventario Dual</h2>
+            <InventarioDualPage />
+          </div>
+        </div>
+      )}
 
       {configTab === 'tienda' && <div className="grid lg:grid-cols-3 gap-4">
         {/* Lista de tiendas */}

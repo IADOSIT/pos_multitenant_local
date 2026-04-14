@@ -35,7 +35,7 @@ export class PerfilesController {
   }
 
   @Get('alertas-stock')
-  @Roles('superadmin', 'admin', 'manager')
+  @Roles('superadmin', 'admin', 'manager', 'cajero', 'mesero')
   alertasStock(@TenantScope() scope, @Query('modulo') modulo?: string) {
     return this.service.getAlertasStock(scope.tenant_id, scope.empresa_id, modulo);
   }

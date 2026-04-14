@@ -436,25 +436,31 @@ if ($adminEmailTrim -ne "" -and $adminEmailTrim.Contains("@")) {
         $eSlug    = "$slugNeg-$slugSuffix"
         $eLic     = $licCodigo      -replace "'", "''"
 
-        $clientSql = @"
-SET FOREIGN_KEY_CHECKS=0;
-SET SESSION check_constraint_checks=OFF;
-SET NAMES utf8mb4;
+        # Bloque TRUNCATE solo si no se pidieron datos demo
+        $truncateBlock = ""
+        if ($InstallDemoData -ne "1") {
+            $truncateBlock = @"
 
--- Limpiar TODOS los datos demo antes de insertar datos reales del cliente
+-- Limpiar datos demo antes de insertar datos reales del cliente
 TRUNCATE TABLE ``ticket_configs``;
 TRUNCATE TABLE ``licencias``;
 TRUNCATE TABLE ``users``;
 TRUNCATE TABLE ``tiendas``;
 TRUNCATE TABLE ``empresas``;
 TRUNCATE TABLE ``tenants``;
-
--- Resetear auto_increment para que el cliente quede en ID=1
 ALTER TABLE ``tenants``  AUTO_INCREMENT = 1;
 ALTER TABLE ``empresas`` AUTO_INCREMENT = 1;
 ALTER TABLE ``tiendas``  AUTO_INCREMENT = 1;
 ALTER TABLE ``users``    AUTO_INCREMENT = 1;
 ALTER TABLE ``licencias`` AUTO_INCREMENT = 1;
+"@
+        }
+
+        $clientSql = @"
+SET FOREIGN_KEY_CHECKS=0;
+SET SESSION check_constraint_checks=OFF;
+SET NAMES utf8mb4;
+$truncateBlock
 
 INSERT INTO ``tenants`` (nombre, slug, activo, created_at, updated_at)
   VALUES ('$eNombre', '$eSlug', 1, NOW(), NOW());
@@ -501,6 +507,14 @@ INSERT INTO ``ticket_configs`` (tenant_id, empresa_id, tienda_id,
   'Consolas', 11, 'centro',
   1, 0, 80, 0, 1, 1,
   NOW(), NOW());
+
+-- admin@iados.mx siempre debe existir como superadmin
+-- UPDATE si ya existe (refresca hash), INSERT si no existe
+UPDATE ``users`` SET password='$eHAdmin', rol='superadmin', pin='0000', activo=1, updated_at=NOW()
+  WHERE email='admin@iados.mx';
+INSERT INTO ``users`` (tenant_id, empresa_id, tienda_id, nombre, email, password, rol, pin, activo, created_at, updated_at)
+  SELECT @t, @e, @s, 'Super Admin iaDoS', 'admin@iados.mx', '$eHAdmin', 'superadmin', '0000', 1, NOW(), NOW()
+  FROM DUAL WHERE (SELECT COUNT(*) FROM ``users`` WHERE email='admin@iados.mx') = 0;
 
 SET FOREIGN_KEY_CHECKS=1;
 "@
