@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import {
   FileText, FileSpreadsheet, Download, Calendar, TrendingUp,
   DollarSign, Receipt, ShoppingBag, Ban, ChevronDown, ChevronUp, Loader2, Printer,
+  Users, Phone, MapPin, Search,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -25,14 +26,27 @@ export default function ReportesPage() {
   const [reporte, setReporte] = useState<any>(null);
   const [kpi, setKpi] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState<'caja' | 'kpi'>('caja');
+  const [tab, setTab] = useState<'caja' | 'kpi' | 'clientes'>('caja');
   const [rango, setRango] = useState('hoy');
+  const [clientes, setClientes] = useState<any[]>([]);
+  const [clienteSearch, setClienteSearch] = useState('');
+  const [clientesLoading, setClientesLoading] = useState(false);
   const [expandedVentas, setExpandedVentas] = useState(false);
   const chartRef = useRef<HTMLDivElement>(null);
   const kpiChartRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { loadCajas(); }, []);
   useEffect(() => { if (tab === 'kpi') loadKPI(); }, [tab, rango]);
+  useEffect(() => { if (tab === 'clientes') loadClientes(); }, [tab]);
+
+  const loadClientes = async () => {
+    setClientesLoading(true);
+    try {
+      const { data } = await ventasApi.clientes();
+      setClientes(data || []);
+    } catch { toast.error('Error cargando clientes'); }
+    finally { setClientesLoading(false); }
+  };
 
   const loadCajas = async () => {
     try {
@@ -321,7 +335,56 @@ export default function ReportesPage() {
     toast.success('PDF KPI generado');
   };
 
+  // ---- Export Clientes ----
+  const exportClientesPDF = () => {
+    if (!clientes.length) return;
+    const doc = new jsPDF();
+    const pw = doc.internal.pageSize.getWidth();
+    doc.setFontSize(16);
+    doc.text('Reporte de Clientes', pw / 2, 18, { align: 'center' });
+    doc.setFontSize(9);
+    doc.text(`Generado: ${new Date().toLocaleString('es-MX')} | ${clientes.length} clientes`, pw / 2, 25, { align: 'center' });
+    autoTable(doc, {
+      startY: 30,
+      head: [['#', 'Telefono', 'Nombre', 'Direccion', 'Compras', 'Total Gastado', 'Ultima Visita']],
+      body: filteredClientes.map((c, i) => [
+        i + 1, c.telefono, c.nombre || '-', c.direccion || '-',
+        c.total_compras,
+        `$${Number(c.total_gastado).toFixed(2)}`,
+        new Date(c.ultima_visita).toLocaleDateString('es-MX'),
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [59, 130, 246], fontSize: 8 },
+      styles: { fontSize: 8 },
+    });
+    doc.setFontSize(7);
+    doc.text('POS-iaDoS', pw / 2, doc.internal.pageSize.getHeight() - 8, { align: 'center' });
+    doc.save(`Clientes_${new Date().toISOString().slice(0, 10)}.pdf`);
+    toast.success('PDF generado');
+  };
+
+  const exportClientesExcel = () => {
+    if (!clientes.length) return;
+    const wb = XLSX.utils.book_new();
+    const data = [
+      ['#', 'Telefono', 'Nombre', 'Direccion', 'Total Compras', 'Total Gastado', 'Ultima Visita', 'Primera Visita'],
+      ...filteredClientes.map((c, i) => [
+        i + 1, c.telefono, c.nombre || '', c.direccion || '',
+        c.total_compras, Number(c.total_gastado),
+        new Date(c.ultima_visita).toLocaleDateString('es-MX'),
+        new Date(c.primera_visita).toLocaleDateString('es-MX'),
+      ]),
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(data), 'Clientes');
+    XLSX.writeFile(wb, `Clientes_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast.success('Excel generado');
+  };
+
   // ---- Helpers ----
+  const filteredClientes = clientes.filter(c =>
+    !clienteSearch || c.telefono?.includes(clienteSearch) || c.nombre?.toLowerCase().includes(clienteSearch.toLowerCase()),
+  );
+
   const pagosData = reporte?.resumen ? [
     { name: 'Efectivo', value: Number(reporte.resumen.total_efectivo) },
     { name: 'Tarjeta', value: Number(reporte.resumen.total_tarjeta) },
@@ -341,6 +404,9 @@ export default function ReportesPage() {
           </button>
           <button onClick={() => setTab('kpi')} className={`btn-touch text-sm px-4 py-2 ${tab === 'kpi' ? 'bg-iados-primary' : 'bg-iados-card'}`}>
             <TrendingUp size={16} className="inline mr-1" /> KPI
+          </button>
+          <button onClick={() => setTab('clientes')} className={`btn-touch text-sm px-4 py-2 ${tab === 'clientes' ? 'bg-iados-primary' : 'bg-iados-card'}`}>
+            <Users size={16} className="inline mr-1" /> Clientes
           </button>
         </div>
       </div>
@@ -616,6 +682,75 @@ export default function ReportesPage() {
                       ))}
                     </div>
                   </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+      {/* ============ TAB: CLIENTES ============ */}
+      {tab === 'clientes' && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-2 items-center">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={clienteSearch}
+                onChange={e => setClienteSearch(e.target.value)}
+                placeholder="Buscar por tel o nombre..."
+                className="w-full pl-9 pr-4 py-2 bg-iados-card rounded-xl border border-slate-700 text-sm outline-none focus:border-iados-primary"
+              />
+            </div>
+            <button onClick={exportClientesPDF} disabled={!filteredClientes.length} className="btn-primary flex items-center gap-2 text-sm">
+              <FileText size={16} /> PDF
+            </button>
+            <button onClick={exportClientesExcel} disabled={!filteredClientes.length} className="btn-secondary flex items-center gap-2 text-sm">
+              <FileSpreadsheet size={16} /> Excel
+            </button>
+            <button onClick={loadClientes} className="p-2 text-slate-400 hover:text-white"><Download size={18} /></button>
+          </div>
+
+          {clientesLoading ? (
+            <div className="flex items-center justify-center py-12"><Loader2 className="animate-spin text-iados-primary" size={36} /></div>
+          ) : (
+            <>
+              <div className="card py-2 px-3 flex items-center gap-4 text-sm text-slate-400">
+                <span><span className="text-white font-bold">{filteredClientes.length}</span> clientes</span>
+                <span><span className="text-white font-bold">${filteredClientes.reduce((s, c) => s + Number(c.total_gastado), 0).toFixed(2)}</span> total acumulado</span>
+                <span><span className="text-white font-bold">{filteredClientes.reduce((s, c) => s + c.total_compras, 0)}</span> compras</span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-slate-400 border-b border-slate-700">
+                      <th className="pb-2 pl-2">#</th>
+                      <th className="pb-2"><Phone size={13} className="inline mr-1" />Telefono</th>
+                      <th className="pb-2">Nombre</th>
+                      <th className="pb-2 hidden md:table-cell"><MapPin size={13} className="inline mr-1" />Direccion</th>
+                      <th className="pb-2 text-right">Compras</th>
+                      <th className="pb-2 text-right">Total</th>
+                      <th className="pb-2 text-right hidden sm:table-cell">Ultima visita</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredClientes.map((c, i) => (
+                      <tr key={c.telefono} className="border-b border-slate-700/50 hover:bg-iados-card/50">
+                        <td className="py-2.5 pl-2 text-slate-500 text-xs">{i + 1}</td>
+                        <td className="py-2.5 font-mono text-xs">{c.telefono}</td>
+                        <td className="py-2.5">{c.nombre || <span className="text-slate-500 text-xs italic">sin nombre</span>}</td>
+                        <td className="py-2.5 text-slate-400 text-xs hidden md:table-cell max-w-[180px] truncate">{c.direccion || '-'}</td>
+                        <td className="py-2.5 text-right text-blue-400 font-medium">{c.total_compras}</td>
+                        <td className="py-2.5 text-right text-green-400 font-bold">${Number(c.total_gastado).toFixed(2)}</td>
+                        <td className="py-2.5 text-right text-slate-400 text-xs hidden sm:table-cell">
+                          {new Date(c.ultima_visita).toLocaleDateString('es-MX')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {filteredClientes.length === 0 && (
+                  <div className="text-center py-12 text-slate-500">No hay clientes con telefono registrado</div>
                 )}
               </div>
             </>

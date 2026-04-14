@@ -97,6 +97,7 @@ export default function ConfiguracionPage() {
     notas_rapidas: '',
     notas_pedido_enabled: false,
     datos_envio_enabled: false,
+    cajero_dashboard_enabled: false,
     // Impresora config
     impresora_modelo: '',
     impresora_ancho: 80,
@@ -181,6 +182,7 @@ export default function ConfiguracionPage() {
       notas_rapidas: cp.notas_rapidas || '',
       notas_pedido_enabled: cp.notas_pedido_enabled || false,
       datos_envio_enabled: cp.datos_envio_enabled || false,
+      cajero_dashboard_enabled: cp.cajero_dashboard_enabled || false,
       impresora_modelo: ci.modelo || '',
       impresora_ancho: ci.ancho || 80,
       impresora_auto_print: ci.auto_print || false,
@@ -210,6 +212,7 @@ export default function ConfiguracionPage() {
           notas_rapidas: form.notas_rapidas || '',
           notas_pedido_enabled: form.notas_pedido_enabled,
           datos_envio_enabled: form.datos_envio_enabled,
+          cajero_dashboard_enabled: form.cajero_dashboard_enabled,
           iva_enabled: form.iva_enabled,
           iva_porcentaje: form.iva_porcentaje,
           iva_incluido: form.iva_incluido,
@@ -1207,6 +1210,22 @@ export default function ConfiguracionPage() {
                       <div>
                         <span className="text-sm font-medium">Habilitar Cuentas Abiertas</span>
                         <p className="text-xs text-slate-500">Muestra botón "Cuenta" en el carrito para abrir una cuenta sin cobrar</p>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Dashboard para cajero */}
+                  <div className="border-t border-slate-700 pt-3 mt-3">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.cajero_dashboard_enabled}
+                        onChange={(e) => setForm({ ...form, cajero_dashboard_enabled: e.target.checked })}
+                        className="w-5 h-5 accent-iados-primary rounded"
+                      />
+                      <div>
+                        <span className="text-sm font-medium">Cajero puede ver Dashboard</span>
+                        <p className="text-xs text-slate-500">Muestra el menú Dashboard al rol cajero</p>
                       </div>
                     </label>
                   </div>

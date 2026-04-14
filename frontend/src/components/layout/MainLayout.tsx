@@ -24,7 +24,7 @@ const backendHost = (() => {
 
 const navItems = [
   { to: '/pos',                 icon: ShoppingCart,    label: 'POS',        roles: ['superadmin', 'admin', 'manager', 'cajero', 'mesero'] },
-  { to: '/dashboard',           icon: LayoutDashboard, label: 'Dashboard',  roles: ['superadmin', 'admin', 'manager'] },
+  { to: '/dashboard',           icon: LayoutDashboard, label: 'Dashboard',  roles: ['superadmin', 'admin', 'manager', 'cajero'] },
   { to: '/pedidos',             icon: ClipboardList,   label: 'Pedidos',    roles: ['superadmin', 'admin', 'manager', 'cajero', 'mesero'], badge: true },
   { to: '/caja',                icon: CreditCard,      label: 'Caja',       roles: ['superadmin', 'admin', 'manager', 'cajero'] },
   { to: '/reportes',            icon: FileBarChart,    label: 'Reportes',   roles: ['superadmin', 'admin', 'manager', 'cajero'] },
@@ -44,6 +44,7 @@ export default function MainLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dbHost, setDbHost] = useState('...');
   const [appVersion, setAppVersion] = useState('');
+  const [cajeroDashboard, setCajeroDashboard] = useState(false);
 
   // Fetch DB host from backend health endpoint
   useEffect(() => {
@@ -52,6 +53,17 @@ export default function MainLayout() {
       if (data.version) setAppVersion(data.version);
     }).catch(() => setDbHost('?'));
   }, []);
+
+  // Load cajero_dashboard_enabled from config_pos
+  useEffect(() => {
+    if (user?.tienda_id) {
+      import('../../api/endpoints').then(({ tiendasApi }) => {
+        tiendasApi.get(user.tienda_id!).then(({ data }) => {
+          setCajeroDashboard(data?.config_pos?.cajero_dashboard_enabled || false);
+        }).catch(() => {});
+      });
+    }
+  }, [user?.tienda_id]);
 
   const isDbExterno = dbHost !== 'localhost' && dbHost !== '127.0.0.1' && dbHost !== '...';
 
@@ -76,7 +88,13 @@ export default function MainLayout() {
     navigate('/login');
   };
 
-  const filtered = navItems.filter((n) => user && n.roles.includes(user.rol));
+  const filtered = navItems.filter((n) => {
+    if (!user) return false;
+    if (!n.roles.includes(user.rol)) return false;
+    // Dashboard for cajero requires the config flag
+    if (n.to === '/dashboard' && user.rol === 'cajero') return cajeroDashboard;
+    return true;
+  });
 
   return (
     <div className="flex h-screen overflow-hidden">

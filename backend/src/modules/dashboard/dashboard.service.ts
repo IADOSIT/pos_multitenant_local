@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThanOrEqual, In } from 'typeorm';
+import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
+import { Repository, Between, MoreThanOrEqual, In, DataSource } from 'typeorm';
 import { Venta, VentaEstado } from '../ventas/venta.entity';
 import { VentaDetalle } from '../ventas/venta.entity';
 import { Pedido, PedidoEstado } from '../pedidos/pedido.entity';
@@ -11,6 +11,7 @@ export class DashboardService {
     @InjectRepository(Venta) private ventasRepo: Repository<Venta>,
     @InjectRepository(VentaDetalle) private detallesRepo: Repository<VentaDetalle>,
     @InjectRepository(Pedido) private pedidosRepo: Repository<Pedido>,
+    @InjectDataSource() private dataSource: DataSource,
   ) {}
 
   async getKPI(scope: any, desde: string, hasta: string, tienda_id?: number) {
@@ -55,6 +56,30 @@ export class DashboardService {
       where: { ...where, estado: VentaEstado.CANCELADA },
     });
 
+    // Top clientes
+    const topClientes = await this.dataSource.query(
+      `SELECT telefono, MAX(nombre) AS nombre, COUNT(*) AS total_compras, SUM(total) AS total_gastado
+       FROM (
+         SELECT cliente_telefono AS telefono, cliente_nombre AS nombre, total
+         FROM ventas
+         WHERE tenant_id = ? AND empresa_id = ?
+           AND estado = 'completada'
+           AND created_at BETWEEN ? AND ?
+           AND cliente_telefono IS NOT NULL AND cliente_telefono != ''
+         UNION ALL
+         SELECT cliente_telefono, cliente_nombre, total
+         FROM pedidos
+         WHERE tenant_id = ? AND empresa_id = ?
+           AND created_at BETWEEN ? AND ?
+           AND cliente_telefono IS NOT NULL AND cliente_telefono != ''
+       ) t
+       GROUP BY telefono
+       ORDER BY total_gastado DESC
+       LIMIT 10`,
+      [scope.tenant_id, scope.empresa_id, desde, hasta,
+       scope.tenant_id, scope.empresa_id, desde, hasta],
+    );
+
     return {
       total_ventas: totalVentas,
       num_tickets: numTickets,
@@ -63,6 +88,12 @@ export class DashboardService {
       top_productos: topProductos,
       ventas_por_hora: ventasPorHora,
       metodos_pago: metodosPago,
+      top_clientes: topClientes.map((c: any) => ({
+        telefono: c.telefono,
+        nombre: c.nombre,
+        total_compras: Number(c.total_compras),
+        total_gastado: Number(c.total_gastado),
+      })),
     };
   }
 

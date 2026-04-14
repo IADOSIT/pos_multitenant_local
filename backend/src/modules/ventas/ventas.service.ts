@@ -195,6 +195,55 @@ export class VentasService {
     return this.ventasRepo.findOne({ where: { id }, relations: ['detalles', 'pagos'] });
   }
 
+  async getClientes(scope: any, q?: string) {
+    const likeV = q && q.length >= 2 ? 'AND v.cliente_telefono LIKE ?' : '';
+    const likeP = q && q.length >= 2 ? 'AND p.cliente_telefono LIKE ?' : '';
+    const qParams: any[] = [scope.tenant_id, scope.empresa_id];
+    if (q && q.length >= 2) qParams.push(`${q}%`);
+    qParams.push(scope.tenant_id, scope.empresa_id);
+    if (q && q.length >= 2) qParams.push(`${q}%`);
+
+    const rows = await this.dataSource.query(
+      `SELECT
+         telefono,
+         MAX(nombre)            AS nombre,
+         MAX(direccion)         AS direccion,
+         COUNT(*)               AS total_compras,
+         SUM(total)             AS total_gastado,
+         MAX(ultima_visita)     AS ultima_visita,
+         MIN(primera_visita)    AS primera_visita
+       FROM (
+         SELECT v.cliente_telefono AS telefono, v.cliente_nombre AS nombre,
+                v.cliente_direccion AS direccion, v.total,
+                v.created_at AS ultima_visita, v.created_at AS primera_visita
+         FROM ventas v
+         WHERE v.tenant_id = ? AND v.empresa_id = ?
+           AND v.cliente_telefono IS NOT NULL AND v.cliente_telefono != ''
+           ${likeV}
+         UNION ALL
+         SELECT p.cliente_telefono, p.cliente_nombre, p.cliente_direccion, p.total,
+                p.created_at, p.created_at
+         FROM pedidos p
+         WHERE p.tenant_id = ? AND p.empresa_id = ?
+           AND p.cliente_telefono IS NOT NULL AND p.cliente_telefono != ''
+           ${likeP}
+       ) t
+       GROUP BY telefono
+       ORDER BY total_gastado DESC
+       LIMIT 500`,
+      qParams,
+    );
+    return rows.map((r: any) => ({
+      telefono: r.telefono,
+      nombre: r.nombre,
+      direccion: r.direccion,
+      total_compras: Number(r.total_compras),
+      total_gastado: Number(r.total_gastado),
+      ultima_visita: r.ultima_visita,
+      primera_visita: r.primera_visita,
+    }));
+  }
+
   // Sync offline sales
   async syncOffline(ventas: any[], scope: any) {
     const results: any[] = [];

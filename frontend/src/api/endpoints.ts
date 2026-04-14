@@ -90,6 +90,7 @@ export const ventasApi = {
   get: (id: number) => api.get(`/ventas/${id}`),
   cancelar: (id: number, motivo: string) => api.post(`/ventas/${id}/cancelar`, { motivo }),
   sync: (ventas: any[]) => api.post('/ventas/sync', { ventas }),
+  clientes: (q?: string) => api.get('/ventas/clientes', { params: q ? { q } : {} }),
 };
 
 // Caja

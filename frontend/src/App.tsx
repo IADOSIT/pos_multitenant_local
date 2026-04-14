@@ -66,7 +66,7 @@ export default function App() {
             <PrivateRoute roles={['superadmin', 'admin', 'manager', 'cajero']}><InventarioPage /></PrivateRoute>
           } />
           <Route path="dashboard" element={
-            <PrivateRoute roles={['superadmin', 'admin', 'manager']}><DashboardPage /></PrivateRoute>
+            <PrivateRoute roles={['superadmin', 'admin', 'manager', 'cajero']}><DashboardPage /></PrivateRoute>
           } />
           <Route path="admin/materia-prima" element={
             <PrivateRoute roles={['superadmin', 'admin']}><MateriaPrimaPage /></PrivateRoute>

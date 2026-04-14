@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { dashboardApi } from '../../api/endpoints';
 import { KPI } from '../../types';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, ShoppingBag, Receipt, DollarSign, Ban, ClipboardList, QrCode } from 'lucide-react';
+import { TrendingUp, ShoppingBag, Receipt, DollarSign, Ban, ClipboardList, QrCode, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import SelfOrderDashboard from '../admin/SelfOrderDashboard';
 
@@ -156,6 +156,31 @@ export default function DashboardPage() {
             )) || <p className="text-slate-500 text-sm">Sin datos</p>}
           </div>
         </div>
+
+        {/* Top 10 Clientes */}
+        {kpi?.top_clientes?.length > 0 && (
+          <div className="card">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold flex items-center gap-2"><Users size={16} className="text-iados-accent" /> Top Clientes</h3>
+              <button onClick={() => navigate('/reportes')} className="text-xs text-iados-primary hover:underline">Ver todos</button>
+            </div>
+            <div className="space-y-2 max-h-[250px] overflow-y-auto">
+              {kpi.top_clientes.map((c: any, i: number) => (
+                <div key={i} className="flex items-center gap-3 bg-iados-card p-2 rounded-lg">
+                  <span className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-xs font-bold shrink-0">{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{c.nombre || c.telefono}</div>
+                    {c.nombre && <div className="text-xs text-slate-400">{c.telefono}</div>}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-sm font-bold text-green-400">${Number(c.total_gastado).toFixed(2)}</div>
+                    <div className="text-xs text-slate-400">{c.total_compras} compras</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Tendencia semanal */}
         <div className="card">
