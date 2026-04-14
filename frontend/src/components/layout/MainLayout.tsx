@@ -94,13 +94,13 @@ export default function MainLayout() {
   const filtered = navItems.filter((n) => {
     if (!user) return false;
     if (!n.roles.includes(user.rol)) return false;
-    // Dashboard for cajero requires the config flag
-    if (n.to === '/dashboard' && user.rol === 'cajero') return cajeroDashboard;
-    // sidebar_permisos: if role has a non-empty list configured, restrict to those routes
+    // sidebar_permisos: if explicitly configured for this role, it controls everything (including dashboard)
     const permList = sidebarPermisos[user.rol];
     if (permList && permList.length > 0 && !['superadmin'].includes(user.rol)) {
       return permList.includes(n.to);
     }
+    // Default fallback: dashboard for cajero requires the legacy config flag
+    if (n.to === '/dashboard' && user.rol === 'cajero') return cajeroDashboard;
     return true;
   });
 
