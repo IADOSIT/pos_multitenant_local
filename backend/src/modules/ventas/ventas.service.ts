@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, Between, DataSource } from 'typeorm';
 import { Venta, VentaDetalle, VentaPago, VentaEstado } from './venta.entity';
@@ -8,6 +8,8 @@ import { v4 as uuid } from 'uuid';
 
 @Injectable()
 export class VentasService {
+  private logger = new Logger('VentasService');
+
   constructor(
     @InjectRepository(Venta) private ventasRepo: Repository<Venta>,
     @InjectRepository(Auditoria) private auditoriaRepo: Repository<Auditoria>,
@@ -118,8 +120,8 @@ export class VentasService {
           await manager.query(
             `INSERT INTO movimientos_inventario
               (tenant_id, empresa_id, tienda_id, producto_id, producto_nombre, producto_sku,
-               tipo, cantidad, stock_anterior, stock_nuevo, concepto, usuario_id, usuario_nombre, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, 'salida', ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+               tipo, cantidad, stock_anterior, stock_nuevo, concepto, usuario_id, usuario_nombre)
+             VALUES (?, ?, ?, ?, ?, ?, 'salida', ?, ?, ?, ?, ?, ?)`,
             [
               scope.tenant_id, scope.empresa_id, scope.tienda_id,
               prod.id, prod.nombre, prod.sku,
@@ -132,7 +134,7 @@ export class VentasService {
         });
       } catch (e: any) {
         // No abortar la venta por error de inventario — solo loguear
-        console.error(`[VentasService] Error descontando stock producto ${item.producto_id}:`, e?.message);
+        this.logger.error(`Error descontando stock producto ${item.producto_id}: ${e?.message}`, e?.stack);
       }
     }
 
