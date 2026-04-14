@@ -262,11 +262,13 @@ export default function PayModal({ onClose, isOnline, pedido }: Props) {
         const pagoData = buildPagoData();
         if (mantenerAbierta) {
           const { data } = await pedidosApi.cobrarParcial(pedido.id, pagoData);
+          window.dispatchEvent(new Event('inventario:changed'));
           generarEImprimir(data.venta);
           toast.success(`Pago Mesa ${pedido.mesa} registrado — cuenta sigue abierta`);
           onClose(true);
         } else {
           const { data } = await pedidosApi.cobrar(pedido.id, pagoData);
+          window.dispatchEvent(new Event('inventario:changed'));
           generarEImprimir(data.venta);
           setVentaCompletada(data.venta);
           toast.success(`Mesa ${pedido.mesa} cobrada`);
@@ -276,6 +278,7 @@ export default function PayModal({ onClose, isOnline, pedido }: Props) {
         const ventaData = buildVentaData();
         if (isOnline) {
           const { data } = await ventasApi.crear(ventaData);
+          window.dispatchEvent(new Event('inventario:changed'));
           generarEImprimir(data);
           if (mantenerAbierta) {
             toast.success(`Pago $${data.total} registrado — puedes agregar más items`);

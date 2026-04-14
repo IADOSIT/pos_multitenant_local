@@ -2,15 +2,18 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
 import { perfilesApi } from '../../api/endpoints';
+import { useAuthStore } from '../../store/auth.store';
 
 export default function StockAlertBanner() {
+  const { user } = useAuthStore();
   const [alertCount, setAlertCount] = useState(0);
   const navigate = useNavigate();
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const checkAlertas = async () => {
     try {
-      const { data } = await perfilesApi.alertasStock();
+      const modulo = (user as any)?.modulo || undefined;
+      const { data } = await perfilesApi.alertasStock(modulo);
       setAlertCount((data || []).length);
     } catch {
       // silencioso
@@ -20,15 +23,12 @@ export default function StockAlertBanner() {
   useEffect(() => {
     checkAlertas();
     intervalRef.current = setInterval(checkAlertas, 60_000);
-
-    // Refresh immediately when inventory changes
     window.addEventListener('inventario:changed', checkAlertas);
-
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
       window.removeEventListener('inventario:changed', checkAlertas);
     };
-  }, []);
+  }, [user]);
 
   if (alertCount === 0) return null;
 

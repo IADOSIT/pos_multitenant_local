@@ -39,6 +39,20 @@ export class VentasService {
     });
     if (!caja) throw new BadRequestException('La caja no está abierta');
 
+    // Validate stock before committing the sale
+    for (const item of data.items || []) {
+      if (!item.producto_id || !item.cantidad) continue;
+      const [prod] = await this.dataSource.query(
+        'SELECT controla_stock, stock_actual, nombre FROM productos WHERE id = ? AND tenant_id = ?',
+        [item.producto_id, scope.tenant_id],
+      );
+      if (prod?.controla_stock && Number(prod.stock_actual) < Number(item.cantidad)) {
+        throw new BadRequestException(
+          `Stock insuficiente para "${prod.nombre}": disponible ${Number(prod.stock_actual)}, solicitado ${item.cantidad}`,
+        );
+      }
+    }
+
     const folio = await this.generateFolio(scope.tienda_id);
 
     const venta = this.ventasRepo.create({
@@ -84,6 +98,43 @@ export class VentasService {
     // Actualizar totales de caja
     caja.total_ventas = Number(caja.total_ventas) + Number(data.total);
     await this.cajaRepo.save(caja);
+
+    // Descontar stock para productos que controlan inventario
+    for (const item of data.items || []) {
+      if (!item.producto_id || !item.cantidad) continue;
+      try {
+        await this.dataSource.transaction(async (manager) => {
+          const [prod] = await manager.query(
+            'SELECT id, controla_stock, stock_actual, nombre, sku FROM productos WHERE id = ? AND tenant_id = ? FOR UPDATE',
+            [item.producto_id, scope.tenant_id],
+          );
+          if (!prod?.controla_stock) return;
+          const stockAnterior = Number(prod.stock_actual || 0);
+          const stockNuevo = stockAnterior - Number(item.cantidad);
+          await manager.query(
+            'UPDATE productos SET stock_actual = ? WHERE id = ?',
+            [stockNuevo, prod.id],
+          );
+          await manager.query(
+            `INSERT INTO movimientos_inventario
+              (tenant_id, empresa_id, tienda_id, producto_id, producto_nombre, producto_sku,
+               tipo, cantidad, stock_anterior, stock_nuevo, concepto, usuario_id, usuario_nombre, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, 'salida', ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+            [
+              scope.tenant_id, scope.empresa_id, scope.tienda_id,
+              prod.id, prod.nombre, prod.sku,
+              Number(item.cantidad), stockAnterior, stockNuevo,
+              `Venta ${folio}`,
+              scope.id || scope.sub,
+              scope.nombre || 'Sistema',
+            ],
+          );
+        });
+      } catch (e: any) {
+        // No abortar la venta por error de inventario — solo loguear
+        console.error(`[VentasService] Error descontando stock producto ${item.producto_id}:`, e?.message);
+      }
+    }
 
     // Auditoría
     await this.auditoriaRepo.save(this.auditoriaRepo.create({

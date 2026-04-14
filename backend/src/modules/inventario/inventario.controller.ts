@@ -32,11 +32,13 @@ export class InventarioController {
   }
 
   @Post('movimiento')
+  @Roles('superadmin', 'admin', 'manager', 'cajero')
   registrarMovimiento(@Body() data: any, @TenantScope() scope) {
     return this.service.registrarMovimiento(data, scope);
   }
 
   @Put('producto/:id')
+  @Roles('superadmin', 'admin', 'manager', 'cajero')
   updateProducto(@Param('id', ParseIntPipe) id: number, @Body() data: any, @TenantScope() scope) {
     return this.service.updateProducto(id, data, scope);
   }
