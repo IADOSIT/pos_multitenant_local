@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards, ParseIntPipe, Headers } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -19,8 +19,17 @@ export class LicenciasController {
 
   @Post('activar')
   @UseGuards(AuthGuard('jwt'))
-  activar(@TenantScope() scope, @Body() body: { codigo: string }) {
-    return this.service.activar(scope.tenant_id, body.codigo);
+  activar(
+    @TenantScope() scope,
+    @Body() body: { codigo: string; machine_fingerprint?: string },
+  ) {
+    return this.service.activar(scope.tenant_id, body.codigo, body.machine_fingerprint);
+  }
+
+  // ---- Token activation (public — no auth required) ----
+  @Post('activar-token')
+  activarConToken(@Body() body: { token: string; machine_fingerprint?: string }) {
+    return this.service.activarConToken(body.token, body.machine_fingerprint);
   }
 
   @Post('heartbeat')
@@ -45,6 +54,13 @@ export class LicenciasController {
     return this.service.findOne(id);
   }
 
+  @Post('generar-token')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('superadmin')
+  generarToken(@Body() body: { licencia_id: number; activation_code: string }) {
+    return this.service.generarToken(body.licencia_id, body.activation_code);
+  }
+
   @Post('generar-codigo')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('superadmin')
@@ -57,6 +73,7 @@ export class LicenciasController {
     features?: string[];
     grace_days?: number;
     offline_allowed?: boolean;
+    machine_locked?: boolean;
   }) {
     const raw = this.service.generarCodigoActivacion(body);
     return {

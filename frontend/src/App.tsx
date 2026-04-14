@@ -27,6 +27,7 @@ import SelfOrderPage from './pages/public/SelfOrderPage';
 import CatalogosPage from './pages/admin/CatalogosPage';
 import InventarioDualPage from './pages/inventario/InventarioDualPage';
 import PerfilNegocioPage from './pages/admin/PerfilNegocioPage';
+import ActivarLicenciaPage from './pages/ActivarLicenciaPage';
 
 function PrivateRoute({ children, roles }: { children: JSX.Element; roles?: string[] }) {
   const { isAuthenticated, user } = useAuthStore();
@@ -49,6 +50,7 @@ export default function App() {
       }} />
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/activar" element={<ActivarLicenciaPage />} />
         <Route path="/kiosco" element={<KioscoPage />} />
         <Route path="/menu/:slug" element={<MenuDigitalPage />} />
         <Route path="/self-order/:tienda_id/:mesa_numero" element={<SelfOrderPage />} />

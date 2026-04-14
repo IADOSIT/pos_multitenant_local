@@ -63,6 +63,29 @@ export class Licencia {
   @Column({ type: 'text', nullable: true })
   notas: string;
 
+  // ---- Permanente / machine-lock ----
+  @Column({ default: false })
+  permanente: boolean;
+
+  @Column({ default: false })
+  machine_locked: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  machine_fingerprint: string;
+
+  // ---- One-time activation token ----
+  @Column({ type: 'text', nullable: true })
+  activation_token: string;
+
+  @Column({ type: 'text', nullable: true })
+  activation_token_code: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  activation_token_expires: Date;
+
+  @Column({ default: false })
+  activation_token_used: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 

@@ -149,11 +149,13 @@ export const ticketsApi = {
 // Licencias
 export const licenciasApi = {
   estado: () => api.get('/licencias/estado'),
-  activar: (codigo: string) => api.post('/licencias/activar', { codigo }),
+  activar: (codigo: string, machine_fingerprint?: string) => api.post('/licencias/activar', { codigo, machine_fingerprint }),
+  activarConToken: (token: string, machine_fingerprint?: string) => api.post('/licencias/activar-token', { token, machine_fingerprint }),
   heartbeat: () => api.post('/licencias/heartbeat'),
   list: () => api.get('/licencias'),
   get: (id: number) => api.get(`/licencias/${id}`),
   generarCodigo: (data: any) => api.post('/licencias/generar-codigo', data),
+  generarToken: (licencia_id: number, activation_code: string) => api.post('/licencias/generar-token', { licencia_id, activation_code }),
   suspender: (id: number) => api.post(`/licencias/${id}/suspender`),
   reactivar: (id: number) => api.post(`/licencias/${id}/reactivar`),
   update: (id: number, data: any) => api.put(`/licencias/${id}`, data),
