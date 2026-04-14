@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { productosApi, categoriasApi } from '../../api/endpoints';
+import { resolveUploadUrl } from '../../api/client';
 import toast from 'react-hot-toast';
 import { Plus, Upload, Download, Search, Edit2, Package, Trash2, Image, X, ImagePlus } from 'lucide-react';
 
@@ -178,7 +179,7 @@ export default function ProductosAdmin() {
               <tr key={p.id} className="border-b border-slate-800 hover:bg-iados-card/50">
                 <td className="p-3">
                   {p.imagen_url ? (
-                    <img src={p.imagen_url} alt={p.nombre} className="w-10 h-10 object-cover rounded" />
+                    <img src={resolveUploadUrl(p.imagen_url)} alt={p.nombre} className="w-10 h-10 object-cover rounded" />
                   ) : (
                     <div className="w-10 h-10 bg-slate-700 rounded flex items-center justify-center text-xs text-slate-400"><Image size={16} /></div>
                   )}
@@ -259,7 +260,7 @@ export default function ProductosAdmin() {
                 <input ref={imageFileRef} type="file" accept=".jpg,.jpeg,.png,.webp,.gif,.heic,.heif" className="hidden" onChange={handleImageUpload} />
               </div>
               {form.imagen_url && (
-                <img src={form.imagen_url} alt="Preview" className="w-20 h-20 object-cover rounded mt-2" />
+                <img src={resolveUploadUrl(form.imagen_url)} alt="Preview" className="w-20 h-20 object-cover rounded mt-2" />
               )}
             </div>
 

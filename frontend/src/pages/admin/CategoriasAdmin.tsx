@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { categoriasApi, productosApi } from '../../api/endpoints';
+import { resolveUploadUrl } from '../../api/client';
 import toast from 'react-hot-toast';
 import { Plus, Edit2, Tag, Trash2, Search, X, Image, ImagePlus } from 'lucide-react';
 
@@ -86,7 +87,7 @@ export default function CategoriasAdmin() {
         {categorias.map((c) => (
           <div key={c.id} className="card flex items-center gap-3">
             {c.imagen_url ? (
-              <img src={c.imagen_url} alt={c.nombre} className="w-12 h-12 rounded-xl object-cover" />
+              <img src={resolveUploadUrl(c.imagen_url)} alt={c.nombre} className="w-12 h-12 rounded-xl object-cover" />
             ) : (
               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold" style={{ backgroundColor: c.color || '#3b82f6' }}>
                 {c.nombre.charAt(0)}
@@ -130,7 +131,7 @@ export default function CategoriasAdmin() {
                 <input ref={imageFileRef} type="file" accept=".jpg,.jpeg,.png,.webp,.gif,.heic,.heif" className="hidden" onChange={handleImageUpload} />
               </div>
               {form.imagen_url && (
-                <img src={form.imagen_url} alt="Preview" className="w-20 h-20 object-cover rounded mt-2" />
+                <img src={resolveUploadUrl(form.imagen_url)} alt="Preview" className="w-20 h-20 object-cover rounded mt-2" />
               )}
             </div>
 
