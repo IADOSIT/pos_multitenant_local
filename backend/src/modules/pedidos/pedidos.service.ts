@@ -347,16 +347,27 @@ export class PedidosService {
   async buscarClientes(scope: any, q: string) {
     if (q.length < 2) return [];
     const rows = await this.dataSource.query(
-      `SELECT cliente_telefono AS telefono, cliente_nombre AS nombre, cliente_direccion AS direccion,
-              MAX(created_at) AS ultima_visita
-       FROM pedidos
-       WHERE tenant_id = ? AND empresa_id = ?
-         AND cliente_telefono IS NOT NULL AND cliente_telefono != ''
-         AND cliente_telefono LIKE ?
-       GROUP BY cliente_telefono, cliente_nombre, cliente_direccion
+      `SELECT telefono, nombre, direccion, MAX(ultima_visita) AS ultima_visita
+       FROM (
+         SELECT cliente_telefono AS telefono, cliente_nombre AS nombre,
+                cliente_direccion AS direccion, created_at AS ultima_visita
+         FROM pedidos
+         WHERE tenant_id = ? AND empresa_id = ?
+           AND cliente_telefono IS NOT NULL AND cliente_telefono != ''
+           AND cliente_telefono LIKE ?
+         UNION ALL
+         SELECT cliente_telefono, cliente_nombre,
+                cliente_direccion, created_at
+         FROM ventas
+         WHERE tenant_id = ? AND empresa_id = ?
+           AND cliente_telefono IS NOT NULL AND cliente_telefono != ''
+           AND cliente_telefono LIKE ?
+       ) t
+       GROUP BY telefono, nombre, direccion
        ORDER BY ultima_visita DESC
        LIMIT 6`,
-      [scope.tenant_id, scope.empresa_id, `${q}%`],
+      [scope.tenant_id, scope.empresa_id, `${q}%`,
+       scope.tenant_id, scope.empresa_id, `${q}%`],
     );
     return rows;
   }
