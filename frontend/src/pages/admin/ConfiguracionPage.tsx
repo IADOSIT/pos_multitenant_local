@@ -6,7 +6,7 @@ import { useAuthStore } from '../../store/auth.store';
 import TicketsConfig from './TicketsConfig';
 import { useThemeStore, ThemeName, PaletteName } from '../../store/theme.store';
 import toast from 'react-hot-toast';
-import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers } from 'lucide-react';
+import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers, TrendingUp, DollarSign } from 'lucide-react';
 import PerfilNegocioPage from './PerfilNegocioPage';
 import InventarioDualPage from '../inventario/InventarioDualPage';
 import QRCode from 'qrcode';
@@ -39,7 +39,7 @@ export default function ConfiguracionPage() {
   const [editingNew, setEditingNew] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<any>(null);
   const [expandedSection, setExpandedSection] = useState<string>('pos');
-  const [configTab, setConfigTab] = useState<'tienda' | 'tickets' | 'modulos'>('tienda');
+  const [configTab, setConfigTab] = useState<'tienda' | 'tickets' | 'modulos' | 'especial'>('tienda');
   const [empresaLogo, setEmpresaLogo] = useState<string>('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const logoRef = useRef<HTMLInputElement>(null);
@@ -107,6 +107,13 @@ export default function ConfiguracionPage() {
     impresora_ancho: 80,
     impresora_auto_print: false,
     impresora_copias: 1,
+    // Conf. Especial (solo superadmin)
+    caja_auto_enabled: false,
+    caja_ocultar_ui: false,
+    dashboard_categorias_enabled: false,
+    mesa_numero_oculto: false,
+    sidebar_permisos: {} as Record<string, string[]>,
+    whatsapp_eventos: { stock_bajo: true, resumen_diario: false } as Record<string, boolean>,
   });
 
   useEffect(() => { load(); loadEmpresa(); fetchSystemInfo(); }, []);
@@ -195,6 +202,12 @@ export default function ConfiguracionPage() {
       impresora_ancho: ci.ancho || 80,
       impresora_auto_print: ci.auto_print || false,
       impresora_copias: ci.copias || 1,
+      caja_auto_enabled: cp.caja_auto_enabled || false,
+      caja_ocultar_ui: cp.caja_ocultar_ui || false,
+      dashboard_categorias_enabled: cp.dashboard_categorias_enabled || false,
+      mesa_numero_oculto: cp.mesa_numero_oculto || false,
+      sidebar_permisos: cp.sidebar_permisos || {},
+      whatsapp_eventos: cp.whatsapp_eventos || { stock_bajo: true, resumen_diario: false },
     });
   };
 
@@ -228,6 +241,12 @@ export default function ConfiguracionPage() {
           iva_enabled: form.iva_enabled,
           iva_porcentaje: form.iva_porcentaje,
           iva_incluido: form.iva_incluido,
+          caja_auto_enabled: form.caja_auto_enabled,
+          caja_ocultar_ui: form.caja_ocultar_ui,
+          dashboard_categorias_enabled: form.dashboard_categorias_enabled,
+          mesa_numero_oculto: form.mesa_numero_oculto,
+          sidebar_permisos: form.sidebar_permisos,
+          whatsapp_eventos: form.whatsapp_eventos,
         },
         config_impresora: {
           modelo: form.impresora_modelo,
@@ -279,6 +298,8 @@ export default function ConfiguracionPage() {
       iva_enabled: false, iva_porcentaje: 16, iva_incluido: true,
       modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false, mostrar_so_pendiente_en_pos: false, notas_por_item: false, notas_rapidas: '', notas_pedido_enabled: false, datos_envio_enabled: false, cajero_dashboard_enabled: false, cantidades_rapidas: '10,25,50,100', whatsapp_enabled: false, whatsapp_phone: '', whatsapp_token: '',
       impresora_modelo: '', impresora_ancho: 80, impresora_auto_print: false, impresora_copias: 1,
+      caja_auto_enabled: false, caja_ocultar_ui: false, dashboard_categorias_enabled: false,
+      mesa_numero_oculto: false, sidebar_permisos: {}, whatsapp_eventos: { stock_bajo: true, resumen_diario: false },
     });
   };
 
@@ -517,9 +538,10 @@ export default function ConfiguracionPage() {
       {/* Tabs */}
       <div className="flex gap-1 border-b border-slate-700 mb-4">
         {[
-          { id: 'tienda',  label: 'Tienda' },
-          { id: 'tickets', label: 'Tickets' },
+          { id: 'tienda',   label: 'Tienda' },
+          { id: 'tickets',  label: 'Tickets' },
           ...(['superadmin', 'admin'].includes(user?.rol || '') ? [{ id: 'modulos', label: 'Modulos' }] : []),
+          ...(user?.rol === 'superadmin' ? [{ id: 'especial', label: '⚙️ Conf. Especial' }] : []),
         ].map(({ id, label }) => (
           <button
             key={id}
@@ -546,6 +568,164 @@ export default function ConfiguracionPage() {
             <h2 className="text-base font-bold flex items-center gap-2 mb-3"><Layers size={18} className="text-iados-accent" /> Inventario Dual</h2>
             <InventarioDualPage />
           </div>
+        </div>
+      )}
+
+      {/* ── TAB CONF. ESPECIAL (solo superadmin) ──────────────────────── */}
+      {configTab === 'especial' && (
+        <div className="space-y-4">
+          {!selected ? (
+            <div className="card text-center text-slate-500 py-8">Selecciona una tienda primero en el tab Tienda</div>
+          ) : (
+            <>
+              <div className="bg-amber-900/20 border border-amber-700/50 rounded-xl px-4 py-2 text-xs text-amber-300 flex items-center gap-2">
+                <AlertTriangle size={14} /> Estas configuraciones son por tienda ({selected.nombre}) y solo visibles para superadmin
+              </div>
+
+              {/* ── Sección Caja ── */}
+              <div className="card space-y-3">
+                <h3 className="font-bold text-sm flex items-center gap-2"><DollarSign size={16} className="text-green-400" /> Caja Automática (CDMX)</h3>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" checked={form.caja_auto_enabled}
+                    onChange={(e) => setForm({ ...form, caja_auto_enabled: e.target.checked })}
+                    className="w-5 h-5 accent-iados-primary" />
+                  <div>
+                    <span className="text-sm font-medium">Caja automática por día natural</span>
+                    <p className="text-xs text-slate-500">Se abre sola a las 00:00 y se cierra a las 23:59 hora CDMX, sin fondo de apertura</p>
+                  </div>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" checked={form.caja_ocultar_ui}
+                    onChange={(e) => setForm({ ...form, caja_ocultar_ui: e.target.checked })}
+                    className="w-5 h-5 accent-iados-primary" />
+                  <div>
+                    <span className="text-sm font-medium">Ocultar sección Caja del menú</span>
+                    <p className="text-xs text-slate-500">Los cajeros/meseros no ven la opción Caja en el sidebar</p>
+                  </div>
+                </label>
+              </div>
+
+              {/* ── Sección Dashboard ── */}
+              <div className="card space-y-3">
+                <h3 className="font-bold text-sm flex items-center gap-2"><TrendingUp size={16} className="text-blue-400" /> Dashboard</h3>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" checked={form.dashboard_categorias_enabled}
+                    onChange={(e) => setForm({ ...form, dashboard_categorias_enabled: e.target.checked })}
+                    className="w-5 h-5 accent-iados-primary" />
+                  <div>
+                    <span className="text-sm font-medium">Tab "Por Categoría" en Dashboard</span>
+                    <p className="text-xs text-slate-500">Muestra ventas desglosadas por categoría de producto con detalle de unidades y montos</p>
+                  </div>
+                </label>
+              </div>
+
+              {/* ── Sección Mesas ── */}
+              <div className="card space-y-3">
+                <h3 className="font-bold text-sm flex items-center gap-2"><Monitor size={16} className="text-purple-400" /> Modo Mesa</h3>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" checked={form.mesa_numero_oculto}
+                    onChange={(e) => setForm({ ...form, mesa_numero_oculto: e.target.checked })}
+                    className="w-5 h-5 accent-iados-primary" />
+                  <div>
+                    <span className="text-sm font-medium">Ocultar campo de número de mesa</span>
+                    <p className="text-xs text-slate-500">En modo mesa el cajero no escribe el número — ideal si las mesas se asignan por QR</p>
+                  </div>
+                </label>
+              </div>
+
+              {/* ── Sección Sidebar por rol ── */}
+              <div className="card space-y-4">
+                <h3 className="font-bold text-sm flex items-center gap-2"><Eye size={16} className="text-amber-400" /> Menú lateral por rol</h3>
+                <p className="text-xs text-slate-500">Marca qué opciones puede ver cada rol. Si dejas todo sin marcar, el rol ve su configuración por defecto.</p>
+                {[
+                  { rol: 'cajero',  label: 'Cajero',  color: 'text-blue-400' },
+                  { rol: 'mesero',  label: 'Mesero',  color: 'text-green-400' },
+                  { rol: 'manager', label: 'Manager', color: 'text-purple-400' },
+                  { rol: 'admin',   label: 'Admin',   color: 'text-amber-400' },
+                ].map(({ rol, label, color }) => {
+                  const todosItems = [
+                    { to: '/pos',                 label: 'POS' },
+                    { to: '/dashboard',           label: 'Dashboard' },
+                    { to: '/pedidos',             label: 'Pedidos' },
+                    { to: '/caja',                label: 'Caja' },
+                    { to: '/reportes',            label: 'Reportes' },
+                    { to: '/inventario',          label: 'Inventario' },
+                    { to: '/catalogos',           label: 'Catálogos' },
+                    { to: '/admin/mesas',         label: 'Mesas' },
+                    { to: '/admin/usuarios',      label: 'Usuarios' },
+                    { to: '/admin/configuracion', label: 'Configuración' },
+                    { to: '/admin/mantenimiento', label: 'Mantenimiento' },
+                  ];
+                  const permisos: string[] = form.sidebar_permisos[rol] || [];
+                  const allChecked = permisos.length === 0;
+                  return (
+                    <div key={rol} className="border border-slate-700 rounded-xl p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className={`font-medium text-sm ${color}`}>{label}</span>
+                        <button
+                          className="text-xs text-slate-400 hover:text-white"
+                          onClick={() => setForm({ ...form, sidebar_permisos: { ...form.sidebar_permisos, [rol]: [] } })}
+                        >
+                          Reset (default)
+                        </button>
+                      </div>
+                      {allChecked && <p className="text-xs text-slate-500 italic">Usando configuración por defecto del sistema</p>}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                        {todosItems.map(({ to, label: itemLabel }) => {
+                          const checked = permisos.includes(to);
+                          return (
+                            <label key={to} className="flex items-center gap-2 cursor-pointer text-xs">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) => {
+                                  const newPermisos = e.target.checked
+                                    ? [...permisos, to]
+                                    : permisos.filter((p) => p !== to);
+                                  setForm({ ...form, sidebar_permisos: { ...form.sidebar_permisos, [rol]: newPermisos } });
+                                }}
+                                className="accent-iados-primary"
+                              />
+                              {itemLabel}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* ── Sección WhatsApp eventos ── */}
+              <div className="card space-y-3">
+                <h3 className="font-bold text-sm flex items-center gap-2"><Smartphone size={16} className="text-green-400" /> Notificaciones WhatsApp</h3>
+                <p className="text-xs text-slate-500">Configura qué eventos disparan una notificación (requiere Fonnte habilitado en POS)</p>
+                {[
+                  { key: 'stock_bajo',      label: 'Stock bajo al hacer venta',     desc: 'Cuando un producto cae bajo el mínimo' },
+                  { key: 'resumen_diario',  label: 'Resumen diario de ventas',       desc: 'Resumen a las 23:00 con total del día' },
+                  { key: 'nueva_venta',     label: 'Cada nueva venta',               desc: 'Un mensaje por cada venta registrada' },
+                ].map(({ key, label, desc }) => (
+                  <label key={key} className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.whatsapp_eventos[key] ?? false}
+                      onChange={(e) => setForm({ ...form, whatsapp_eventos: { ...form.whatsapp_eventos, [key]: e.target.checked } })}
+                      className="w-5 h-5 accent-iados-primary"
+                    />
+                    <div>
+                      <span className="text-sm font-medium">{label}</span>
+                      <p className="text-xs text-slate-500">{desc}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+
+              {/* Botón guardar */}
+              <button onClick={handleSave} disabled={loading} className="btn-success w-full text-base">
+                {loading ? <Loader2 size={18} className="animate-spin mx-auto" /> : <><Save size={18} className="mr-2" />Guardar Configuración Especial</>}
+              </button>
+            </>
+          )}
         </div>
       )}
 

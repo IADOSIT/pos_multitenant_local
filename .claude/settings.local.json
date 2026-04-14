@@ -297,7 +297,8 @@
       "Bash(C:/sites/pos_multitenant_local/backend/node_modules/.bin/tsc --noEmit --project C:/sites/pos_multitenant_local/backend/tsconfig.json)",
       "Bash(npx ts-node:*)",
       "Bash(ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 root@74.208.149.7 \"docker logs pos-iados-api --tail 50 2>&1\")",
-      "Bash(ssh:*)"
+      "Bash(ssh:*)",
+      "Bash(timeout 300 bash -c 'while true; do sleep 15; ls \"/c/sites/pos_multitenant_local/installer/output/POS-iaDoS-Local-v2.2.66.exe\" 2>/dev/null && echo \"LISTO\" && break; echo -n \".\"; done')"
     ]
   }
 }
