@@ -88,6 +88,7 @@ export interface KPI {
   top_productos: { nombre: string; cantidad: number; total: number }[];
   ventas_por_hora: number[];
   metodos_pago: Record<string, number>;
+  top_clientes?: { telefono: string; nombre: string; total_compras: number; total_gastado: number }[];
 }
 
 export interface PerfilNegocio {

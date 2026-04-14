@@ -158,14 +158,14 @@ export default function DashboardPage() {
         </div>
 
         {/* Top 10 Clientes */}
-        {kpi?.top_clientes?.length > 0 && (
+        {(kpi?.top_clientes?.length ?? 0) > 0 && (
           <div className="card">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold flex items-center gap-2"><Users size={16} className="text-iados-accent" /> Top Clientes</h3>
               <button onClick={() => navigate('/reportes')} className="text-xs text-iados-primary hover:underline">Ver todos</button>
             </div>
             <div className="space-y-2 max-h-[250px] overflow-y-auto">
-              {kpi.top_clientes.map((c: any, i: number) => (
+              {(kpi?.top_clientes ?? []).map((c: any, i: number) => (
                 <div key={i} className="flex items-center gap-3 bg-iados-card p-2 rounded-lg">
                   <span className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-xs font-bold shrink-0">{i + 1}</span>
                   <div className="flex-1 min-w-0">
