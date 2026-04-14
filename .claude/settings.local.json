@@ -294,7 +294,10 @@
       "Bash(break)",
       "Bash(tasklist)",
       "Bash(C:/sites/pos_multitenant_local/backend/node_modules/.bin/tsc --noEmit)",
-      "Bash(C:/sites/pos_multitenant_local/backend/node_modules/.bin/tsc --noEmit --project C:/sites/pos_multitenant_local/backend/tsconfig.json)"
+      "Bash(C:/sites/pos_multitenant_local/backend/node_modules/.bin/tsc --noEmit --project C:/sites/pos_multitenant_local/backend/tsconfig.json)",
+      "Bash(npx ts-node:*)",
+      "Bash(ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 root@74.208.149.7 \"docker logs pos-iados-api --tail 50 2>&1\")",
+      "Bash(ssh:*)"
     ]
   }
 }

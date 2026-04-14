@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePOSStore } from '../../store/pos.store';
 import { useAuthStore } from '../../store/auth.store';
 import { offlineActions } from '../../store/offline.store';
@@ -10,7 +10,45 @@ import toast from 'react-hot-toast';
 import CartPanel from '../../components/pos/CartPanel';
 import PayModal from '../../components/pos/PayModal';
 import AbrirCuentaModal from '../../components/pos/AbrirCuentaModal';
-import { Search, ShoppingBag, Wifi, WifiOff, CreditCard, X, Clock, RefreshCw, Trash2 } from 'lucide-react';
+import { Search, ShoppingBag, Wifi, WifiOff, CreditCard, X, Clock, RefreshCw, Trash2, Minus, Plus } from 'lucide-react';
+
+// ── Long-press product card ──────────────────────────────────────────────────
+function ProductCard({ prod, onClick, onLongPress }: { prod: Producto; onClick: () => void; onLongPress: () => void }) {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const firedRef = useRef(false);
+
+  const start = () => {
+    firedRef.current = false;
+    timerRef.current = setTimeout(() => {
+      firedRef.current = true;
+      onLongPress();
+    }, 500);
+  };
+  const cancel = () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  const handleClick = () => { if (!firedRef.current) onClick(); };
+
+  return (
+    <button
+      onMouseDown={start} onMouseUp={cancel} onMouseLeave={cancel}
+      onTouchStart={start} onTouchEnd={cancel} onTouchCancel={cancel}
+      onClick={handleClick}
+      className="card hover:ring-2 hover:ring-iados-secondary active:scale-95 transition-all flex flex-col items-center text-center p-3 min-h-[120px] select-none"
+    >
+      {prod.imagen_url ? (
+        <img src={resolveUploadUrl(prod.imagen_url)} alt={prod.nombre} className="w-16 h-16 object-cover rounded-xl mb-2" />
+      ) : (
+        <div
+          className="w-16 h-16 rounded-xl mb-2 flex items-center justify-center text-2xl font-bold"
+          style={{ backgroundColor: (prod as any).categoria?.color || '#3b82f6', color: 'white' }}
+        >
+          {prod.nombre.charAt(0)}
+        </div>
+      )}
+      <span className="text-sm font-medium leading-tight line-clamp-2">{prod.nombre}</span>
+      <span className="text-iados-accent font-bold mt-1">${Number(prod.precio).toFixed(2)}</span>
+    </button>
+  );
+}
 
 export default function POSPage() {
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -30,6 +68,8 @@ export default function POSPage() {
   const [notasRapidas, setNotasRapidas] = useState<string[]>([]);
   const [notasPedidoEnabled, setNotasPedidoEnabled] = useState(false);
   const [datosEnvioEnabled, setDatosEnvioEnabled] = useState(false);
+  const [cantidadesRapidas, setCantidadesRapidas] = useState<number[]>([10, 25, 50, 100]);
+  const [qtyModal, setQtyModal] = useState<{ producto: any; qty: number } | null>(null);
 
   const { user } = useAuthStore();
   const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, setMesaActiva, tipoServicio, clearCart, notaPedido, clienteNombre, clienteTelefono, clienteDireccion } = usePOSStore();
@@ -80,7 +120,9 @@ export default function POSPage() {
         );
         setNotasPedidoEnabled(data.config_pos.notas_pedido_enabled || false);
         setDatosEnvioEnabled(data.config_pos.datos_envio_enabled || false);
-
+        const cr = (data.config_pos.cantidades_rapidas || '10,25,50,100')
+          .split(',').map((s: string) => parseInt(s.trim(), 10)).filter((n: number) => n > 0);
+        setCantidadesRapidas(cr.length ? cr : [10, 25, 50, 100]);
       }
     } catch {}
   };
@@ -124,7 +166,18 @@ export default function POSPage() {
 
   const handleProductClick = (producto: Producto) => {
     addToCart(producto);
-    toast.success(`${producto.nombre} agregado`, { duration: 1000 });
+    toast.success(`${producto.nombre} agregado`, { duration: 800 });
+  };
+
+  const handleProductLongPress = (producto: Producto) => {
+    setQtyModal({ producto, qty: 1 });
+  };
+
+  const handleQtyConfirm = () => {
+    if (!qtyModal || qtyModal.qty < 1) return;
+    addToCart(qtyModal.producto, qtyModal.qty);
+    toast.success(`${qtyModal.producto.nombre} x${qtyModal.qty}`, { duration: 800 });
+    setQtyModal(null);
   };
 
   const handleEnviarPedido = async () => {
@@ -440,24 +493,12 @@ export default function POSPage() {
         <div className="flex-1 overflow-y-auto p-3">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
             {filteredProductos.map((prod) => (
-              <button
+              <ProductCard
                 key={prod.id}
+                prod={prod}
                 onClick={() => handleProductClick(prod)}
-                className="card hover:ring-2 hover:ring-iados-secondary active:scale-95 transition-all flex flex-col items-center text-center p-3 min-h-[120px]"
-              >
-                {prod.imagen_url ? (
-                  <img src={resolveUploadUrl(prod.imagen_url)} alt={prod.nombre} className="w-16 h-16 object-cover rounded-xl mb-2" />
-                ) : (
-                  <div
-                    className="w-16 h-16 rounded-xl mb-2 flex items-center justify-center text-2xl font-bold"
-                    style={{ backgroundColor: prod.categoria?.color || '#3b82f6', color: 'white' }}
-                  >
-                    {prod.nombre.charAt(0)}
-                  </div>
-                )}
-                <span className="text-sm font-medium leading-tight line-clamp-2">{prod.nombre}</span>
-                <span className="text-iados-accent font-bold mt-1">${Number(prod.precio).toFixed(2)}</span>
-              </button>
+                onLongPress={() => handleProductLongPress(prod)}
+              />
             ))}
           </div>
           {filteredProductos.length === 0 && (
@@ -479,6 +520,7 @@ export default function POSPage() {
           cuentaAbiertaEnabled={cuentaAbiertaEnabled}
           notasPorItem={notasPorItem}
           notasRapidas={notasRapidas}
+          cantidadesRapidas={cantidadesRapidas}
           notasPedidoEnabled={notasPedidoEnabled}
           datosEnvioEnabled={datosEnvioEnabled}
           pedidoActivo={pedidoActivo}
@@ -506,6 +548,61 @@ export default function POSPage() {
           isOnline={isOnline}
           pedido={pedidoACobrar}
         />
+      )}
+
+      {/* Modal: Cantidad rápida (long-press) */}
+      {qtyModal && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setQtyModal(null)}>
+          <div className="card w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-lg">{qtyModal.producto.nombre}</h3>
+              <button onClick={() => setQtyModal(null)} className="text-slate-400 hover:text-white"><X size={20} /></button>
+            </div>
+            <p className="text-sm text-slate-400 mb-3 text-center">¿Cuántas unidades?</p>
+            {/* Quick buttons */}
+            <div className="grid grid-cols-4 gap-2 mb-4">
+              {cantidadesRapidas.map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setQtyModal((m) => m ? { ...m, qty: n } : m)}
+                  className={`py-3 rounded-xl font-bold text-lg transition-colors ${
+                    qtyModal.qty === n ? 'bg-iados-primary text-white' : 'bg-iados-card text-slate-200 hover:bg-iados-primary/30'
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+            {/* Manual input */}
+            <div className="flex items-center gap-2 mb-4">
+              <button
+                onClick={() => setQtyModal((m) => m ? { ...m, qty: Math.max(1, m.qty - 1) } : m)}
+                className="w-12 h-12 rounded-xl bg-iados-card flex items-center justify-center text-slate-300 hover:bg-iados-primary/30"
+              ><Minus size={18} /></button>
+              <input
+                type="number"
+                min="1"
+                value={qtyModal.qty}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (!isNaN(v) && v >= 1) setQtyModal((m) => m ? { ...m, qty: v } : m);
+                }}
+                onFocus={(e) => e.target.select()}
+                className="flex-1 input-touch text-center text-2xl font-bold"
+              />
+              <button
+                onClick={() => setQtyModal((m) => m ? { ...m, qty: m.qty + 1 } : m)}
+                className="w-12 h-12 rounded-xl bg-iados-card flex items-center justify-center text-slate-300 hover:bg-iados-primary/30"
+              ><Plus size={18} /></button>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setQtyModal(null)} className="btn-secondary flex-1">Cancelar</button>
+              <button onClick={handleQtyConfirm} className="btn-accent flex-1 text-lg">
+                Agregar {qtyModal.qty} × ${(Number(qtyModal.producto.precio) * qtyModal.qty).toFixed(2)}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Panel: Cuentas Abiertas */}

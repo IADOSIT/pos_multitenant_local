@@ -10,6 +10,7 @@ interface Props {
   cuentaAbiertaEnabled?: boolean;
   notasPorItem?: boolean;
   notasRapidas?: string[];
+  cantidadesRapidas?: number[];
   notasPedidoEnabled?: boolean;
   datosEnvioEnabled?: boolean;
   pedidoActivo?: any;
@@ -17,12 +18,16 @@ interface Props {
   onCancelarEdicion?: () => void;
 }
 
-export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuentaAbiertaEnabled, notasPorItem, notasRapidas = [], notasPedidoEnabled, datosEnvioEnabled, pedidoActivo, onActualizarCuenta, onCancelarEdicion }: Props) {
+export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuentaAbiertaEnabled, notasPorItem, notasRapidas = [], cantidadesRapidas, notasPedidoEnabled, datosEnvioEnabled, pedidoActivo, onActualizarCuenta, onCancelarEdicion }: Props) {
   const { cart, updateQuantity, removeFromCart, clearCart, updateItemNotes, getSubtotal, getImpuestos, getTotal, cajaActiva, modoServicio, tipoCobro, mesaActiva, setMesaActiva, tipoServicio, setTipoServicio, notaPedido, setNotaPedido, clienteNombre, setClienteNombre, clienteTelefono, setClienteTelefono, clienteDireccion, setClienteDireccion } = usePOSStore();
 
   // Notas por ítem
   const [editingNotaId, setEditingNotaId] = useState<string | null>(null);
   const [notaTemp, setNotaTemp] = useState('');
+
+  // Inline qty editing
+  const [editingQtyId, setEditingQtyId] = useState<string | null>(null);
+  const [qtyTemp, setQtyTemp] = useState('');
 
   // Para llevar — autocomplete
   const [sugerencias, setSugerencias] = useState<any[]>([]);
@@ -238,7 +243,33 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuenta
                     </button>
                   )}
                   <button onClick={() => updateQuantity(item.id, item.cantidad - 1)} className="w-8 h-8 rounded-lg bg-iados-surface flex items-center justify-center active:scale-90"><Minus size={14} /></button>
-                  <span className="w-8 text-center font-bold">{item.cantidad}</span>
+                  {editingQtyId === item.id ? (
+                    <input
+                      type="number"
+                      min="1"
+                      autoFocus
+                      value={qtyTemp}
+                      onChange={(e) => setQtyTemp(e.target.value)}
+                      onFocus={(e) => e.target.select()}
+                      onBlur={() => {
+                        const v = parseInt(qtyTemp, 10);
+                        if (!isNaN(v) && v >= 1) updateQuantity(item.id, v);
+                        else if (v < 1) removeFromCart(item.id);
+                        setEditingQtyId(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                        if (e.key === 'Escape') setEditingQtyId(null);
+                      }}
+                      className="w-12 text-center font-bold bg-iados-primary/20 border border-iados-primary/50 rounded-lg text-sm px-1 py-0.5"
+                    />
+                  ) : (
+                    <button
+                      className="w-8 text-center font-bold hover:bg-iados-primary/20 rounded-lg transition-colors"
+                      title="Toca para editar cantidad"
+                      onClick={() => { setEditingQtyId(item.id); setQtyTemp(String(item.cantidad)); }}
+                    >{item.cantidad}</button>
+                  )}
                   <button onClick={() => updateQuantity(item.id, item.cantidad + 1)} className="w-8 h-8 rounded-lg bg-iados-surface flex items-center justify-center active:scale-90"><Plus size={14} /></button>
                   <button onClick={() => removeFromCart(item.id)} className="w-8 h-8 rounded-lg bg-red-900/50 text-red-400 flex items-center justify-center active:scale-90 ml-1"><Trash2 size={14} /></button>
                 </div>

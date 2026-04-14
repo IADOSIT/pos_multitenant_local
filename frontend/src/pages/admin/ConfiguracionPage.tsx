@@ -98,6 +98,10 @@ export default function ConfiguracionPage() {
     notas_pedido_enabled: false,
     datos_envio_enabled: false,
     cajero_dashboard_enabled: false,
+    cantidades_rapidas: '10,25,50,100',
+    whatsapp_enabled: false,
+    whatsapp_phone: '',
+    whatsapp_apikey: '',
     // Impresora config
     impresora_modelo: '',
     impresora_ancho: 80,
@@ -183,6 +187,10 @@ export default function ConfiguracionPage() {
       notas_pedido_enabled: cp.notas_pedido_enabled || false,
       datos_envio_enabled: cp.datos_envio_enabled || false,
       cajero_dashboard_enabled: cp.cajero_dashboard_enabled || false,
+      cantidades_rapidas: cp.cantidades_rapidas || '10,25,50,100',
+      whatsapp_enabled: cp.whatsapp_enabled || false,
+      whatsapp_phone: cp.whatsapp_phone || '',
+      whatsapp_apikey: cp.whatsapp_apikey || '',
       impresora_modelo: ci.modelo || '',
       impresora_ancho: ci.ancho || 80,
       impresora_auto_print: ci.auto_print || false,
@@ -213,6 +221,10 @@ export default function ConfiguracionPage() {
           notas_pedido_enabled: form.notas_pedido_enabled,
           datos_envio_enabled: form.datos_envio_enabled,
           cajero_dashboard_enabled: form.cajero_dashboard_enabled,
+          cantidades_rapidas: form.cantidades_rapidas || '',
+          whatsapp_enabled: form.whatsapp_enabled,
+          whatsapp_phone: form.whatsapp_phone || '',
+          whatsapp_apikey: form.whatsapp_apikey || '',
           iva_enabled: form.iva_enabled,
           iva_porcentaje: form.iva_porcentaje,
           iva_incluido: form.iva_incluido,
@@ -265,7 +277,7 @@ export default function ConfiguracionPage() {
       nombre: '', direccion: '', telefono: '', email: '',
       zona_horaria: 'America/Mexico_City',
       iva_enabled: false, iva_porcentaje: 16, iva_incluido: true,
-      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false, mostrar_so_pendiente_en_pos: false, notas_por_item: false, notas_rapidas: '', notas_pedido_enabled: false, datos_envio_enabled: false,
+      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false, mostrar_so_pendiente_en_pos: false, notas_por_item: false, notas_rapidas: '', notas_pedido_enabled: false, datos_envio_enabled: false, cajero_dashboard_enabled: false, cantidades_rapidas: '10,25,50,100', whatsapp_enabled: false, whatsapp_phone: '', whatsapp_apikey: '',
       impresora_modelo: '', impresora_ancho: 80, impresora_auto_print: false, impresora_copias: 1,
     });
   };
@@ -1305,6 +1317,66 @@ export default function ConfiguracionPage() {
                         <p className="text-xs text-slate-500">Muestra campos de nombre, teléfono y dirección cuando el pedido es para llevar</p>
                       </div>
                     </label>
+                  </div>
+
+                  {/* Cantidades rápidas */}
+                  <div className="border-t border-slate-700 pt-3 mt-3">
+                    <label className="text-sm font-medium block mb-1">Botones de cantidad rápida</label>
+                    <input
+                      type="text"
+                      value={form.cantidades_rapidas || ''}
+                      onChange={(e) => setForm({ ...form, cantidades_rapidas: e.target.value })}
+                      placeholder="10,25,50,100"
+                      className="input-touch text-sm w-full"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Valores separados por coma. Aparecen en el selector de cantidad al mantener presionado un producto.</p>
+                  </div>
+
+                  {/* WhatsApp Callmebot */}
+                  <div className="border-t border-slate-700 pt-3 mt-3 space-y-3">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.whatsapp_enabled}
+                        onChange={(e) => setForm({ ...form, whatsapp_enabled: e.target.checked })}
+                        className="w-5 h-5 accent-iados-primary rounded"
+                      />
+                      <div>
+                        <span className="text-sm font-medium">Alertas WhatsApp (Callmebot)</span>
+                        <p className="text-xs text-slate-500">Envía alerta cuando algún producto baje del stock mínimo al hacer una venta</p>
+                      </div>
+                    </label>
+                    {form.whatsapp_enabled && (
+                      <div className="ml-8 space-y-2">
+                        <div>
+                          <label className="text-xs text-slate-400 block mb-1">Teléfono (con código de país, ej: 521XXXXXXXXXX)</label>
+                          <input
+                            type="text"
+                            value={form.whatsapp_phone}
+                            onChange={(e) => setForm({ ...form, whatsapp_phone: e.target.value })}
+                            placeholder="521XXXXXXXXXX"
+                            className="input-touch text-sm w-full"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-400 block mb-1">API Key de Callmebot</label>
+                          <input
+                            type="text"
+                            value={form.whatsapp_apikey}
+                            onChange={(e) => setForm({ ...form, whatsapp_apikey: e.target.value })}
+                            placeholder="123456"
+                            className="input-touch text-sm w-full"
+                          />
+                        </div>
+                        <div className="bg-slate-800 rounded-lg p-3 text-xs text-slate-400 space-y-1">
+                          <p className="font-medium text-slate-300">Cómo obtener tu API Key (gratis, 2 min):</p>
+                          <p>1. Abre WhatsApp y envía un mensaje a <span className="text-white font-mono">+34 644 60 16 20</span></p>
+                          <p>2. Escribe exactamente: <span className="text-white font-mono">I allow callmebot to send me messages</span></p>
+                          <p>3. Te responderán con tu API Key en segundos</p>
+                          <p>4. Pega esa API Key aquí arriba</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* IVA */}

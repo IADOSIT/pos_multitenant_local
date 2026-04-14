@@ -138,6 +138,13 @@ export class VentasService {
       }
     }
 
+    // WhatsApp stock-low alerts via Callmebot
+    try {
+      await this.sendStockAlerts(scope, folio);
+    } catch (e: any) {
+      this.logger.warn(`WhatsApp alert error: ${e?.message}`);
+    }
+
     // Auditoría
     await this.auditoriaRepo.save(this.auditoriaRepo.create({
       tenant_id: scope.tenant_id,
@@ -242,6 +249,39 @@ export class VentasService {
       ultima_visita: r.ultima_visita,
       primera_visita: r.primera_visita,
     }));
+  }
+
+  private async sendStockAlerts(scope: any, folio: string) {
+    // Load tienda config_pos for WhatsApp settings
+    const [tienda] = await this.dataSource.query(
+      'SELECT config_pos FROM tiendas WHERE id = ?',
+      [scope.tienda_id],
+    );
+    const cp = tienda?.config_pos || {};
+    if (!cp.whatsapp_enabled || !cp.whatsapp_phone || !cp.whatsapp_apikey) return;
+
+    // Find products that just dropped below minimum
+    const lowStock = await this.dataSource.query(
+      `SELECT nombre, stock_actual, stock_minimo, unidad
+       FROM productos
+       WHERE tenant_id = ? AND empresa_id = ? AND activo = 1
+         AND controla_stock = 1 AND stock_minimo > 0
+         AND stock_actual <= stock_minimo
+       ORDER BY stock_actual ASC
+       LIMIT 10`,
+      [scope.tenant_id, scope.empresa_id],
+    );
+    if (!lowStock.length) return;
+
+    const lineas = lowStock.map((p: any) =>
+      `• ${p.nombre}: ${Number(p.stock_actual)} ${p.unidad || 'pza'} (min ${Number(p.stock_minimo)})`,
+    ).join('\n');
+    const msg = encodeURIComponent(
+      `⚠️ STOCK BAJO — Venta ${folio}\n${lineas}`,
+    );
+    const phone = cp.whatsapp_phone.replace(/\D/g, '');
+    const url = `https://api.callmebot.com/whatsapp.php?phone=${phone}&text=${msg}&apikey=${cp.whatsapp_apikey}`;
+    await fetch(url);
   }
 
   // Sync offline sales
