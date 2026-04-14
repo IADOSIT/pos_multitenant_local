@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { inventarioApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
+import { useAuthStore } from '../../store/auth.store';
 import toast from 'react-hot-toast';
 import {
   Warehouse, Search, Plus, ArrowDownToLine, ArrowUpFromLine, RefreshCw,
-  Download, Upload, FileSpreadsheet, AlertTriangle, X, ChevronDown
+  Download, Upload, FileSpreadsheet, AlertTriangle, X, ChevronDown, Printer
 } from 'lucide-react';
 
 type Producto = {
@@ -27,6 +28,8 @@ const TIPOS = [
 ];
 
 export default function InventarioPage() {
+  const { user } = useAuthStore();
+  const isAdmin = user && ['superadmin', 'admin', 'manager'].includes(user.rol);
   const [tab, setTab] = useState<'stock' | 'movimientos'>('stock');
   const [productos, setProductos] = useState<Producto[]>([]);
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
@@ -70,6 +73,7 @@ export default function InventarioPage() {
       toast.success(`Stock actualizado: ${data.stock_actual}`);
       setShowModal(false);
       setMovForm({ producto_id: 0, tipo: 'entrada', cantidad: '', concepto: '' });
+      window.dispatchEvent(new Event('inventario:changed'));
       load();
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Error');
@@ -121,6 +125,81 @@ export default function InventarioPage() {
     setShowModal(true);
   };
 
+  const handlePrintReport = () => {
+    const now = new Date();
+    const fecha = now.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const hora = now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+    const w = 32; // chars for 58mm paper
+
+    const line = '-'.repeat(w);
+    const center = (s: string) => s.padStart(Math.floor((w + s.length) / 2)).padEnd(w);
+
+    let txt = '';
+    txt += center('REPORTE INVENTARIO') + '\n';
+    txt += center(`${fecha}  ${hora}`) + '\n';
+    txt += line + '\n';
+
+    if (tab === 'stock') {
+      const list = filtered as Producto[];
+      const lowItems = list.filter(p => p.controla_stock && p.stock_minimo > 0 && p.stock_actual <= p.stock_minimo);
+
+      if (lowItems.length > 0) {
+        txt += center('!! STOCK BAJO !!') + '\n';
+        txt += line + '\n';
+        lowItems.forEach(p => {
+          const nombre = p.nombre.substring(0, 20).padEnd(20);
+          const stk = `${p.stock_actual}/${p.stock_minimo}`.padStart(w - 21);
+          txt += `${nombre} ${stk}\n`;
+        });
+        txt += line + '\n';
+      }
+
+      txt += center('TODOS LOS PRODUCTOS') + '\n';
+      txt += line + '\n';
+      list.forEach(p => {
+        const nombre = p.nombre.substring(0, 18).padEnd(18);
+        const stk = String(p.stock_actual ?? 0).padStart(5);
+        const min = p.stock_minimo > 0 ? `/${p.stock_minimo}` : '    ';
+        const alerta = p.controla_stock && p.stock_minimo > 0 && p.stock_actual <= p.stock_minimo ? '*' : ' ';
+        txt += `${alerta}${nombre} ${stk}${min}\n`;
+      });
+      txt += line + '\n';
+      txt += `Total productos: ${list.length}\n`;
+      if (lowItems.length > 0) txt += `Stock bajo: ${lowItems.length}\n`;
+    } else {
+      const list = filtered as Movimiento[];
+      txt += center('MOVIMIENTOS') + '\n';
+      txt += line + '\n';
+      list.slice(0, 30).forEach(m => {
+        const signo = m.tipo === 'entrada' || m.tipo === 'devolucion' ? '+' : m.tipo === 'salida' ? '-' : '=';
+        const nombre = m.producto_nombre.substring(0, 16).padEnd(16);
+        const cant = `${signo}${m.cantidad}`.padStart(6);
+        const stk = `${m.stock_anterior}→${m.stock_nuevo}`.padStart(w - 23);
+        txt += `${nombre}${cant} ${stk}\n`;
+      });
+      if (list.length > 30) txt += `  ... y ${list.length - 30} mas\n`;
+      txt += line + '\n';
+      txt += `Total: ${list.length} movimientos\n`;
+    }
+
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:0;height:0;';
+    document.body.appendChild(iframe);
+    const html = `<!DOCTYPE html><html><head>
+<style>
+  @page { size: 58mm auto; margin: 0; }
+  body { margin: 0; padding: 2mm; font-family: 'Courier New', monospace; font-size: 9pt; line-height: 1.25; width: 58mm; }
+  pre { margin: 0; white-space: pre-wrap; word-break: break-all; font-family: inherit; font-size: inherit; }
+</style></head><body><pre>${txt.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre></body></html>`;
+    iframe.contentDocument!.open();
+    iframe.contentDocument!.write(html);
+    iframe.contentDocument!.close();
+    setTimeout(() => {
+      iframe.contentWindow!.print();
+      setTimeout(() => document.body.removeChild(iframe), 1000);
+    }, 300);
+  };
+
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -130,16 +209,23 @@ export default function InventarioPage() {
           <h1 className="text-2xl font-bold">Inventario</h1>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={handleCSVTemplate} className="btn-secondary text-sm flex items-center gap-1">
-            <FileSpreadsheet size={16} /> Plantilla CSV
+          {isAdmin && (
+            <>
+              <button onClick={handleCSVTemplate} className="btn-secondary text-sm flex items-center gap-1">
+                <FileSpreadsheet size={16} /> Plantilla CSV
+              </button>
+              <button onClick={handleCSVExport} className="btn-secondary text-sm flex items-center gap-1">
+                <Download size={16} /> Exportar
+              </button>
+              <label className="btn-secondary text-sm flex items-center gap-1 cursor-pointer">
+                <Upload size={16} /> Importar
+                <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleCSVImport} />
+              </label>
+            </>
+          )}
+          <button onClick={handlePrintReport} className="btn-secondary text-sm flex items-center gap-1">
+            <Printer size={16} /> Imprimir
           </button>
-          <button onClick={handleCSVExport} className="btn-secondary text-sm flex items-center gap-1">
-            <Download size={16} /> Exportar
-          </button>
-          <label className="btn-secondary text-sm flex items-center gap-1 cursor-pointer">
-            <Upload size={16} /> Importar
-            <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleCSVImport} />
-          </label>
           <button onClick={() => openMovModal()} className="btn-primary text-sm flex items-center gap-1">
             <Plus size={16} /> Movimiento
           </button>
