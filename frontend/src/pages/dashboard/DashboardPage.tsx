@@ -12,6 +12,8 @@ const COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899'
 type DashTab = 'ventas' | 'selforder' | 'categorias' | 'presentacion' | 'top_productos';
 
 interface DashConfig {
+  ventas_enabled: boolean;
+  selforder_enabled: boolean;
   categorias_enabled: boolean;
   drill_down_enabled: boolean;
   unidad_enabled: boolean;
@@ -27,7 +29,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [rango, setRango] = useState('hoy');
   const [pedidosPendientes, setPedidosPendientes] = useState(0);
-  const [cfg, setCfg] = useState<DashConfig>({ categorias_enabled: false, drill_down_enabled: false, unidad_enabled: false, top_productos_enabled: false, top_n: 10, mostrar_margen: false });
+  const [cfg, setCfg] = useState<DashConfig>({ ventas_enabled: true, selforder_enabled: true, categorias_enabled: false, drill_down_enabled: false, unidad_enabled: false, top_productos_enabled: false, top_n: 10, mostrar_margen: false });
 
   // Tab data
   const [ventasCat, setVentasCat] = useState<any[]>([]);
@@ -52,6 +54,8 @@ export default function DashboardPage() {
       tiendasApi.get(user.tienda_id).then(({ data }) => {
         const cp = data?.config_pos || {};
         setCfg({
+          ventas_enabled: cp.dashboard_ventas_enabled !== false,
+          selforder_enabled: cp.dashboard_selforder_enabled !== false,
           categorias_enabled: cp.dashboard_categorias_enabled || false,
           drill_down_enabled: cp.dashboard_drill_down_enabled || false,
           unidad_enabled: cp.dashboard_unidad_enabled || false,
@@ -62,6 +66,21 @@ export default function DashboardPage() {
       }).catch(() => {});
     }
   }, [user?.tienda_id]);
+
+  // Si el tab activo queda oculto por config, saltar al primer tab visible
+  useEffect(() => {
+    const tabShow: Record<DashTab, boolean> = {
+      ventas: cfg.ventas_enabled,
+      selforder: cfg.selforder_enabled,
+      categorias: cfg.categorias_enabled,
+      presentacion: cfg.unidad_enabled,
+      top_productos: cfg.top_productos_enabled,
+    };
+    if (!tabShow[tab]) {
+      const first = (Object.entries(tabShow) as [DashTab, boolean][]).find(([, v]) => v)?.[0];
+      if (first) setTab(first);
+    }
+  }, [cfg]);
 
   useEffect(() => { loadKPI(); loadTendencia(); loadPedidosCount(); }, [rango]);
 
@@ -203,8 +222,8 @@ export default function DashboardPage() {
       {/* Tabs principales */}
       <div className="flex flex-wrap items-center gap-1 border-b border-slate-700 pb-1">
         {([
-          { id: 'ventas',        icon: TrendingUp, label: 'Ventas',          show: true },
-          { id: 'selforder',     icon: QrCode,     label: 'Self Order',      show: true },
+          { id: 'ventas',        icon: TrendingUp, label: 'Ventas',          show: cfg.ventas_enabled },
+          { id: 'selforder',     icon: QrCode,     label: 'Self Order',      show: cfg.selforder_enabled },
           { id: 'categorias',    icon: Tag,        label: 'Por Categoría',   show: cfg.categorias_enabled },
           { id: 'presentacion',  icon: Layers,     label: 'Por Presentación',show: cfg.unidad_enabled },
           { id: 'top_productos', icon: Package,    label: 'Top Productos',   show: cfg.top_productos_enabled },

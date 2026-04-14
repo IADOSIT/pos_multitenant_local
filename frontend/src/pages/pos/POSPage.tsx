@@ -71,6 +71,7 @@ export default function POSPage() {
   const [cantidadesRapidas, setCantidadesRapidas] = useState<number[]>([10, 25, 50, 100]);
   const [qtyModal, setQtyModal] = useState<{ producto: any; qty: number } | null>(null);
   const [mesaNumeroOculto, setMesaNumeroOculto] = useState(false);
+  const [cajaManaged, setCajaManaged] = useState(false); // true cuando caja_auto_enabled o caja_ocultar_ui
 
   const { user } = useAuthStore();
   const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, setMesaActiva, tipoServicio, clearCart, notaPedido, clienteNombre, clienteTelefono, clienteDireccion } = usePOSStore();
@@ -100,31 +101,57 @@ export default function POSPage() {
     };
   }, [loadCuentasAbiertas]);
 
+  /** Asegura que haya una caja abierta. Si autoOpen=true, la crea con fondo $0 si no hay ninguna. */
+  const ensureCajaAbierta = async (autoOpen: boolean) => {
+    try {
+      const { data } = await cajaApi.activa();
+      setCajaActiva(data);
+    } catch {
+      if (autoOpen) {
+        try {
+          const diaNatural = new Date().toLocaleDateString('es-MX');
+          const { data } = await cajaApi.abrir({ fondo: 0, nombre: `Caja-${diaNatural}` });
+          setCajaActiva(data);
+        } catch {} // ya hay una caja open en otro turno o error de red → se reintentará en siguiente heartbeat
+      } else {
+        setCajaActiva(null);
+      }
+    }
+  };
+
   const loadTiendaConfig = async () => {
     if (!user?.tienda_id) return;
     try {
       const { data } = await tiendasApi.get(user.tienda_id);
       if (data.config_pos) {
-        setModoServicio(data.config_pos.modo_servicio || 'autoservicio');
-        setTipoCobro(data.config_pos.tipo_cobro_mesa || 'pago_inmediato');
+        const cp = data.config_pos;
+        setModoServicio(cp.modo_servicio || 'autoservicio');
+        setTipoCobro(cp.tipo_cobro_mesa || 'pago_inmediato');
         setIvaConfig({
-          enabled: data.config_pos.iva_enabled || false,
-          porcentaje: data.config_pos.iva_porcentaje ?? 16,
-          incluido: data.config_pos.iva_incluido ?? true,
+          enabled: cp.iva_enabled || false,
+          porcentaje: cp.iva_porcentaje ?? 16,
+          incluido: cp.iva_incluido ?? true,
         });
-        setCuentaAbiertaEnabled(data.config_pos.habilitar_cuenta_abierta || false);
-        setMostrarSoPendienteEnPos(data.config_pos.mostrar_so_pendiente_en_pos || false);
-        setNotasPorItem(data.config_pos.notas_por_item || false);
+        setCuentaAbiertaEnabled(cp.habilitar_cuenta_abierta || false);
+        setMostrarSoPendienteEnPos(cp.mostrar_so_pendiente_en_pos || false);
+        setNotasPorItem(cp.notas_por_item || false);
         setNotasRapidas(
-          (data.config_pos.notas_rapidas || '')
+          (cp.notas_rapidas || '')
             .split(',').map((s: string) => s.trim()).filter(Boolean)
         );
-        setNotasPedidoEnabled(data.config_pos.notas_pedido_enabled || false);
-        setDatosEnvioEnabled(data.config_pos.datos_envio_enabled || false);
-        setMesaNumeroOculto(data.config_pos.mesa_numero_oculto || false);
-        const cr = (data.config_pos.cantidades_rapidas || '10,25,50,100')
+        setNotasPedidoEnabled(cp.notas_pedido_enabled || false);
+        setDatosEnvioEnabled(cp.datos_envio_enabled || false);
+        setMesaNumeroOculto(cp.mesa_numero_oculto || false);
+        const cr = (cp.cantidades_rapidas || '10,25,50,100')
           .split(',').map((s: string) => parseInt(s.trim(), 10)).filter((n: number) => n > 0);
         setCantidadesRapidas(cr.length ? cr : [10, 25, 50, 100]);
+
+        // Si la caja está en modo automático u oculta, garantizar que esté abierta
+        const managed = (cp.caja_auto_enabled || false) || (cp.caja_ocultar_ui || false);
+        setCajaManaged(managed);
+        if (managed) {
+          await ensureCajaAbierta(true);
+        }
       }
     } catch {}
   };
@@ -529,6 +556,7 @@ export default function POSPage() {
           onActualizarCuenta={handleActualizarCuenta}
           onCancelarEdicion={() => { setPedidoActivo(null); clearCart(); }}
           mesaNumeroOculto={mesaNumeroOculto}
+          cajaManaged={cajaManaged}
         />
       </div>
 
@@ -550,6 +578,7 @@ export default function POSPage() {
           onClose={(mantenerAbierta) => { setShowPay(false); setPedidoACobrar(null); loadCuentasAbiertas(); if (mantenerAbierta) setShowCuentas(true); }}
           isOnline={isOnline}
           pedido={pedidoACobrar}
+          cajaManaged={cajaManaged}
         />
       )}
 

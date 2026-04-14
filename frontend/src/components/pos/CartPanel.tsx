@@ -17,9 +17,10 @@ interface Props {
   onActualizarCuenta?: () => void;
   onCancelarEdicion?: () => void;
   mesaNumeroOculto?: boolean;
+  cajaManaged?: boolean;
 }
 
-export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuentaAbiertaEnabled, notasPorItem, notasRapidas = [], cantidadesRapidas, notasPedidoEnabled, datosEnvioEnabled, pedidoActivo, onActualizarCuenta, onCancelarEdicion, mesaNumeroOculto }: Props) {
+export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuentaAbiertaEnabled, notasPorItem, notasRapidas = [], cantidadesRapidas, notasPedidoEnabled, datosEnvioEnabled, pedidoActivo, onActualizarCuenta, onCancelarEdicion, mesaNumeroOculto, cajaManaged }: Props) {
   const { cart, updateQuantity, removeFromCart, clearCart, updateItemNotes, getSubtotal, getImpuestos, getTotal, cajaActiva, modoServicio, tipoCobro, mesaActiva, setMesaActiva, tipoServicio, setTipoServicio, notaPedido, setNotaPedido, clienteNombre, setClienteNombre, clienteTelefono, setClienteTelefono, clienteDireccion, setClienteDireccion } = usePOSStore();
 
   // Notas por ítem
@@ -146,7 +147,7 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuenta
         </div>
       </div>
 
-      {!cajaActiva && !isPostPago && (
+      {!cajaActiva && !isPostPago && !cajaManaged && (
         <div className="p-4 bg-amber-900/30 border-b border-amber-700 text-amber-300 text-sm text-center">
           No hay caja abierta. Abra una caja para vender.
         </div>
@@ -368,7 +369,7 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuenta
               <button onClick={onActualizarCuenta} disabled={cart.length === 0} className="btn-secondary w-full flex items-center justify-center gap-2 disabled:opacity-50">
                 <BookOpen size={18} /> Actualizar Mesa {pedidoActivo.mesa}
               </button>
-              <button onClick={onPay} disabled={!cajaActiva || cart.length === 0} className="btn-accent w-full text-lg disabled:opacity-50">
+              <button onClick={onPay} disabled={(!cajaActiva && !cajaManaged) || cart.length === 0} className="btn-accent w-full text-lg disabled:opacity-50">
                 Cobrar Mesa {pedidoActivo.mesa} — ${getTotal().toFixed(2)}
               </button>
             </div>
@@ -380,7 +381,7 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuenta
                   <span className="text-sm">Cuenta</span>
                 </button>
               )}
-              <button onClick={onPay} disabled={!cajaActiva || (isMesa && !mesaActiva)} className="btn-accent flex-1 text-lg disabled:opacity-50">
+              <button onClick={onPay} disabled={(!cajaActiva && !cajaManaged) || (isMesa && !mesaActiva)} className="btn-accent flex-1 text-lg disabled:opacity-50">
                 Cobrar ${getTotal().toFixed(2)}
               </button>
             </div>

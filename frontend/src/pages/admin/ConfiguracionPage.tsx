@@ -117,6 +117,8 @@ export default function ConfiguracionPage() {
     // Conf. Especial (solo superadmin)
     caja_auto_enabled: false,
     caja_ocultar_ui: false,
+    dashboard_ventas_enabled: true,
+    dashboard_selforder_enabled: true,
     dashboard_categorias_enabled: false,
     dashboard_drill_down_enabled: false,
     dashboard_unidad_enabled: false,
@@ -247,6 +249,8 @@ export default function ConfiguracionPage() {
       impresora_copias: ci.copias || 1,
       caja_auto_enabled: cp.caja_auto_enabled || false,
       caja_ocultar_ui: cp.caja_ocultar_ui || false,
+      dashboard_ventas_enabled: cp.dashboard_ventas_enabled !== false,
+      dashboard_selforder_enabled: cp.dashboard_selforder_enabled !== false,
       dashboard_categorias_enabled: cp.dashboard_categorias_enabled || false,
       dashboard_drill_down_enabled: cp.dashboard_drill_down_enabled || false,
       dashboard_unidad_enabled: cp.dashboard_unidad_enabled || false,
@@ -291,6 +295,8 @@ export default function ConfiguracionPage() {
           iva_incluido: form.iva_incluido,
           caja_auto_enabled: form.caja_auto_enabled,
           caja_ocultar_ui: form.caja_ocultar_ui,
+          dashboard_ventas_enabled: form.dashboard_ventas_enabled,
+          dashboard_selforder_enabled: form.dashboard_selforder_enabled,
           dashboard_categorias_enabled: form.dashboard_categorias_enabled,
           dashboard_drill_down_enabled: form.dashboard_drill_down_enabled,
           dashboard_unidad_enabled: form.dashboard_unidad_enabled,
@@ -352,6 +358,7 @@ export default function ConfiguracionPage() {
       modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false, mostrar_so_pendiente_en_pos: false, notas_por_item: false, notas_rapidas: '', notas_pedido_enabled: false, datos_envio_enabled: false, cajero_dashboard_enabled: false, cantidades_rapidas: '10,25,50,100', whatsapp_enabled: false, whatsapp_phone: '', whatsapp_token: '',
       impresora_modelo: '', impresora_ancho: 80, impresora_auto_print: false, impresora_copias: 1,
       caja_auto_enabled: false, caja_ocultar_ui: false,
+      dashboard_ventas_enabled: true, dashboard_selforder_enabled: true,
       dashboard_categorias_enabled: false, dashboard_drill_down_enabled: false,
       dashboard_unidad_enabled: false, dashboard_top_productos_enabled: false,
       dashboard_top_n: 10, dashboard_mostrar_margen: false,
@@ -739,74 +746,71 @@ export default function ConfiguracionPage() {
 
               {/* ── Sección Dashboard ── */}
               <div className="card space-y-4">
-                <h3 className="font-bold text-sm flex items-center gap-2"><TrendingUp size={16} className="text-blue-400" /> Dashboard — Desglose avanzado</h3>
+                <h3 className="font-bold text-sm flex items-center gap-2"><TrendingUp size={16} className="text-blue-400" /> Dashboard — Tabs visibles</h3>
+                <p className="text-xs text-slate-500">Selecciona qué pestañas aparecen en el Dashboard para esta tienda.</p>
 
-                {/* Tab categorías */}
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" checked={form.dashboard_categorias_enabled}
-                    onChange={(e) => setForm({ ...form, dashboard_categorias_enabled: e.target.checked })}
-                    className="w-5 h-5 accent-iados-primary" />
-                  <div>
-                    <span className="text-sm font-medium">Tab "Por Categoría"</span>
-                    <p className="text-xs text-slate-500">Gráfica y tabla de ventas agrupadas por categoría de producto</p>
-                  </div>
-                </label>
-
-                {/* Drill-down categoría → productos */}
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" checked={form.dashboard_drill_down_enabled || false}
-                    onChange={(e) => setForm({ ...form, dashboard_drill_down_enabled: e.target.checked })}
-                    className="w-5 h-5 accent-iados-primary" />
-                  <div>
-                    <span className="text-sm font-medium">Drill-down categoría → productos</span>
-                    <p className="text-xs text-slate-500">En "Por Categoría", al expandir una fila se ven los productos vendidos dentro de ella</p>
-                  </div>
-                </label>
-
-                {/* Tab por presentación/unidad */}
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" checked={form.dashboard_unidad_enabled || false}
-                    onChange={(e) => setForm({ ...form, dashboard_unidad_enabled: e.target.checked })}
-                    className="w-5 h-5 accent-iados-primary" />
-                  <div>
-                    <span className="text-sm font-medium">Tab "Por Presentación"</span>
-                    <p className="text-xs text-slate-500">Agrupa ventas por campo <em>Unidad</em> del producto (pza, 1 Litro, Grande, 1/2 Litro, etc.)</p>
-                  </div>
-                </label>
-
-                {/* Tab top productos completo */}
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" checked={form.dashboard_top_productos_enabled || false}
-                    onChange={(e) => setForm({ ...form, dashboard_top_productos_enabled: e.target.checked })}
-                    className="w-5 h-5 accent-iados-primary" />
-                  <div>
-                    <span className="text-sm font-medium">Tab "Top Productos" completo</span>
-                    <p className="text-xs text-slate-500">Vista dedicada con ranking de productos, filtrable por categoría</p>
-                  </div>
-                </label>
-
-                {/* Top N configurable */}
-                <div className="flex items-center gap-3 pt-1 border-t border-slate-700">
-                  <label className="text-sm font-medium text-slate-300 flex-1">Número de ítems en tablas/gráficas</label>
-                  <select
-                    value={form.dashboard_top_n || 10}
-                    onChange={(e) => setForm({ ...form, dashboard_top_n: Number(e.target.value) })}
-                    className="input-touch text-sm w-24"
-                  >
-                    {[5, 10, 15, 20, 30, 50].map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
+                {/* Grid de tabs */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {[
+                    { key: 'dashboard_ventas_enabled',        label: 'Ventas',          desc: 'KPIs generales, tendencia y métodos de pago', defaultOn: true },
+                    { key: 'dashboard_selforder_enabled',     label: 'Self Order',      desc: 'Pedidos QR, encuestas y métricas de autoservicio', defaultOn: true },
+                    { key: 'dashboard_categorias_enabled',    label: 'Por Categoría',   desc: 'Ventas agrupadas por categoría de producto', defaultOn: false },
+                    { key: 'dashboard_unidad_enabled',        label: 'Por Presentación',desc: 'Agrupa por campo Unidad del producto (pza, 1L, Grande…)', defaultOn: false },
+                    { key: 'dashboard_top_productos_enabled', label: 'Top Productos',   desc: 'Ranking de productos con filtro por categoría', defaultOn: false },
+                  ].map(({ key, label, desc }) => {
+                    const checked = (form as any)[key] as boolean;
+                    return (
+                      <label key={key} className={`flex items-start gap-3 cursor-pointer p-3 rounded-xl border transition-colors ${checked ? 'border-iados-primary/60 bg-iados-primary/10' : 'border-slate-700 hover:border-slate-600'}`}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => setForm({ ...form, [key]: e.target.checked })}
+                          className="mt-0.5 w-4 h-4 accent-iados-primary shrink-0"
+                        />
+                        <div>
+                          <span className="text-sm font-medium block">{label}</span>
+                          <p className="text-xs text-slate-500">{desc}</p>
+                        </div>
+                      </label>
+                    );
+                  })}
                 </div>
 
-                {/* Mostrar margen */}
-                <label className="flex items-center gap-3 cursor-pointer border-t border-slate-700 pt-3">
-                  <input type="checkbox" checked={form.dashboard_mostrar_margen || false}
-                    onChange={(e) => setForm({ ...form, dashboard_mostrar_margen: e.target.checked })}
-                    className="w-5 h-5 accent-iados-primary" />
-                  <div>
-                    <span className="text-sm font-medium">Mostrar margen de ganancia</span>
-                    <p className="text-xs text-slate-500">Calcula % margen (costo vs precio venta) en las vistas de productos — requiere que los productos tengan costo registrado</p>
+                {/* Sub-opción drill-down (sólo si categorias está activo) */}
+                {form.dashboard_categorias_enabled && (
+                  <label className="flex items-center gap-3 cursor-pointer pl-4 border-l-2 border-iados-primary/40">
+                    <input type="checkbox" checked={form.dashboard_drill_down_enabled || false}
+                      onChange={(e) => setForm({ ...form, dashboard_drill_down_enabled: e.target.checked })}
+                      className="w-4 h-4 accent-iados-primary" />
+                    <div>
+                      <span className="text-sm font-medium">Drill-down categoría → productos</span>
+                      <p className="text-xs text-slate-500">Al expandir una categoría se ven los productos vendidos dentro de ella</p>
+                    </div>
+                  </label>
+                )}
+
+                {/* Opciones de tabla */}
+                <div className="border-t border-slate-700 pt-3 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm font-medium text-slate-300 flex-1">Número de ítems en tablas/gráficas</label>
+                    <select
+                      value={form.dashboard_top_n || 10}
+                      onChange={(e) => setForm({ ...form, dashboard_top_n: Number(e.target.value) })}
+                      className="input-touch text-sm w-24"
+                    >
+                      {[5, 10, 15, 20, 30, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
                   </div>
-                </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" checked={form.dashboard_mostrar_margen || false}
+                      onChange={(e) => setForm({ ...form, dashboard_mostrar_margen: e.target.checked })}
+                      className="w-4 h-4 accent-iados-primary" />
+                    <div>
+                      <span className="text-sm font-medium">Mostrar precio promedio</span>
+                      <p className="text-xs text-slate-500">Columna adicional en tablas de productos/presentación</p>
+                    </div>
+                  </label>
+                </div>
               </div>
 
               {/* ── Sección Mesas ── */}

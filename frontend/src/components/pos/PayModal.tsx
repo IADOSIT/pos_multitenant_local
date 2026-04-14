@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { usePOSStore } from '../../store/pos.store';
 import { offlineActions } from '../../store/offline.store';
-import { ventasApi, ticketsApi, pedidosApi, pagosGatewayApi } from '../../api/endpoints';
+import { ventasApi, ticketsApi, pedidosApi, pagosGatewayApi, cajaApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
 import { printTicket } from '../../utils/printTicket';
 import toast from 'react-hot-toast';
@@ -12,12 +12,13 @@ interface Props {
   onClose: (mantenerAbierta?: boolean) => void;
   isOnline: boolean;
   pedido?: any; // si se pasa, cobrar este pedido en lugar del carrito
+  cajaManaged?: boolean; // caja_auto_enabled o caja_ocultar_ui — si no hay caja, intentar abrir
 }
 
 type MetodoPago = 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto' | 'mp_qr' | 'mp_point' | 'stripe';
 
-export default function PayModal({ onClose, isOnline, pedido }: Props) {
-  const { cart, getSubtotal, getImpuestos, getTotal, clearCart, cajaActiva, tipoServicio, notaPedido, clienteNombre, clienteTelefono, clienteDireccion } = usePOSStore();
+export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Props) {
+  const { cart, getSubtotal, getImpuestos, getTotal, clearCart, cajaActiva, setCajaActiva, tipoServicio, notaPedido, clienteNombre, clienteTelefono, clienteDireccion } = usePOSStore();
   const total = pedido ? Number(pedido.total) : getTotal();
   const [metodo, setMetodo] = useState<MetodoPago>('efectivo');
   const [pagoEfectivo, setPagoEfectivo] = useState('');
@@ -257,6 +258,24 @@ export default function PayModal({ onClose, isOnline, pedido }: Props) {
     setLoading(true);
 
     try {
+      // Si la caja está gestionada automáticamente y todavía no hay caja activa, intentar abrirla ahora
+      if (!cajaActiva && cajaManaged) {
+        try {
+          let activaCaja: any = null;
+          try { const { data } = await cajaApi.activa(); activaCaja = data; } catch {}
+          if (!activaCaja) {
+            const diaNatural = new Date().toLocaleDateString('es-MX');
+            const { data } = await cajaApi.abrir({ fondo: 0, nombre: `Caja-${diaNatural}` });
+            activaCaja = data;
+          }
+          setCajaActiva(activaCaja);
+        } catch {
+          toast.error('No se pudo abrir la caja automáticamente');
+          setLoading(false);
+          return;
+        }
+      }
+
       if (pedido) {
         // ── Modo pedido: cobrar pedido existente ──
         const pagoData = buildPagoData();
