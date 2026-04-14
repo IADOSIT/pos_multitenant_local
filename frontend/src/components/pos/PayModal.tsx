@@ -301,7 +301,11 @@ export default function PayModal({ onClose, isOnline, pedido }: Props) {
         }
       }
     } catch (err: any) {
-      if (!pedido) {
+      // Si el servidor respondió (4xx/5xx), mostrar el mensaje real — NO guardar offline
+      if (err.response) {
+        toast.error(err.response?.data?.message || 'Error al procesar pago');
+      } else if (!pedido) {
+        // Error de red real (sin respuesta) — guardar offline
         const ventaData = buildVentaData();
         const folio = await offlineActions.saveVentaOffline(ventaData);
         if (mantenerAbierta) {
