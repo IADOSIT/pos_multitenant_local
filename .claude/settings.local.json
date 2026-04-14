@@ -286,7 +286,13 @@
       "Bash(export PATH=\"/c/Program Files/nodejs:/c/Program Files/nodejs/node_modules/.bin:$PATH\")",
       "Bash(echo \"EXIT:$?\")",
       "Bash(rm -rf dist)",
-      "Bash(mv dist_new dist)"
+      "Bash(mv dist_new dist)",
+      "Bash(node crear-cliente.js)",
+      "Read(//c/Program Files \\(x86\\)/Inno Setup 6/**)",
+      "Bash(net session:*)",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File build-exe.ps1 -Version 2.2.59 -Mode local -RuntimeSource v1.0.0)",
+      "Bash(break)",
+      "Bash(tasklist)"
     ]
   }
 }

@@ -1,11 +1,13 @@
 ; =============================================================================
 ; POS-iaDoS - Inno Setup 6 Script
 ; Instalador profesional para Windows
-; Versión: 2.0.1
 ; =============================================================================
 
 #define MyAppName      "POS-iaDoS"
-#define MyAppVersion   "2.1.0"
+; La version la inyecta build-exe.ps1 via /DMyAppVersion=x.x.x
+#ifndef MyAppVersion
+  #define MyAppVersion "2.2.58"
+#endif
 #define MyAppPublisher "iaDoS"
 #define MyAppURL       "https://iados.mx"
 #define MyInstallDir   "C:\POS-iaDoS"
@@ -144,7 +146,7 @@ Name: "demodata"; \
 [Run]
 ; Ejecutar install.ps1 con los archivos extraídos al directorio temporal
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
-  Parameters: "-ExecutionPolicy Bypass -NoProfile -NonInteractive -File ""{tmp}\POS-iaDoS-Src\setup\install.ps1"" -InstallerPath ""{tmp}\POS-iaDoS-Src"" -InstallDemoData {code:GetDemoDataFlag}"; \
+  Parameters: "-ExecutionPolicy Bypass -NoProfile -NonInteractive -File ""{tmp}\POS-iaDoS-Src\setup\install.ps1"" -InstallerPath ""{tmp}\POS-iaDoS-Src"" -InstallDemoData {code:GetDemoDataFlag} -AdminEmail ""{code:GetAdminEmail}"" -NombreNegocio ""{code:GetNombreNegocio}"""; \
   StatusMsg: "Instalando POS-iaDoS... (esto puede tardar varios minutos)"; \
   Flags: runhidden waituntilterminated
 
@@ -157,64 +159,210 @@ Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
 
 [Code]
 // =============================================================================
-// Código Pascal para personalizar el instalador
+// POS-iaDoS — Código Pascal del instalador
+// Incluye: página de configuración del cliente, credenciales en pantalla final,
+// guía de primer uso y confirmación antes de cerrar.
 // =============================================================================
+
+var
+  PageCliente    : TInputQueryWizardPage;
+  GAdminEmail    : String;
+  GNombreNegocio : String;
+  GCredOk        : Boolean;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function GetDomain(Email: String): String;
+var
+  AtPos: Integer;
+begin
+  AtPos := Pos('@', Email);
+  if AtPos > 0 then
+    Result := Copy(Email, AtPos + 1, Length(Email))
+  else
+    Result := 'negocio.mx';
+end;
+
+// ── Getters para {code:...} en [Run] ─────────────────────────────────────────
 
 function GetDemoDataFlag(Param: String): String;
 begin
   if IsTaskSelected('demodata') then Result := '1' else Result := '0';
 end;
 
-procedure InitializeWizard();
-var
-  WelcomeText: String;
+function GetAdminEmail(Param: String): String;
 begin
-  // Personalizar texto de bienvenida
-  WelcomeText :=
-    'Este asistente instalará {#MyAppName} v{#MyAppVersion} en su equipo.' + #13#10 +
-    '' + #13#10 +
-    'Componentes que se instalarán:' + #13#10 +
-    '  - MariaDB 11  (base de datos)' + #13#10 +
-    '  - Node.js 20 LTS  (servidor)' + #13#10 +
-    '  - NSSM  (administrador de servicios)' + #13#10 +
-    '  - POS-iaDoS  (backend + frontend web)' + #13#10 +
-    '' + #13#10 +
-    'Directorio de instalacion: C:\POS-iaDoS' + #13#10 +
-    'Espacio requerido: ~500 MB' + #13#10 +
-    '' + #13#10 +
-    'IMPORTANTE: Cierre otras aplicaciones antes de continuar.';
-
-  WizardForm.WelcomeLabel2.Caption := WelcomeText;
+  Result := GAdminEmail;
 end;
 
-procedure CurPageChanged(CurPageID: Integer);
-var
-  FinishedText: String;
+function GetNombreNegocio(Param: String): String;
 begin
-  // Personalizar página de finalización
+  Result := GNombreNegocio;
+end;
+
+// ── Inicialización del asistente ──────────────────────────────────────────────
+
+procedure InitializeWizard();
+begin
+  GAdminEmail    := '';
+  GNombreNegocio := '';
+  GCredOk        := False;
+
+  // Texto de bienvenida
+  WizardForm.WelcomeLabel2.Caption :=
+    '{#MyAppName} v{#MyAppVersion} instalará los siguientes componentes:' + #13#10 +
+    '' + #13#10 +
+    '  • MariaDB 11    — base de datos' + #13#10 +
+    '  • Node.js 20    — servidor de aplicación' + #13#10 +
+    '  • NSSM          — servicios de Windows' + #13#10 +
+    '  • POS-iaDoS     — sistema punto de venta' + #13#10 +
+    '' + #13#10 +
+    'Directorio : C:\POS-iaDoS' + #13#10 +
+    'Espacio    : ~500 MB' + #13#10 +
+    '' + #13#10 +
+    'Los servicios arrancan automáticamente con Windows.' + #13#10 +
+    'Cierre otras aplicaciones antes de continuar.';
+
+  // ── Página de configuración del cliente (después de licencia) ──────────────
+  PageCliente := CreateInputQueryPage(
+    wpLicense,
+    'Configuración del Negocio',
+    'Configure el acceso al sistema',
+    'Ingresa el correo del administrador. El cajero y mesero se crearán' + #13#10 +
+    'automáticamente usando el mismo dominio de correo.' + #13#10 +
+    '' + #13#10 +
+    '  Admin    →  email que ingreses     /  admin123  /  PIN 0000' + #13#10 +
+    '  Cajero   →  cajero@tudominio.mx    /  cajero123 /  PIN 1234' + #13#10 +
+    '  Mesero   →  mesero@tudominio.mx    /  mesero123 /  PIN 5678'
+  );
+
+  PageCliente.Add('Correo del administrador:', False);
+  PageCliente.Add('Nombre del negocio:', False);
+
+  PageCliente.Values[0] := 'admin@minegocio.mx';
+  PageCliente.Values[1] := 'Mi Negocio';
+end;
+
+// ── Validación y captura de datos ─────────────────────────────────────────────
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+var
+  Email, Nombre: String;
+begin
+  Result := True;
+
+  // Validar la página de configuración del cliente
+  if CurPageID = PageCliente.ID then
+  begin
+    Email  := Trim(PageCliente.Values[0]);
+    Nombre := Trim(PageCliente.Values[1]);
+
+    if (Length(Email) < 5) or (Pos('@', Email) = 0) or (Pos('.', Email) = 0) then
+    begin
+      MsgBox(
+        'Por favor ingresa un correo válido.' + #13#10 +
+        'Ejemplo: admin@minegocio.mx',
+        mbError, MB_OK);
+      Result := False;
+      Exit;
+    end;
+
+    if Length(Nombre) < 2 then
+    begin
+      MsgBox('Por favor ingresa el nombre del negocio.', mbError, MB_OK);
+      Result := False;
+      Exit;
+    end;
+
+    // Rechazar caracteres que rompen PowerShell
+    if (Pos('"', Email) > 0) or (Pos('"', Nombre) > 0) then
+    begin
+      MsgBox(
+        'El correo y el nombre no pueden contener comillas dobles.',
+        mbError, MB_OK);
+      Result := False;
+      Exit;
+    end;
+
+    GAdminEmail    := Email;
+    GNombreNegocio := Nombre;
+  end;
+
+  // ── Confirmación ANTES de cerrar la página de finalización ────────────────
   if CurPageID = wpFinished then
   begin
-    FinishedText :=
-      'POS-iaDoS v{#MyAppVersion} se instalo exitosamente.' + #13#10 +
-      '' + #13#10 +
-      'Acceso al sistema:' + #13#10 +
-      '  http://localhost:3000' + #13#10 +
-      '' + #13#10 +
-      'Credenciales iniciales de administrador:' + #13#10 +
-      '  Usuario:     admin@iados.mx' + #13#10 +
-      '  Contrasena:  admin123' + #13#10 +
-      '' + #13#10 +
-      'Los servicios se inician automaticamente con Windows.' + #13#10 +
-      'Soporte: iados.mx';
-
-    WizardForm.FinishedLabel.Caption := FinishedText;
+    if not GCredOk then
+    begin
+      if MsgBox(
+        '⚠  ¿Ya anotaste tus credenciales de acceso?' + #13#10#13#10 +
+        'Sin ellas no podrás ingresar al sistema.' + #13#10 +
+        'También las encontrarás en:' + #13#10 +
+        '   C:\POS-iaDoS\CREDENCIALES.txt' + #13#10#13#10 +
+        'Haz clic en SÍ solo si ya las tienes anotadas o guardadas.',
+        mbConfirmation,
+        MB_YESNO or MB_DEFBUTTON2
+      ) = IDYES then
+        GCredOk := True
+      else
+      begin
+        Result := False;
+        Exit;
+      end;
+    end;
   end;
 end;
 
-// Verificar si ya existe una instalación previa
+// ── Página de finalización con credenciales y guía de primer uso ──────────────
+
+procedure CurPageChanged(CurPageID: Integer);
+var
+  Dom, FinText: String;
+begin
+  if CurPageID = wpFinished then
+  begin
+    Dom := GetDomain(GAdminEmail);
+
+    FinText :=
+      '{#MyAppName} v{#MyAppVersion} instalado correctamente.' + #13#10 +
+      '' + #13#10 +
+      'URL de acceso:  http://localhost:3000' + #13#10 +
+      '' + #13#10 +
+      '══ CREDENCIALES ═════════════════════════════' + #13#10 +
+      'ADMINISTRADOR' + #13#10 +
+      '  Email:       ' + GAdminEmail + #13#10 +
+      '  Contraseña:  admin123    PIN: 0000' + #13#10 +
+      '' + #13#10 +
+      'CAJERO  (creado automáticamente)' + #13#10 +
+      '  Email:       cajero@' + Dom + #13#10 +
+      '  Contraseña:  cajero123   PIN: 1234' + #13#10 +
+      '' + #13#10 +
+      'MESERO  (creado automáticamente)' + #13#10 +
+      '  Email:       mesero@' + Dom + #13#10 +
+      '  Contraseña:  mesero123   PIN: 5678' + #13#10 +
+      '' + #13#10 +
+      '══ PRIMER USO ═══════════════════════════════' + #13#10 +
+      '1.  Abre http://localhost:3000  →  inicia sesión' + #13#10 +
+      '2.  Configuración → Ticket      →  nombre y dirección' + #13#10 +
+      '3.  Configuración → POS         →  modo mostrador / mesa' + #13#10 +
+      '4.  Productos                   →  categorías y productos' + #13#10 +
+      '5.  Caja                        →  abre primera sesión' + #13#10 +
+      '6.  POS                         →  comienza a vender' + #13#10 +
+      '' + #13#10 +
+      '══ CELULARES Y TABLETS (misma red WiFi) ═════' + #13#10 +
+      '  Reemplaza localhost por la IP del servidor' + #13#10 +
+      '  Autocobro QR   : Config → Menú Digital' + #13#10 +
+      '  Meseros tablet  : Config → POS → Self Order' + #13#10 +
+      '' + #13#10 +
+      'Credenciales guardadas en  C:\POS-iaDoS\CREDENCIALES.txt';
+
+    WizardForm.FinishedLabel.Caption := FinText;
+  end;
+end;
+
+// ── Verificar instalación previa ──────────────────────────────────────────────
+
 function InitializeSetup(): Boolean;
 var
-  ExistingVersion: String;
   Response: Integer;
 begin
   Result := True;
@@ -222,11 +370,10 @@ begin
   if DirExists('{#MyInstallDir}') then
   begin
     Response := MsgBox(
-      'Se detecto una instalacion existente de POS-iaDoS en:' + #13#10 +
-      '{#MyInstallDir}' + #13#10 +
-      '' + #13#10 +
-      'Si continua, la instalacion existente sera reemplazada.' + #13#10 +
-      'Desea continuar?',
+      'Se detectó una instalación existente de POS-iaDoS en:' + #13#10 +
+      '{#MyInstallDir}' + #13#10#13#10 +
+      'Si continúa, será reemplazada.' + #13#10 +
+      '¿Desea continuar?',
       mbConfirmation,
       MB_YESNO or MB_DEFBUTTON2
     );

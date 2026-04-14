@@ -7,7 +7,9 @@ param(
     [string]$InstallDir = "C:\POS-iaDoS",
     [int]$MariaDBPort = 3306,
     [int]$BackendPort = 3000,
-    [string]$InstallDemoData = "0"
+    [string]$InstallDemoData = "0",
+    [string]$AdminEmail = "",
+    [string]$NombreNegocio = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -363,6 +365,184 @@ if ($hashOut2 -match '^\$2[ab]\$') {
 
 Write-Log "Datos iniciales listos antes del arranque del backend" "Green"
 
+# =============================================================================
+# ALTA DEL CLIENTE — Tenant, usuarios Admin/Cajero/Mesero personalizados
+# Se ejecuta solo si el instalador paso AdminEmail (via wizard Inno Setup)
+# =============================================================================
+$adminEmailTrim = $AdminEmail.Trim()
+$nombreNegTrim  = $NombreNegocio.Trim()
+
+if ($adminEmailTrim -ne "" -and $adminEmailTrim.Contains("@")) {
+    Write-Log "Creando acceso personalizado para: $adminEmailTrim" "Yellow"
+
+    # Si no se dio nombre de negocio, derivar del dominio del email
+    if ($nombreNegTrim -eq "") {
+        $dominioRaw = $adminEmailTrim.Split("@")[1]
+        $nombreNegTrim = (Get-Culture).TextInfo.ToTitleCase($dominioRaw.Split(".")[0])
+    }
+
+    # Generar hashes frescos con bcryptjs (admin123, cajero123, mesero123)
+    $bcryptPathC = "$InstallDir\backend\node_modules\bcryptjs" -replace '\\', '\\\\'
+    $hashScriptC = "try{const b=require('$bcryptPathC');const a=b.hashSync('admin123',10);const c=b.hashSync('cajero123',10);const m=b.hashSync('mesero123',10);console.log(a+'|'+c+'|'+m);}catch(e){process.exit(1);}"
+    $ErrorActionPreference = "SilentlyContinue"
+    $hashOutC = & "$InstallDir\node\node.exe" -e $hashScriptC 2>&1
+    $ErrorActionPreference = "Stop"
+
+    if ($hashOutC -match '^\$2[ab]\$') {
+        $hPartsC     = $hashOutC -split '\|'
+        $hAdminC     = $hPartsC[0].Trim()
+        $hCajeroC    = $hPartsC[1].Trim()
+        $hMeseroC    = $hPartsC[2].Trim()
+
+        # Derivar emails de cajero y mesero
+        $atIdx       = $adminEmailTrim.IndexOf('@')
+        $dominio     = $adminEmailTrim.Substring($atIdx + 1)
+        $emailCajero = "cajero@$dominio"
+        $emailMesero = "mesero@$dominio"
+
+        # Slug del negocio (ASCII, sin tildes, solo a-z0-9-)
+        $slugNeg = $nombreNegTrim.ToLowerInvariant()
+        $slugNeg = [System.Text.RegularExpressions.Regex]::Replace($slugNeg, '[áàäâ]', 'a')
+        $slugNeg = [System.Text.RegularExpressions.Regex]::Replace($slugNeg, '[éèëê]', 'e')
+        $slugNeg = [System.Text.RegularExpressions.Regex]::Replace($slugNeg, '[íìïî]', 'i')
+        $slugNeg = [System.Text.RegularExpressions.Regex]::Replace($slugNeg, '[óòöô]', 'o')
+        $slugNeg = [System.Text.RegularExpressions.Regex]::Replace($slugNeg, '[úùüû]', 'u')
+        $slugNeg = [System.Text.RegularExpressions.Regex]::Replace($slugNeg, 'ñ', 'n')
+        $slugNeg = [System.Text.RegularExpressions.Regex]::Replace($slugNeg, '[^a-z0-9]+', '-')
+        $slugNeg = $slugNeg.Trim('-')
+        $slugSuffix = (Get-Date -Format "yyMMdd")
+
+        # Codigo de licencia
+        $licCodigo = "INS-" + ([System.Guid]::NewGuid().ToString("N").Substring(0, 8).ToUpper())
+        $hoy       = (Get-Date -Format "yyyy-MM-dd")
+
+        # Escapar comillas simples para SQL
+        $eEmail   = $adminEmailTrim -replace "'", "''"
+        $eNombre  = $nombreNegTrim  -replace "'", "''"
+        $eCajero  = $emailCajero    -replace "'", "''"
+        $eMesero  = $emailMesero    -replace "'", "''"
+        $eHAdmin  = $hAdminC        -replace "'", "''"
+        $eHCajero = $hCajeroC       -replace "'", "''"
+        $eHMesero = $hMeseroC       -replace "'", "''"
+        $eSlug    = "$slugNeg-$slugSuffix"
+        $eLic     = $licCodigo      -replace "'", "''"
+
+        $clientSql = @"
+SET FOREIGN_KEY_CHECKS=0;
+SET NAMES utf8mb4;
+
+INSERT INTO ``tenants`` (nombre, slug, activo, created_at, updated_at)
+  VALUES ('$eNombre', '$eSlug', 1, NOW(), NOW());
+SET @t = LAST_INSERT_ID();
+
+INSERT INTO ``empresas`` (tenant_id, nombre, activo, created_at, updated_at)
+  VALUES (@t, '$eNombre', 1, NOW(), NOW());
+SET @e = LAST_INSERT_ID();
+
+INSERT INTO ``tiendas`` (tenant_id, empresa_id, nombre, timezone, activo, created_at, updated_at,
+  config_pos, slug, folio_venta_counter, folio_orden_counter)
+  VALUES (@t, @e, '$eNombre', 'America/Mexico_City', 1, NOW(), NOW(),
+  '{"iva_enabled":false,"iva_incluido":true,"iva_porcentaje":16,"modo_servicio":"mostrador","num_mesas":0,"self_order_enabled":false}',
+  CONCAT('$eSlug-', FLOOR(RAND()*9000+1000)), 0, 0);
+SET @s = LAST_INSERT_ID();
+
+INSERT INTO ``licencias`` (tenant_id, codigo_instalacion, plan, features, max_tiendas, max_usuarios,
+  fecha_inicio, fecha_fin, grace_days, offline_allowed, estado, created_at, updated_at)
+  VALUES (@t, '$eLic', 'pro', '["pos","caja","pedidos","reportes","dashboard"]',
+  5, 20, '$hoy', '2099-12-31', 30, 1, 'activa', NOW(), NOW());
+
+INSERT INTO ``users`` (tenant_id, empresa_id, tienda_id, nombre, email, password, rol, pin, activo, created_at, updated_at)
+  VALUES (@t, @e, @s, 'Administrador', '$eEmail', '$eHAdmin', 'admin', '0000', 1, NOW(), NOW());
+
+INSERT INTO ``users`` (tenant_id, empresa_id, tienda_id, nombre, email, password, rol, pin, activo, created_at, updated_at)
+  VALUES (@t, @e, @s, CONCAT('Cajero ', '$eNombre'), '$eCajero', '$eHCajero', 'cajero', '1234', 1, NOW(), NOW());
+
+INSERT INTO ``users`` (tenant_id, empresa_id, tienda_id, nombre, email, password, rol, pin, activo, created_at, updated_at)
+  VALUES (@t, @e, @s, CONCAT('Mesero ', '$eNombre'), '$eMesero', '$eHMesero', 'mesero', '5678', 1, NOW(), NOW());
+
+INSERT INTO ``ticket_configs`` (tenant_id, empresa_id, tienda_id,
+  encabezado_linea1, encabezado_linea2,
+  pie_linea1, pie_linea2,
+  ancho_papel, columnas,
+  mostrar_logo, mostrar_fecha, mostrar_cajero, mostrar_folio, mostrar_marca_iados,
+  fuente_familia, fuente_tamano, logo_posicion,
+  copias, comanda_enabled, comanda_ancho, comanda_auto_print, comanda_mostrar_precio, comanda_copias,
+  created_at, updated_at)
+  VALUES (@t, @e, @s,
+  '$eNombre', '',
+  'Gracias por su preferencia!', 'Punto de Venta iaDoS',
+  80, 42,
+  1, 1, 1, 1, 0,
+  'Consolas', 11, 'centro',
+  1, 0, 80, 0, 1, 1,
+  NOW(), NOW());
+
+SET FOREIGN_KEY_CHECKS=1;
+"@
+
+        $ErrorActionPreference = "SilentlyContinue"
+        $clientSql | & $MYSQL -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME 2>&1 | Out-Null
+        $ErrorActionPreference = "Stop"
+
+        Write-Log "  Tenant '$nombreNegTrim' creado (licencia permanente)" "Green"
+        Write-Log "  Admin:  $adminEmailTrim  /  admin123  /  PIN 0000" "Green"
+        Write-Log "  Cajero: $emailCajero  /  cajero123  /  PIN 1234" "Green"
+        Write-Log "  Mesero: $emailMesero  /  mesero123  /  PIN 5678" "Green"
+
+        # Guardar CREDENCIALES.txt en la carpeta de instalacion
+        New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+        @"
+POS-iaDoS - Credenciales de Acceso
+====================================
+Negocio  : $nombreNegTrim
+Licencia : Permanente ($licCodigo)
+Fecha    : $(Get-Date -Format 'dd/MM/yyyy HH:mm')
+
+URL de acceso desde este equipo:
+  http://localhost:$BackendPort
+
+URL desde otros equipos en la misma red:
+  http://<IP-DEL-SERVIDOR>:$BackendPort
+
+ADMINISTRADOR
+  Email      : $adminEmailTrim
+  Contraseña : admin123
+  PIN        : 0000
+
+CAJERO (creado automáticamente)
+  Email      : $emailCajero
+  Contraseña : cajero123
+  PIN        : 1234
+
+MESERO (creado automáticamente)
+  Email      : $emailMesero
+  Contraseña : mesero123
+  PIN        : 5678
+
+PRIMER USO
+----------
+1. Abre http://localhost:$BackendPort e inicia sesion como Administrador
+2. Configuracion > Ticket : nombre, direccion y telefono del negocio
+3. Configuracion > POS    : modo de servicio (mostrador / mesa)
+4. Productos              : crea categorias y productos
+5. Caja                   : abre tu primera sesion de caja
+6. POS                    : comienza a vender
+
+CONECTAR CELULARES Y TABLETS (en la misma red WiFi)
+- Busca la IP del servidor en: Este equipo > Configuracion de red
+- En el celular abre: http://<IP-DEL-SERVIDOR>:$BackendPort
+- Autocobro (Self Order / QR): Configuracion > Menu Digital
+- Con meseros en tableta  : Configuracion > POS > Self Order
+"@ | Set-Content "$InstallDir\CREDENCIALES.txt" -Encoding UTF8
+        Write-Log "Credenciales guardadas en: $InstallDir\CREDENCIALES.txt" "Cyan"
+
+    } else {
+        Write-Log "ADVERTENCIA: No se pudo generar hash para el cliente. Verifique bcryptjs." "Yellow"
+    }
+} else {
+    Write-Log "AdminEmail no proporcionado - se omite alta de cliente personalizado" "Gray"
+}
+
 } # fin bloque local (MariaDB)
 
 # =============================================================================
@@ -515,6 +695,10 @@ $ServerIP = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue 
     Select-Object -First 1 -ExpandProperty IPAddress)
 if (-not $ServerIP) { $ServerIP = "VER-IP-DEL-SERVIDOR" }
 
+# Asegurar que $dominio este disponible en el bloque de resumen
+$adminEmailTrim = $AdminEmail.Trim()
+$dominio = if ($adminEmailTrim.Contains("@")) { $adminEmailTrim.Split("@")[1] } else { "" }
+
 Write-Host "  ============================================" -ForegroundColor Green
 Write-Host "   INSTALACION COMPLETADA!" -ForegroundColor Green
 Write-Host "  ============================================" -ForegroundColor Green
@@ -528,9 +712,17 @@ Write-Host "  ACCESO DESDE OTROS EQUIPOS EN LA RED:" -ForegroundColor White
 Write-Host "    Por nombre:  http://$ServerHostname`:$BackendPort" -ForegroundColor Yellow
 Write-Host "    Por IP:      http://$ServerIP`:$BackendPort" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "  Credenciales iniciales:" -ForegroundColor White
-Write-Host "    Usuario: admin@iados.mx" -ForegroundColor Gray
-Write-Host "    Clave:   admin123    PIN: 0000" -ForegroundColor Gray
+if ($adminEmailTrim -ne "") {
+    Write-Host "  CREDENCIALES DE ACCESO:" -ForegroundColor White
+    Write-Host "    Administrador: $adminEmailTrim / admin123 / PIN 0000" -ForegroundColor Green
+    Write-Host "    Cajero:        cajero@$dominio / cajero123 / PIN 1234" -ForegroundColor Green
+    Write-Host "    Mesero:        mesero@$dominio / mesero123 / PIN 5678" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "  Archivo con credenciales: $InstallDir\CREDENCIALES.txt" -ForegroundColor Cyan
+} else {
+    Write-Host "  Credenciales demo (seed):" -ForegroundColor White
+    Write-Host "    Usuario: admin@iados.mx  /  admin123  /  PIN 0000" -ForegroundColor Gray
+}
 Write-Host ""
 Write-Host "  Carpeta: $InstallDir" -ForegroundColor Gray
 Write-Host "  Logs:    $InstallDir\logs\" -ForegroundColor Gray

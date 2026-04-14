@@ -451,7 +451,7 @@ Write-Info "Compresion lzma2/ultra64 - puede tardar 3-8 minutos..."
 Write-Host ""
 
 $startTime = Get-Date
-$isccArgs  = "`"$issFile`" /DInstallMode=$Mode /DOutputName=$OutputName /DSourceDir=$OutputDir\$OutputName-src"
+$isccArgs  = "`"$issFile`" /DInstallMode=$Mode /DOutputName=$OutputName /DSourceDir=$OutputDir\$OutputName-src /DMyAppVersion=$Version"
 
 $process = Start-Process -FilePath $InnoSetupPath `
     -ArgumentList $isccArgs `
