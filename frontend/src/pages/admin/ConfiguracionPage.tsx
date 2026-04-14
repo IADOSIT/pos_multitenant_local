@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { tiendasApi, empresasApi, menuDigitalApi, pagosGatewayApi, mesasApi } from '../../api/endpoints';
+import { tiendasApi, empresasApi, tenantsApi, menuDigitalApi, pagosGatewayApi, mesasApi } from '../../api/endpoints';
 import api, { resolveUploadUrl } from '../../api/client';
 import { useAuthStore } from '../../store/auth.store';
 import TicketsConfig from './TicketsConfig';
@@ -58,6 +58,13 @@ export default function ConfiguracionPage() {
   const [mesaQrSelected, setMesaQrSelected] = useState<string>('');
   const [mesaQrDataUrl, setMesaQrDataUrl] = useState<string>('');
   const [allMesas, setAllMesas] = useState<any[]>([]);
+
+  // Conf. Especial — selector cascada Tenant → Empresa → Tienda
+  const [especTenants, setEspecTenants] = useState<any[]>([]);
+  const [especEmpresas, setEspecEmpresas] = useState<any[]>([]);
+  const [especSelTenantId, setEspecSelTenantId] = useState<number | null>(null);
+  const [especSelEmpresaId, setEspecSelEmpresaId] = useState<number | null>(null);
+  const [especLoadingSelector, setEspecLoadingSelector] = useState(false);
 
   // Menu Digital
   const [mdStatus, setMdStatus]       = useState<any>(null);
@@ -117,6 +124,37 @@ export default function ConfiguracionPage() {
   });
 
   useEffect(() => { load(); loadEmpresa(); fetchSystemInfo(); }, []);
+
+  // Sincronizar selector cascada cuando hay una tienda ya seleccionada
+  useEffect(() => {
+    if (configTab === 'especial' && selected && especEmpresas.length > 0) {
+      const empresa = especEmpresas.find((e) => e.id === selected.empresa_id);
+      if (empresa) {
+        setEspecSelTenantId(empresa.tenant_id);
+        setEspecSelEmpresaId(empresa.id);
+      }
+    }
+  }, [configTab, selected?.id, especEmpresas.length]);
+
+  // Cargar tenants + empresas cuando se entra al tab especial (solo superadmin)
+  useEffect(() => {
+    if (configTab === 'especial' && user?.rol === 'superadmin' && especTenants.length === 0) {
+      setEspecLoadingSelector(true);
+      Promise.all([tenantsApi.list(), empresasApi.list()])
+        .then(([tRes, eRes]) => {
+          setEspecTenants(tRes.data || []);
+          setEspecEmpresas(eRes.data || []);
+          // Auto-seleccionar el primero si solo hay uno
+          if ((tRes.data || []).length === 1) {
+            setEspecSelTenantId(tRes.data[0].id);
+            const emps = (eRes.data || []).filter((e: any) => e.tenant_id === tRes.data[0].id);
+            if (emps.length === 1) setEspecSelEmpresaId(emps[0].id);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setEspecLoadingSelector(false));
+    }
+  }, [configTab]);
 
   // Load menu digital status when a tienda is selected
   useEffect(() => {
@@ -574,12 +612,88 @@ export default function ConfiguracionPage() {
       {/* ── TAB CONF. ESPECIAL (solo superadmin) ──────────────────────── */}
       {configTab === 'especial' && (
         <div className="space-y-4">
+          {/* Selector cascada Tenant → Empresa → Tienda */}
+          <div className="card space-y-3">
+            <h3 className="font-bold text-sm flex items-center gap-2">
+              <Building2 size={16} className="text-iados-accent" /> Aplicar configuración a
+            </h3>
+            {especLoadingSelector ? (
+              <div className="text-slate-400 text-sm flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Cargando...</div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Tenant */}
+                <div>
+                  <label className="text-xs text-slate-400 mb-1 block">Tenant</label>
+                  <select
+                    value={especSelTenantId ?? ''}
+                    onChange={(e) => {
+                      const tid = e.target.value ? Number(e.target.value) : null;
+                      setEspecSelTenantId(tid);
+                      setEspecSelEmpresaId(null);
+                      setSelected(null);
+                    }}
+                    className="input-touch text-sm"
+                  >
+                    <option value="">— Selecciona tenant —</option>
+                    {especTenants.map((t) => (
+                      <option key={t.id} value={t.id}>{t.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+                {/* Empresa */}
+                <div>
+                  <label className="text-xs text-slate-400 mb-1 block">Empresa</label>
+                  <select
+                    value={especSelEmpresaId ?? ''}
+                    disabled={!especSelTenantId}
+                    onChange={(e) => {
+                      const eid = e.target.value ? Number(e.target.value) : null;
+                      setEspecSelEmpresaId(eid);
+                      setSelected(null);
+                    }}
+                    className="input-touch text-sm disabled:opacity-50"
+                  >
+                    <option value="">— Selecciona empresa —</option>
+                    {especEmpresas
+                      .filter((e) => e.tenant_id === especSelTenantId)
+                      .map((e) => (
+                        <option key={e.id} value={e.id}>{e.nombre}</option>
+                      ))}
+                  </select>
+                </div>
+                {/* Tienda */}
+                <div>
+                  <label className="text-xs text-slate-400 mb-1 block">Tienda</label>
+                  <select
+                    value={selected?.id ?? ''}
+                    disabled={!especSelEmpresaId}
+                    onChange={(e) => {
+                      if (!e.target.value) { setSelected(null); return; }
+                      const empresa = especEmpresas.find((emp) => emp.id === especSelEmpresaId);
+                      const tienda = (empresa?.tiendas || []).find((t: any) => t.id === Number(e.target.value));
+                      if (tienda) {
+                        // tiendas del relation pueden no tener config_pos completo → recargar via API
+                        tiendasApi.get(tienda.id).then(({ data }) => selectTienda(data)).catch(() => {});
+                      }
+                    }}
+                    className="input-touch text-sm disabled:opacity-50"
+                  >
+                    <option value="">— Selecciona tienda —</option>
+                    {(especEmpresas.find((e) => e.id === especSelEmpresaId)?.tiendas || []).map((t: any) => (
+                      <option key={t.id} value={t.id}>{t.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+
           {!selected ? (
-            <div className="card text-center text-slate-500 py-8">Selecciona una tienda primero en el tab Tienda</div>
+            <div className="card text-center text-slate-500 py-6 text-sm">Selecciona Tenant → Empresa → Tienda para configurar</div>
           ) : (
             <>
               <div className="bg-amber-900/20 border border-amber-700/50 rounded-xl px-4 py-2 text-xs text-amber-300 flex items-center gap-2">
-                <AlertTriangle size={14} /> Estas configuraciones son por tienda ({selected.nombre}) y solo visibles para superadmin
+                <AlertTriangle size={14} /> Configurando: <span className="font-bold">{selected.nombre}</span> — solo visible para superadmin
               </div>
 
               {/* ── Sección Caja ── */}
