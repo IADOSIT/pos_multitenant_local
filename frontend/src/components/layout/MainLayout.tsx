@@ -8,7 +8,7 @@ import apiClient from '../../api/client';
 import toast from 'react-hot-toast';
 import {
   ShoppingCart, LayoutDashboard, CreditCard, Package,
-  Users, Building2, Settings, LogOut, Menu, X, ClipboardList, FileBarChart, Shield, Warehouse, Database, HardDrive, Lock, BookOpen, Grid3X3
+  Users, Building2, Settings, LogOut, Menu, X, ClipboardList, FileBarChart, Shield, Warehouse, Database, HardDrive, Lock, BookOpen, Grid3X3, Boxes
 } from 'lucide-react';
 import StockAlertBanner from '../ui/StockAlertBanner';
 import LicenciaBanner from './LicenciaBanner';
@@ -36,6 +36,7 @@ const navItems = [
   { to: '/admin/mantenimiento', icon: HardDrive,       label: 'Mant.',      roles: ['superadmin', 'admin'] },
   { to: '/admin/licencias',     icon: Shield,          label: 'Licencias',  roles: ['superadmin'] },
   { to: '/admin/tenants',       icon: Building2,       label: 'Tenants',    roles: ['superadmin'] },
+  { to: '/inventario-dual',     icon: Boxes,           label: 'Inv. Dual',  roles: ['cajero', 'mesero', 'manager'] },
 ];
 
 export default function MainLayout() {

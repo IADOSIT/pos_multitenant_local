@@ -24,6 +24,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       tenant_id: user.tenant_id,
       empresa_id: user.empresa_id,
       tienda_id: user.tienda_id,
+      modulo: (user as any).modulo || null,
     };
   }
 }

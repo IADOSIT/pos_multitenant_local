@@ -8,10 +8,12 @@ export class CategoriasService {
   constructor(@InjectRepository(Categoria) private repo: Repository<Categoria>) {}
 
   findAll(scope: any) {
-    return this.repo.find({
-      where: { tenant_id: scope.tenant_id, empresa_id: scope.empresa_id, activo: true },
-      order: { orden: 'ASC', nombre: 'ASC' },
-    });
+    const adminRoles = ['superadmin', 'admin', 'manager'];
+    const where: any = { tenant_id: scope.tenant_id, empresa_id: scope.empresa_id, activo: true };
+    if (scope.modulo && !adminRoles.includes(scope.rol)) {
+      where.modulo = scope.modulo;
+    }
+    return this.repo.find({ where, order: { orden: 'ASC', nombre: 'ASC' } });
   }
 
   findOne(id: number) {
