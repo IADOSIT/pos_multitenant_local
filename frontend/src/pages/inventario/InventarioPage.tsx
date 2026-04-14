@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { inventarioApi } from '../../api/endpoints';
+import { resolveUploadUrl } from '../../api/client';
 import toast from 'react-hot-toast';
 import {
   Warehouse, Search, Plus, ArrowDownToLine, ArrowUpFromLine, RefreshCw,
@@ -212,7 +213,7 @@ export default function InventarioPage() {
                     <td className="py-3 pl-2">
                       <div className="flex items-center gap-2">
                         {p.imagen_url ? (
-                          <img src={p.imagen_url} alt="" className="w-8 h-8 rounded object-cover" />
+                          <img src={resolveUploadUrl(p.imagen_url)} alt="" className="w-8 h-8 rounded object-cover" />
                         ) : (
                           <div className="w-8 h-8 bg-slate-700 rounded flex items-center justify-center text-xs text-slate-400">
                             {p.nombre.charAt(0)}

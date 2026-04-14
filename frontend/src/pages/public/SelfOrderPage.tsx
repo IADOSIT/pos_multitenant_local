@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { selfOrderApi } from '../../api/endpoints';
+import { resolveUploadUrl } from '../../api/client';
 import toast from 'react-hot-toast';
 import { ShoppingCart, Plus, Minus, X, Send, CheckCircle, Clock, XCircle, Star } from 'lucide-react';
 
@@ -285,7 +286,7 @@ export default function SelfOrderPage() {
           return (
             <div key={prod.id} className="bg-slate-800 rounded-xl overflow-hidden flex flex-col">
               {prod.imagen_url
-                ? <img src={prod.imagen_url} alt={prod.nombre} className="w-full h-28 object-cover" />
+                ? <img src={resolveUploadUrl(prod.imagen_url)} alt={prod.nombre} className="w-full h-28 object-cover" />
                 : <div className="w-full h-28 bg-slate-700 flex items-center justify-center text-3xl">🍽️</div>
               }
               <div className="p-2 flex flex-col flex-1">

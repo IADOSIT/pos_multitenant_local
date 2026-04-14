@@ -446,7 +446,7 @@ export default function POSPage() {
                 className="card hover:ring-2 hover:ring-iados-secondary active:scale-95 transition-all flex flex-col items-center text-center p-3 min-h-[120px]"
               >
                 {prod.imagen_url ? (
-                  <img src={prod.imagen_url} alt={prod.nombre} className="w-16 h-16 object-cover rounded-xl mb-2" />
+                  <img src={resolveUploadUrl(prod.imagen_url)} alt={prod.nombre} className="w-16 h-16 object-cover rounded-xl mb-2" />
                 ) : (
                   <div
                     className="w-16 h-16 rounded-xl mb-2 flex items-center justify-center text-2xl font-bold"

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { menuDigitalApi } from '../../api/endpoints';
+import { resolveUploadUrl } from '../../api/client';
 import { ShoppingCart, Search, X, Plus, Minus, ChevronUp, Send, MapPin, Phone, Clock, Loader2, UtensilsCrossed, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -469,7 +470,7 @@ export default function MenuDigitalPage() {
                     <div className="relative overflow-hidden" style={{ height: '120px' }}>
                       {prod.imagen_url ? (
                         <img
-                          src={prod.imagen_url}
+                          src={resolveUploadUrl(prod.imagen_url)}
                           alt={prod.nombre}
                           className="w-full h-full object-cover"
                           loading="lazy"
@@ -605,7 +606,7 @@ export default function MenuDigitalPage() {
               {cart.map(item => (
                 <div key={item.producto.id} className="flex items-center gap-3">
                   {item.producto.imagen_url ? (
-                    <img src={item.producto.imagen_url} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
+                    <img src={resolveUploadUrl(item.producto.imagen_url)} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
                   ) : (
                     <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
                       style={{ background: th.placeholder }}>
