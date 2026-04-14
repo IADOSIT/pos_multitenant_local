@@ -32,6 +32,25 @@ export class DashboardController {
     return this.service.getPedidosPendientes(scope);
   }
 
+  @Get('ventas-producto')
+  getVentasProducto(
+    @TenantScope() scope,
+    @Query('desde') desde: string,
+    @Query('hasta') hasta: string,
+    @Query('categoria_id') categoriaId?: string,
+  ) {
+    return this.service.getVentasPorProducto(scope, desde, hasta, categoriaId ? parseInt(categoriaId) : undefined);
+  }
+
+  @Get('ventas-unidad')
+  getVentasUnidad(
+    @TenantScope() scope,
+    @Query('desde') desde: string,
+    @Query('hasta') hasta: string,
+  ) {
+    return this.service.getVentasPorUnidad(scope, desde, hasta);
+  }
+
   @Get('ventas-categoria')
   getVentasCategoria(
     @TenantScope() scope,

@@ -127,6 +127,10 @@ export const dashboardApi = {
   pedidosCount: () => api.get('/dashboard/pedidos-count'),
   ventasCategoria: (desde: string, hasta: string) =>
     api.get('/dashboard/ventas-categoria', { params: { desde, hasta } }),
+  ventasProducto: (desde: string, hasta: string, categoriaId?: number) =>
+    api.get('/dashboard/ventas-producto', { params: { desde, hasta, categoria_id: categoriaId } }),
+  ventasUnidad: (desde: string, hasta: string) =>
+    api.get('/dashboard/ventas-unidad', { params: { desde, hasta } }),
 };
 
 // Tickets

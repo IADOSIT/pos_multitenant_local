@@ -134,6 +134,73 @@ export class DashboardService {
     return { count };
   }
 
+  async getVentasPorProducto(scope: any, desde: string, hasta: string, categoriaId?: number) {
+    const catFilter = categoriaId ? 'AND p.categoria_id = ?' : '';
+    const params: any[] = [scope.tenant_id, scope.empresa_id, scope.tienda_id, desde, hasta];
+    if (categoriaId) params.push(categoriaId);
+    const rows = await this.dataSource.query(
+      `SELECT
+         vd.producto_id,
+         vd.producto_nombre          AS nombre,
+         p.unidad,
+         COALESCE(c.nombre, 'Sin categoría') AS categoria,
+         COUNT(DISTINCT v.id)        AS num_ventas,
+         SUM(vd.cantidad)            AS total_unidades,
+         SUM(vd.subtotal)            AS total_ventas,
+         AVG(vd.precio_unitario)     AS precio_promedio
+       FROM ventas v
+       JOIN venta_detalles vd ON vd.venta_id = v.id
+       LEFT JOIN productos p  ON p.id = vd.producto_id
+       LEFT JOIN categorias c ON c.id = p.categoria_id
+       WHERE v.tenant_id = ? AND v.empresa_id = ? AND v.tienda_id = ?
+         AND v.estado = 'completada'
+         AND v.created_at BETWEEN ? AND ?
+         ${catFilter}
+       GROUP BY vd.producto_id, vd.producto_nombre, p.unidad, c.id, c.nombre
+       ORDER BY total_ventas DESC
+       LIMIT 200`,
+      params,
+    );
+    return rows.map((r: any) => ({
+      producto_id: r.producto_id,
+      nombre: r.nombre,
+      unidad: r.unidad || '',
+      categoria: r.categoria,
+      num_ventas: Number(r.num_ventas),
+      total_unidades: Number(r.total_unidades),
+      total_ventas: Number(r.total_ventas),
+      precio_promedio: Number(r.precio_promedio),
+    }));
+  }
+
+  async getVentasPorUnidad(scope: any, desde: string, hasta: string) {
+    const rows = await this.dataSource.query(
+      `SELECT
+         COALESCE(p.unidad, 'Sin unidad')     AS unidad,
+         COALESCE(c.nombre, 'Sin categoría')  AS categoria,
+         COUNT(DISTINCT v.id)                 AS num_ventas,
+         SUM(vd.cantidad)                     AS total_unidades,
+         SUM(vd.subtotal)                     AS total_ventas
+       FROM ventas v
+       JOIN venta_detalles vd ON vd.venta_id = v.id
+       LEFT JOIN productos p  ON p.id = vd.producto_id
+       LEFT JOIN categorias c ON c.id = p.categoria_id
+       WHERE v.tenant_id = ? AND v.empresa_id = ? AND v.tienda_id = ?
+         AND v.estado = 'completada'
+         AND v.created_at BETWEEN ? AND ?
+       GROUP BY p.unidad, c.id, c.nombre
+       ORDER BY total_ventas DESC`,
+      [scope.tenant_id, scope.empresa_id, scope.tienda_id, desde, hasta],
+    );
+    return rows.map((r: any) => ({
+      unidad: r.unidad,
+      categoria: r.categoria,
+      num_ventas: Number(r.num_ventas),
+      total_unidades: Number(r.total_unidades),
+      total_ventas: Number(r.total_ventas),
+    }));
+  }
+
   async getVentasPorCategoria(scope: any, desde: string, hasta: string) {
     const rows = await this.dataSource.query(
       `SELECT
