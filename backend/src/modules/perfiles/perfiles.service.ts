@@ -32,6 +32,26 @@ export class PerfilesService {
     return { ...perfil, config, tenant_perfil_id: tp.id };
   }
 
+  private getCarbonHieloConfig() {
+    return {
+      modulos: ['carbon', 'hielo'],
+      modulos_config: {
+        carbon: { label: 'Carbón', color: '#374151', icono: 'Flame' },
+        hielo:  { label: 'Hielo',  color: '#0ea5e9', icono: 'Snowflake' },
+      },
+      inventario_critico: true,
+      alertas_stock: true,
+      productos_base: [
+        { modulo: 'carbon', sku: 'CARB-3KG',   nombre: 'Carbón Bolsa 3kg',   unidad: 'bolsa', precio: 0, costo: 0, controla_stock: true, stock_minimo: 20 },
+        { modulo: 'carbon', sku: 'CARB-2.5KG', nombre: 'Carbón Bolsa 2.5kg', unidad: 'bolsa', precio: 0, costo: 0, controla_stock: true, stock_minimo: 20 },
+        { modulo: 'carbon', sku: 'CARB-GRAN',  nombre: 'Carbón Granel kg',   unidad: 'kg',    precio: 0, costo: 0, controla_stock: true, stock_minimo: 50 },
+        { modulo: 'hielo',  sku: 'HIEL-5KG',   nombre: 'Hielo Bolsa 5kg',    unidad: 'bolsa', precio: 0, costo: 0, controla_stock: true, stock_minimo: 30 },
+        { modulo: 'hielo',  sku: 'HIEL-20KG',  nombre: 'Hielo Bolsa 20kg',   unidad: 'bolsa', precio: 0, costo: 0, controla_stock: true, stock_minimo: 10 },
+        { modulo: 'hielo',  sku: 'HIEL-BARR',  nombre: 'Hielo Barra',        unidad: 'pieza', precio: 0, costo: 0, controla_stock: true, stock_minimo: 5  },
+      ],
+    };
+  }
+
   async activarPerfil(
     tenant_id: number,
     empresa_id: number,
@@ -39,8 +59,26 @@ export class PerfilesService {
     perfil_clave: string,
     scope: any,
   ): Promise<any> {
-    const perfil = await this.perfilRepo.findOne({ where: { clave: perfil_clave, activo: true } });
-    if (!perfil) throw new BadRequestException(`Perfil '${perfil_clave}' no encontrado`);
+    let perfil = await this.perfilRepo.findOne({ where: { clave: perfil_clave } });
+
+    // Auto-seed si no existe en la tabla (ej: VPS donde solo corre TypeORM synchronize)
+    if (!perfil) {
+      if (perfil_clave === 'carbon_hielo') {
+        perfil = await this.perfilRepo.save(
+          this.perfilRepo.create({
+            clave: 'carbon_hielo',
+            nombre: 'Carbón + Hielo',
+            descripcion: 'Perfil para negocios de venta de carbón y hielo con inventario dual',
+            config: this.getCarbonHieloConfig(),
+            activo: true,
+          }),
+        );
+      } else {
+        throw new BadRequestException(`Perfil '${perfil_clave}' no encontrado`);
+      }
+    }
+
+    if (!perfil.activo) throw new BadRequestException(`Perfil '${perfil_clave}' no encontrado`);
 
     let tp = await this.tenantPerfilRepo.findOne({ where: { tenant_id, perfil_clave } });
     if (tp) {
@@ -66,7 +104,8 @@ export class PerfilesService {
 
   async seedCarbonHielo(tenant_id: number, empresa_id: number, scope: any): Promise<any> {
     const perfil = await this.perfilRepo.findOne({ where: { clave: 'carbon_hielo' } });
-    if (!perfil || !perfil.config?.productos_base) return { categorias: [], productos: [] };
+    const productosBase = perfil?.config?.productos_base ?? this.getCarbonHieloConfig().productos_base;
+    if (!productosBase?.length) return { categorias: [], productos: [] };
 
     const categoriasCreadas: any[] = [];
     const productosCreados: any[] = [];
@@ -112,7 +151,7 @@ export class PerfilesService {
     }
 
     // Crear productos base
-    for (const pb of perfil.config.productos_base) {
+    for (const pb of productosBase) {
       const existe = await this.productoRepo.findOne({
         where: { sku: pb.sku, tenant_id, empresa_id },
       });
