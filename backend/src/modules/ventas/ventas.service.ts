@@ -138,7 +138,7 @@ export class VentasService {
       }
     }
 
-    // WhatsApp stock-low alerts via Callmebot
+    // WhatsApp stock-low alerts via Fonnte
     try {
       await this.sendStockAlerts(scope, folio);
     } catch (e: any) {
@@ -258,7 +258,7 @@ export class VentasService {
       [scope.tienda_id],
     );
     const cp = tienda?.config_pos || {};
-    if (!cp.whatsapp_enabled || !cp.whatsapp_phone || !cp.whatsapp_apikey) return;
+    if (!cp.whatsapp_enabled || !cp.whatsapp_phone || !cp.whatsapp_token) return;
 
     // Find products that just dropped below minimum
     const lowStock = await this.dataSource.query(
@@ -276,12 +276,18 @@ export class VentasService {
     const lineas = lowStock.map((p: any) =>
       `• ${p.nombre}: ${Number(p.stock_actual)} ${p.unidad || 'pza'} (min ${Number(p.stock_minimo)})`,
     ).join('\n');
-    const msg = encodeURIComponent(
-      `⚠️ STOCK BAJO — Venta ${folio}\n${lineas}`,
-    );
-    const phone = cp.whatsapp_phone.replace(/\D/g, '');
-    const url = `https://api.callmebot.com/whatsapp.php?phone=${phone}&text=${msg}&apikey=${cp.whatsapp_apikey}`;
-    await fetch(url);
+    const mensaje = `⚠️ STOCK BAJO — Venta ${folio}\n${lineas}`;
+    await fetch('https://api.fonnte.com/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': cp.whatsapp_token,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        target: cp.whatsapp_phone,
+        message: mensaje,
+      }),
+    });
   }
 
   // Sync offline sales

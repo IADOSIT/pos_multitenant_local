@@ -101,7 +101,7 @@ export default function ConfiguracionPage() {
     cantidades_rapidas: '10,25,50,100',
     whatsapp_enabled: false,
     whatsapp_phone: '',
-    whatsapp_apikey: '',
+    whatsapp_token: '',
     // Impresora config
     impresora_modelo: '',
     impresora_ancho: 80,
@@ -190,7 +190,7 @@ export default function ConfiguracionPage() {
       cantidades_rapidas: cp.cantidades_rapidas || '10,25,50,100',
       whatsapp_enabled: cp.whatsapp_enabled || false,
       whatsapp_phone: cp.whatsapp_phone || '',
-      whatsapp_apikey: cp.whatsapp_apikey || '',
+      whatsapp_token: cp.whatsapp_token || '',
       impresora_modelo: ci.modelo || '',
       impresora_ancho: ci.ancho || 80,
       impresora_auto_print: ci.auto_print || false,
@@ -224,7 +224,7 @@ export default function ConfiguracionPage() {
           cantidades_rapidas: form.cantidades_rapidas || '',
           whatsapp_enabled: form.whatsapp_enabled,
           whatsapp_phone: form.whatsapp_phone || '',
-          whatsapp_apikey: form.whatsapp_apikey || '',
+          whatsapp_token: form.whatsapp_token || '',
           iva_enabled: form.iva_enabled,
           iva_porcentaje: form.iva_porcentaje,
           iva_incluido: form.iva_incluido,
@@ -277,7 +277,7 @@ export default function ConfiguracionPage() {
       nombre: '', direccion: '', telefono: '', email: '',
       zona_horaria: 'America/Mexico_City',
       iva_enabled: false, iva_porcentaje: 16, iva_incluido: true,
-      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false, mostrar_so_pendiente_en_pos: false, notas_por_item: false, notas_rapidas: '', notas_pedido_enabled: false, datos_envio_enabled: false, cajero_dashboard_enabled: false, cantidades_rapidas: '10,25,50,100', whatsapp_enabled: false, whatsapp_phone: '', whatsapp_apikey: '',
+      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false, mostrar_so_pendiente_en_pos: false, notas_por_item: false, notas_rapidas: '', notas_pedido_enabled: false, datos_envio_enabled: false, cajero_dashboard_enabled: false, cantidades_rapidas: '10,25,50,100', whatsapp_enabled: false, whatsapp_phone: '', whatsapp_token: '',
       impresora_modelo: '', impresora_ancho: 80, impresora_auto_print: false, impresora_copias: 1,
     });
   };
@@ -1332,7 +1332,7 @@ export default function ConfiguracionPage() {
                     <p className="text-xs text-slate-500 mt-1">Valores separados por coma. Aparecen en el selector de cantidad al mantener presionado un producto.</p>
                   </div>
 
-                  {/* WhatsApp Callmebot */}
+                  {/* WhatsApp Fonnte */}
                   <div className="border-t border-slate-700 pt-3 mt-3 space-y-3">
                     <label className="flex items-center gap-3 cursor-pointer">
                       <input
@@ -1342,14 +1342,14 @@ export default function ConfiguracionPage() {
                         className="w-5 h-5 accent-iados-primary rounded"
                       />
                       <div>
-                        <span className="text-sm font-medium">Alertas WhatsApp (Callmebot)</span>
+                        <span className="text-sm font-medium">Alertas WhatsApp (Fonnte)</span>
                         <p className="text-xs text-slate-500">Envía alerta cuando algún producto baje del stock mínimo al hacer una venta</p>
                       </div>
                     </label>
                     {form.whatsapp_enabled && (
                       <div className="ml-8 space-y-2">
                         <div>
-                          <label className="text-xs text-slate-400 block mb-1">Teléfono (con código de país, ej: 521XXXXXXXXXX)</label>
+                          <label className="text-xs text-slate-400 block mb-1">Teléfono destino (con código de país)</label>
                           <input
                             type="text"
                             value={form.whatsapp_phone}
@@ -1359,21 +1359,21 @@ export default function ConfiguracionPage() {
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-slate-400 block mb-1">API Key de Callmebot</label>
+                          <label className="text-xs text-slate-400 block mb-1">Token de Fonnte</label>
                           <input
                             type="text"
-                            value={form.whatsapp_apikey}
-                            onChange={(e) => setForm({ ...form, whatsapp_apikey: e.target.value })}
-                            placeholder="123456"
+                            value={form.whatsapp_token}
+                            onChange={(e) => setForm({ ...form, whatsapp_token: e.target.value })}
+                            placeholder="Pega aquí tu token de Fonnte"
                             className="input-touch text-sm w-full"
                           />
                         </div>
                         <div className="bg-slate-800 rounded-lg p-3 text-xs text-slate-400 space-y-1">
-                          <p className="font-medium text-slate-300">Cómo obtener tu API Key (gratis, 2 min):</p>
-                          <p>1. Abre WhatsApp y envía un mensaje a <span className="text-white font-mono">+34 644 60 16 20</span></p>
-                          <p>2. Escribe exactamente: <span className="text-white font-mono">I allow callmebot to send me messages</span></p>
-                          <p>3. Te responderán con tu API Key en segundos</p>
-                          <p>4. Pega esa API Key aquí arriba</p>
+                          <p className="font-medium text-slate-300">Cómo configurar Fonnte (gratis, 3 min):</p>
+                          <p>1. Regístrate en <span className="text-white font-mono">fonnte.com</span></p>
+                          <p>2. Ve a <span className="text-white">Device → Add Device</span> y escanea el QR con tu WhatsApp</p>
+                          <p>3. Ve a <span className="text-white">Token</span> en el menú y copia tu token</p>
+                          <p>4. Pégalo aquí arriba. Gratis hasta 100 mensajes/día</p>
                         </div>
                       </div>
                     )}
