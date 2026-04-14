@@ -43,6 +43,9 @@ export class User {
   @Column({ default: true })
   activo: boolean;
 
+  @Column({ length: 50, nullable: true })
+  modulo: string;
+
   @Column({ type: 'datetime', nullable: true })
   ultimo_login: Date;
 
