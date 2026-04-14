@@ -115,6 +115,7 @@ export const pedidosApi = {
   cobrarParcial: (id: number, pagoData: any) => api.post(`/pedidos/${id}/cobrar-parcial`, pagoData),
   actualizarItems: (id: number, data: any) => api.put(`/pedidos/${id}/items`, data),
   cancelar: (id: number, motivo: string) => api.post(`/pedidos/${id}/cancelar`, { motivo }),
+  buscarClientes: (q: string) => api.get('/pedidos/clientes/buscar', { params: { q } }),
 };
 
 // Dashboard

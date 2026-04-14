@@ -28,6 +28,12 @@ export class PedidosController {
     return this.service.findPendientes(scope);
   }
 
+  @Get('clientes/buscar')
+  @Roles('superadmin', 'admin', 'manager', 'cajero')
+  buscarClientes(@TenantScope() scope, @Query('q') q: string) {
+    return this.service.buscarClientes(scope, q || '');
+  }
+
   @Get('count')
   @Roles('superadmin', 'admin', 'manager', 'cajero', 'mesero')
   countPendientes(@TenantScope() scope) {

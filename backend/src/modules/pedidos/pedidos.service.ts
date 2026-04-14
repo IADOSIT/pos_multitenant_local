@@ -343,4 +343,21 @@ export class PedidosService {
 
     return saved;
   }
+
+  async buscarClientes(scope: any, q: string) {
+    if (q.length < 2) return [];
+    const rows = await this.dataSource.query(
+      `SELECT cliente_telefono AS telefono, cliente_nombre AS nombre, cliente_direccion AS direccion,
+              MAX(created_at) AS ultima_visita
+       FROM pedidos
+       WHERE tenant_id = ? AND empresa_id = ?
+         AND cliente_telefono IS NOT NULL AND cliente_telefono != ''
+         AND cliente_telefono LIKE ?
+       GROUP BY cliente_telefono, cliente_nombre, cliente_direccion
+       ORDER BY ultima_visita DESC
+       LIMIT 6`,
+      [scope.tenant_id, scope.empresa_id, `${q}%`],
+    );
+    return rows;
+  }
 }

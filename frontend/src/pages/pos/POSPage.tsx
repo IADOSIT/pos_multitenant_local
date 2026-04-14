@@ -27,6 +27,7 @@ export default function POSPage() {
   const [pedidoActivo, setPedidoActivo] = useState<any>(null);
   const [mostrarSoPendienteEnPos, setMostrarSoPendienteEnPos] = useState(false);
   const [notasPorItem, setNotasPorItem] = useState(false);
+  const [notasRapidas, setNotasRapidas] = useState<string[]>([]);
   const [notasPedidoEnabled, setNotasPedidoEnabled] = useState(false);
   const [datosEnvioEnabled, setDatosEnvioEnabled] = useState(false);
 
@@ -73,6 +74,10 @@ export default function POSPage() {
         setCuentaAbiertaEnabled(data.config_pos.habilitar_cuenta_abierta || false);
         setMostrarSoPendienteEnPos(data.config_pos.mostrar_so_pendiente_en_pos || false);
         setNotasPorItem(data.config_pos.notas_por_item || false);
+        setNotasRapidas(
+          (data.config_pos.notas_rapidas || '')
+            .split(',').map((s: string) => s.trim()).filter(Boolean)
+        );
         setNotasPedidoEnabled(data.config_pos.notas_pedido_enabled || false);
         setDatosEnvioEnabled(data.config_pos.datos_envio_enabled || false);
 
@@ -473,6 +478,7 @@ export default function POSPage() {
           onAbrirCuenta={() => { setShowAbrirCuenta(true); setCartVisible(false); }}
           cuentaAbiertaEnabled={cuentaAbiertaEnabled}
           notasPorItem={notasPorItem}
+          notasRapidas={notasRapidas}
           notasPedidoEnabled={notasPedidoEnabled}
           datosEnvioEnabled={datosEnvioEnabled}
           pedidoActivo={pedidoActivo}

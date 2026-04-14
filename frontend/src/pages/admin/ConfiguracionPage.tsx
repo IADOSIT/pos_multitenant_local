@@ -94,6 +94,7 @@ export default function ConfiguracionPage() {
     habilitar_cuenta_abierta: false,
     mostrar_so_pendiente_en_pos: false,
     notas_por_item: false,
+    notas_rapidas: '',
     notas_pedido_enabled: false,
     datos_envio_enabled: false,
     // Impresora config
@@ -177,6 +178,7 @@ export default function ConfiguracionPage() {
       habilitar_cuenta_abierta: cp.habilitar_cuenta_abierta || false,
       mostrar_so_pendiente_en_pos: cp.mostrar_so_pendiente_en_pos || false,
       notas_por_item: cp.notas_por_item || false,
+      notas_rapidas: cp.notas_rapidas || '',
       notas_pedido_enabled: cp.notas_pedido_enabled || false,
       datos_envio_enabled: cp.datos_envio_enabled || false,
       impresora_modelo: ci.modelo || '',
@@ -205,6 +207,7 @@ export default function ConfiguracionPage() {
           habilitar_cuenta_abierta: form.habilitar_cuenta_abierta,
           mostrar_so_pendiente_en_pos: form.mostrar_so_pendiente_en_pos,
           notas_por_item: form.notas_por_item,
+          notas_rapidas: form.notas_rapidas || '',
           notas_pedido_enabled: form.notas_pedido_enabled,
           datos_envio_enabled: form.datos_envio_enabled,
           iva_enabled: form.iva_enabled,
@@ -259,7 +262,7 @@ export default function ConfiguracionPage() {
       nombre: '', direccion: '', telefono: '', email: '',
       zona_horaria: 'America/Mexico_City',
       iva_enabled: false, iva_porcentaje: 16, iva_incluido: true,
-      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false, mostrar_so_pendiente_en_pos: false, notas_por_item: false, notas_pedido_enabled: false, datos_envio_enabled: false,
+      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false, mostrar_so_pendiente_en_pos: false, notas_por_item: false, notas_rapidas: '', notas_pedido_enabled: false, datos_envio_enabled: false,
       impresora_modelo: '', impresora_ancho: 80, impresora_auto_print: false, impresora_copias: 1,
     });
   };
@@ -1226,7 +1229,7 @@ export default function ConfiguracionPage() {
 
                   {/* Notas por ítem */}
                   <div className="border-t border-slate-700 pt-3 mt-3">
-                    <label className="flex items-center gap-3 cursor-pointer">
+                    <label className="flex items-center gap-3 cursor-pointer mb-2">
                       <input
                         type="checkbox"
                         checked={form.notas_por_item}
@@ -1238,6 +1241,19 @@ export default function ConfiguracionPage() {
                         <p className="text-xs text-slate-500">Permite agregar nota/modificación a cada producto (toca el ítem para editarla)</p>
                       </div>
                     </label>
+                    {form.notas_por_item && (
+                      <div className="ml-8">
+                        <label className="text-xs text-slate-400 block mb-1">Chips de notas rápidas (separados por coma)</label>
+                        <input
+                          type="text"
+                          value={form.notas_rapidas || ''}
+                          onChange={(e) => setForm({ ...form, notas_rapidas: e.target.value })}
+                          placeholder="Sin cebolla, Extra picante, Sin sal, Bien cocido, Extra queso"
+                          className="input-touch text-xs w-full"
+                        />
+                        <p className="text-xs text-slate-600 mt-1">Aparecen como botones de un toque al editar la nota de un ítem</p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Nota general del pedido */}

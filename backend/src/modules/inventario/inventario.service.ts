@@ -14,8 +14,13 @@ export class InventarioService {
 
   // List products with stock info
   async listStock(scope: any) {
+    const adminRoles = ['superadmin', 'admin', 'manager'];
+    const where: any = { tenant_id: scope.tenant_id, empresa_id: scope.empresa_id, activo: true };
+    if (scope.modulo && !adminRoles.includes(scope.rol)) {
+      where.modulo = scope.modulo;
+    }
     return this.prodRepo.find({
-      where: { tenant_id: scope.tenant_id, empresa_id: scope.empresa_id, activo: true },
+      where,
       select: ['id', 'sku', 'nombre', 'stock_actual', 'stock_minimo', 'controla_stock', 'unidad', 'costo', 'precio', 'imagen_url'],
       order: { nombre: 'ASC' },
     });

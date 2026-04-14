@@ -14,16 +14,19 @@ export class InventarioController {
   constructor(private service: InventarioService) {}
 
   @Get('stock')
+  @Roles('superadmin', 'admin', 'manager', 'cajero')
   listStock(@TenantScope() scope) {
     return this.service.listStock(scope);
   }
 
   @Get('movimientos')
+  @Roles('superadmin', 'admin', 'manager', 'cajero')
   listMovimientos(@TenantScope() scope) {
     return this.service.listMovimientos(scope);
   }
 
   @Get('movimientos/:productoId')
+  @Roles('superadmin', 'admin', 'manager', 'cajero')
   getMovimientos(@Param('productoId', ParseIntPipe) id: number, @TenantScope() scope) {
     return this.service.getMovimientos(id, scope);
   }
