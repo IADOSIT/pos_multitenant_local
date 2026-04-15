@@ -36,6 +36,7 @@ function getStockStatus(item: StockItem): 'ok' | 'bajo' | 'critico' {
   if (!item.controla_stock) return 'ok';
   const actual = Number(item.stock_actual);
   const minimo = Number(item.stock_minimo);
+  if (!minimo || minimo <= 0) return 'ok';
   if (actual <= minimo) return 'critico';
   if (actual <= minimo * 2) return 'bajo';
   return 'ok';
@@ -72,14 +73,14 @@ export default function InventarioDualPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [resCarbon, resHielo, resAlertas] = await Promise.all([
+      const [resCarbon, resHielo, resAlertas] = await Promise.allSettled([
         perfilesApi.stockPorModulo('carbon'),
         perfilesApi.stockPorModulo('hielo'),
         perfilesApi.alertasStock(),
       ]);
-      setStockCarbon(resCarbon.data || []);
-      setStockHielo(resHielo.data || []);
-      setAlertas(resAlertas.data || []);
+      if (resCarbon.status === 'fulfilled') setStockCarbon(resCarbon.value.data || []);
+      if (resHielo.status === 'fulfilled') setStockHielo(resHielo.value.data || []);
+      if (resAlertas.status === 'fulfilled') setAlertas(resAlertas.value.data || []);
     } catch {
       toast.error('Error cargando inventario');
     } finally {

@@ -65,7 +65,7 @@ export class InventarioController {
   }
 
   @Get('stock-modulo')
-  @Roles('superadmin', 'admin', 'manager', 'cajero')
+  @Roles('superadmin', 'admin', 'manager', 'cajero', 'mesero')
   listStockPorModulo(@TenantScope() scope, @Query('modulo') modulo?: string) {
     return this.service.listStockPorModulo(scope, modulo);
   }
