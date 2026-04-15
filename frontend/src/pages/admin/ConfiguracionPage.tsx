@@ -131,6 +131,11 @@ export default function ConfiguracionPage() {
     mesa_numero_oculto: false,
     sidebar_permisos: {} as Record<string, string[]>,
     whatsapp_eventos: { stock_bajo: true, resumen_diario: false } as Record<string, boolean>,
+    reportes_tabs_config: [
+      { key: 'caja',     label: 'Cierre de Caja', enabled: true },
+      { key: 'kpi',      label: 'KPI',            enabled: true },
+      { key: 'clientes', label: 'Clientes',        enabled: true },
+    ] as { key: string; label: string; enabled: boolean }[],
   });
 
   useEffect(() => { load(); loadEmpresa(); fetchSystemInfo(); }, []);
@@ -266,6 +271,11 @@ export default function ConfiguracionPage() {
       mesa_numero_oculto: cp.mesa_numero_oculto || false,
       sidebar_permisos: cp.sidebar_permisos || {},
       whatsapp_eventos: cp.whatsapp_eventos || { stock_bajo: true, resumen_diario: false },
+      reportes_tabs_config: cp.reportes_tabs_config || [
+        { key: 'caja',     label: 'Cierre de Caja', enabled: true },
+        { key: 'kpi',      label: 'KPI',            enabled: true },
+        { key: 'clientes', label: 'Clientes',        enabled: true },
+      ],
     });
   };
 
@@ -315,6 +325,7 @@ export default function ConfiguracionPage() {
           mesa_numero_oculto: form.mesa_numero_oculto,
           sidebar_permisos: form.sidebar_permisos,
           whatsapp_eventos: form.whatsapp_eventos,
+          reportes_tabs_config: form.reportes_tabs_config,
         },
         config_impresora: {
           modelo: form.impresora_modelo,
@@ -372,6 +383,11 @@ export default function ConfiguracionPage() {
       dashboard_unidad_enabled: false, dashboard_top_productos_enabled: false,
       dashboard_top_n: 10, dashboard_mostrar_margen: false,
       mesa_numero_oculto: false, sidebar_permisos: {}, whatsapp_eventos: { stock_bajo: true, resumen_diario: false },
+      reportes_tabs_config: [
+        { key: 'caja',     label: 'Cierre de Caja', enabled: true },
+        { key: 'kpi',      label: 'KPI',            enabled: true },
+        { key: 'clientes', label: 'Clientes',        enabled: true },
+      ],
     });
   };
 
@@ -921,6 +937,52 @@ export default function ConfiguracionPage() {
                     </div>
                   </label>
                 ))}
+              </div>
+
+              {/* ── Sección Tabs de Reportes ── */}
+              <div className="card space-y-3">
+                <h3 className="font-bold text-sm flex items-center gap-2"><TrendingUp size={16} className="text-blue-400" /> Tabs de Reportes</h3>
+                <p className="text-xs text-slate-500">Activa o desactiva cada pestaña y ajusta el orden en que aparecen. Aplica solo a esta tienda.</p>
+                <div className="space-y-2">
+                  {form.reportes_tabs_config.map((tab, idx) => (
+                    <div key={tab.key} className="flex items-center gap-3 bg-iados-surface rounded-xl px-3 py-2 border border-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={tab.enabled}
+                        onChange={(e) => {
+                          const updated = form.reportes_tabs_config.map((t, i) =>
+                            i === idx ? { ...t, enabled: e.target.checked } : t
+                          );
+                          setForm({ ...form, reportes_tabs_config: updated });
+                        }}
+                        className="w-5 h-5 accent-iados-primary shrink-0"
+                      />
+                      <span className={`text-sm flex-1 ${tab.enabled ? '' : 'text-slate-500 line-through'}`}>{tab.label}</span>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          disabled={idx === 0}
+                          onClick={() => {
+                            const updated = [...form.reportes_tabs_config];
+                            [updated[idx - 1], updated[idx]] = [updated[idx], updated[idx - 1]];
+                            setForm({ ...form, reportes_tabs_config: updated });
+                          }}
+                          className="p-1 rounded hover:bg-iados-card disabled:opacity-20 text-slate-400 hover:text-white"
+                        ><ChevronUp size={16} /></button>
+                        <button
+                          type="button"
+                          disabled={idx === form.reportes_tabs_config.length - 1}
+                          onClick={() => {
+                            const updated = [...form.reportes_tabs_config];
+                            [updated[idx + 1], updated[idx]] = [updated[idx], updated[idx + 1]];
+                            setForm({ ...form, reportes_tabs_config: updated });
+                          }}
+                          className="p-1 rounded hover:bg-iados-card disabled:opacity-20 text-slate-400 hover:text-white"
+                        ><ChevronDown size={16} /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Botón guardar */}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { cajaApi, dashboardApi, ventasApi, ticketsApi } from '../../api/endpoints';
+import { cajaApi, dashboardApi, ventasApi, ticketsApi, tiendasApi } from '../../api/endpoints';
 import { useAuthStore } from '../../store/auth.store';
 import { printTicket } from '../../utils/printTicket';
 import toast from 'react-hot-toast';
@@ -26,8 +26,15 @@ export default function ReportesPage() {
   const [reporte, setReporte] = useState<any>(null);
   const [kpi, setKpi] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState<'caja' | 'kpi' | 'clientes'>('caja');
+  const [tab, setTab] = useState<string>('caja');
   const [rango, setRango] = useState('hoy');
+
+  const DEFAULT_TABS = [
+    { key: 'caja',     label: 'Cierre de Caja', enabled: true },
+    { key: 'kpi',      label: 'KPI',            enabled: true },
+    { key: 'clientes', label: 'Clientes',        enabled: true },
+  ];
+  const [tabsConfig, setTabsConfig] = useState(DEFAULT_TABS);
   const [clientes, setClientes] = useState<any[]>([]);
   const [clienteSearch, setClienteSearch] = useState('');
   const [clientesLoading, setClientesLoading] = useState(false);
@@ -35,7 +42,19 @@ export default function ReportesPage() {
   const chartRef = useRef<HTMLDivElement>(null);
   const kpiChartRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { loadCajas(); }, []);
+  useEffect(() => {
+    loadCajas();
+    if (user?.tienda_id) {
+      tiendasApi.get(user.tienda_id).then(({ data }) => {
+        const cfg = data?.config_pos?.reportes_tabs_config;
+        if (cfg && cfg.length > 0) {
+          setTabsConfig(cfg);
+          const first = cfg.find((t: any) => t.enabled);
+          if (first) setTab(first.key);
+        }
+      }).catch(() => {});
+    }
+  }, []);
   useEffect(() => { if (tab === 'kpi') loadKPI(); }, [tab, rango]);
   useEffect(() => { if (tab === 'clientes') loadClientes(); }, [tab]);
 
@@ -398,16 +417,16 @@ export default function ReportesPage() {
     <div className="p-4 space-y-4 max-w-6xl mx-auto">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-2xl font-bold">Reportes</h1>
-        <div className="flex gap-2">
-          <button onClick={() => setTab('caja')} className={`btn-touch text-sm px-4 py-2 ${tab === 'caja' ? 'bg-iados-primary' : 'bg-iados-card'}`}>
-            <Receipt size={16} className="inline mr-1" /> Cierre de Caja
-          </button>
-          <button onClick={() => setTab('kpi')} className={`btn-touch text-sm px-4 py-2 ${tab === 'kpi' ? 'bg-iados-primary' : 'bg-iados-card'}`}>
-            <TrendingUp size={16} className="inline mr-1" /> KPI
-          </button>
-          <button onClick={() => setTab('clientes')} className={`btn-touch text-sm px-4 py-2 ${tab === 'clientes' ? 'bg-iados-primary' : 'bg-iados-card'}`}>
-            <Users size={16} className="inline mr-1" /> Clientes
-          </button>
+        <div className="flex gap-2 flex-wrap">
+          {tabsConfig.filter(t => t.enabled).map(t => {
+            const icons: Record<string, any> = { caja: Receipt, kpi: TrendingUp, clientes: Users };
+            const Icon = icons[t.key] || Receipt;
+            return (
+              <button key={t.key} onClick={() => setTab(t.key)} className={`btn-touch text-sm px-4 py-2 ${tab === t.key ? 'bg-iados-primary' : 'bg-iados-card'}`}>
+                <Icon size={16} className="inline mr-1" />{t.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
