@@ -30,7 +30,7 @@ export class Pedido {
   @Column({ length: 50 })
   folio: string;
 
-  @Column()
+  @Column({ nullable: true, default: 0 })
   mesa: number;
 
   @Column({ type: 'enum', enum: PedidoEstado, default: PedidoEstado.RECIBIDO })

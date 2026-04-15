@@ -301,7 +301,11 @@
       "Bash(timeout 300 bash -c 'while true; do sleep 15; ls \"/c/sites/pos_multitenant_local/installer/output/POS-iaDoS-Local-v2.2.66.exe\" 2>/dev/null && echo \"LISTO\" && break; echo -n \".\"; done')",
       "Bash(mysql -u root -proot pos_local -e \"SELECT t.id, t.nombre, t.config_pos FROM tiendas t WHERE t.nombre LIKE '%egin%' OR t.nombre LIKE '%egina%';\")",
       "Bash(mysql -u root pos_local -e \"SELECT t.id, t.nombre, t.config_pos FROM tiendas t WHERE t.nombre LIKE '%egin%';\")",
-      "Bash(\"C:/POS-iaDoS/mariadb/bin/mysql.exe\" -uroot -proot pos_local -e \"SELECT id, nombre, JSON_UNQUOTE\\(JSON_EXTRACT\\(config_pos,'$.modo_servicio'\\)\\) AS modo, JSON_UNQUOTE\\(JSON_EXTRACT\\(config_pos,'$.tipo_cobro_mesa'\\)\\) AS cobro, JSON_UNQUOTE\\(JSON_EXTRACT\\(config_pos,'$.caja_auto_enabled'\\)\\) AS caja_auto, JSON_UNQUOTE\\(JSON_EXTRACT\\(config_pos,'$.caja_ocultar_ui'\\)\\) AS caja_ocultar FROM tiendas;\")"
+      "Bash(\"C:/POS-iaDoS/mariadb/bin/mysql.exe\" -uroot -proot pos_local -e \"SELECT id, nombre, JSON_UNQUOTE\\(JSON_EXTRACT\\(config_pos,'$.modo_servicio'\\)\\) AS modo, JSON_UNQUOTE\\(JSON_EXTRACT\\(config_pos,'$.tipo_cobro_mesa'\\)\\) AS cobro, JSON_UNQUOTE\\(JSON_EXTRACT\\(config_pos,'$.caja_auto_enabled'\\)\\) AS caja_auto, JSON_UNQUOTE\\(JSON_EXTRACT\\(config_pos,'$.caja_ocultar_ui'\\)\\) AS caja_ocultar FROM tiendas;\")",
+      "Bash(echo \"diff:$?\")",
+      "Bash(echo \"BE_TSC:$?\")",
+      "Bash(echo \"FE_BUILD:$?\")",
+      "Bash(takeown /f \"C:\\\\sites\\\\pos_multitenant_local\\\\frontend\\\\dist-prod\" /r /d y)"
     ]
   }
 }

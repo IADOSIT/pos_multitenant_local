@@ -210,10 +210,12 @@ export default function POSPage() {
   };
 
   const handleEnviarPedido = async () => {
-    if (!mesaActiva || cart.length === 0) return;
+    // Cuando mesa_numero_oculto=true no se requiere mesaActiva — se envía como 0 (sin número)
+    if (cart.length === 0) return;
+    if (!mesaNumeroOculto && !mesaActiva) return;
     try {
       const data = {
-        mesa: mesaActiva,
+        mesa: mesaActiva || 0,
         tipo_servicio: tipoServicio,
         notas: notaPedido || undefined,
         cliente_nombre: clienteNombre || undefined,
