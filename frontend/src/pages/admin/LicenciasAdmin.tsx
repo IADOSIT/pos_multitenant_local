@@ -3,7 +3,7 @@ import { licenciasApi, tenantsApi } from '../../api/endpoints';
 import toast from 'react-hot-toast';
 import {
   Shield, Key, Copy, Ban, PlayCircle, Trash2, RefreshCw, Edit2,
-  Link, Lock, CheckCircle, Infinity, X,
+  Link, Lock, CheckCircle, Infinity, X, Search, Info,
 } from 'lucide-react';
 
 const PLANES = [
@@ -325,6 +325,9 @@ export default function LicenciasAdmin() {
   const [codigoGenerado, setCodigoGenerado] = useState('');
   const [genForm, setGenForm] = useState<GenForm>({ ...DEFAULT_GEN_FORM });
 
+  // Búsqueda
+  const [search, setSearch] = useState('');
+
   // Modals
   const [editLic, setEditLic] = useState<any | null>(null);
   const [linkLic, setLinkLic] = useState<any | null>(null);
@@ -376,6 +379,19 @@ export default function LicenciasAdmin() {
 
   const getTenantNombre = (tid: number) => tenants.find(t => t.id === tid)?.nombre || `Tenant #${tid}`;
 
+  const licenciasFiltradas = licencias.filter(lic => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      (lic.codigo_instalacion || '').toLowerCase().includes(q) ||
+      getTenantNombre(lic.tenant_id).toLowerCase().includes(q) ||
+      String(lic.tenant_id).includes(q) ||
+      (lic.plan || '').toLowerCase().includes(q) ||
+      (lic.estado || '').toLowerCase().includes(q) ||
+      (lic.notas || '').toLowerCase().includes(q)
+    );
+  });
+
   return (
     <div className="p-4 space-y-4 max-w-6xl mx-auto">
       {/* Header */}
@@ -387,6 +403,39 @@ export default function LicenciasAdmin() {
             <Key size={18} /> Generar Codigo
           </button>
         </div>
+      </div>
+
+      {/* Flujo de activación — guía rápida */}
+      <div className="bg-blue-900/20 border border-blue-700/40 rounded-xl p-3 flex gap-3">
+        <Info size={18} className="text-blue-400 shrink-0 mt-0.5" />
+        <div className="text-xs text-slate-300 space-y-1">
+          <p className="font-semibold text-blue-300">Flujo de activación (cliente con EXE instalado):</p>
+          <ol className="list-decimal list-inside space-y-0.5 text-slate-400">
+            <li>El cliente instala el EXE → se crea trial de 30 días con un código <span className="font-mono text-amber-300">INS-XXXXXXXX</span></li>
+            <li>El banner amarillo en su sistema muestra ese código de instalación</li>
+            <li>El cliente te envía el código → <strong className="text-white">búscalo abajo con el buscador</strong></li>
+            <li>Haz clic en <Link size={11} className="inline" /> <span className="text-blue-300">Generar Enlace</span> en su tarjeta → configura plan y meses</li>
+            <li>Copia el <strong className="text-white">Código de activación</strong> o el enlace y envíaselo al cliente</li>
+            <li>El cliente pega el código en el banner amarillo → licencia activada</li>
+          </ol>
+        </div>
+      </div>
+
+      {/* Buscador */}
+      <div className="relative">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Buscar por código INS-XXXXXXXX, nombre de tenant, plan, estado..."
+          className="input-touch pl-9 w-full"
+        />
+        {search && (
+          <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+            <X size={14} />
+          </button>
+        )}
       </div>
 
       {/* Panel generar codigo manual */}
@@ -459,8 +508,13 @@ export default function LicenciasAdmin() {
         {!loading && licencias.length === 0 && (
           <p className="text-slate-500 text-center py-8">No hay licencias registradas. Se crean automaticamente al primer login del tenant.</p>
         )}
+        {!loading && licencias.length > 0 && licenciasFiltradas.length === 0 && (
+          <p className="text-slate-500 text-center py-8">
+            Ninguna licencia coincide con "<span className="text-white">{search}</span>". Revisa el código de instalación.
+          </p>
+        )}
 
-        {licencias.map(lic => (
+        {licenciasFiltradas.map(lic => (
           <div key={lic.id} className="card">
             {/* Fila superior: nombre + badges + acciones */}
             <div className="flex items-center justify-between flex-wrap gap-2">
@@ -515,8 +569,19 @@ export default function LicenciasAdmin() {
             {/* Detalles */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-3 text-sm">
               <div>
-                <span className="text-xs text-slate-400 block">Instalacion</span>
-                <span className="font-mono text-xs">{lic.codigo_instalacion || '-'}</span>
+                <span className="text-xs text-slate-400 block">Código instalación</span>
+                {lic.codigo_instalacion ? (
+                  <button
+                    onClick={() => copyText(lic.codigo_instalacion)}
+                    className="font-mono text-xs text-amber-300 hover:text-amber-200 flex items-center gap-1 group"
+                    title="Copiar código de instalación"
+                  >
+                    {lic.codigo_instalacion}
+                    <Copy size={11} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </button>
+                ) : (
+                  <span className="text-xs text-slate-500">-</span>
+                )}
               </div>
               <div>
                 <span className="text-xs text-slate-400 block">Vigencia</span>
