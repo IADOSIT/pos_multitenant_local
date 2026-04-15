@@ -18,10 +18,18 @@ interface Props {
   onCancelarEdicion?: () => void;
   mesaNumeroOculto?: boolean;
   cajaManaged?: boolean;
+  enSitioVisible?: boolean;
+  paraLlevarVisible?: boolean;
 }
 
-export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuentaAbiertaEnabled, notasPorItem, notasRapidas = [], cantidadesRapidas, notasPedidoEnabled, datosEnvioEnabled, pedidoActivo, onActualizarCuenta, onCancelarEdicion, mesaNumeroOculto, cajaManaged }: Props) {
+export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuentaAbiertaEnabled, notasPorItem, notasRapidas = [], cantidadesRapidas, notasPedidoEnabled, datosEnvioEnabled, pedidoActivo, onActualizarCuenta, onCancelarEdicion, mesaNumeroOculto, cajaManaged, enSitioVisible = true, paraLlevarVisible = true }: Props) {
   const { cart, updateQuantity, removeFromCart, clearCart, updateItemNotes, getSubtotal, getImpuestos, getTotal, cajaActiva, modoServicio, tipoCobro, mesaActiva, setMesaActiva, tipoServicio, setTipoServicio, notaPedido, setNotaPedido, clienteNombre, setClienteNombre, clienteTelefono, setClienteTelefono, clienteDireccion, setClienteDireccion } = usePOSStore();
+
+  // Auto-seleccionar tipo de servicio si solo uno está habilitado
+  useEffect(() => {
+    if (enSitioVisible && !paraLlevarVisible) setTipoServicio('en_sitio');
+    else if (!enSitioVisible && paraLlevarVisible) setTipoServicio('para_llevar');
+  }, [enSitioVisible, paraLlevarVisible]);
 
   // Notas por ítem
   const [editingNotaId, setEditingNotaId] = useState<string | null>(null);
@@ -125,27 +133,33 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuenta
         </div>
       )}
 
-      {/* Tipo de servicio */}
-      <div className="p-3 border-b border-slate-700">
-        <div className="flex rounded-xl overflow-hidden border border-slate-600">
-          <button
-            onClick={() => setTipoServicio('en_sitio')}
-            className={`flex-1 py-2 text-sm font-medium flex items-center justify-center gap-1 transition-colors ${
-              tipoServicio === 'en_sitio' ? 'bg-iados-primary text-white' : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            🍽️ En sitio
-          </button>
-          <button
-            onClick={() => setTipoServicio('para_llevar')}
-            className={`flex-1 py-2 text-sm font-medium flex items-center justify-center gap-1 transition-colors ${
-              tipoServicio === 'para_llevar' ? 'bg-orange-600 text-white' : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            🥡 Para llevar
-          </button>
+      {/* Tipo de servicio — solo si al menos uno está habilitado */}
+      {(enSitioVisible || paraLlevarVisible) && (
+        <div className="p-3 border-b border-slate-700">
+          <div className="flex rounded-xl overflow-hidden border border-slate-600">
+            {enSitioVisible && (
+              <button
+                onClick={() => setTipoServicio('en_sitio')}
+                className={`flex-1 py-2 text-sm font-medium flex items-center justify-center gap-1 transition-colors ${
+                  tipoServicio === 'en_sitio' ? 'bg-iados-primary text-white' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                🍽️ En sitio
+              </button>
+            )}
+            {paraLlevarVisible && (
+              <button
+                onClick={() => setTipoServicio('para_llevar')}
+                className={`flex-1 py-2 text-sm font-medium flex items-center justify-center gap-1 transition-colors ${
+                  tipoServicio === 'para_llevar' ? 'bg-orange-600 text-white' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                🥡 Para llevar
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {!cajaActiva && !isPostPago && !cajaManaged && (
         <div className="p-4 bg-amber-900/30 border-b border-amber-700 text-amber-300 text-sm text-center">

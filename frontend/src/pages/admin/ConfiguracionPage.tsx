@@ -104,6 +104,8 @@ export default function ConfiguracionPage() {
     notas_rapidas: '',
     notas_pedido_enabled: false,
     datos_envio_enabled: false,
+    en_sitio_visible: true,
+    para_llevar_visible: true,
     cajero_dashboard_enabled: false,
     cantidades_rapidas: '10,25,50,100',
     whatsapp_enabled: false,
@@ -238,6 +240,8 @@ export default function ConfiguracionPage() {
       notas_rapidas: cp.notas_rapidas || '',
       notas_pedido_enabled: cp.notas_pedido_enabled || false,
       datos_envio_enabled: cp.datos_envio_enabled || false,
+      en_sitio_visible: cp.en_sitio_visible !== false,
+      para_llevar_visible: cp.para_llevar_visible !== false,
       cajero_dashboard_enabled: cp.cajero_dashboard_enabled || false,
       cantidades_rapidas: cp.cantidades_rapidas || '10,25,50,100',
       whatsapp_enabled: cp.whatsapp_enabled || false,
@@ -285,6 +289,8 @@ export default function ConfiguracionPage() {
           notas_rapidas: form.notas_rapidas || '',
           notas_pedido_enabled: form.notas_pedido_enabled,
           datos_envio_enabled: form.datos_envio_enabled,
+          en_sitio_visible: form.en_sitio_visible,
+          para_llevar_visible: form.para_llevar_visible,
           cajero_dashboard_enabled: form.cajero_dashboard_enabled,
           cantidades_rapidas: form.cantidades_rapidas || '',
           whatsapp_enabled: form.whatsapp_enabled,
@@ -355,7 +361,7 @@ export default function ConfiguracionPage() {
       nombre: '', direccion: '', telefono: '', email: '',
       zona_horaria: 'America/Mexico_City',
       iva_enabled: false, iva_porcentaje: 16, iva_incluido: true,
-      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false, mostrar_so_pendiente_en_pos: false, notas_por_item: false, notas_rapidas: '', notas_pedido_enabled: false, datos_envio_enabled: false, cajero_dashboard_enabled: false, cantidades_rapidas: '10,25,50,100', whatsapp_enabled: false, whatsapp_phone: '', whatsapp_token: '',
+      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false, mostrar_so_pendiente_en_pos: false, notas_por_item: false, notas_rapidas: '', notas_pedido_enabled: false, datos_envio_enabled: false, en_sitio_visible: true, para_llevar_visible: true, cajero_dashboard_enabled: false, cantidades_rapidas: '10,25,50,100', whatsapp_enabled: false, whatsapp_phone: '', whatsapp_token: '',
       impresora_modelo: '', impresora_ancho: 80, impresora_auto_print: false, impresora_copias: 1,
       caja_auto_enabled: false, caja_ocultar_ui: false,
       dashboard_ventas_enabled: true, dashboard_selforder_enabled: true,
@@ -1691,6 +1697,32 @@ export default function ConfiguracionPage() {
                         <p className="text-xs text-slate-500">Muestra campos de nombre, teléfono y dirección cuando el pedido es para llevar</p>
                       </div>
                     </label>
+                  </div>
+
+                  {/* Visibilidad EN SITIO / PARA LLEVAR en carrito */}
+                  <div className="border-t border-slate-700 pt-3 mt-3">
+                    <p className="text-sm font-medium mb-2">Botones de tipo de servicio en carrito</p>
+                    <p className="text-xs text-slate-500 mb-3">Controla cuáles opciones aparecen en el POS (🍽️ En sitio / 🥡 Para llevar). Desactiva los que no apliquen para esta tienda.</p>
+                    <div className="flex flex-col gap-2">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={form.en_sitio_visible}
+                          onChange={(e) => setForm({ ...form, en_sitio_visible: e.target.checked })}
+                          className="w-5 h-5 accent-iados-primary rounded"
+                        />
+                        <span className="text-sm">🍽️ Mostrar <strong>En sitio</strong></span>
+                      </label>
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={form.para_llevar_visible}
+                          onChange={(e) => setForm({ ...form, para_llevar_visible: e.target.checked })}
+                          className="w-5 h-5 accent-iados-primary rounded"
+                        />
+                        <span className="text-sm">🥡 Mostrar <strong>Para llevar</strong></span>
+                      </label>
+                    </div>
                   </div>
 
                   {/* Cantidades rápidas */}

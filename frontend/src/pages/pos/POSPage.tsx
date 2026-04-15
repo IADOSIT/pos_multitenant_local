@@ -72,6 +72,8 @@ export default function POSPage() {
   const [qtyModal, setQtyModal] = useState<{ producto: any; qty: number } | null>(null);
   const [mesaNumeroOculto, setMesaNumeroOculto] = useState(false);
   const [cajaManaged, setCajaManaged] = useState(false); // true cuando caja_auto_enabled o caja_ocultar_ui
+  const [enSitioVisible, setEnSitioVisible] = useState(true);
+  const [paraLlevarVisible, setParaLlevarVisible] = useState(true);
 
   const { user } = useAuthStore();
   const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, setMesaActiva, tipoServicio, clearCart, notaPedido, clienteNombre, clienteTelefono, clienteDireccion } = usePOSStore();
@@ -142,6 +144,8 @@ export default function POSPage() {
         setNotasPedidoEnabled(cp.notas_pedido_enabled || false);
         setDatosEnvioEnabled(cp.datos_envio_enabled || false);
         setMesaNumeroOculto(cp.mesa_numero_oculto || false);
+        setEnSitioVisible(cp.en_sitio_visible !== false);
+        setParaLlevarVisible(cp.para_llevar_visible !== false);
         const cr = (cp.cantidades_rapidas || '10,25,50,100')
           .split(',').map((s: string) => parseInt(s.trim(), 10)).filter((n: number) => n > 0);
         setCantidadesRapidas(cr.length ? cr : [10, 25, 50, 100]);
@@ -559,6 +563,8 @@ export default function POSPage() {
           onCancelarEdicion={() => { setPedidoActivo(null); clearCart(); }}
           mesaNumeroOculto={mesaNumeroOculto}
           cajaManaged={cajaManaged}
+          enSitioVisible={enSitioVisible}
+          paraLlevarVisible={paraLlevarVisible}
         />
       </div>
 
