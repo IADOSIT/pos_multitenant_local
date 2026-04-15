@@ -51,3 +51,9 @@ INSERT IGNORE INTO `producto_tienda` (tenant_id, tienda_id, producto_id, precio_
 
 -- FIX 3: Imagen faltante para productos que usan imÃ¡genes subidas no disponibles localmente
 UPDATE productos SET imagen_url='/api/uploads/img/mariscos213s/aguachile-verde.jpeg' WHERE id=299 AND (imagen_url IS NULL OR imagen_url NOT LIKE '%mariscos213s%');
+
+-- FIX 4: modulo en categorias y productos Regina — filtro POS por usuario (carbon/hielo)
+UPDATE categorias SET modulo='carbon' WHERE id=19 AND tenant_id=6;
+UPDATE categorias SET modulo='hielo'  WHERE id=20 AND tenant_id=6;
+UPDATE productos SET modulo='carbon' WHERE categoria_id=19 AND tenant_id=6;
+UPDATE productos SET modulo='hielo'  WHERE categoria_id=20 AND tenant_id=6;

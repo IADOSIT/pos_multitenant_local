@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260322-1"
+        CACHE_BUST: "20260414-modulo-fix"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
