@@ -13,7 +13,7 @@ import AbrirCuentaModal from '../../components/pos/AbrirCuentaModal';
 import { Search, ShoppingBag, Wifi, WifiOff, CreditCard, X, Clock, RefreshCw, Trash2, Minus, Plus } from 'lucide-react';
 
 // ── Long-press product card ──────────────────────────────────────────────────
-function ProductCard({ prod, onClick, onLongPress }: { prod: Producto; onClick: () => void; onLongPress: () => void }) {
+function ProductCard({ prod, onClick, onLongPress, showStockBadge }: { prod: Producto; onClick: () => void; onLongPress: () => void; showStockBadge?: boolean }) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const firedRef = useRef(false);
 
@@ -27,12 +27,18 @@ function ProductCard({ prod, onClick, onLongPress }: { prod: Producto; onClick: 
   const cancel = () => { if (timerRef.current) clearTimeout(timerRef.current); };
   const handleClick = () => { if (!firedRef.current) onClick(); };
 
+  const stockActual = Number((prod as any).stock_actual ?? 0);
+  const stockMinimo = Number((prod as any).stock_minimo ?? 0);
+  const controlaStock = (prod as any).controla_stock;
+  const stockBajoCritico = showStockBadge && controlaStock && stockMinimo > 0 && stockActual <= stockMinimo;
+  const stockBajoPrevio = showStockBadge && controlaStock && stockMinimo > 0 && stockActual > stockMinimo && stockActual <= stockMinimo * 2;
+
   return (
     <button
       onMouseDown={start} onMouseUp={cancel} onMouseLeave={cancel}
       onTouchStart={start} onTouchEnd={cancel} onTouchCancel={cancel}
       onClick={handleClick}
-      className="card hover:ring-2 hover:ring-iados-secondary active:scale-95 transition-all flex flex-col items-center text-center p-3 min-h-[120px] select-none"
+      className="card hover:ring-2 hover:ring-iados-secondary active:scale-95 transition-all flex flex-col items-center text-center p-3 min-h-[120px] select-none relative"
     >
       {prod.imagen_url ? (
         <img src={resolveUploadUrl(prod.imagen_url)} alt={prod.nombre} className="w-16 h-16 object-cover rounded-xl mb-2" />
@@ -46,6 +52,16 @@ function ProductCard({ prod, onClick, onLongPress }: { prod: Producto; onClick: 
       )}
       <span className="text-sm font-medium leading-tight line-clamp-2">{prod.nombre}</span>
       <span className="text-iados-accent font-bold mt-1">${Number(prod.precio).toFixed(2)}</span>
+      {stockBajoCritico && (
+        <span className="absolute top-1.5 right-1.5 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+          ⚠ {stockActual}
+        </span>
+      )}
+      {stockBajoPrevio && (
+        <span className="absolute top-1.5 right-1.5 bg-yellow-500 text-black text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+          {stockActual}
+        </span>
+      )}
     </button>
   );
 }
@@ -74,6 +90,7 @@ export default function POSPage() {
   const [cajaManaged, setCajaManaged] = useState(false); // true cuando caja_auto_enabled o caja_ocultar_ui
   const [enSitioVisible, setEnSitioVisible] = useState(true);
   const [paraLlevarVisible, setParaLlevarVisible] = useState(true);
+  const [stockBadgeEnabled, setStockBadgeEnabled] = useState(false);
 
   const { user } = useAuthStore();
   const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, setMesaActiva, tipoServicio, clearCart, notaPedido, clienteNombre, clienteTelefono, clienteDireccion } = usePOSStore();
@@ -146,6 +163,7 @@ export default function POSPage() {
         setMesaNumeroOculto(cp.mesa_numero_oculto || false);
         setEnSitioVisible(cp.en_sitio_visible !== false);
         setParaLlevarVisible(cp.para_llevar_visible !== false);
+        setStockBadgeEnabled(cp.pos_stock_badge_enabled || false);
         const cr = (cp.cantidades_rapidas || '10,25,50,100')
           .split(',').map((s: string) => parseInt(s.trim(), 10)).filter((n: number) => n > 0);
         setCantidadesRapidas(cr.length ? cr : [10, 25, 50, 100]);
@@ -533,6 +551,7 @@ export default function POSPage() {
                 prod={prod}
                 onClick={() => handleProductClick(prod)}
                 onLongPress={() => handleProductLongPress(prod)}
+                showStockBadge={stockBadgeEnabled}
               />
             ))}
           </div>

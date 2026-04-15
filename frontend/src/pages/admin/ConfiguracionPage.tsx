@@ -106,6 +106,7 @@ export default function ConfiguracionPage() {
     datos_envio_enabled: false,
     en_sitio_visible: true,
     para_llevar_visible: true,
+    pos_stock_badge_enabled: false,
     cajero_dashboard_enabled: false,
     cantidades_rapidas: '10,25,50,100',
     whatsapp_enabled: false,
@@ -242,6 +243,7 @@ export default function ConfiguracionPage() {
       datos_envio_enabled: cp.datos_envio_enabled || false,
       en_sitio_visible: cp.en_sitio_visible !== false,
       para_llevar_visible: cp.para_llevar_visible !== false,
+      pos_stock_badge_enabled: cp.pos_stock_badge_enabled || false,
       cajero_dashboard_enabled: cp.cajero_dashboard_enabled || false,
       cantidades_rapidas: cp.cantidades_rapidas || '10,25,50,100',
       whatsapp_enabled: cp.whatsapp_enabled || false,
@@ -291,6 +293,7 @@ export default function ConfiguracionPage() {
           datos_envio_enabled: form.datos_envio_enabled,
           en_sitio_visible: form.en_sitio_visible,
           para_llevar_visible: form.para_llevar_visible,
+          pos_stock_badge_enabled: form.pos_stock_badge_enabled,
           cajero_dashboard_enabled: form.cajero_dashboard_enabled,
           cantidades_rapidas: form.cantidades_rapidas || '',
           whatsapp_enabled: form.whatsapp_enabled,
@@ -361,7 +364,7 @@ export default function ConfiguracionPage() {
       nombre: '', direccion: '', telefono: '', email: '',
       zona_horaria: 'America/Mexico_City',
       iva_enabled: false, iva_porcentaje: 16, iva_incluido: true,
-      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false, mostrar_so_pendiente_en_pos: false, notas_por_item: false, notas_rapidas: '', notas_pedido_enabled: false, datos_envio_enabled: false, en_sitio_visible: true, para_llevar_visible: true, cajero_dashboard_enabled: false, cantidades_rapidas: '10,25,50,100', whatsapp_enabled: false, whatsapp_phone: '', whatsapp_token: '',
+      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false, mostrar_so_pendiente_en_pos: false, notas_por_item: false, notas_rapidas: '', notas_pedido_enabled: false, datos_envio_enabled: false, en_sitio_visible: true, para_llevar_visible: true, pos_stock_badge_enabled: false, cajero_dashboard_enabled: false, cantidades_rapidas: '10,25,50,100', whatsapp_enabled: false, whatsapp_phone: '', whatsapp_token: '',
       impresora_modelo: '', impresora_ancho: 80, impresora_auto_print: false, impresora_copias: 1,
       caja_auto_enabled: false, caja_ocultar_ui: false,
       dashboard_ventas_enabled: true, dashboard_selforder_enabled: true,
@@ -1723,6 +1726,22 @@ export default function ConfiguracionPage() {
                         <span className="text-sm">🥡 Mostrar <strong>Para llevar</strong></span>
                       </label>
                     </div>
+                  </div>
+
+                  {/* Etiqueta stock bajo en tarjetas de producto */}
+                  <div className="border-t border-slate-700 pt-3 mt-3">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.pos_stock_badge_enabled}
+                        onChange={(e) => setForm({ ...form, pos_stock_badge_enabled: e.target.checked })}
+                        className="w-5 h-5 accent-iados-primary rounded"
+                      />
+                      <div>
+                        <span className="text-sm font-medium">Mostrar alerta de stock en tarjetas de producto</span>
+                        <p className="text-xs text-slate-500">Muestra una etiqueta en cada producto del POS con la cantidad restante cuando está bajo o en el mínimo de stock</p>
+                      </div>
+                    </label>
                   </div>
 
                   {/* Cantidades rápidas */}
