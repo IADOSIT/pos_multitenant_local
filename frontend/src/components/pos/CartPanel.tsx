@@ -277,63 +277,67 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuenta
           </div>
         ) : (
           cart.map((item) => (
-            <div key={item.id} className="bg-iados-card rounded-xl p-3">
-              <div className="flex gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm leading-tight line-clamp-2 break-words">{item.nombre}</p>
-                  <p className="text-xs text-slate-400">${Number(item.precio).toFixed(2)} c/u</p>
-                  {notasPorItem && editingNotaId !== item.id && item.notas && (
-                    <p
-                      className="text-xs text-iados-accent mt-1 cursor-pointer"
-                      onClick={() => { setEditingNotaId(item.id); setNotaTemp(item.notas || ''); }}
-                    >{item.notas}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {notasPorItem && (
-                    <button
-                      onClick={() => { setEditingNotaId(item.id); setNotaTemp(item.notas || ''); }}
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center active:scale-90 ${item.notas ? 'bg-iados-primary/30 text-iados-accent' : 'bg-iados-surface text-slate-500'}`}
-                      title="Agregar nota"
-                    >
-                      <MessageSquare size={14} />
-                    </button>
-                  )}
-                  <button onClick={() => updateQuantity(item.id, item.cantidad - 1)} className="w-8 h-8 rounded-lg bg-iados-surface flex items-center justify-center active:scale-90"><Minus size={14} /></button>
-                  {editingQtyId === item.id ? (
-                    <input
-                      type="number"
-                      min="1"
-                      autoFocus
-                      value={qtyTemp}
-                      onChange={(e) => setQtyTemp(e.target.value)}
-                      onFocus={(e) => e.target.select()}
-                      onBlur={() => {
-                        const v = parseInt(qtyTemp, 10);
-                        if (!isNaN(v) && v >= 1) updateQuantity(item.id, v);
-                        else if (v < 1) removeFromCart(item.id);
-                        setEditingQtyId(null);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                        if (e.key === 'Escape') setEditingQtyId(null);
-                      }}
-                      className="w-12 text-center font-bold bg-iados-primary/20 border border-iados-primary/50 rounded-lg text-sm px-1 py-0.5"
-                    />
-                  ) : (
-                    <button
-                      className="w-8 text-center font-bold hover:bg-iados-primary/20 rounded-lg transition-colors"
-                      title="Toca para editar cantidad"
-                      onClick={() => { setEditingQtyId(item.id); setQtyTemp(String(item.cantidad)); }}
-                    >{item.cantidad}</button>
-                  )}
-                  <button onClick={() => updateQuantity(item.id, item.cantidad + 1)} className="w-8 h-8 rounded-lg bg-iados-surface flex items-center justify-center active:scale-90"><Plus size={14} /></button>
-                  <button onClick={() => removeFromCart(item.id)} className="w-8 h-8 rounded-lg bg-red-900/50 text-red-400 flex items-center justify-center active:scale-90 ml-1"><Trash2 size={14} /></button>
-                </div>
-                <div className="text-right shrink-0 w-20">
-                  <p className="font-bold">${item.subtotal.toFixed(2)}</p>
-                </div>
+            <div key={item.id} className="bg-iados-card rounded-xl px-3 pt-2 pb-2">
+              {/* Fila 1: Nombre completo como encabezado */}
+              <p className="font-semibold text-sm leading-snug mb-1">{item.nombre}</p>
+
+              {/* Fila 2: precio · controles · subtotal */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-slate-400 flex-1">${Number(item.precio).toFixed(2)} c/u</span>
+
+                {notasPorItem && (
+                  <button
+                    onClick={() => { setEditingNotaId(item.id); setNotaTemp(item.notas || ''); }}
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center active:scale-90 shrink-0 ${item.notas ? 'bg-iados-primary/30 text-iados-accent' : 'bg-iados-surface text-slate-500'}`}
+                    title="Agregar nota"
+                  >
+                    <MessageSquare size={13} />
+                  </button>
+                )}
+
+                <button onClick={() => updateQuantity(item.id, item.cantidad - 1)} className="w-7 h-7 rounded-lg bg-iados-surface flex items-center justify-center active:scale-90 shrink-0"><Minus size={13} /></button>
+
+                {editingQtyId === item.id ? (
+                  <input
+                    type="number"
+                    min="1"
+                    autoFocus
+                    value={qtyTemp}
+                    onChange={(e) => setQtyTemp(e.target.value)}
+                    onFocus={(e) => e.target.select()}
+                    onBlur={() => {
+                      const v = parseInt(qtyTemp, 10);
+                      if (!isNaN(v) && v >= 1) updateQuantity(item.id, v);
+                      else if (v < 1) removeFromCart(item.id);
+                      setEditingQtyId(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                      if (e.key === 'Escape') setEditingQtyId(null);
+                    }}
+                    className="w-10 text-center font-bold bg-iados-primary/20 border border-iados-primary/50 rounded-lg text-sm px-1 py-0.5 shrink-0"
+                  />
+                ) : (
+                  <button
+                    className="w-7 text-center font-bold hover:bg-iados-primary/20 rounded-lg transition-colors text-sm shrink-0"
+                    title="Toca para editar cantidad"
+                    onClick={() => { setEditingQtyId(item.id); setQtyTemp(String(item.cantidad)); }}
+                  >{item.cantidad}</button>
+                )}
+
+                <button onClick={() => updateQuantity(item.id, item.cantidad + 1)} className="w-7 h-7 rounded-lg bg-iados-surface flex items-center justify-center active:scale-90 shrink-0"><Plus size={13} /></button>
+                <button onClick={() => removeFromCart(item.id)} className="w-7 h-7 rounded-lg bg-red-900/50 text-red-400 flex items-center justify-center active:scale-90 shrink-0"><Trash2 size={13} /></button>
+
+                <span className="font-bold text-sm text-right shrink-0 min-w-[3.5rem]">${item.subtotal.toFixed(2)}</span>
               </div>
+
+              {/* Nota visible */}
+              {notasPorItem && editingNotaId !== item.id && item.notas && (
+                <p
+                  className="text-xs text-iados-accent mt-1 cursor-pointer"
+                  onClick={() => { setEditingNotaId(item.id); setNotaTemp(item.notas || ''); }}
+                >{item.notas}</p>
+              )}
 
               {/* Editor de nota con chips */}
               {notasPorItem && editingNotaId === item.id && (
