@@ -309,7 +309,9 @@
       "Bash(docker-compose restart:*)",
       "Bash(echo \"exit:$?\")",
       "Bash(git -C \"C:/sites/pos_multitenant_local\" diff --stat HEAD)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(cmd.exe /c:*)",
+      "Bash(sort -t'v' -k2 -V)"
     ]
   }
 }

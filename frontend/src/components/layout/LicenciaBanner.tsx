@@ -46,8 +46,8 @@ export default function LicenciaBanner() {
   // Superadmin never restricted, no banner
   if (user?.rol === 'superadmin') return null;
 
-  // Hide banner only if active (not trial) and > 15 days remaining
-  if (lic.estado === 'activa' && lic.dias_restantes > 15 && !lic.bloqueada) return null;
+  // Hide banner if active: permanente OR > 15 days remaining
+  if (lic.estado === 'activa' && !lic.bloqueada && (lic.permanente || lic.dias_restantes > 15)) return null;
 
   const isAdmin = ['superadmin', 'admin'].includes(user?.rol || '');
 

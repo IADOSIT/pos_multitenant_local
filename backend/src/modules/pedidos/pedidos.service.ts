@@ -346,6 +346,10 @@ export class PedidosService {
 
   async buscarClientes(scope: any, q: string) {
     if (q.length < 2) return [];
+    // Detectar modo: si contiene letras → buscar por nombre, si solo dígitos → por teléfono
+    const esTelefono = /^[\d\s\+\-\(\)]+$/.test(q);
+    const likeParam  = esTelefono ? `${q}%` : `%${q}%`;
+    const campo      = esTelefono ? 'cliente_telefono' : 'cliente_nombre';
     const rows = await this.dataSource.query(
       `SELECT telefono, nombre, direccion, MAX(ultima_visita) AS ultima_visita
        FROM (
@@ -353,21 +357,21 @@ export class PedidosService {
                 cliente_direccion AS direccion, created_at AS ultima_visita
          FROM pedidos
          WHERE tenant_id = ? AND empresa_id = ?
-           AND cliente_telefono IS NOT NULL AND cliente_telefono != ''
-           AND cliente_telefono LIKE ?
+           AND ${campo} IS NOT NULL AND ${campo} != ''
+           AND ${campo} LIKE ?
          UNION ALL
          SELECT cliente_telefono, cliente_nombre,
                 cliente_direccion, created_at
          FROM ventas
          WHERE tenant_id = ? AND empresa_id = ?
-           AND cliente_telefono IS NOT NULL AND cliente_telefono != ''
-           AND cliente_telefono LIKE ?
+           AND ${campo} IS NOT NULL AND ${campo} != ''
+           AND ${campo} LIKE ?
        ) t
        GROUP BY telefono, nombre, direccion
        ORDER BY ultima_visita DESC
-       LIMIT 6`,
-      [scope.tenant_id, scope.empresa_id, `${q}%`,
-       scope.tenant_id, scope.empresa_id, `${q}%`],
+       LIMIT 8`,
+      [scope.tenant_id, scope.empresa_id, likeParam,
+       scope.tenant_id, scope.empresa_id, likeParam],
     );
     return rows;
   }

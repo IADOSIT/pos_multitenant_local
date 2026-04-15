@@ -39,13 +39,17 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuenta
   const [editingQtyId, setEditingQtyId] = useState<string | null>(null);
   const [qtyTemp, setQtyTemp] = useState('');
 
-  // Para llevar — autocomplete
+  // Para llevar — autocomplete con detección automática nombre/teléfono
   const [sugerencias, setSugerencias] = useState<any[]>([]);
   const [showSugerencias, setShowSugerencias] = useState(false);
+  const [modoCliente, setModoCliente] = useState<'telefono' | 'nombre'>('telefono');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const telRef = useRef<HTMLInputElement>(null);
   const nombreRef = useRef<HTMLInputElement>(null);
   const dirRef = useRef<HTMLInputElement>(null);
+  const primerRef = useRef<HTMLInputElement>(null);
+
+  const esTelefono = (val: string) => /^[\d\s\+\-\(\)]*$/.test(val);
 
   const buscarClientes = useCallback(async (q: string) => {
     if (q.length < 2) { setSugerencias([]); setShowSugerencias(false); return; }
@@ -58,11 +62,21 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuenta
     }
   }, []);
 
-  const handleTelChange = (val: string) => {
-    setClienteTelefono(val);
+  // Campo primario inteligente: detecta tipo al escribir
+  const handlePrimerCampo = (val: string) => {
+    const esTel = esTelefono(val);
+    if (esTel) {
+      setModoCliente('telefono');
+      setClienteTelefono(val);
+    } else {
+      setModoCliente('nombre');
+      setClienteNombre(val);
+    }
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => buscarClientes(val), 300);
   };
+
+  const primerValor = modoCliente === 'telefono' ? clienteTelefono : clienteNombre;
 
   const seleccionarCliente = (c: any) => {
     setClienteTelefono(c.telefono || '');
@@ -167,25 +181,35 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuenta
         </div>
       )}
 
-      {/* Datos para llevar — compactos con autocomplete */}
+      {/* Datos para llevar — detección automática nombre/teléfono */}
       {datosEnvioEnabled && tipoServicio === 'para_llevar' && (
         <div className="px-3 pt-2 pb-1 border-b border-orange-500/30 bg-orange-950/20">
           <p className="text-xs text-orange-400 font-medium mb-2 flex items-center gap-1">
             <Phone size={11} /> Datos de entrega
+            <span className="ml-auto text-orange-300/50 font-normal">
+              {modoCliente === 'telefono' ? '📞 por teléfono' : '👤 por nombre'}
+            </span>
           </p>
+
+          {/* Campo primario inteligente */}
           <div className="relative mb-1">
             <input
-              ref={telRef}
-              type="tel"
-              inputMode="numeric"
-              value={clienteTelefono}
-              onChange={(e) => handleTelChange(e.target.value)}
-              onFocus={() => clienteTelefono.length >= 2 && setShowSugerencias(sugerencias.length > 0)}
+              ref={primerRef}
+              type={modoCliente === 'telefono' ? 'tel' : 'text'}
+              inputMode={modoCliente === 'telefono' ? 'numeric' : 'text'}
+              value={primerValor}
+              onChange={(e) => handlePrimerCampo(e.target.value)}
+              onFocus={() => primerValor.length >= 2 && setShowSugerencias(sugerencias.length > 0)}
               onBlur={() => setTimeout(() => setShowSugerencias(false), 150)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); nombreRef.current?.focus(); } }}
-              placeholder="Teléfono"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === 'Tab') {
+                  e.preventDefault();
+                  (modoCliente === 'telefono' ? nombreRef : telRef).current?.focus();
+                }
+              }}
+              placeholder={modoCliente === 'telefono' ? 'Teléfono o nombre del cliente' : 'Nombre o teléfono del cliente'}
               className="input-touch text-sm py-1.5 w-full"
-              maxLength={15}
+              maxLength={100}
               autoComplete="off"
             />
             {showSugerencias && sugerencias.length > 0 && (
@@ -204,16 +228,33 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuenta
               </div>
             )}
           </div>
-          <input
-            ref={nombreRef}
-            type="text"
-            value={clienteNombre}
-            onChange={(e) => setClienteNombre(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); dirRef.current?.focus(); } }}
-            placeholder="Nombre"
-            className="input-touch text-sm py-1.5 w-full mb-1"
-            maxLength={100}
-          />
+
+          {/* Campo secundario: el que no está primero */}
+          {modoCliente === 'telefono' ? (
+            <input
+              ref={nombreRef}
+              type="text"
+              value={clienteNombre}
+              onChange={(e) => setClienteNombre(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); dirRef.current?.focus(); } }}
+              placeholder="Nombre"
+              className="input-touch text-sm py-1.5 w-full mb-1"
+              maxLength={100}
+            />
+          ) : (
+            <input
+              ref={telRef}
+              type="tel"
+              inputMode="numeric"
+              value={clienteTelefono}
+              onChange={(e) => setClienteTelefono(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); dirRef.current?.focus(); } }}
+              placeholder="Teléfono"
+              className="input-touch text-sm py-1.5 w-full mb-1"
+              maxLength={15}
+            />
+          )}
+
           <input
             ref={dirRef}
             type="text"
@@ -239,7 +280,7 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuenta
             <div key={item.id} className="bg-iados-card rounded-xl p-3">
               <div className="flex gap-3">
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{item.nombre}</p>
+                  <p className="font-medium text-sm leading-tight line-clamp-2 break-words">{item.nombre}</p>
                   <p className="text-xs text-slate-400">${Number(item.precio).toFixed(2)} c/u</p>
                   {notasPorItem && editingNotaId !== item.id && item.notas && (
                     <p
@@ -321,17 +362,20 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuenta
                       type="text"
                       value={notaTemp}
                       onChange={(e) => setNotaTemp(e.target.value)}
+                      onBlur={() => confirmarNota(item.id)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') confirmarNota(item.id);
+                        if (e.key === 'Enter') { e.currentTarget.blur(); }
                         if (e.key === 'Escape') setEditingNotaId(null);
                       }}
                       placeholder="Nota personalizada…"
                       className="input-touch text-xs py-1 flex-1"
                       maxLength={100}
                     />
-                    <button onClick={() => confirmarNota(item.id)} className="px-3 py-1 bg-iados-primary rounded-lg text-xs font-medium">OK</button>
                     {(item.notas || notaTemp) && (
-                      <button onClick={() => { setNotaTemp(''); updateItemNotes(item.id, ''); setEditingNotaId(null); }} className="px-2 py-1 bg-red-900/50 text-red-400 rounded-lg text-xs">×</button>
+                      <button
+                        onMouseDown={(e) => { e.preventDefault(); setNotaTemp(''); updateItemNotes(item.id, ''); setEditingNotaId(null); }}
+                        className="px-2 py-1 bg-red-900/50 text-red-400 rounded-lg text-xs"
+                      >×</button>
                     )}
                   </div>
                 </div>
