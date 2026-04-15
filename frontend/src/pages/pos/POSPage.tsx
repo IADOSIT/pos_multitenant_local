@@ -109,13 +109,16 @@ export default function POSPage() {
     loadCuentasAbiertas();
     const onOnline = () => setIsOnline(true);
     const onOffline = () => setIsOnline(false);
+    const onInventarioChanged = () => loadData();
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
+    window.addEventListener('inventario:changed', onInventarioChanged);
     // Refresco automático cada 30s
     const interval = setInterval(loadCuentasAbiertas, 30000);
     return () => {
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
+      window.removeEventListener('inventario:changed', onInventarioChanged);
       clearInterval(interval);
     };
   }, [loadCuentasAbiertas]);
