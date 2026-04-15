@@ -447,7 +447,7 @@ export default function POSPage() {
           </div>
 
           {/* Botón Cuentas Abiertas */}
-          <button
+          {cuentaAbiertaEnabled && <button
             onClick={() => { setShowCuentas(true); loadCuentasAbiertas(); }}
             className="relative flex items-center gap-1.5 px-3 py-2 rounded-xl bg-iados-card border border-slate-600 hover:border-iados-secondary text-sm font-medium transition-colors shrink-0"
           >
@@ -458,7 +458,7 @@ export default function POSPage() {
                 {cuentasAbiertas.length}
               </span>
             )}
-          </button>
+          </button>}
 
           <div className="flex items-center gap-1 text-xs text-slate-400">
             {isOnline ? <Wifi size={16} className="text-green-400" /> : <WifiOff size={16} className="text-red-400" />}
