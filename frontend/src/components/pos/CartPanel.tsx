@@ -361,9 +361,20 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuenta
           </div>
 
           {isPostPago ? (
-            <button onClick={onEnviarPedido} disabled={!mesaActiva || cart.length === 0} className="btn-primary w-full text-lg mt-3 disabled:opacity-50 flex items-center justify-center gap-2">
-              <Send size={20} /> Enviar Pedido
-            </button>
+            // Si mesa_numero_oculto=true y no hay mesa asignada: abrir modal de cuenta para capturarla primero
+            mesaNumeroOculto && !mesaActiva && onAbrirCuenta ? (
+              <button
+                onClick={onAbrirCuenta}
+                disabled={cart.length === 0}
+                className="btn-primary w-full text-lg mt-3 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <BookOpen size={20} /> Asignar Mesa y Enviar
+              </button>
+            ) : (
+              <button onClick={onEnviarPedido} disabled={!mesaActiva || cart.length === 0} className="btn-primary w-full text-lg mt-3 disabled:opacity-50 flex items-center justify-center gap-2">
+                <Send size={20} /> Enviar Pedido{mesaActiva ? ` — Mesa ${mesaActiva}` : ''}
+              </button>
+            )
           ) : pedidoActivo ? (
             <div className="space-y-2 mt-3">
               <button onClick={onActualizarCuenta} disabled={cart.length === 0} className="btn-secondary w-full flex items-center justify-center gap-2 disabled:opacity-50">
