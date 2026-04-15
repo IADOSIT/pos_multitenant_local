@@ -442,13 +442,33 @@ export default function LicenciasAdmin() {
       {showGenerar && (
         <div className="card border border-iados-primary/50">
           <h3 className="font-bold mb-3 flex items-center gap-2"><Key size={18} /> Generar Codigo de Activacion (manual)</h3>
+          {/* Nota informativa para clientes offline */}
+          <div className="bg-amber-900/20 border border-amber-700/30 rounded-lg p-2 text-xs text-amber-300 mb-1">
+            <strong>Clientes con EXE instalado (offline):</strong> su <code>tenant_id</code> local es siempre <strong>1</strong> en instalaciones limpias.<br />
+            Si instalaron con datos demo puede ser 7 u otro — pedirles que lo confirmen en su URL o en Configuración → Info de licencia.
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <label className="text-xs text-slate-400 block mb-1">Tenant</label>
+              <label className="text-xs text-slate-400 block mb-1">
+                Tenant (VPS) <span className="text-slate-500">o ingresa ID manual abajo</span>
+              </label>
               <select value={genForm.tenant_id} onChange={e => setGenForm(f => ({ ...f, tenant_id: Number(e.target.value) }))} className="input-touch">
-                <option value={0}>-- Seleccionar --</option>
+                <option value={0}>-- Seleccionar de VPS --</option>
                 {tenants.map(t => <option key={t.id} value={t.id}>{t.nombre} (ID:{t.id})</option>)}
               </select>
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 block mb-1">
+                ID manual (cliente offline/EXE)
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={genForm.tenant_id || ''}
+                onChange={e => setGenForm(f => ({ ...f, tenant_id: Number(e.target.value) || 0 }))}
+                placeholder="Ej: 1"
+                className="input-touch"
+              />
             </div>
             <div>
               <label className="text-xs text-slate-400 block mb-1">Plan</label>

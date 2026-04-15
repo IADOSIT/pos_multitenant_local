@@ -62,7 +62,8 @@ export default function LicenciaBanner() {
             Tu licencia ha expirado y el periodo de gracia ha terminado. El sistema esta en modo solo lectura.
           </p>
           <p className="text-xs text-slate-500">
-            Codigo: <span className="font-mono">{lic.codigo_instalacion}</span>
+            Código instalación: <span className="font-mono">{lic.codigo_instalacion}</span>
+            {lic.tenant_id && <span className="ml-2">· Tenant ID: <span className="font-mono">{lic.tenant_id}</span></span>}
           </p>
           {isAdmin && (
             <>
@@ -129,7 +130,11 @@ export default function LicenciaBanner() {
           <div className="bg-amber-900/60 px-4 py-3 flex flex-col items-center gap-2">
             {isTrial && lic.codigo_instalacion && (
               <p className="text-xs text-amber-200 text-center">
-                Comparte el código <span className="font-mono font-bold">{lic.codigo_instalacion}</span> con tu proveedor para obtener el código de activación.
+                Comparte con tu proveedor:<br />
+                Código instalación: <span className="font-mono font-bold">{lic.codigo_instalacion}</span>
+                {lic.tenant_id && (
+                  <span className="ml-2 opacity-70">· Tenant ID: <span className="font-mono font-bold">{lic.tenant_id}</span></span>
+                )}
               </p>
             )}
             <div className="flex items-center gap-2">

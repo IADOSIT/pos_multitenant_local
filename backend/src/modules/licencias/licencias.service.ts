@@ -127,10 +127,10 @@ export class LicenciasService {
   async activar(tenantId: number, codigoFormateado: string, machineFingerprint?: string) {
     const raw = this.unformatCode(codigoFormateado);
     const payload = this.decrypt(raw);
-
-    if (payload.t !== tenantId) {
-      throw new BadRequestException('Este codigo no corresponde a este tenant');
-    }
+    // Note: payload.t (tenant_id en el código) no se valida contra tenantId local.
+    // El código EXE offline siempre tiene tenant_id=1 en local, pero el superadmin
+    // lo genera desde el VPS donde tenant_id puede ser distinto.
+    // La seguridad está en el cifrado AES-256 con LICENSE_SECRET.
 
     let lic = await this.repo.findOne({ where: { tenant_id: tenantId } });
     if (!lic) {
