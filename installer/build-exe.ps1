@@ -84,20 +84,21 @@ if (-not (Test-Path "$FrontendSrcDir\package.json")) {
 }
 
 $env:VITE_API_URL = "/api"
-# Limpiar dist-prod antes de compilar para evitar acumulacion de bundles JS viejos
-$distProdDir = Join-Path $FrontendSrcDir "dist-prod"
-if (Test-Path $distProdDir) {
-    & cmd /c "rd /s /q `"$distProdDir`"" | Out-Null
+# Compilar a dist-build (directorio propio, sin problemas de permisos de builds anteriores)
+# dist-prod puede estar bloqueado si fue generado por otro usuario/proceso (e.g. build previo como Admin)
+$distBuildDir = Join-Path $FrontendSrcDir "dist-build"
+if (Test-Path $distBuildDir) {
+    Remove-Item -Recurse -Force $distBuildDir -ErrorAction SilentlyContinue
 }
-$buildResult = & cmd /c "cd /d `"$FrontendSrcDir`" && npm run build 2>&1"
+$buildResult = & cmd /c "cd /d `"$FrontendSrcDir`" && npx vite build --outDir dist-build --emptyOutDir 2>&1"
 $buildExitCode = $LASTEXITCODE
-$FrontendDistDir = Join-Path $ProjectDir "frontend\dist-prod"
+$FrontendDistDir = $distBuildDir
 $FrontendIndexHtml = Join-Path $FrontendDistDir "index.html"
 if ($buildExitCode -ne 0) {
     # Windows Defender puede bloquear sw.js brevemente y reportar EPERM aunque el build este completo.
     # Si index.html existe y tiene contenido, el build fue exitoso.
     if ((Test-Path $FrontendIndexHtml) -and ((Get-Item $FrontendIndexHtml).Length -gt 100)) {
-        Write-Warn "npm run build reporto error ($buildExitCode) pero dist-prod esta completo. Continuando..."
+        Write-Warn "npm run build reporto error ($buildExitCode) pero dist-build esta completo. Continuando..."
     } else {
         Write-Host $buildResult
         Write-Fail "npm run build fallo (codigo: $buildExitCode)"
@@ -238,7 +239,7 @@ if (-not (Test-Path $RuntimeDir)) {
 Write-OK "Runtimes base encontrados ($RuntimeSource)"
 
 $StagingDir  = Join-Path $ScriptDir "staging"
-$FrontendDir = Join-Path $ProjectDir "frontend\dist-prod"
+$FrontendDir = $FrontendDistDir  # Apunta a dist-build (compilado fresco, permisos correctos)
 if (-not (Test-Path $StagingDir)) { Write-Fail "Staging no encontrado: $StagingDir" }
 Write-OK "Staging encontrado"
 
@@ -264,17 +265,13 @@ Write-Step "Sincronizando seeds..."
 $DbSrcDir  = Join-Path $ProjectDir "database"
 $DbDestDir = Join-Path $StagingDir "app\database"
 if (Test-Path $DbSrcDir) {
-    # Limpiar y recrear para no arrastrar dumps/hotfixes de builds anteriores
-    if (Test-Path $DbDestDir) { Remove-Item -Recurse -Force $DbDestDir }
-    New-Item -ItemType Directory -Path $DbDestDir -Force | Out-Null
-    # Solo copiar los seeds numerados (01-05), excluir dumps temporales y hotfixes
-    Get-ChildItem "$DbSrcDir\*.sql" | Where-Object { $_.Name -match '^0[1-5]_' } | ForEach-Object {
-        Copy-Item -Path $_.FullName -Destination $DbDestDir -Force
-    }
-    $seedCount = (Get-ChildItem $DbDestDir -Filter "*.sql").Count
-    Write-OK "Seeds sincronizados: $seedCount archivos .sql"
+    # Nota: staging/app/database puede estar bloqueado por builds previos como Admin.
+    # Los seeds se copian directamente al merged dir en el paso 4, despues de copiar staging.
+    # Solo verificamos que existen los seeds en el origen.
+    $seedCheck = (Get-ChildItem "$DbSrcDir\*.sql" | Where-Object { $_.Name -match '^0[1-5]_' }).Count
+    Write-OK "Seeds encontrados en database/: $seedCheck archivos (se aplicaran al merged dir)"
 } else {
-    Write-Warn "Carpeta database/ no encontrada - seeds no actualizados"
+    Write-Warn "Carpeta database/ no encontrada - se usaran seeds de staging"
 }
 
 # =============================================================================
@@ -311,6 +308,19 @@ if ($Mode -eq "local") {
 Write-Info "Copiando app desde staging..."
 Copy-Item -Path "$StagingDir\app\*" -Destination "$MergedDir\app" -Recurse -Force
 Write-OK "App copiada (staging)"
+
+# --- Sobrescribir seeds con los frescos de database/ (bypass permisos staging) ---
+if (Test-Path $DbSrcDir) {
+    Write-Info "Actualizando seeds con version fresca de database/..."
+    $MergedDbDir = "$MergedDir\app\database"
+    if (Test-Path $MergedDbDir) { Remove-Item -Recurse -Force $MergedDbDir }
+    New-Item -ItemType Directory -Path $MergedDbDir -Force | Out-Null
+    Get-ChildItem "$DbSrcDir\*.sql" | Where-Object { $_.Name -match '^0[1-5]_' } | ForEach-Object {
+        Copy-Item -Path $_.FullName -Destination $MergedDbDir -Force
+    }
+    $seedCount = (Get-ChildItem $MergedDbDir -Filter "*.sql").Count
+    Write-OK "Seeds actualizados en merged: $seedCount archivos"
+}
 
 # --- Sobrescribir dist con el compilado fresco (bypass permisos staging) ---
 Write-Info "Actualizando dist del backend con compilado fresco..."
@@ -569,3 +579,9 @@ if (Test-Path $dcPath) {
 Write-Host ""
 Write-Host "  Version $Version registrada en todos los archivos." -ForegroundColor Green
 Write-Host ""
+
+# Limpiar dist-build temporal
+if (Test-Path $distBuildDir) {
+    Remove-Item -Recurse -Force $distBuildDir -ErrorAction SilentlyContinue
+    Write-OK "dist-build temporal eliminado"
+}
