@@ -189,6 +189,7 @@ export class PerfilesService {
       .andWhere('p.empresa_id = :empresa_id', { empresa_id })
       .andWhere('p.controla_stock = 1')
       .andWhere('p.activo = 1')
+      .andWhere('p.stock_minimo > 0')
       .andWhere('p.stock_actual <= p.stock_minimo');
 
     if (modulo) qb.andWhere('p.modulo = :modulo', { modulo });
@@ -216,9 +217,9 @@ export class PerfilesService {
     });
 
     const conStock = todos.filter((p) => p.controla_stock);
-    const alertas = conStock.filter((p) => Number(p.stock_actual) <= Number(p.stock_minimo));
+    const alertas = conStock.filter((p) => Number(p.stock_minimo) > 0 && Number(p.stock_actual) <= Number(p.stock_minimo));
     const stockBajo = conStock.filter(
-      (p) => Number(p.stock_actual) <= Number(p.stock_minimo) * 2 && Number(p.stock_actual) > Number(p.stock_minimo),
+      (p) => Number(p.stock_minimo) > 0 && Number(p.stock_actual) > Number(p.stock_minimo) && Number(p.stock_actual) <= Number(p.stock_minimo) * 2,
     );
 
     return {
