@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260414-modulo-fix"
+        CACHE_BUST: "20260414-ticket-print-toggle"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
