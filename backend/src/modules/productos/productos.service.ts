@@ -29,16 +29,25 @@ export class ProductosService {
   }
 
   findForPOS(scope: any) {
-    const where: any = { tenant_id: scope.tenant_id, empresa_id: scope.empresa_id, activo: true, disponible: true };
     const adminRoles = ['admin', 'superadmin', 'manager'];
+    const qb = this.repo.createQueryBuilder('p')
+      .leftJoinAndSelect('p.categoria', 'c')
+      .where('p.tenant_id = :tid AND p.empresa_id = :eid AND p.activo = :activo AND p.disponible = :disponible', {
+        tid: scope.tenant_id,
+        eid: scope.empresa_id,
+        activo: true,
+        disponible: true,
+      })
+      .orderBy('c.orden', 'ASC')
+      .addOrderBy('p.orden', 'ASC');
+
     if (scope.modulo && !adminRoles.includes(scope.rol)) {
-      where.modulo = scope.modulo;
+      // Filtrar por modulo de la CATEGORIA (no del producto):
+      // los productos heredan la visibilidad del modulo de su categoria.
+      qb.andWhere('c.modulo = :modulo', { modulo: scope.modulo });
     }
-    return this.repo.find({
-      where,
-      relations: ['categoria'],
-      order: { categoria: { orden: 'ASC' }, orden: 'ASC' },
-    });
+
+    return qb.getMany();
   }
 
   findOne(id: number) {

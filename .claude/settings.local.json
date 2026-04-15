@@ -305,7 +305,9 @@
       "Bash(echo \"diff:$?\")",
       "Bash(echo \"BE_TSC:$?\")",
       "Bash(echo \"FE_BUILD:$?\")",
-      "Bash(takeown /f \"C:\\\\sites\\\\pos_multitenant_local\\\\frontend\\\\dist-prod\" /r /d y)"
+      "Bash(takeown /f \"C:\\\\sites\\\\pos_multitenant_local\\\\frontend\\\\dist-prod\" /r /d y)",
+      "Bash(docker-compose restart:*)",
+      "Bash(echo \"exit:$?\")"
     ]
   }
 }

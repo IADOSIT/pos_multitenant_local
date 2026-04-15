@@ -97,7 +97,11 @@ $fixes = @(
     "  SELECT p.tenant_id, 3, p.id, NULL, 1, 0 FROM productos p WHERE p.empresa_id = 4 AND p.activo = 1;",
     "",
     "-- FIX 3: Imagen faltante para productos que usan imágenes subidas no disponibles localmente",
-    "UPDATE productos SET imagen_url='/api/uploads/img/mariscos213s/aguachile-verde.jpeg' WHERE id=299 AND (imagen_url IS NULL OR imagen_url NOT LIKE '%mariscos213s%');"
+    "UPDATE productos SET imagen_url='/api/uploads/img/mariscos213s/aguachile-verde.jpeg' WHERE id=299 AND (imagen_url IS NULL OR imagen_url NOT LIKE '%mariscos213s%');",
+    "",
+    "-- FIX 4: modulo en categorias Regina — filtra que ve cada cajero/mesero en el POS",
+    "UPDATE categorias SET modulo='carbon' WHERE id=19 AND tenant_id=6;",
+    "UPDATE categorias SET modulo='hielo'  WHERE id=20 AND tenant_id=6;"
 )
 [System.IO.File]::AppendAllLines($SEED, [string[]]$fixes, [System.Text.UTF8Encoding]::new($false))
 
