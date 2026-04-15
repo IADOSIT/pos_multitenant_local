@@ -69,6 +69,10 @@ export class TicketConfig {
   @Column({ type: 'int', default: 1 })
   copias: number;
 
+  // Activar/desactivar impresión automática del ticket de venta
+  @Column({ default: true })
+  impresion_enabled: boolean;
+
   // Comandera (ticket de orden para cocina/caja/mesero)
   @Column({ default: false })
   comanda_enabled: boolean;

@@ -185,6 +185,11 @@ export default function TicketsConfig() {
             </label>
           ))}
 
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={config.impresion_enabled !== false} onChange={(e) => update('impresion_enabled', e.target.checked)} className="w-5 h-5 rounded" />
+            <span className="text-sm font-medium">Activar impresión automática de ticket al cobrar</span>
+          </label>
+
           <div className="flex items-center gap-3">
             <span className="text-sm">Copias del ticket:</span>
             <select

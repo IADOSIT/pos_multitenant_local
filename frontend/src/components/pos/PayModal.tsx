@@ -194,7 +194,9 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
       const { data: ticket } = await ticketsApi.preview(ventaData);
       ticketRawRef.current = ticket.raw;
       ticketConfigRef.current = ticket;
-      printTicket(ticket.raw, ticket.ancho_papel, ticket.fuente_familia, ticket.fuente_tamano, resolveUploadUrl(ticket.logo_url), ticket.logo_posicion, ticket.copias || 1);
+      if (ticket.impresion_enabled !== false) {
+        printTicket(ticket.raw, ticket.ancho_papel, ticket.fuente_familia, ticket.fuente_tamano, resolveUploadUrl(ticket.logo_url), ticket.logo_posicion, ticket.copias || 1);
+      }
     } catch {
       toast.error('No se pudo generar el ticket');
     }

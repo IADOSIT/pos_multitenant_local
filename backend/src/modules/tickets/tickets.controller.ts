@@ -43,11 +43,13 @@ export class TicketsController {
     const ticket = this.service.generateTicketData(data.venta, config);
     return {
       ...ticket,
-      ancho_papel:    config.ancho_papel    ?? 80,
-      fuente_familia: config.fuente_familia ?? 'Courier New',
-      fuente_tamano:  config.fuente_tamano  ?? 9,
-      logo_posicion:  config.logo_posicion  ?? 'centro',
-      logo_url:       config.mostrar_logo ? config.logo_url : null,
+      ancho_papel:       config.ancho_papel    ?? 80,
+      fuente_familia:    config.fuente_familia ?? 'Courier New',
+      fuente_tamano:     config.fuente_tamano  ?? 9,
+      logo_posicion:     config.logo_posicion  ?? 'centro',
+      logo_url:          config.mostrar_logo ? config.logo_url : null,
+      copias:            config.copias         ?? 1,
+      impresion_enabled: config.impresion_enabled !== false,
     };
   }
 }

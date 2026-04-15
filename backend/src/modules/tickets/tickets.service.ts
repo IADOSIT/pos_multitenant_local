@@ -32,6 +32,7 @@ export class TicketsService {
     config.fuente_tamano = 11;
     config.logo_posicion = 'centro';
     config.copias = 1;
+    config.impresion_enabled = true;
     config.comanda_enabled = false;
     config.comanda_header = 'ORDEN';
     config.comanda_ancho = 80;
