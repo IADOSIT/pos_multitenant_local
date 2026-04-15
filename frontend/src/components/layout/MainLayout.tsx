@@ -94,12 +94,19 @@ export default function MainLayout() {
   const filtered = navItems.filter((n) => {
     if (!user) return false;
     if (!n.roles.includes(user.rol)) return false;
-    // sidebar_permisos: if explicitly configured for this role, it controls everything (including dashboard)
+
     const permList = sidebarPermisos[user.rol];
-    if (permList && permList.length > 0 && !['superadmin'].includes(user.rol)) {
+    const hasPermList = permList && permList.length > 0 && !['superadmin'].includes(user.rol);
+
+    if (hasPermList) {
+      // sidebar_permisos explícito: la lista manda, pero cajeroDashboard puede sumar acceso
+      if (n.to === '/dashboard' && user.rol === 'cajero') {
+        return permList.includes(n.to) || cajeroDashboard;
+      }
       return permList.includes(n.to);
     }
-    // Default fallback: dashboard for cajero requires the legacy config flag
+
+    // Sin sidebar_permisos configurado: flags legacy
     if (n.to === '/dashboard' && user.rol === 'cajero') return cajeroDashboard;
     return true;
   });
