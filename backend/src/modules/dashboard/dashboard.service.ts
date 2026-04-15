@@ -5,6 +5,22 @@ import { Venta, VentaEstado } from '../ventas/venta.entity';
 import { VentaDetalle } from '../ventas/venta.entity';
 import { Pedido, PedidoEstado } from '../pedidos/pedido.entity';
 
+const TZ = 'America/Mexico_City';
+
+/** Convierte un ISO string UTC a formato 'YYYY-MM-DD HH:MM:SS' en hora local del proceso.
+ *  Los datos se guardan en DB con new Date() local → la comparación debe usar el mismo timezone. */
+function isoToLocalSQL(isoStr: string): string {
+  const d = new Date(isoStr);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+/** Obtiene la hora (0-23) en timezone Mexico/Monterrey para un timestamp de DB */
+function getMXHour(dateValue: any): number {
+  const d = new Date(dateValue);
+  return parseInt(d.toLocaleString('en-US', { timeZone: TZ, hour: 'numeric', hour12: false }), 10) % 24;
+}
+
 @Injectable()
 export class DashboardService {
   constructor(
@@ -40,10 +56,10 @@ export class DashboardService {
     }));
     const topProductos = [...productosMap.values()].sort((a, b) => b.total - a.total).slice(0, 10);
 
-    // Ventas por hora
+    // Ventas por hora (en timezone Mexico/Monterrey)
     const ventasPorHora = Array(24).fill(0);
     ventas.forEach(v => {
-      const h = new Date(v.created_at).getHours();
+      const h = getMXHour(v.created_at);
       ventasPorHora[h] += Number(v.total);
     });
 
@@ -56,7 +72,9 @@ export class DashboardService {
       where: { ...where, estado: VentaEstado.CANCELADA },
     });
 
-    // Top clientes
+    // Top clientes — usar formato local para raw SQL (coincide con timezone de almacenamiento)
+    const desdeSQL = isoToLocalSQL(desde);
+    const hastaSQL = isoToLocalSQL(hasta);
     const topClientes = await this.dataSource.query(
       `SELECT telefono, MAX(nombre) AS nombre, COUNT(*) AS total_compras, SUM(total) AS total_gastado
        FROM (
@@ -76,8 +94,8 @@ export class DashboardService {
        GROUP BY telefono
        ORDER BY total_gastado DESC
        LIMIT 10`,
-      [scope.tenant_id, scope.empresa_id, desde, hasta,
-       scope.tenant_id, scope.empresa_id, desde, hasta],
+      [scope.tenant_id, scope.empresa_id, desdeSQL, hastaSQL,
+       scope.tenant_id, scope.empresa_id, desdeSQL, hastaSQL],
     );
 
     return {
@@ -136,7 +154,7 @@ export class DashboardService {
 
   async getVentasPorProducto(scope: any, desde: string, hasta: string, categoriaId?: number) {
     const catFilter = categoriaId ? 'AND p.categoria_id = ?' : '';
-    const params: any[] = [scope.tenant_id, scope.empresa_id, scope.tienda_id, desde, hasta];
+    const params: any[] = [scope.tenant_id, scope.empresa_id, scope.tienda_id, isoToLocalSQL(desde), isoToLocalSQL(hasta)];
     if (categoriaId) params.push(categoriaId);
     const rows = await this.dataSource.query(
       `SELECT
@@ -190,7 +208,7 @@ export class DashboardService {
          AND v.created_at BETWEEN ? AND ?
        GROUP BY p.unidad, c.id, c.nombre
        ORDER BY total_ventas DESC`,
-      [scope.tenant_id, scope.empresa_id, scope.tienda_id, desde, hasta],
+      [scope.tenant_id, scope.empresa_id, scope.tienda_id, isoToLocalSQL(desde), isoToLocalSQL(hasta)],
     );
     return rows.map((r: any) => ({
       unidad: r.unidad,
@@ -217,7 +235,7 @@ export class DashboardService {
          AND v.created_at BETWEEN ? AND ?
        GROUP BY c.id, c.nombre
        ORDER BY total_ventas DESC`,
-      [scope.tenant_id, scope.empresa_id, scope.tienda_id, desde, hasta],
+      [scope.tenant_id, scope.empresa_id, scope.tienda_id, isoToLocalSQL(desde), isoToLocalSQL(hasta)],
     );
     return rows.map((r: any) => ({
       categoria: r.categoria,

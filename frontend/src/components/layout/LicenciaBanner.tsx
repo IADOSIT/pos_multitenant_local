@@ -106,22 +106,36 @@ export default function LicenciaBanner() {
 
   // Trial or expiring soon = yellow banner
   if (lic.estado === 'trial' || lic.dias_restantes <= 15) {
+    const isTrial = lic.estado === 'trial';
     return (
       <>
-        <div className="bg-amber-600/90 text-white px-4 py-2 text-center text-sm flex items-center justify-center gap-2 flex-wrap">
-          <Shield size={16} />
+        <div className="bg-amber-600/90 text-white px-4 py-2 text-sm flex items-center justify-center gap-2 flex-wrap">
+          <Shield size={16} className="shrink-0" />
           <span>
-            {lic.estado === 'trial' ? 'Periodo de prueba' : 'Licencia por vencer'} - {lic.dias_restantes} dias restantes
-            <span className="text-xs ml-2">({lic.plan})</span>
+            {isTrial ? 'Periodo de prueba' : 'Licencia por vencer'} — {lic.dias_restantes} días restantes
+            {isTrial && lic.codigo_instalacion && (
+              <span className="ml-2 text-xs opacity-80">
+                · Código instalación: <span className="font-mono font-bold">{lic.codigo_instalacion}</span>
+              </span>
+            )}
           </span>
           {isAdmin && (
-            <button onClick={() => setShowActivar(!showActivar)} className="underline text-xs ml-2">Activar codigo</button>
+            <button onClick={() => setShowActivar(!showActivar)} className="underline text-xs ml-2 shrink-0">
+              {showActivar ? 'Cerrar' : 'Activar licencia'}
+            </button>
           )}
         </div>
         {showActivar && isAdmin && (
-          <div className="bg-amber-900/50 px-4 py-2 flex items-center gap-2 justify-center">
-            <input value={codigo} onChange={e => setCodigo(e.target.value)} placeholder="Codigo de activacion" className="input-touch text-sm max-w-xs font-mono" />
-            <button onClick={handleActivar} disabled={activando} className="btn-success text-sm">{activando ? '...' : 'Activar'}</button>
+          <div className="bg-amber-900/60 px-4 py-3 flex flex-col items-center gap-2">
+            {isTrial && lic.codigo_instalacion && (
+              <p className="text-xs text-amber-200 text-center">
+                Comparte el código <span className="font-mono font-bold">{lic.codigo_instalacion}</span> con tu proveedor para obtener el código de activación.
+              </p>
+            )}
+            <div className="flex items-center gap-2">
+              <input value={codigo} onChange={e => setCodigo(e.target.value)} placeholder="Ingresa código de activación" className="input-touch text-sm max-w-xs font-mono" />
+              <button onClick={handleActivar} disabled={activando} className="btn-success text-sm">{activando ? '...' : 'Activar'}</button>
+            </div>
           </div>
         )}
       </>

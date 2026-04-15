@@ -480,7 +480,7 @@ SET @s = LAST_INSERT_ID();
 INSERT INTO ``licencias`` (tenant_id, codigo_instalacion, plan, features, max_tiendas, max_usuarios,
   fecha_inicio, fecha_fin, grace_days, offline_allowed, estado, created_at, updated_at)
   VALUES (@t, '$eLic', 'pro', '["pos","caja","pedidos","reportes","dashboard"]',
-  5, 20, '$hoy', '2099-12-31', 30, 1, 'activa', NOW(), NOW());
+  5, 20, '$hoy', DATE_ADD('$hoy', INTERVAL 30 DAY), 30, 1, 'trial', NOW(), NOW());
 
 INSERT INTO ``users`` (tenant_id, empresa_id, tienda_id, nombre, email, password, rol, pin, activo, created_at, updated_at)
   VALUES (@t, @e, @s, 'Administrador', '$eEmail', '$eHAdmin', 'admin', '0000', 1, NOW(), NOW());

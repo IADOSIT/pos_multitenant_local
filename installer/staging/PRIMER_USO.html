@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>POS-iaDoS — Guía de Primer Uso</title>
+<style>
+  :root {
+    --bg:        #0f172a;
+    --surface:   #1e293b;
+    --card:      #283347;
+    --border:    #334155;
+    --primary:   #5cb482;
+    --primary2:  #3d8c62;
+    --text:      #e2e8f0;
+    --muted:     #94a3b8;
+    --warn:      #f59e0b;
+    --red:       #ef4444;
+    --radius:    12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    padding: 0 0 60px;
+  }
+
+  /* ── HEADER ── */
+  .hero {
+    background: linear-gradient(135deg, #0d2137 0%, #0f3d2a 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 48px 40px 36px;
+    display: flex;
+    align-items: center;
+    gap: 28px;
+  }
+  .hero-logo {
+    width: 72px;
+    height: 72px;
+    background: var(--primary);
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .hero-logo svg { width: 44px; height: 44px; }
+  .hero-title { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+  .hero-sub   { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  .hero-badge {
+    margin-left: auto;
+    background: var(--primary2);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 14px;
+    border-radius: 20px;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    align-self: flex-start;
+  }
+
+  /* ── LAYOUT ── */
+  .container { max-width: 900px; margin: 0 auto; padding: 40px 24px 0; }
+
+  /* ── SECTION TITLE ── */
+  .section-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--primary);
+    margin-bottom: 14px;
+    margin-top: 40px;
+  }
+  .section-title:first-child { margin-top: 0; }
+
+  /* ── STEPS ── */
+  .steps { display: flex; flex-direction: column; gap: 10px; }
+  .step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .step-num {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    background: var(--primary2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+    color: #fff;
+    margin-top: 2px;
+  }
+  .step-body h4 { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+  .step-body p  { font-size: 13px; color: var(--muted); }
+  .step-body code {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 1px 7px;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 12.5px;
+    color: var(--primary);
+  }
+
+  /* ── CREDENTIAL CARD ── */
+  .cred-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px,1fr)); gap: 12px; }
+  .cred-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+  }
+  .cred-card .role {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--primary);
+    margin-bottom: 10px;
+  }
+  .cred-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .cred-row span:first-child { color: var(--muted); font-size: 12px; }
+  .cred-row span:last-child  { font-family: 'Cascadia Code','Consolas',monospace; font-size: 12px; color: var(--text); }
+  .cred-note { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; }
+
+  /* ── INFO BOX ── */
+  .infobox {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--primary);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .infobox.warn { border-left-color: var(--warn); }
+  .infobox.red  { border-left-color: var(--red); }
+  .infobox-icon { font-size: 22px; line-height: 1; flex-shrink: 0; }
+  .infobox-body h4 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .infobox-body p  { font-size: 13px; color: var(--muted); }
+
+  /* ── CONFIG TABLE ── */
+  .cfg-table {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .cfg-table thead th {
+    background: var(--card);
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .cfg-table tbody td {
+    padding: 11px 16px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .cfg-table tbody tr:last-child td { border-bottom: none; }
+  .cfg-table tbody tr:hover td { background: var(--card); }
+  .cfg-table td:first-child { color: var(--primary); font-weight: 500; white-space: nowrap; }
+  .cfg-table td:nth-child(2) { color: var(--muted); font-size: 12px; }
+
+  /* ── URL CHIP ── */
+  .url-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-family: 'Cascadia Code','Consolas',monospace;
+    font-size: 16px;
+    color: var(--primary);
+    font-weight: 700;
+    margin: 6px 0;
+  }
+
+  /* ── FOOTER ── */
+  .footer {
+    margin-top: 48px;
+    border-top: 1px solid var(--border);
+    padding: 24px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .footer a { color: var(--primary); text-decoration: none; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 600px) {
+    .hero { flex-direction: column; align-items: flex-start; padding: 28px 20px 24px; }
+    .hero-badge { margin-left: 0; }
+    .container { padding: 28px 16px 0; }
+    .footer { flex-direction: column; gap: 8px; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hero">
+  <div class="hero-logo">
+    <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="50,4 88,26 88,74 50,96 12,74 12,26" stroke="#fff" stroke-width="5" stroke-linejoin="round"/>
+      <line x1="50" y1="4"  x2="50" y2="50" stroke="#fff" stroke-width="3"/>
+      <line x1="88" y1="74" x2="50" y2="50" stroke="#fff" stroke-width="3"/>
+      <line x1="12" y1="74" x2="50" y2="50" stroke="#fff" stroke-width="3"/>
+      <line x1="88" y1="26" x2="50" y2="50" stroke="rgba(255,255,255,0.45)" stroke-width="2"/>
+      <line x1="12" y1="26" x2="50" y2="50" stroke="rgba(255,255,255,0.45)" stroke-width="2"/>
+      <line x1="50" y1="96" x2="50" y2="50" stroke="rgba(255,255,255,0.45)" stroke-width="2"/>
+      <circle cx="50" cy="50" r="9"  fill="#fff"/>
+      <circle cx="50" cy="50" r="5"  fill="#0f172a"/>
+    </svg>
+  </div>
+  <div>
+    <div class="hero-title">POS-iaDoS</div>
+    <div class="hero-sub">Sistema Punto de Venta Multitenant &mdash; Guía de Primer Uso</div>
+  </div>
+  <div class="hero-badge">INSTALADO</div>
+</div>
+
+<!-- MAIN -->
+<div class="container">
+
+  <!-- ACCESO -->
+  <div class="section-title">Acceso al sistema</div>
+  <div class="infobox">
+    <div class="infobox-icon">🌐</div>
+    <div class="infobox-body">
+      <h4>Abre el navegador y ve a:</h4>
+      <div class="url-chip">
+        <span>&#128279;</span>
+        <a href="http://localhost:3000" target="_blank">http://localhost:3000</a>
+      </div>
+      <p>El sistema funciona completamente sin internet. Para acceder desde celulares o tablets en la misma red WiFi, reemplaza <code>localhost</code> por la IP del equipo servidor.</p>
+    </div>
+  </div>
+
+  <!-- IMPORTANTE: TIPO DE ACCESO -->
+  <div class="section-title" style="margin-top:28px;">Tipo de acceso al iniciar sesión</div>
+  <div class="infobox warn">
+    <div class="infobox-icon">💡</div>
+    <div class="infobox-body">
+      <h4>Selecciona "Acceso con email / contraseña"</h4>
+      <p>En la pantalla de login verás dos modos: <strong>PIN táctil</strong> (para uso en pantalla touch) y <strong>Acceso con email / contraseña</strong>. Para el primer inicio de sesión selecciona <strong>email / contraseña</strong> e ingresa las credenciales de abajo. Una vez dentro, puedes configurar el modo PIN para los operadores.</p>
+    </div>
+  </div>
+
+  <!-- CREDENCIALES -->
+  <div class="section-title">Credenciales creadas durante la instalación</div>
+  <div class="cred-grid">
+    <div class="cred-card">
+      <div class="role">&#128737; Administrador</div>
+      <div class="cred-row"><span>Email</span><span>el que ingresaste</span></div>
+      <div class="cred-row"><span>Contraseña</span><span>admin123</span></div>
+      <div class="cred-row"><span>PIN</span><span>0000</span></div>
+      <div class="cred-note">Cambia la contraseña en Usuarios tras el primer acceso.</div>
+    </div>
+    <div class="cred-card">
+      <div class="role">&#128176; Cajero</div>
+      <div class="cred-row"><span>Email</span><span>cajero@tu-dominio</span></div>
+      <div class="cred-row"><span>Contraseña</span><span>cajero123</span></div>
+      <div class="cred-row"><span>PIN</span><span>1234</span></div>
+      <div class="cred-note">Creado automáticamente con el dominio de tu correo.</div>
+    </div>
+    <div class="cred-card">
+      <div class="role">&#128119; Mesero</div>
+      <div class="cred-row"><span>Email</span><span>mesero@tu-dominio</span></div>
+      <div class="cred-row"><span>Contraseña</span><span>mesero123</span></div>
+      <div class="cred-row"><span>PIN</span><span>5678</span></div>
+      <div class="cred-note">Creado automáticamente con el dominio de tu correo.</div>
+    </div>
+  </div>
+  <p style="margin-top:10px; font-size:12px; color:var(--muted);">
+    Credenciales también guardadas en <code>C:\POS-iaDoS\CREDENCIALES.txt</code>
+  </p>
+
+  <!-- ACTIVACIÓN -->
+  <div class="section-title">Activación de licencia</div>
+  <div class="infobox warn">
+    <div class="infobox-icon">🔑</div>
+    <div class="infobox-body">
+      <h4>El sistema inicia con un período de prueba de 30 días</h4>
+      <p>Al ingresar verás un aviso amarillo en la parte superior con tu <strong>código de instalación</strong>. Comparte ese código con <a href="mailto:hola@iados.mx" style="color:var(--primary)">hola@iados.mx</a> para obtener tu <strong>código de activación definitivo</strong>. Ingrésalo directamente desde el aviso para activar tu licencia.</p>
+    </div>
+  </div>
+
+  <!-- PASOS -->
+  <div class="section-title">Configuración inicial (paso a paso)</div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h4>Inicia sesión como administrador</h4>
+        <p>Abre <code>http://localhost:3000</code>, selecciona <strong>"Acceso con email / contraseña"</strong> e ingresa con tu correo y contraseña <code>admin123</code>.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h4>Configura el ticket de venta</h4>
+        <p>Ve a <strong>Configuración → Ticket</strong> e ingresa el nombre del negocio, dirección y teléfono que aparecerá en cada ticket impreso.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h4>Elige el modo de operación</h4>
+        <p>En <strong>Configuración → POS</strong> selecciona el modo: <strong>Mostrador</strong> (sin mesas) o <strong>Mesa</strong> (con número de mesas). También activa IVA si aplica.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h4>Carga tu catálogo de productos</h4>
+        <p>Ve a <strong>Catálogos → Categorías</strong> para crear categorías, luego <strong>Catálogos → Productos</strong> para agregar tus productos con precio y foto.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <h4>Abre la primera sesión de caja</h4>
+        <p>Ve a <strong>Caja</strong> e ingresa el efectivo inicial. Esto es necesario para poder realizar ventas.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">6</div>
+      <div class="step-body">
+        <h4>Configura usuarios y PINs</h4>
+        <p>Ve a <strong>Usuarios</strong> para cambiar contraseñas y PINs de cajero y mesero. Los usuarios pueden usar su PIN directamente en el teclado táctil de la pantalla de acceso.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">7</div>
+      <div class="step-body">
+        <h4>¡Listo! Comienza a vender</h4>
+        <p>Ve a <strong>POS</strong>, selecciona productos, elige el método de pago y cobra. El ticket se imprime automáticamente si tienes una impresora térmica configurada.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- FUNCIONALIDADES DESTACADAS -->
+  <div class="section-title">Funcionalidades destacadas</div>
+  <table class="cfg-table">
+    <thead>
+      <tr>
+        <th>Función</th>
+        <th>Dónde activarla</th>
+        <th>Descripción</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Acceso por PIN táctil</td>
+        <td>Automático</td>
+        <td>Cajeros y meseros ingresan con PIN numérico desde pantalla touch; no requieren teclado</td>
+      </tr>
+      <tr>
+        <td>Multiples métodos de pago</td>
+        <td>POS → Cobrar</td>
+        <td>Efectivo, tarjeta y transferencia; cálculo automático de cambio con denominaciones</td>
+      </tr>
+      <tr>
+        <td>Cuentas abiertas (barra/mesa)</td>
+        <td>Config → POS → Cuentas</td>
+        <td>Acumula consumos en una cuenta y cobra todo al final; compatible con modo mesa</td>
+      </tr>
+      <tr>
+        <td>Gestión de mesas</td>
+        <td>Admin → Mesas</td>
+        <td>Crea, asigna y administra mesas; visualiza su estado en tiempo real desde el POS</td>
+      </tr>
+      <tr>
+        <td>Inventario y alertas de stock</td>
+        <td>Inventario</td>
+        <td>Controla existencias por producto; alertas visuales de stock bajo directamente en el POS</td>
+      </tr>
+      <tr>
+        <td>Reportes y dashboard</td>
+        <td>Reportes / Dashboard</td>
+        <td>KPIs diarios, ventas por producto y categoría, cierre de caja con corte detallado</td>
+      </tr>
+      <tr>
+        <td>Impresora de tickets</td>
+        <td>Config → Ticket</td>
+        <td>Compatible con impresoras térmicas 58 mm y 80 mm; soporte para comanda de cocina</td>
+      </tr>
+      <tr>
+        <td>Modo offline / sin internet</td>
+        <td>Automático</td>
+        <td>El sistema funciona completamente sin conexión; todos los datos son locales</td>
+      </tr>
+      <tr>
+        <td>Acceso multidispositivo</td>
+        <td>Sin configuración extra</td>
+        <td>Abre el POS en tablets, celulares o cualquier PC en la misma red WiFi del servidor</td>
+      </tr>
+      <tr>
+        <td>Roles y permisos granulares</td>
+        <td>Admin → Usuarios</td>
+        <td>Superadmin, admin, manager, cajero y mesero; acceso a módulos configurable por rol</td>
+      </tr>
+      <tr>
+        <td>Módulos de pedidos</td>
+        <td>Pedidos</td>
+        <td>Gestión de pedidos en tiempo real con notificaciones push; estados pendiente / en proceso / listo</td>
+      </tr>
+      <tr>
+        <td>Notas por ítem y por pedido</td>
+        <td>Config → POS</td>
+        <td>El cajero puede agregar indicaciones especiales por producto o por pedido completo</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ACCESO DESDE OTROS DISPOSITIVOS -->
+  <div class="section-title">Acceso desde celulares y tablets</div>
+  <div class="infobox">
+    <div class="infobox-icon">📱</div>
+    <div class="infobox-body">
+      <h4>Conecta cualquier dispositivo en la misma red WiFi</h4>
+      <p>Averigua la IP del equipo donde instalaste el sistema (Inicio → <code>cmd</code> → <code>ipconfig</code>). Luego en el celular o tablet abre <code>http://[IP]:3000</code>. Puedes usar el POS, gestionar pedidos o consultar reportes desde cualquier dispositivo.</p>
+    </div>
+  </div>
+
+  <!-- SOPORTE -->
+  <div class="section-title">Soporte</div>
+  <div class="infobox">
+    <div class="infobox-icon">💬</div>
+    <div class="infobox-body">
+      <h4>¿Necesitas ayuda o quieres activar tu licencia?</h4>
+      <p>
+        Sitio web: <a href="https://iados.mx" target="_blank" style="color:var(--primary)">iados.mx</a> &nbsp;·&nbsp;
+        Email: <a href="mailto:hola@iados.mx" style="color:var(--primary)">hola@iados.mx</a>
+        <br/>
+        <span style="font-size:12px;">Comparte tu código de instalación (visible en el banner amarillo al ingresar) para solicitar activación.</span>
+      </p>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<div class="footer">
+  <div>POS-iaDoS &mdash; Sistema Punto de Venta &copy; 2024&ndash;2026 iaDoS</div>
+  <div><a href="https://iados.mx" target="_blank">iados.mx</a></div>
+</div>
+
+</body>
+</html>

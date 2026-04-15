@@ -307,7 +307,9 @@
       "Bash(echo \"FE_BUILD:$?\")",
       "Bash(takeown /f \"C:\\\\sites\\\\pos_multitenant_local\\\\frontend\\\\dist-prod\" /r /d y)",
       "Bash(docker-compose restart:*)",
-      "Bash(echo \"exit:$?\")"
+      "Bash(echo \"exit:$?\")",
+      "Bash(git -C \"C:/sites/pos_multitenant_local\" diff --stat HEAD)",
+      "Bash(git:*)"
     ]
   }
 }

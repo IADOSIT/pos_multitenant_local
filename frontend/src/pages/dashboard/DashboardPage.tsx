@@ -97,12 +97,21 @@ export default function DashboardPage() {
   };
 
   const getRangoFechas = () => {
+    const TZ = 'America/Mexico_City';
     const now = new Date();
-    const hasta = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-    let desde = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    if (rango === 'semana') desde.setDate(desde.getDate() - 7);
-    if (rango === 'mes') desde.setMonth(desde.getMonth() - 1);
-    return { desde: desde.toISOString(), hasta: hasta.toISOString() };
+    // Fecha actual en hora Mexico/Monterrey (independiente del timezone del browser)
+    const mxDate = new Date(now.toLocaleString('en-US', { timeZone: TZ }));
+    const offsetMs = now.getTime() - mxDate.getTime(); // ms que UTC está adelante de MX
+    const y = mxDate.getFullYear(), mo = mxDate.getMonth(), d = mxDate.getDate();
+    // Límites en hora MX → convertir a UTC para el query
+    const hastaLocal = new Date(y, mo, d, 23, 59, 59);
+    let desdeLocal = new Date(y, mo, d, 0, 0, 0);
+    if (rango === 'semana') desdeLocal = new Date(y, mo, d - 7, 0, 0, 0);
+    if (rango === 'mes') desdeLocal = new Date(y, mo - 1, d, 0, 0, 0);
+    return {
+      desde: new Date(desdeLocal.getTime() + offsetMs).toISOString(),
+      hasta: new Date(hastaLocal.getTime() + offsetMs).toISOString(),
+    };
   };
 
   const loadKPI = async () => {

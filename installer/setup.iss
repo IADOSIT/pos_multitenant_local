@@ -109,6 +109,9 @@ Source: "{#SourceDir}\*"; DestDir: "{tmp}\POS-iaDoS-Src"; \
 Source: "{#IconFile}"; DestDir: "{app}"; Flags: ignoreversion
 #endif
 
+; Guía de primer uso (se copia a C:\POS-iaDoS\)
+Source: "staging\PRIMER_USO.html"; DestDir: "{app}"; Flags: ignoreversion
+
 [Icons]
 ; Menú inicio
 Name: "{group}\Abrir POS-iaDoS (Navegador)"; \
@@ -121,6 +124,10 @@ Name: "{group}\Abrir POS-iaDoS (Navegador)"; \
 Name: "{group}\Administrador de Servicios"; \
   Filename: "{#MyInstallDir}\setup\services.ps1"; \
   WorkingDir: "{#MyInstallDir}"
+
+Name: "{group}\Guía de Primer Uso"; \
+  Filename: "{app}\PRIMER_USO.html"; \
+  Comment: "Abre la guía de configuración inicial"
 
 Name: "{group}\Desinstalar {#MyAppName}"; \
   Filename: "{uninstallexe}"
@@ -149,6 +156,11 @@ Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
   Parameters: "-ExecutionPolicy Bypass -NoProfile -NonInteractive -File ""{tmp}\POS-iaDoS-Src\setup\install.ps1"" -InstallerPath ""{tmp}\POS-iaDoS-Src"" -InstallDemoData {code:GetDemoDataFlag} -AdminEmail ""{code:GetAdminEmail}"" -NombreNegocio ""{code:GetNombreNegocio}"""; \
   StatusMsg: "Instalando POS-iaDoS... (esto puede tardar varios minutos)"; \
   Flags: runhidden waituntilterminated
+
+; Abrir guía de primer uso en el navegador predeterminado
+Filename: "{app}\PRIMER_USO.html"; \
+  Description: "Ver guía de primer uso (abre en el navegador)"; \
+  Flags: shellexec postinstall nowait skipifsilent
 
 [UninstallRun]
 ; Ejecutar uninstall.ps1 para detener servicios y limpiar
