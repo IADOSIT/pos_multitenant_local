@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { cajaApi, dashboardApi, ventasApi, ticketsApi, tiendasApi } from '../../api/endpoints';
+import DevolucionModal from '../../components/pos/DevolucionModal';
 import { useAuthStore } from '../../store/auth.store';
 import { printTicket } from '../../utils/printTicket';
 import toast from 'react-hot-toast';
 import {
   FileText, FileSpreadsheet, Download, Calendar, TrendingUp,
   DollarSign, Receipt, ShoppingBag, Ban, ChevronDown, ChevronUp, Loader2, Printer,
-  Users, Phone, MapPin, Search,
+  Users, Phone, MapPin, Search, RotateCcw,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -39,6 +40,8 @@ export default function ReportesPage() {
   const [clienteSearch, setClienteSearch] = useState('');
   const [clientesLoading, setClientesLoading] = useState(false);
   const [expandedVentas, setExpandedVentas] = useState(false);
+  const [devolucionVentaId, setDevolucionVentaId] = useState<number | null>(null);
+  const [configPos, setConfigPos] = useState<any>({});
   const chartRef = useRef<HTMLDivElement>(null);
   const kpiChartRef = useRef<HTMLDivElement>(null);
 
@@ -46,7 +49,9 @@ export default function ReportesPage() {
     loadCajas();
     if (user?.tienda_id) {
       tiendasApi.get(user.tienda_id).then(({ data }) => {
-        const cfg = data?.config_pos?.reportes_tabs_config;
+        const cp = data?.config_pos || {};
+        setConfigPos(cp);
+        const cfg = cp.reportes_tabs_config;
         if (cfg && cfg.length > 0) {
           setTabsConfig(cfg);
           const first = cfg.find((t: any) => t.enabled);
@@ -600,7 +605,7 @@ export default function ReportesPage() {
                               <td className="py-2 pr-3 text-right">${Number(v.pago_efectivo || 0).toFixed(2)}</td>
                               <td className="py-2 pr-3 text-right">${Number(v.pago_tarjeta || 0).toFixed(2)}</td>
                               <td className="py-2 pr-3 text-right">${Number(v.pago_transferencia || 0).toFixed(2)}</td>
-                              <td className="py-2">
+                              <td className="py-2 flex gap-1">
                                 {v.estado === 'completada' && (
                                   <button
                                     onClick={() => handleReprint(v.id)}
@@ -608,6 +613,15 @@ export default function ReportesPage() {
                                     title="Reimprimir ticket"
                                   >
                                     <Printer size={14} />
+                                  </button>
+                                )}
+                                {v.estado === 'completada' && configPos.devoluciones_enabled && (
+                                  <button
+                                    onClick={() => setDevolucionVentaId(v.id)}
+                                    className="p-1.5 rounded-lg hover:bg-amber-900/40 text-slate-400 hover:text-amber-400"
+                                    title="Devolución / Reembolso"
+                                  >
+                                    <RotateCcw size={14} />
                                   </button>
                                 )}
                               </td>
@@ -783,6 +797,13 @@ export default function ReportesPage() {
             </>
           )}
         </div>
+      )}
+      {devolucionVentaId && (
+        <DevolucionModal
+          ventaId={devolucionVentaId}
+          onClose={() => setDevolucionVentaId(null)}
+          onSuccess={() => { setDevolucionVentaId(null); loadCajas(); }}
+        />
       )}
     </div>
   );

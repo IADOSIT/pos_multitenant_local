@@ -50,6 +50,22 @@ export class TiendasService {
 
   async update(id: number, data: Partial<Tienda>) {
     const { id: _id, created_at, updated_at, ...clean } = data as any;
+
+    // Merge config_pos y config_impresora en lugar de reemplazar.
+    // Evita que un guardado parcial borre configuraciones que no estaban en el form.
+    if (clean.config_pos !== undefined) {
+      const existing = await this.repo.findOne({ where: { id } });
+      if (existing?.config_pos) {
+        clean.config_pos = { ...existing.config_pos, ...clean.config_pos };
+      }
+    }
+    if (clean.config_impresora !== undefined) {
+      const existing = await this.repo.findOne({ where: { id } });
+      if (existing?.config_impresora) {
+        clean.config_impresora = { ...existing.config_impresora, ...clean.config_impresora };
+      }
+    }
+
     await this.repo.update(id, clean);
     const tienda = await this.repo.findOne({ where: { id } });
     if (tienda && !tienda.slug) {

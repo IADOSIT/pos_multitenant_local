@@ -1,0 +1,7 @@
+name = "pos-iados-relay"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+
+[[kv_namespaces]]
+binding = "POS_RELAY"
+id = "77e4aa23c6ad4f1eaa8976f54d80106f"

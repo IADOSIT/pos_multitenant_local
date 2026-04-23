@@ -35,6 +35,9 @@ export class MenuDigitalConfig {
   @Column({ length: 500, nullable: true })
   cloud_url: string; // e.g. http://34.71.132.26:3000
 
+  @Column({ length: 500, nullable: true })
+  worker_url: string; // e.g. https://pos-iados-relay.workers.dev
+
   @Column({ length: 100, nullable: true })
   api_key: string;
 

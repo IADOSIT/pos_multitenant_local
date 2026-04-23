@@ -110,7 +110,8 @@ export default function ProductosAdmin() {
     try {
       const { data } = await productosApi.csvImport(file, true);
       setImportResult(data);
-      toast.success(`Importados: ${data.success}, Actualizados: ${data.updated}`);
+      const catMsg = data.categorias_creadas > 0 ? `, ${data.categorias_creadas} categorías nuevas` : '';
+      toast.success(`Importados: ${data.success}, Actualizados: ${data.updated}${catMsg}`);
       load();
     } catch (err: any) { toast.error(err.response?.data?.message || 'Error en importacion'); }
     if (fileRef.current) fileRef.current.value = '';
@@ -152,6 +153,9 @@ export default function ProductosAdmin() {
             <span className="text-blue-400 font-bold">{importResult.updated}</span> actualizados,{' '}
             <span className="text-red-400 font-bold">{importResult.errors?.length || 0}</span> errores{' '}
             (de {importResult.total} filas)
+            {importResult.categorias_creadas > 0 && (
+              <span className="ml-2 text-amber-400">· <strong>{importResult.categorias_creadas}</strong> categoría{importResult.categorias_creadas > 1 ? 's' : ''} nueva{importResult.categorias_creadas > 1 ? 's' : ''} creada{importResult.categorias_creadas > 1 ? 's' : ''} automáticamente</span>
+            )}
           </p>
           {importResult.columns?.length > 0 && (
             <p className="text-xs text-slate-500 mt-1">Columnas detectadas: {importResult.columns.join(', ')}</p>

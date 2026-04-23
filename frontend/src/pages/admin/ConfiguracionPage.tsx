@@ -73,9 +73,9 @@ export default function ConfiguracionPage() {
   const [mdQr, setMdQr]               = useState<string>('');
   const [mdCfgForm, setMdCfgForm]     = useState<any>({});
 
-  // Compute the public menu URL: if cloud_url is localhost/127.0.0.1, use the
-  // current browser origin (Vite dev server or same server), otherwise use cloud_url.
-  const getMenuUrl = (cloudUrl: string, slug: string): string => {
+  // Worker URL toma prioridad sobre cloud_url para el QR del menú.
+  const getMenuUrl = (cloudUrl: string, slug: string, workerUrl?: string): string => {
+    if (workerUrl) return `${workerUrl.replace(/\/$/, '')}/menu/${slug}`;
     const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/.test(cloudUrl || '');
     const base = isLocal ? window.location.origin : (cloudUrl || '').replace(/\/$/, '');
     return `${base}/menu/${slug}`;
@@ -100,6 +100,8 @@ export default function ConfiguracionPage() {
     self_order_url: '',
     habilitar_cuenta_abierta: false,
     mostrar_so_pendiente_en_pos: false,
+    devoluciones_enabled: false,
+    devoluciones_rol: 'admin',
     notas_por_item: false,
     notas_rapidas: '',
     notas_pedido_enabled: false,
@@ -242,6 +244,8 @@ export default function ConfiguracionPage() {
       self_order_url: cp.self_order_url || '',
       habilitar_cuenta_abierta: cp.habilitar_cuenta_abierta || false,
       mostrar_so_pendiente_en_pos: cp.mostrar_so_pendiente_en_pos || false,
+      devoluciones_enabled: cp.devoluciones_enabled || false,
+      devoluciones_rol: cp.devoluciones_rol || 'admin',
       notas_por_item: cp.notas_por_item || false,
       notas_rapidas: cp.notas_rapidas || '',
       notas_pedido_enabled: cp.notas_pedido_enabled || false,
@@ -297,6 +301,8 @@ export default function ConfiguracionPage() {
           self_order_url: form.self_order_url || undefined,
           habilitar_cuenta_abierta: form.habilitar_cuenta_abierta,
           mostrar_so_pendiente_en_pos: form.mostrar_so_pendiente_en_pos,
+          devoluciones_enabled: form.devoluciones_enabled,
+          devoluciones_rol: form.devoluciones_rol,
           notas_por_item: form.notas_por_item,
           notas_rapidas: form.notas_rapidas || '',
           notas_pedido_enabled: form.notas_pedido_enabled,
@@ -434,12 +440,13 @@ export default function ConfiguracionPage() {
         sync_mode:     status.config?.sync_mode    ?? 'manual',
         sync_interval: status.config?.sync_interval ?? 30,
         cloud_url:     status.config?.cloud_url    ?? '',
+        worker_url:    status.config?.worker_url   ?? '',
         slug:          status.config?.slug         ?? '',
         plantilla:     status.config?.plantilla    ?? 'oscuro',
       });
       // Generate QR if active and has slug
       if (status.config?.is_active && status.config?.slug) {
-        const menuUrl = getMenuUrl(status.config.cloud_url || '', status.config.slug);
+        const menuUrl = getMenuUrl(status.config.cloud_url || '', status.config.slug, status.config.worker_url);
         const qr = await QRCode.toDataURL(menuUrl, { width: 200, margin: 2 });
         setMdQr(qr);
       } else {
@@ -1327,9 +1334,29 @@ export default function ConfiguracionPage() {
                     </label>
                   </div>
 
+                  {/* Worker URL (Cloudflare Relay) */}
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1 flex items-center gap-1"><Globe size={12} /> Worker URL (internet)</label>
+                    <input
+                      value={mdCfgForm.worker_url ?? ''}
+                      onChange={e => setMdCfgForm({ ...mdCfgForm, worker_url: e.target.value.trim() })}
+                      placeholder="https://pos-iados-relay.workers.dev"
+                      className="input-touch text-sm font-mono"
+                    />
+                    {mdCfgForm.worker_url ? (
+                      <p className="text-xs text-green-400 mt-1 flex items-center gap-1">
+                        ✓ Menú y pedidos via internet. QR usará esta URL.
+                      </p>
+                    ) : (
+                      <p className="text-xs text-slate-500 mt-1">
+                        Opcional — Cloudflare Worker para acceso desde cualquier red. Ver <code>cloudflare-worker/README.md</code>
+                      </p>
+                    )}
+                  </div>
+
                   {/* Cloud URL */}
                   <div>
-                    <label className="text-xs text-slate-400 mb-1 flex items-center gap-1"><Globe size={12} /> URL del servidor</label>
+                    <label className="text-xs text-slate-400 mb-1 flex items-center gap-1"><Globe size={12} /> URL del servidor (local/VPS)</label>
                     <div className="flex gap-2">
                       <input
                         value={mdCfgForm.cloud_url ?? ''}
@@ -1376,7 +1403,7 @@ export default function ConfiguracionPage() {
                     </div>
                     {mdCfgForm.slug && (
                       <p className="text-xs mt-1 text-slate-500 font-mono break-all">
-                        {getMenuUrl(mdCfgForm.cloud_url || '', mdCfgForm.slug).replace(/\/menu\/.*/, '')}/menu/<span className="text-iados-accent">{mdCfgForm.slug}</span>
+                        {getMenuUrl(mdCfgForm.cloud_url || '', mdCfgForm.slug, mdCfgForm.worker_url).replace(/\/menu\/.*/, '')}/menu/<span className="text-iados-accent">{mdCfgForm.slug}</span>
                       </p>
                     )}
                   </div>
@@ -1476,7 +1503,7 @@ export default function ConfiguracionPage() {
                     </button>
                     <button
                       onClick={() => handleMdPublish(selected.id)}
-                      disabled={mdPublishing || !mdCfgForm.cloud_url}
+                      disabled={mdPublishing || (!mdCfgForm.cloud_url && !mdCfgForm.worker_url)}
                       className="btn-primary text-xs flex-1 flex items-center justify-center gap-1 disabled:opacity-50"
                     >
                       {mdPublishing
@@ -1532,10 +1559,10 @@ export default function ConfiguracionPage() {
                       <div className="flex-1 space-y-2">
                         <p className="text-xs text-slate-400">Comparte este QR con tus clientes</p>
                         <code className="text-xs text-iados-accent break-all block">
-                          {getMenuUrl(mdCfgForm.cloud_url || '', mdCfgForm.slug || '')}
+                          {getMenuUrl(mdCfgForm.cloud_url || '', mdCfgForm.slug || '', mdCfgForm.worker_url)}
                         </code>
                         <a
-                          href={getMenuUrl(mdCfgForm.cloud_url || '', mdCfgForm.slug || '')}
+                          href={getMenuUrl(mdCfgForm.cloud_url || '', mdCfgForm.slug || '', mdCfgForm.worker_url)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs text-slate-400 hover:text-iados-accent flex items-center gap-1 transition-colors"
@@ -1546,7 +1573,7 @@ export default function ConfiguracionPage() {
                             onClick={() => {
                               const w = window.open('', '_blank');
                               if (!w) return;
-                              const menuUrl = getMenuUrl(mdCfgForm.cloud_url || '', mdCfgForm.slug || '');
+                              const menuUrl = getMenuUrl(mdCfgForm.cloud_url || '', mdCfgForm.slug || '', mdCfgForm.worker_url);
                               w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>QR Menú — ${selected?.nombre || 'Tienda'}</title>
                                 <style>
                                   body{font-family:Arial,sans-serif;text-align:center;padding:32px;background:#fff;color:#1e293b}
@@ -1746,6 +1773,35 @@ export default function ConfiguracionPage() {
                         <p className="text-xs text-slate-500">Campo de texto libre en el carrito para instrucciones generales (sin cebolla, alergia, etc.)</p>
                       </div>
                     </label>
+                  </div>
+
+                  {/* Devoluciones */}
+                  <div className="border-t border-slate-700 pt-3 mt-3">
+                    <label className="flex items-center gap-3 cursor-pointer mb-2">
+                      <input
+                        type="checkbox"
+                        checked={form.devoluciones_enabled ?? false}
+                        onChange={(e) => setForm({ ...form, devoluciones_enabled: e.target.checked })}
+                        className="w-5 h-5 accent-iados-primary rounded"
+                      />
+                      <div>
+                        <span className="text-sm font-medium">Devoluciones / Reembolsos</span>
+                        <p className="text-xs text-slate-500">Habilita el botón de devolución en el historial de ventas (Reportes)</p>
+                      </div>
+                    </label>
+                    {form.devoluciones_enabled && (
+                      <div className="ml-8 mt-2">
+                        <label className="text-xs text-slate-400 mb-1 block">¿Quién puede hacer devoluciones?</label>
+                        <select
+                          value={form.devoluciones_rol ?? 'admin'}
+                          onChange={(e) => setForm({ ...form, devoluciones_rol: e.target.value })}
+                          className="input-touch text-sm"
+                        >
+                          <option value="admin">Solo Admin / Gerente</option>
+                          <option value="cajero">También Cajero</option>
+                        </select>
+                      </div>
+                    )}
                   </div>
 
                   {/* Datos de entrega (para llevar) */}
@@ -1999,9 +2055,18 @@ export default function ConfiguracionPage() {
                                   className="input-touch text-xs"
                                 />
                                 <p className="text-xs text-slate-500">
-                                  EXE local: <code>http://192.168.X.X:3000</code> &nbsp;|&nbsp;
-                                  VPS: <code>https://pos.iados.online</code>
+                                  WiFi local: <code>http://192.168.X.X:3000</code> &nbsp;|&nbsp;
+                                  Internet (Worker): <code>https://pos-iados-relay.workers.dev</code>
                                 </p>
+                                {mdCfgForm.worker_url && !form.self_order_url && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setForm({ ...form, self_order_url: mdCfgForm.worker_url })}
+                                    className="text-xs text-green-400 hover:underline mt-1 block"
+                                  >
+                                    ↑ Usar Worker URL del Menú Digital
+                                  </button>
+                                )}
                                 {selected && (
                                   <button onClick={() => navigate('/admin/mesas')} className="text-xs text-iados-secondary hover:underline mt-1 block text-left">
                                     Ir a Gestión de Mesas para imprimir QR →

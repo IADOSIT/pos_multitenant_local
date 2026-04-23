@@ -145,7 +145,7 @@ export class ProductosService {
 
     const records = rawRecords;
 
-    const results = { success: 0, errors: [] as any[], updated: 0, total: records.length, columns: [] as string[] };
+    const results = { success: 0, errors: [] as any[], updated: 0, total: records.length, columns: [] as string[], categorias_creadas: 0 };
 
     if (records.length > 0) {
       results.columns = Object.keys(records[0]);
@@ -155,9 +155,14 @@ export class ProductosService {
     // Pre-load categories for name→id resolution
     const categorias = await this.catRepo.find({
       where: { tenant_id: scope.tenant_id, empresa_id: scope.empresa_id },
+      order: { orden: 'DESC' },
     });
     const catMap = new Map<string, number>();
-    for (const c of categorias) catMap.set(c.nombre.toLowerCase(), c.id);
+    let maxOrden = 0;
+    for (const c of categorias) {
+      catMap.set(c.nombre.toLowerCase(), c.id);
+      if (c.orden > maxOrden) maxOrden = c.orden;
+    }
 
     // Purge ALL inactive products for this tenant/empresa before import
     await this.purgeInactive(scope);
@@ -186,13 +191,23 @@ export class ProductosService {
           if (catId) {
             categoriaId = catId;
           } else {
+            // Auto-crear categoría con orden consecutivo y valores default
+            maxOrden += 10;
             const newCat = await this.catRepo.save(this.catRepo.create({
               tenant_id: scope.tenant_id,
               empresa_id: scope.empresa_id,
               nombre: row.categoria,
+              orden: maxOrden,
+              activo: true,
+              destacada: false,
+              color: null,
+              icono: null,
+              modulo: null,
             }));
             catMap.set(newCat.nombre.toLowerCase(), newCat.id);
             categoriaId = newCat.id;
+            results.categorias_creadas++;
+            this.logger.log(`CSV: categoría auto-creada '${row.categoria}' (id=${newCat.id}, orden=${maxOrden})`);
           }
         }
 

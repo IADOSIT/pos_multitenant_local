@@ -93,6 +93,13 @@ export const ventasApi = {
   clientes: (q?: string) => api.get('/ventas/clientes', { params: q ? { q } : {} }),
 };
 
+// Devoluciones
+export const devolucionesApi = {
+  crear: (data: any) => api.post('/devoluciones', data),
+  porVenta: (ventaId: number) => api.get(`/devoluciones/venta/${ventaId}`),
+  list: (desde?: string, hasta?: string) => api.get('/devoluciones', { params: { desde, hasta } }),
+};
+
 // Caja
 export const cajaApi = {
   abrir: (data: any) => api.post('/caja/abrir', data),

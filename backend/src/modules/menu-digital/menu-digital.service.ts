@@ -73,7 +73,7 @@ export class MenuDigitalService {
         dto.slug = dto.slug + '-' + Date.now().toString(36);
       }
     }
-    const allowed = ['is_active', 'modo_menu', 'sync_mode', 'sync_interval', 'cloud_url', 'slug', 'plantilla'];
+    const allowed = ['is_active', 'modo_menu', 'sync_mode', 'sync_interval', 'cloud_url', 'worker_url', 'slug', 'plantilla'];
     for (const key of allowed) {
       if (dto[key] !== undefined) (cfg as any)[key] = dto[key];
     }
@@ -148,10 +148,14 @@ export class MenuDigitalService {
       const productosData = productos.map(p => ({
         id: p.id, nombre: p.nombre, descripcion: p.descripcion || '', precio: Number(p.precio),
         categoria_id: p.categoria_id, imagen_url: p.imagen_url || null,
-        disponible: p.disponible, orden: p.orden,
+        disponible: p.disponible, orden: p.orden, sku: p.sku || null,
       }));
 
       this.logger.log(`Publicando menu "${cfg.slug}" → BD local (${productos.length} productos)`);
+
+      if (cfg.worker_url) {
+        await this.syncToWorker(cfg, tiendaData, categoriasData, productosData);
+      }
 
       await this.saveSnapshotDirect({
         slug: cfg.slug, tenant_id: cfg.tenant_id, empresa_id: cfg.empresa_id,
@@ -341,6 +345,31 @@ export class MenuDigitalService {
   // =========================================================================
   // Helpers
   // =========================================================================
+
+  // Sync snapshot to Cloudflare Worker relay
+  async syncToWorker(cfg: MenuDigitalConfig, tienda: any, categorias: any[], productos: any[]): Promise<void> {
+    const url = cfg.worker_url.replace(/\/$/, '') + '/sync/' + cfg.slug;
+    const body = {
+      api_key: cfg.api_key,
+      slug: cfg.slug,
+      is_active: cfg.is_active,
+      modo_menu: cfg.modo_menu,
+      plantilla: cfg.plantilla || 'oscuro',
+      tienda,
+      categorias,
+      productos,
+    };
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Worker sync failed (${res.status}): ${text}`);
+    }
+    this.logger.log(`Worker sync OK → ${url}`);
+  }
 
   // Save snapshot directly to local DB
   private async saveSnapshotDirect(data: {
