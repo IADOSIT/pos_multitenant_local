@@ -6,6 +6,8 @@ dist/
 !backend/dist/**
 !frontend/dist-prod/
 !frontend/dist-prod/**
+!frontend/dist-vps/
+!frontend/dist-vps/**
 .env
 .env.local
 *.log

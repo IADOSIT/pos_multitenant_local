@@ -5,7 +5,7 @@ FROM nginx:alpine
 RUN apk add --no-cache curl
 
 # Copiar build pre-compilado
-COPY dist-prod /usr/share/nginx/html
+COPY dist-vps /usr/share/nginx/html
 
 # Configuración custom de Nginx para SPA
 COPY nginx.conf /etc/nginx/conf.d/default.conf
