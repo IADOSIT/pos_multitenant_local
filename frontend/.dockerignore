@@ -1,6 +1,5 @@
 node_modules
 dist
-dist-prod
 .env
 *.log
 .git

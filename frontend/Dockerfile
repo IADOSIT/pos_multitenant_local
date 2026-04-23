@@ -1,25 +1,11 @@
-# Build Stage
-FROM node:20-alpine AS builder
-
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
-
-# Argumento para la URL de la API (por defecto localhost)
-ARG VITE_API_URL=/api
-ENV VITE_API_URL=$VITE_API_URL
-
-RUN npm run build
-
-# Production Stage
+# Production Stage — usa dist-prod pre-compilado localmente (evita OOM en CI/VPS)
 FROM nginx:alpine
 
 # Healthcheck dependencies
 RUN apk add --no-cache curl
 
-# Copiar build desde builder
-COPY --from=builder /app/dist-prod /usr/share/nginx/html
+# Copiar build pre-compilado
+COPY dist-prod /usr/share/nginx/html
 
 # Configuración custom de Nginx para SPA
 COPY nginx.conf /etc/nginx/conf.d/default.conf
