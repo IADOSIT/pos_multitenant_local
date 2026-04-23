@@ -1,9 +1,9 @@
 import { Controller, Get, Post, Param, Body, Query, UseGuards, Request, ForbiddenException } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AuthGuard } from '@nestjs/passport';
 import { DevolucionesService } from './devoluciones.service';
 
 @Controller('devoluciones')
-@UseGuards(JwtAuthGuard)
+@UseGuards(AuthGuard('jwt'))
 export class DevolucionesController {
   constructor(private readonly service: DevolucionesService) {}
 

@@ -61,6 +61,18 @@ let TiendasService = class TiendasService {
     }
     async update(id, data) {
         const { id: _id, created_at, updated_at, ...clean } = data;
+        if (clean.config_pos !== undefined) {
+            const existing = await this.repo.findOne({ where: { id } });
+            if (existing?.config_pos) {
+                clean.config_pos = { ...existing.config_pos, ...clean.config_pos };
+            }
+        }
+        if (clean.config_impresora !== undefined) {
+            const existing = await this.repo.findOne({ where: { id } });
+            if (existing?.config_impresora) {
+                clean.config_impresora = { ...existing.config_impresora, ...clean.config_impresora };
+            }
+        }
         await this.repo.update(id, clean);
         const tienda = await this.repo.findOne({ where: { id } });
         if (tienda && !tienda.slug) {

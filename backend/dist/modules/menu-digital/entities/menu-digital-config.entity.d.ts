@@ -9,6 +9,7 @@ export declare class MenuDigitalConfig {
     sync_mode: string;
     sync_interval: number;
     cloud_url: string;
+    worker_url: string;
     api_key: string;
     last_published_at: Date;
     last_publish_status: string;

@@ -114,19 +114,19 @@ export class DevolucionesService {
     if (!itemsDevolucion.length) throw new BadRequestException('No hay ítems válidos para devolver');
 
     // 5. Crear registro de devolución
-    const devolucion = await this.repo.save(this.repo.create({
-      tenant_id: scope.tenant_id,
-      empresa_id: scope.empresa_id,
-      tienda_id: scope.tienda_id,
-      venta_id: dto.venta_id,
-      folio: this.generateFolio(),
-      venta_folio: venta.folio,
-      usuario_id: scope.id || scope.sub,
-      usuario_nombre: scope.nombre || 'Sistema',
-      motivo: dto.motivo || null,
-      items: itemsDevolucion,
-      monto_total: montoTotal,
-    }));
+    const entity = new Devolucion();
+    entity.tenant_id = scope.tenant_id;
+    entity.empresa_id = scope.empresa_id;
+    entity.tienda_id = scope.tienda_id;
+    entity.venta_id = dto.venta_id;
+    entity.folio = this.generateFolio();
+    entity.venta_folio = venta.folio;
+    entity.usuario_id = scope.id || scope.sub;
+    entity.usuario_nombre = scope.nombre || 'Sistema';
+    if (dto.motivo) entity.motivo = dto.motivo;
+    entity.items = itemsDevolucion;
+    entity.monto_total = montoTotal;
+    const devolucion = await this.repo.save(entity);
 
     // 6. Reponer stock para ítems que controlan inventario
     for (const item of itemsDevolucion) {

@@ -16,6 +16,7 @@ export declare class ProductosController {
         updated: number;
         total: number;
         columns: string[];
+        categorias_creadas: number;
     }>;
     uploadImage(file: Express.Multer.File): Promise<string>;
     update(id: number, data: any): Promise<import("./producto.entity").Producto | null>;

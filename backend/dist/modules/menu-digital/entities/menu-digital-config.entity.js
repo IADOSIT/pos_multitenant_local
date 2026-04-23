@@ -55,6 +55,10 @@ __decorate([
     __metadata("design:type", String)
 ], MenuDigitalConfig.prototype, "cloud_url", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ length: 500, nullable: true }),
+    __metadata("design:type", String)
+], MenuDigitalConfig.prototype, "worker_url", void 0);
+__decorate([
     (0, typeorm_1.Column)({ length: 100, nullable: true }),
     __metadata("design:type", String)
 ], MenuDigitalConfig.prototype, "api_key", void 0);

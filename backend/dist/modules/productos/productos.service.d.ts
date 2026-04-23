@@ -23,6 +23,7 @@ export declare class ProductosService {
         updated: number;
         total: number;
         columns: string[];
+        categorias_creadas: number;
     }>;
     deleteProduct(id: number): Promise<{
         deleted: boolean;

@@ -193,17 +193,13 @@ export class ProductosService {
           } else {
             // Auto-crear categoría con orden consecutivo y valores default
             maxOrden += 10;
-            const newCat = await this.catRepo.save(this.catRepo.create({
-              tenant_id: scope.tenant_id,
-              empresa_id: scope.empresa_id,
-              nombre: row.categoria,
-              orden: maxOrden,
-              activo: true,
-              destacada: false,
-              color: null,
-              icono: null,
-              modulo: null,
-            }));
+            const catEntity = new Categoria();
+            catEntity.tenant_id = scope.tenant_id;
+            catEntity.empresa_id = scope.empresa_id;
+            catEntity.nombre = row.categoria;
+            catEntity.orden = maxOrden;
+            catEntity.activo = true;
+            const newCat = await this.catRepo.save(catEntity);
             catMap.set(newCat.nombre.toLowerCase(), newCat.id);
             categoriaId = newCat.id;
             results.categorias_creadas++;

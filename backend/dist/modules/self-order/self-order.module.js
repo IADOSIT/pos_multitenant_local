@@ -11,7 +11,9 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const pedido_entity_1 = require("../pedidos/pedido.entity");
 const mesa_entity_1 = require("../mesas/mesa.entity");
+const menu_digital_config_entity_1 = require("../menu-digital/entities/menu-digital-config.entity");
 const self_order_service_1 = require("./self-order.service");
+const worker_poll_service_1 = require("./worker-poll.service");
 const self_order_controller_1 = require("./self-order.controller");
 const mesas_module_1 = require("../mesas/mesas.module");
 const encuestas_module_1 = require("../encuestas/encuestas.module");
@@ -22,13 +24,13 @@ exports.SelfOrderModule = SelfOrderModule;
 exports.SelfOrderModule = SelfOrderModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            typeorm_1.TypeOrmModule.forFeature([pedido_entity_1.Pedido, mesa_entity_1.Mesa]),
+            typeorm_1.TypeOrmModule.forFeature([pedido_entity_1.Pedido, mesa_entity_1.Mesa, menu_digital_config_entity_1.MenuDigitalConfig]),
             mesas_module_1.MesasModule,
             encuestas_module_1.EncuestasModule,
             notificaciones_module_1.NotificacionesModule,
         ],
         controllers: [self_order_controller_1.SelfOrderPublicController, self_order_controller_1.SelfOrderController],
-        providers: [self_order_service_1.SelfOrderService],
+        providers: [self_order_service_1.SelfOrderService, worker_poll_service_1.WorkerPollService],
         exports: [self_order_service_1.SelfOrderService],
     })
 ], SelfOrderModule);

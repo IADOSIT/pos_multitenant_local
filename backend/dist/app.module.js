@@ -42,6 +42,7 @@ const self_order_module_1 = require("./modules/self-order/self-order.module");
 const encuestas_module_1 = require("./modules/encuestas/encuestas.module");
 const pagos_gateway_module_1 = require("./modules/pagos-gateway/pagos-gateway.module");
 const perfiles_module_1 = require("./modules/perfiles/perfiles.module");
+const devoluciones_module_1 = require("./modules/devoluciones/devoluciones.module");
 const _distProd = (0, path_1.join)(process.cwd(), '..', 'frontend', 'dist-prod');
 const _staticRoot = (0, fs_1.existsSync)(_distProd)
     ? _distProd
@@ -90,6 +91,7 @@ exports.AppModule = AppModule = __decorate([
             encuestas_module_1.EncuestasModule,
             pagos_gateway_module_1.PagosGatewayModule,
             perfiles_module_1.PerfilesModule,
+            devoluciones_module_1.DevolucionesModule,
         ],
         providers: [schema_sync_service_1.SchemaSyncService],
     })

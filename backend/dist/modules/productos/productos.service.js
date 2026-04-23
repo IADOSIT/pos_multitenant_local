@@ -147,17 +147,22 @@ let ProductosService = class ProductosService {
             throw new common_1.BadRequestException(`No se pudo leer el archivo CSV: ${e.message}`);
         }
         const records = rawRecords;
-        const results = { success: 0, errors: [], updated: 0, total: records.length, columns: [] };
+        const results = { success: 0, errors: [], updated: 0, total: records.length, columns: [], categorias_creadas: 0 };
         if (records.length > 0) {
             results.columns = Object.keys(records[0]);
             this.logger.log(`CSV columns detected: ${results.columns.join(', ')} | rows: ${records.length}`);
         }
         const categorias = await this.catRepo.find({
             where: { tenant_id: scope.tenant_id, empresa_id: scope.empresa_id },
+            order: { orden: 'DESC' },
         });
         const catMap = new Map();
-        for (const c of categorias)
+        let maxOrden = 0;
+        for (const c of categorias) {
             catMap.set(c.nombre.toLowerCase(), c.id);
+            if (c.orden > maxOrden)
+                maxOrden = c.orden;
+        }
         await this.purgeInactive(scope);
         for (let i = 0; i < records.length; i++) {
             const row = records[i];
@@ -180,13 +185,18 @@ let ProductosService = class ProductosService {
                         categoriaId = catId;
                     }
                     else {
-                        const newCat = await this.catRepo.save(this.catRepo.create({
-                            tenant_id: scope.tenant_id,
-                            empresa_id: scope.empresa_id,
-                            nombre: row.categoria,
-                        }));
+                        maxOrden += 10;
+                        const catEntity = new categoria_entity_1.Categoria();
+                        catEntity.tenant_id = scope.tenant_id;
+                        catEntity.empresa_id = scope.empresa_id;
+                        catEntity.nombre = row.categoria;
+                        catEntity.orden = maxOrden;
+                        catEntity.activo = true;
+                        const newCat = await this.catRepo.save(catEntity);
                         catMap.set(newCat.nombre.toLowerCase(), newCat.id);
                         categoriaId = newCat.id;
+                        results.categorias_creadas++;
+                        this.logger.log(`CSV: categoría auto-creada '${row.categoria}' (id=${newCat.id}, orden=${maxOrden})`);
                     }
                 }
                 const prodData = {
