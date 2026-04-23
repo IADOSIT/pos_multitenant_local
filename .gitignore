@@ -1,6 +1,11 @@
 node_modules/
-dist/
 build/
+# dist/ excluido globalmente EXCEPTO backend/dist y frontend/dist-prod (necesarios para Docker)
+dist/
+!backend/dist/
+!backend/dist/**
+!frontend/dist-prod/
+!frontend/dist-prod/**
 .env
 .env.local
 *.log
