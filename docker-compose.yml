@@ -20,7 +20,7 @@
       JWT_SECRET: iados_jwt_secret_key_production_2024_cambiar
       JWT_EXPIRES_IN: 8h
       FRONTEND_URL: http://localhost,http://localhost:8081,https://posapi.iados.online
-      APP_VERSION: "2.2.70"
+      APP_VERSION: "2.2.71"
       PEXELS_API_KEY: zTTe3zHwLV7IAsqZSwfavWE41iv2ALaGMgrFAtkKitUw1sawGTRSp1wB
     volumes:
       - ./backend/uploads:/app/uploads
@@ -37,7 +37,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: https://posapi.iados.online/api
+        CACHE_BUST: "20260423-prebuilt-dist"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:
