@@ -444,8 +444,8 @@ export default function ConfiguracionPage() {
         slug:          status.config?.slug         ?? '',
         plantilla:     status.config?.plantilla    ?? 'oscuro',
       });
-      // Generate QR if active and has slug
-      if (status.config?.is_active && status.config?.slug) {
+      // Generate QR if has slug + any URL (worker or cloud)
+      if (status.config?.slug && (status.config?.worker_url || status.config?.cloud_url)) {
         const menuUrl = getMenuUrl(status.config.cloud_url || '', status.config.slug, status.config.worker_url);
         const qr = await QRCode.toDataURL(menuUrl, { width: 200, margin: 2 });
         setMdQr(qr);
@@ -522,9 +522,11 @@ export default function ConfiguracionPage() {
   const handleMdPublish = async (tiendaId: number, silent = false) => {
     setMdPublishing(true);
     try {
+      // Guardar config actual antes de publicar para asegurar worker_url/slug actualizados
+      await menuDigitalApi.updateConfig(tiendaId, mdCfgForm);
       const { data } = await menuDigitalApi.publish(tiendaId);
       if (data.success) {
-        if (!silent) toast.success(`Menu publicado: ${data.productos} productos, ${data.images_uploaded} imagenes`);
+        if (!silent) toast.success(`Menu publicado: ${data.productos} productos${data.worker_synced ? ' · Worker OK' : ''}`);
         loadMenuDigital(tiendaId);
       } else {
         if (!silent) toast.error(data.error || 'Error al publicar');
@@ -1328,7 +1330,14 @@ export default function ConfiguracionPage() {
                         type="checkbox"
                         className="sr-only peer"
                         checked={mdCfgForm.is_active ?? false}
-                        onChange={e => setMdCfgForm({ ...mdCfgForm, is_active: e.target.checked })}
+                        onChange={async e => {
+                          const updated = { ...mdCfgForm, is_active: e.target.checked };
+                          setMdCfgForm(updated);
+                          try {
+                            await menuDigitalApi.updateConfig(selected.id, updated);
+                            loadMenuDigital(selected.id);
+                          } catch { toast.error('Error al guardar'); }
+                        }}
                       />
                       <div className="w-11 h-6 bg-slate-700 peer-checked:bg-iados-secondary rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all" />
                     </label>

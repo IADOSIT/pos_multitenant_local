@@ -137,8 +137,15 @@ let MenuDigitalService = class MenuDigitalService {
                 disponible: p.disponible, orden: p.orden, sku: p.sku || null,
             }));
             this.logger.log(`Publicando menu "${cfg.slug}" → BD local (${productos.length} productos)`);
-            if (cfg.worker_url) {
-                await this.syncToWorker(cfg, tiendaData, categoriasData, productosData);
+            let worker_synced = false;
+            if (cfg.worker_url && cfg.slug) {
+                try {
+                    await this.syncToWorker(cfg, tiendaData, categoriasData, productosData);
+                    worker_synced = true;
+                }
+                catch (we) {
+                    this.logger.warn(`Worker sync failed (no es crítico): ${we.message}`);
+                }
             }
             await this.saveSnapshotDirect({
                 slug: cfg.slug, tenant_id: cfg.tenant_id, empresa_id: cfg.empresa_id,
@@ -166,6 +173,7 @@ let MenuDigitalService = class MenuDigitalService {
                 productos: productos.length,
                 duration_ms: duration,
                 menu_url: menuUrl,
+                worker_synced,
             };
         }
         catch (err) {
