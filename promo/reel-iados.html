@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>POS·iaDoS — Reel</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:#0a0a0a;
+  display:flex;align-items:center;justify-content:center;
+  min-height:100vh;
+  font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+}
+#stage{
+  width:390px;height:693px;
+  position:relative;overflow:hidden;
+  border-radius:24px;
+  box-shadow:0 0 0 1px rgba(255,255,255,.07),
+             0 50px 120px rgba(0,0,0,.95);
+  background:#020617;
+}
+/* ── BARRA SUPERIOR ── */
+.topbar{
+  position:absolute;top:0;left:0;right:0;height:3px;z-index:100;
+  background:linear-gradient(90deg,#1e40af,#f59e0b,#22c55e);
+}
+/* ── PROG + DOTS ── */
+#pw{position:absolute;bottom:0;left:0;right:0;height:2px;background:rgba(255,255,255,.05);z-index:90;}
+#pb{height:100%;width:0;background:linear-gradient(90deg,#3b82f6,#f59e0b);}
+#dots{position:absolute;bottom:13px;left:50%;transform:translateX(-50%);display:flex;gap:5px;z-index:90;}
+.dot{width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.2);transition:all .3s;}
+.dot.on{width:16px;border-radius:2px;background:#f59e0b;}
+#replay{
+  position:absolute;bottom:28px;right:16px;z-index:90;
+  width:36px;height:36px;border-radius:50%;
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);
+  color:#fff;font-size:16px;cursor:pointer;display:none;
+  align-items:center;justify-content:center;
+}
+#replay.on{display:flex;}
+/* ── FLASH ── */
+@keyframes flashAnim{0%{opacity:0}15%{opacity:.18}100%{opacity:0}}
+#flash{position:absolute;inset:0;z-index:99;pointer-events:none;
+  background:#fff;opacity:0;border-radius:24px;}
+#flash.go{animation:flashAnim .38s ease forwards;}
+/* ── SPARKLE ── */
+#sparkle{position:absolute;inset:0;z-index:3;pointer-events:none;}
+
+/* ═══════════════════════════════════════
+   ESCENAS
+═══════════════════════════════════════ */
+.scene{
+  position:absolute;inset:0;
+  opacity:0;pointer-events:none;
+  transition:opacity .42s cubic-bezier(.4,0,.2,1);
+}
+.scene.active{opacity:1;pointer-events:all;}
+
+/* ── FONDOS ── */
+.bg-dark{
+  position:absolute;inset:0;
+  background:radial-gradient(ellipse 90% 55% at 50% -5%,rgba(30,64,175,.6) 0%,transparent 65%),
+             radial-gradient(ellipse 60% 45% at 85% 100%,rgba(245,158,11,.13) 0%,transparent 60%),
+             #020617;
+}
+.bg-dark2{
+  position:absolute;inset:0;
+  background:radial-gradient(ellipse 70% 55% at 15% 15%,rgba(34,197,94,.18) 0%,transparent 55%),
+             radial-gradient(ellipse 80% 55% at 85% 85%,rgba(30,64,175,.35) 0%,transparent 60%),
+             #020617;
+}
+.bg-dots{
+  position:absolute;inset:0;
+  background-image:radial-gradient(circle,rgba(148,163,184,.06) 1px,transparent 1px);
+  background-size:22px 22px;
+}
+
+/* ── PORTADA HERO (S0) ── */
+.hero-wrap{
+  position:absolute;inset:0;
+}
+.hero-wrap img{
+  position:absolute;inset:0;
+  width:100%;height:100%;
+  object-fit:cover;object-position:center top;
+  display:block;
+}
+.hero-overlay{
+  position:absolute;inset:0;
+  background:linear-gradient(
+    to bottom,
+    rgba(2,6,23,.82) 0%,
+    rgba(2,6,23,.08) 30%,
+    rgba(2,6,23,.05) 55%,
+    rgba(2,6,23,.75) 78%,
+    rgba(2,6,23,.97) 100%
+  );
+}
+.hero-top{
+  position:absolute;top:28px;left:0;right:0;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  z-index:2;
+}
+.hero-bot{
+  position:absolute;bottom:44px;left:0;right:0;
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  z-index:2;padding:0 22px;text-align:center;
+}
+
+/* ── LAYOUT ESCENAS CON CARD ── */
+.scene-layout{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;
+  align-items:center;
+  padding:28px 20px 50px;
+  gap:0;
+}
+.scene-title{
+  font-size:25px;font-weight:900;color:#fff;
+  line-height:1.2;text-align:center;
+  margin-bottom:14px;z-index:2;
+}
+.scene-title .a{color:#f59e0b;}
+.scene-title .g{color:#22c55e;}
+.scene-title .b{color:#3b82f6;}
+
+/* ── CARD SCREENSHOT ── */
+.scard{
+  position:relative;z-index:2;
+  border-radius:18px;overflow:hidden;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.1),
+    0 8px 32px rgba(0,0,0,.5),
+    0 24px 64px rgba(0,0,0,.45);
+  flex-shrink:0;
+  width:100%;
+}
+.scard img{
+  display:block;
+  width:100%;
+  /* altura controlada por cada scene */
+}
+.scard-badge{
+  position:absolute;top:10px;left:10px;z-index:3;
+  background:rgba(2,6,23,.78);
+  backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:9px;padding:4px 11px;
+  font-size:9.5px;font-weight:700;color:#fff;letter-spacing:.4px;
+}
+
+/* ── CARD DOBLE (split) ── */
+.dual-cards{
+  display:flex;gap:9px;width:100%;z-index:2;
+}
+.dual-cards .scard{flex:1;}
+.dual-cards .scard img{height:290px;object-fit:cover;object-position:top;}
+
+/* ── CHIPS Y SUBS ── */
+.chip-row{
+  display:flex;flex-wrap:wrap;justify-content:center;
+  gap:5px;z-index:2;margin-top:10px;
+}
+.chip{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:5px 13px;border-radius:999px;
+  font-size:11.5px;font-weight:700;
+}
+.ca{background:rgba(245,158,11,.16);border:1px solid rgba(245,158,11,.4);color:#f59e0b;}
+.cg{background:rgba(34,197,94,.14);border:1px solid rgba(34,197,94,.38);color:#22c55e;}
+.cb{background:rgba(59,130,246,.14);border:1px solid rgba(59,130,246,.38);color:#3b82f6;}
+.co{background:rgba(249,115,22,.14);border:1px solid rgba(249,115,22,.38);color:#f97316;}
+.cw{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:#e2e8f0;}
+.scene-sub{
+  font-size:12.5px;color:rgba(255,255,255,.62);
+  line-height:1.55;text-align:center;z-index:2;margin-top:6px;
+}
+
+/* ── BRAND ── */
+@keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+.brand{
+  font-size:52px;font-weight:900;letter-spacing:-2px;line-height:.9;
+  background:linear-gradient(90deg,#fff 25%,#f59e0b 50%,#fff 75%);
+  background-size:400px 100%;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  animation:shimmer 2.8s linear infinite;
+}
+.brand em{font-style:normal;-webkit-text-fill-color:#f59e0b;}
+.tag{font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:rgba(255,255,255,.45);}
+
+/* ── OFFLINE ── */
+.offline-pill{
+  display:flex;align-items:center;gap:12px;
+  background:rgba(34,197,94,.1);border:1.5px solid rgba(34,197,94,.38);
+  border-radius:16px;padding:13px 20px;z-index:2;
+  font-size:13px;font-weight:800;color:#22c55e;width:100%;max-width:305px;
+}
+
+/* ── WA BTN ── */
+.wa{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;background:#25d366;color:#fff;
+  border-radius:18px;padding:15px 30px;
+  width:100%;max-width:285px;z-index:2;
+  box-shadow:0 6px 32px rgba(37,211,102,.48);
+}
+.wa-num{font-size:24px;font-weight:900;letter-spacing:1px;}
+.wa-lbl{font-size:11px;opacity:.85;font-weight:600;}
+
+/* ── ANIMACIONES ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes zoomIn{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+@keyframes bounce{
+  0%{opacity:0;transform:scale(.55)translateY(24px)}
+  62%{transform:scale(1.08)translateY(-4px)}
+  82%{transform:scale(.97)translateY(2px)}
+  100%{opacity:1;transform:scale(1)translateY(0)}
+}
+@keyframes glowA{0%,100%{box-shadow:0 0 22px rgba(245,158,11,.32)}50%{box-shadow:0 0 50px rgba(245,158,11,.72)}}
+@keyframes glowG{0%,100%{box-shadow:0 0 20px rgba(34,197,94,.25)}50%{box-shadow:0 0 48px rgba(34,197,94,.65)}}
+@keyframes glowW{0%,100%{box-shadow:0 6px 32px rgba(37,211,102,.45)}50%{box-shadow:0 6px 52px rgba(37,211,102,.75)}}
+@keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+@keyframes particleUp{0%{transform:translateY(0)scale(1);opacity:.8}100%{transform:translateY(-85px)scale(.15);opacity:0}}
+
+.au{animation:fadeUp .48s cubic-bezier(.22,.61,.36,1) both;}
+.az{animation:zoomIn .46s cubic-bezier(.22,.61,.36,1) both;}
+.ab{animation:bounce .6s cubic-bezier(.22,.61,.36,1) both;}
+.aG{animation:glowA 1.9s ease infinite;}
+.aGG{animation:glowG 1.9s ease infinite;}
+.aGW{animation:glowW 1.9s ease infinite;}
+.aFL{animation:floatY 3s ease infinite;}
+
+.d1{animation-delay:.06s}.d2{animation-delay:.18s}.d3{animation-delay:.32s}
+.d4{animation-delay:.47s}.d5{animation-delay:.63s}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="topbar"></div>
+  <div id="pw"><div id="pb"></div></div>
+  <div id="dots"></div>
+  <button id="replay" onclick="restart()">↺</button>
+  <div id="flash"></div>
+  <canvas id="sparkle"></canvas>
+
+  <!-- ══════════════════════════════
+       S0 · PORTADA — imagen 1, lo primero
+  ══════════════════════════════ -->
+  <div class="scene" id="s0">
+    <div class="hero-wrap">
+      <img src="img/portada.jpg" alt="POS iaDoS">
+      <div class="hero-overlay"></div>
+    </div>
+    <div class="hero-top">
+      <div class="tag au" style="color:rgba(255,255,255,.5);">✦ Sistema Punto de Venta ✦</div>
+      <div class="brand az d1">POS·<em>ia</em>DoS</div>
+    </div>
+    <div class="hero-bot">
+      <div class="chip-row au d2">
+        <span class="chip ca">🍽 Restaurantes</span>
+        <span class="chip cb">🛒 Tiendas</span>
+        <span class="chip cg">☕ Cafeterías</span>
+      </div>
+      <div class="scene-sub au d3" style="color:rgba(255,255,255,.75);">Tu sistema. Tu negocio.<br><strong style="color:#fff;">Operando desde el primer día.</strong></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       S1 · HOOK — el dolor
+  ══════════════════════════════ -->
+  <div class="scene" id="s1">
+    <div class="bg-dark"></div>
+    <div class="bg-dots"></div>
+    <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 24px;text-align:center;gap:0;z-index:2;">
+      <div class="ab" style="font-size:60px;filter:drop-shadow(0 0 18px rgba(239,68,68,.5));">😤</div>
+      <div style="height:12px;"></div>
+      <div class="scene-title au d2" style="font-size:27px;">
+        Pedidos a mano.<br>Errores en cocina.<br><span class="a">Cola de clientes.</span>
+      </div>
+      <div style="height:18px;"></div>
+      <div class="ab d4" style="font-size:28px;font-weight:900;color:#fff;">
+        Eso <span style="color:#f59e0b;">ya se acabó.</span>
+      </div>
+      <div style="height:10px;"></div>
+      <div class="scene-sub au d5">Hay una forma mucho más inteligente<br>de llevar tu negocio. 👇</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       S2 · POS TÁCTIL — screenshot con card
+  ══════════════════════════════ -->
+  <div class="scene" id="s2">
+    <div class="bg-dark"></div>
+    <div class="bg-dots"></div>
+    <div class="scene-layout" style="justify-content:flex-start;">
+      <div class="scene-title au" style="margin-top:4px;">
+        <span class="a">Cobra</span> en segundos,<br>desde cualquier pantalla
+      </div>
+      <div class="scard az d2" style="max-width:350px;">
+        <div class="scard-badge">📱 En vivo — Mariscos 2-13's</div>
+        <img src="img/pos-main.png" alt="POS iaDoS"
+             style="height:240px;object-fit:cover;object-position:top;">
+      </div>
+      <div class="chip-row au d3">
+        <span class="chip ca">Menú con fotos</span>
+        <span class="chip cw">Categorías</span>
+        <span class="chip cb">Cobro al instante</span>
+      </div>
+      <div class="scene-sub au d4">Tablet · celular · computadora — donde sea</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       S3 · MENÚ DIGITAL + QR — dos cards
+  ══════════════════════════════ -->
+  <div class="scene" id="s3">
+    <div class="bg-dark2"></div>
+    <div class="bg-dots"></div>
+    <div class="scene-layout" style="justify-content:flex-start;">
+      <div class="scene-title au" style="margin-top:4px;">
+        El cliente <span class="g">ordena solo</span>
+      </div>
+      <div class="dual-cards az d2">
+        <div class="scard">
+          <div class="scard-badge">📲 Menú digital</div>
+          <img src="img/menu-digital.jpg" alt="Menú digital"
+               style="height:290px;object-fit:cover;object-position:top;display:block;width:100%;">
+        </div>
+        <div class="scard">
+          <div class="scard-badge">⬛ QR de mesa</div>
+          <img src="img/qr-mesa.jpg" alt="QR de mesa"
+               style="height:290px;object-fit:cover;object-position:top;display:block;width:100%;">
+        </div>
+      </div>
+      <div class="chip-row au d3">
+        <span class="chip cg">Sin app · Sin registro</span>
+      </div>
+      <div class="scene-sub au d4">Escanea · Ve el menú · Ordena · El pedido llega solo</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       S4 · PARA LLEVAR
+  ══════════════════════════════ -->
+  <div class="scene" id="s4">
+    <div class="bg-dark"></div>
+    <div class="bg-dots"></div>
+    <div class="scene-layout" style="justify-content:flex-start;">
+      <div class="scene-title au" style="margin-top:4px;">
+        Para llevar,<br>listo para <span class="a">cualquier entrega</span>
+      </div>
+      <div class="scard az d2" style="max-width:260px;align-self:center;">
+        <div class="scard-badge">🛵 Pedido para llevar</div>
+        <img src="img/para-llevar.jpg" alt="Para llevar"
+             style="height:300px;object-fit:cover;object-position:top;display:block;width:100%;">
+      </div>
+      <div class="chip-row au d3">
+        <span class="chip co">Nombre · Teléfono · Dirección</span>
+      </div>
+      <div class="scene-sub au d4">Compatible con cualquier servicio de delivery</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       S5 · MESAS
+  ══════════════════════════════ -->
+  <div class="scene" id="s5">
+    <div class="bg-dark2"></div>
+    <div class="bg-dots"></div>
+    <div class="scene-layout" style="justify-content:flex-start;">
+      <div class="scene-title au" style="margin-top:4px;">
+        Todas tus mesas,<br><span class="g">en una pantalla</span>
+      </div>
+      <div class="scard az d2" style="max-width:350px;">
+        <div class="scard-badge">🪑 Gestión de mesas</div>
+        <img src="img/mesas.jpg" alt="Mesas"
+             style="height:250px;object-fit:cover;object-position:top;display:block;width:100%;">
+      </div>
+      <div class="chip-row au d3">
+        <span class="chip cg">Comanda directo a cocina</span>
+        <span class="chip cw">Sin papel</span>
+      </div>
+      <div class="scene-sub au d4">Cuenta abierta · Cobro parcial · Post-pago por mesa</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       S6 · DASHBOARD
+  ══════════════════════════════ -->
+  <div class="scene" id="s6">
+    <div class="bg-dark"></div>
+    <div class="bg-dots"></div>
+    <div class="scene-layout" style="justify-content:flex-start;">
+      <div class="scene-title au" style="margin-top:4px;">
+        Sabes exactamente<br><span class="a">cuánto vendiste</span>
+      </div>
+      <div class="scard az d2" style="max-width:350px;">
+        <div class="scard-badge">📊 Reportes en tiempo real</div>
+        <img src="img/dashboard.jpg" alt="Dashboard"
+             style="height:230px;object-fit:cover;object-position:top;display:block;width:100%;">
+      </div>
+      <div class="chip-row au d3">
+        <span class="chip ca">Ventas · Producto estrella</span>
+        <span class="chip cb">Corte de caja</span>
+      </div>
+      <div class="scene-sub au d4">Sin calculadora. Sin cuentas. Todo al instante.</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       S7 · OFFLINE
+  ══════════════════════════════ -->
+  <div class="scene" id="s7">
+    <div class="bg-dark2"></div>
+    <div class="bg-dots"></div>
+    <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 24px;text-align:center;gap:0;z-index:2;">
+      <div class="scene-title au" style="font-size:26px;">
+        Se fue el internet.<br><span class="g">No importa.</span>
+      </div>
+      <div style="height:16px;"></div>
+      <div class="ab d2 aFL" style="font-size:72px;">📴</div>
+      <div style="height:18px;"></div>
+      <div class="offline-pill az d3 aGG">
+        <span style="font-size:30px;">✅</span>
+        <div>
+          <div>Funciona 100% sin internet</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:400;margin-top:2px;">Datos locales · Se sincroniza solo al volver</div>
+        </div>
+      </div>
+      <div style="height:14px;"></div>
+      <div class="scene-sub au d4">Tu negocio no se detiene.<br><strong style="color:#fff;">Nunca.</strong></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       S8 · CTA FINAL
+  ══════════════════════════════ -->
+  <div class="scene" id="s8">
+    <div class="bg-dark"></div>
+    <div class="bg-dots"></div>
+    <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 24px;text-align:center;gap:0;z-index:2;">
+      <div class="brand az" style="font-size:56px;">POS·<em>ia</em>DoS</div>
+      <div style="height:6px;"></div>
+      <div class="tag au d1" style="color:#f59e0b;">✦ Más ventas · Menos caos ✦</div>
+      <div style="width:48px;height:3px;background:#f59e0b;border-radius:2px;margin:14px 0;" class="az d2"></div>
+      <div class="scene-sub au d2" style="font-size:14.5px;color:rgba(255,255,255,.7);">
+        Instalado y operando<br>
+        <strong style="color:#fff;font-size:17px;">desde el primer día. 🚀</strong>
+      </div>
+      <div style="height:22px;"></div>
+      <div class="wa ab d3 aGW">
+        <div class="wa-lbl">💬 Escríbenos por WhatsApp</div>
+        <div class="wa-num">831 898 9580</div>
+      </div>
+      <div style="height:12px;"></div>
+      <div class="au d4" style="font-size:14px;font-weight:600;color:#3b82f6;letter-spacing:.8px;">iados.mx</div>
+    </div>
+  </div>
+
+</div><!-- /stage -->
+
+<script>
+/* ═══════════════════════════════════════
+   CONFIG
+═══════════════════════════════════════ */
+const SCENES = [
+  {id:'s0', min:4200},
+  {id:'s1', min:3800},
+  {id:'s2', min:4200},
+  {id:'s3', min:4500},
+  {id:'s4', min:4000},
+  {id:'s5', min:4000},
+  {id:'s6', min:3800},
+  {id:'s7', min:3800},
+  {id:'s8', min:5500},
+];
+const TOTAL = 37800;
+
+/* Narración — mujer moderna, fresa, fluida y con energía */
+const NAR = [
+  '¡Este es POS iaDoS! El sistema que está cambiando la forma en que los restaurantes y tiendas venden hoy.',
+  'Seamos honestas. Anotar pedidos a mano, errores en cocina, clientes desesperados esperando... eso ya pasó de moda. Hay una solución increíble.',
+  '¡Imagínate! Tu equipo cobra desde cualquier tablet o celular, con el menú en fotos, todo súper organizado, y el cobro listo en segundos.',
+  'Lo que más me encanta: el cliente escanea el QR de su mesa, ve el menú en su celular y ordena solo. Sin app, sin mesero, sin esperar.',
+  'Y para llevar, capturar nombre, teléfono y dirección del cliente está integrado. Tu restaurante listo para cualquier entrega a domicilio.',
+  'Todas tus mesas en una pantalla. La comanda llega directo a cocina. Sin gritos, sin papel. Todo fluye perfectamente.',
+  'Al cierre del día, en segundos sabes qué vendiste, cuál fue tu platillo estrella y si tu caja cuadra. ¡Sin hacer ni una cuenta!',
+  'Y si se va el internet, no pasa nada. El sistema sigue funcionando exactamente igual. Tu negocio nunca para.',
+  'iaDoS. Más ventas, menos caos. Te lo entregamos instalado y operando. Escríbenos por WhatsApp, y empezamos hoy.',
+];
+
+/* ═══════════════════════════════════════
+   DOTS
+═══════════════════════════════════════ */
+const dotsEl = document.getElementById('dots');
+SCENES.forEach((_,i) => {
+  const d = document.createElement('div');
+  d.className = 'dot'; d.id = 'dot'+i;
+  dotsEl.appendChild(d);
+});
+
+/* ═══════════════════════════════════════
+   SPARKLE
+═══════════════════════════════════════ */
+const cvs = document.getElementById('sparkle');
+cvs.width = 390; cvs.height = 693;
+const ctx = cvs.getContext('2d');
+let sparks = [], sRaf = null;
+const COLS = ['rgba(245,158,11,','rgba(59,130,246,','rgba(34,197,94,','rgba(255,255,255,'];
+
+function burst(x, y, n=16) {
+  for(let i=0;i<n;i++){
+    const a = Math.random()*Math.PI*2, spd = 1.8+Math.random()*3.8;
+    sparks.push({x,y, vx:Math.cos(a)*spd, vy:Math.sin(a)*spd-2,
+      life:1, dec:.025+Math.random()*.028, r:1.8+Math.random()*2.8,
+      col: COLS[Math.floor(Math.random()*4)]});
+  }
+  if(!sRaf) sRaf = requestAnimationFrame(drawSparks);
+}
+function drawSparks() {
+  ctx.clearRect(0,0,390,693);
+  sparks = sparks.filter(s => s.life > 0);
+  for(const s of sparks) {
+    s.x += s.vx; s.y += s.vy; s.vy += .14; s.life -= s.dec;
+    ctx.globalAlpha = Math.max(0, s.life);
+    ctx.fillStyle = s.col + s.life + ')';
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  sRaf = sparks.length ? requestAnimationFrame(drawSparks) : null;
+}
+
+/* ═══════════════════════════════════════
+   VOZ
+═══════════════════════════════════════ */
+let voices = [];
+const loadV = () => voices = window.speechSynthesis?.getVoices() || [];
+if(window.speechSynthesis){ loadV(); speechSynthesis.onvoiceschanged = loadV; }
+
+function bestVoice() {
+  const fem = ['paulina','sabina','luciana','monica','sofia','valeria','camila',
+    'isabel','esperanza','rosa','alice','allison','female','woman','mujer',
+    'google español de estados unidos','microsoft sabina','microsoft laura'];
+  const isFem = v => fem.some(n => (v.name||'').toLowerCase().includes(n));
+  const tries = [
+    v => v.lang==='es-MX' && v.localService && isFem(v),
+    v => v.lang==='es-MX' && isFem(v),
+    v => v.lang.startsWith('es') && v.localService && isFem(v),
+    v => v.lang.startsWith('es') && isFem(v),
+    v => v.lang==='es-MX' && v.localService,
+    v => v.lang==='es-MX',
+    v => v.lang.startsWith('es'),
+  ];
+  for(const fn of tries){ const v = voices.find(fn); if(v) return v; }
+  return null;
+}
+
+function speak(txt) {
+  if(!window.speechSynthesis){ speechDone=true; tryNext(); return; }
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(txt);
+  u.lang = 'es-MX';
+  u.rate = 1.06;   /* fluida y natural */
+  u.pitch = 1.20;  /* femenina moderna */
+  u.volume = 1;
+  const v = bestVoice(); if(v) u.voice = v;
+  u.onend = () => { speechDone=true; tryNext(); };
+  u.onerror = () => { speechDone=true; tryNext(); };
+  speechSynthesis.speak(u);
+}
+
+/* ═══════════════════════════════════════
+   ESTADO Y LÓGICA
+═══════════════════════════════════════ */
+let cur=0, minTmr=null, speechDone=false, minDone=false, started=false;
+const pb = document.getElementById('pb');
+const replay = document.getElementById('replay');
+const flashEl = document.getElementById('flash');
+let pRaf = null;
+
+function doFlash(cb) {
+  flashEl.classList.remove('go'); void flashEl.offsetWidth;
+  flashEl.classList.add('go');
+  setTimeout(cb, 72);
+}
+
+function retrigAnim(el) {
+  el.querySelectorAll('.au,.az,.ab').forEach(a => {
+    a.style.animation='none'; void a.offsetWidth; a.style.animation='';
+  });
+}
+
+function show(idx) {
+  const go = () => {
+    SCENES.forEach((s,i) => {
+      document.getElementById(s.id).classList.remove('active');
+      const dot = document.getElementById('dot'+i);
+      if(dot) dot.classList.remove('on');
+    });
+    const el = document.getElementById(SCENES[idx].id);
+    el.classList.add('active');
+    retrigAnim(el);
+    const dot = document.getElementById('dot'+idx);
+    if(dot) dot.classList.add('on');
+    speechDone=false; minDone=false;
+    clearTimeout(minTmr);
+    minTmr = setTimeout(() => { minDone=true; tryNext(); }, SCENES[idx].min);
+    speak(NAR[idx]);
+    if([0,3,6,8].includes(idx)) burst(195, 346);
+  };
+  idx===0 ? go() : doFlash(go);
+}
+
+function tryNext() {
+  if(!speechDone || !minDone) return;
+  cur++;
+  if(cur >= SCENES.length) { finish(); return; }
+  show(cur);
+}
+
+function finish() {
+  pb.style.width = '100%';
+  replay.classList.add('on');
+  speechSynthesis?.cancel();
+}
+
+function animProg() {
+  const t0 = Date.now();
+  if(pRaf) cancelAnimationFrame(pRaf);
+  pb.style.width = '0%';
+  (function tick(){
+    const pct = Math.min((Date.now()-t0)/TOTAL*100, 100);
+    pb.style.width = pct+'%';
+    if(pct < 100 && started) pRaf = requestAnimationFrame(tick);
+  })();
+}
+
+function restart() {
+  started=true; cur=0;
+  sparks=[]; if(sRaf){ cancelAnimationFrame(sRaf); sRaf=null; }
+  ctx.clearRect(0,0,390,693);
+  replay.classList.remove('on');
+  animProg(); show(0);
+}
+
+/* ─── Inicio: esperar voces ─── */
+window.addEventListener('load', () => {
+  if(!window.speechSynthesis) { setTimeout(restart, 300); return; }
+  loadV();
+  if(voices.length) { setTimeout(restart, 300); return; }
+  let n=0;
+  const t = setInterval(() => {
+    loadV(); n++;
+    if(voices.length || n>25) { clearInterval(t); setTimeout(restart, 300); }
+  }, 120);
+});
+
+/* ─── Tap para avanzar ─── */
+document.getElementById('stage').addEventListener('click', e => {
+  if(e.target.id==='replay' || !started) return;
+  if(cur >= SCENES.length-1) return;
+  const r = e.currentTarget.getBoundingClientRect();
+  burst(e.clientX-r.left, e.clientY-r.top, 12);
+  clearTimeout(minTmr);
+  speechSynthesis?.cancel();
+  speechDone=true; minDone=true;
+  cur++; show(cur);
+});
+</script>
+</body>
+</html>
