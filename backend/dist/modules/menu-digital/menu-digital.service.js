@@ -141,6 +141,9 @@ let MenuDigitalService = class MenuDigitalService {
             if (cfg.worker_url && cfg.slug) {
                 try {
                     await this.syncToWorker(cfg, tiendaData, categoriasData, productosData);
+                    if (tienda.slug && tienda.slug !== cfg.slug) {
+                        await this.syncToWorker({ ...cfg, slug: tienda.slug }, tiendaData, categoriasData, productosData);
+                    }
                     worker_synced = true;
                 }
                 catch (we) {

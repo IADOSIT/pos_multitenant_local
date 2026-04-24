@@ -157,6 +157,10 @@ export class MenuDigitalService {
       if (cfg.worker_url && cfg.slug) {
         try {
           await this.syncToWorker(cfg, tiendaData, categoriasData, productosData);
+          // También sincronizar bajo el slug de la tienda (usado por QR de mesas: /s/{tienda_slug}/{mesa})
+          if (tienda.slug && tienda.slug !== cfg.slug) {
+            await this.syncToWorker({ ...cfg, slug: tienda.slug } as any, tiendaData, categoriasData, productosData);
+          }
           worker_synced = true;
         } catch (we) {
           this.logger.warn(`Worker sync failed (no es crítico): ${we.message}`);
