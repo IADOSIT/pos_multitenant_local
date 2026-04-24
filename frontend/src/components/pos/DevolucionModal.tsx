@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { devolucionesApi, ventasApi } from '../../api/endpoints';
 import toast from 'react-hot-toast';
-import { X, RotateCcw, CheckCircle, AlertTriangle } from 'lucide-react';
+import { X, RotateCcw, CheckCircle, AlertTriangle, ChevronsUp, Eraser } from 'lucide-react';
 
 interface Props {
   ventaId: number;
@@ -57,6 +57,18 @@ export default function DevolucionModal({ ventaId, onClose, onSuccess }: Props) 
 
   const itemsSeleccionados = venta?.detalles?.filter((d: any) => (cantidades[d.producto_id] || 0) > 0) || [];
 
+  const handleDevolverTodo = () => {
+    if (!venta?.detalles) return;
+    const nuevas: Record<number, number> = {};
+    for (const d of venta.detalles) {
+      const max = maxDevolvible(d);
+      if (max > 0) nuevas[d.producto_id] = max;
+    }
+    setCantidades(nuevas);
+  };
+
+  const handleLimpiar = () => setCantidades({});
+
   const handleConfirmar = async () => {
     if (!itemsSeleccionados.length) return toast.error('Selecciona al menos un ítem a devolver');
     setSaving(true);
@@ -97,9 +109,15 @@ export default function DevolucionModal({ ventaId, onClose, onSuccess }: Props) 
             <div className="bg-iados-card rounded-xl p-4 space-y-1">
               <p className="text-xs text-slate-400">Folio</p>
               <p className="text-2xl font-black text-amber-400">{resultado.folio}</p>
-              <p className="text-green-400 font-bold text-lg">${Number(resultado.monto_total).toFixed(2)} en efectivo</p>
+              <p className="text-green-400 font-bold text-xl">${Number(resultado.monto_total).toFixed(2)}</p>
             </div>
-            <p className="text-xs text-slate-500">Entrega el efectivo al cliente y guarda este folio.</p>
+            <div className="bg-amber-900/20 border border-amber-700/40 rounded-xl p-3 text-xs text-amber-300 text-left space-y-1">
+              <p className="font-semibold">Acciones realizadas:</p>
+              <p>✓ Devolución registrada en historial</p>
+              <p>✓ Stock repuesto en inventario</p>
+              <p>✓ Salida registrada en caja activa</p>
+            </div>
+            <p className="text-xs text-slate-500">Entrega ${Number(resultado.monto_total).toFixed(2)} en efectivo al cliente.</p>
             <button onClick={onClose} className="btn-primary w-full">Cerrar</button>
           </div>
         )}
@@ -115,6 +133,22 @@ export default function DevolucionModal({ ventaId, onClose, onSuccess }: Props) 
                   <span>Esta venta ya tiene {devsExistentes.length} devolución(es) previas. Las cantidades máximas se ajustaron automáticamente.</span>
                 </div>
               )}
+
+              {/* Botones selección rápida */}
+              <div className="flex gap-2">
+                <button
+                  onClick={handleDevolverTodo}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600/20 border border-amber-600/40 text-amber-400 text-xs font-medium hover:bg-amber-600/30 transition-colors"
+                >
+                  <ChevronsUp size={13} /> Devolver ticket completo
+                </button>
+                <button
+                  onClick={handleLimpiar}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700 text-slate-400 text-xs hover:bg-slate-600 transition-colors"
+                >
+                  <Eraser size={13} /> Limpiar
+                </button>
+              </div>
 
               {/* Tabla de ítems */}
               <table className="w-full text-sm">

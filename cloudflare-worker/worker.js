@@ -333,6 +333,16 @@ header{background:var(--card);border-bottom:1px solid var(--border);padding:12px
 .qty-ctrl{display:flex;align-items:center;gap:8px;justify-content:center}
 .qty-btn{width:30px;height:30px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center}
 .qty-num{font-weight:700;min-width:20px;text-align:center}
+.steps{display:flex;padding:10px 16px 10px;background:var(--card);border-bottom:1px solid var(--border);gap:0}
+.step{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;padding:0 2px}
+.step:not(:last-child)::after{content:'';position:absolute;top:13px;right:0;left:50%;margin-left:14px;height:2px;background:var(--border);z-index:0}
+.step-icon{width:28px;height:28px;border-radius:50%;background:var(--border);color:var(--muted);font-size:12px;display:flex;align-items:center;justify-content:center;margin-bottom:4px;transition:all .25s;position:relative;z-index:1;font-weight:700}
+.step-lbl{font-size:10px;color:var(--muted);line-height:1.2;transition:color .25s}
+.step.active .step-icon{background:var(--accent);color:#fff;box-shadow:0 0 0 3px rgba(99,102,241,.25)}
+.step.active .step-lbl{color:var(--text);font-weight:600}
+.step.done .step-icon{background:#22c55e;color:#fff}
+.step.done .step-lbl{color:#4ade80}
+.step.done+.step::after,.step.done::after{background:#22c55e}
 .fab{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;border:none;border-radius:40px;padding:14px 24px;font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px;box-shadow:0 4px 20px rgba(99,102,241,.5);z-index:20;white-space:nowrap}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:30;display:none}
 .panel{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-radius:20px 20px 0 0;z-index:31;padding:20px 16px 16px;max-height:85vh;display:flex;flex-direction:column;transform:translateY(100%);transition:transform .3s ease}
@@ -364,6 +374,20 @@ body{padding-bottom:80px}
   <button class="cat-btn active" data-id="all" onclick="filterCat('all')">Todos</button>
   ${catTabs}
 </nav>
+<div class="steps" id="steps">
+  <div class="step active" id="step1">
+    <div class="step-icon">1</div>
+    <div class="step-lbl">Elige tus platillos</div>
+  </div>
+  <div class="step" id="step2">
+    <div class="step-icon">2</div>
+    <div class="step-lbl">Revisa tu pedido</div>
+  </div>
+  <div class="step" id="step3">
+    <div class="step-icon">3</div>
+    <div class="step-lbl">Confirma y envía</div>
+  </div>
+</div>
 <div id="menu-body"></div>
 <button class="fab" id="fab" style="display:none" onclick="openCart()">
   <span>🛒</span><span id="fab-txt">Ver carrito</span>
@@ -388,6 +412,22 @@ var SLUG = ${JSON.stringify(slug)};
 var MESA = ${JSON.stringify(mesa)};
 var WORKER = ${JSON.stringify(workerOrigin)};
 var cart = {};
+var cartOpened = false;
+
+function updateSteps(){
+  var c=count();
+  var s1=document.getElementById('step1');
+  var s2=document.getElementById('step2');
+  var s3=document.getElementById('step3');
+  if(!s1)return;
+  if(cartOpened){
+    s1.className='step done';s2.className='step done';s3.className='step active';
+  } else if(c>0){
+    s1.className='step done';s2.className='step active';s3.className='step';
+  } else {
+    s1.className='step active';s2.className='step';s3.className='step';
+  }
+}
 
 function p(id){return SNAP.productos.find(function(x){return x.id===id});}
 function qty(id){return cart[id]?cart[id].q:0;}
@@ -398,13 +438,13 @@ function add(id){
   var pr=p(id);if(!pr)return;
   if(!cart[id])cart[id]={id:pr.id,nombre:pr.nombre,sku:pr.sku||null,precio:pr.precio,q:0};
   cart[id].q++;
-  refreshQty(id);refreshFab();
+  refreshQty(id);refreshFab();updateSteps();
 }
 function rem(id){
   if(!cart[id])return;
   cart[id].q--;
   if(cart[id].q<=0)delete cart[id];
-  refreshQty(id);refreshFab();
+  refreshQty(id);refreshFab();updateSteps();
 }
 function refreshQty(id){
   var el=document.getElementById('qty-'+id);if(!el)return;
@@ -434,6 +474,7 @@ function filterCat(id){
 }
 
 function openCart(){
+  cartOpened=true;updateSteps();
   renderCartList();
   document.getElementById('overlay').style.display='block';
   setTimeout(function(){document.getElementById('panel').classList.add('open');},10);
@@ -486,7 +527,7 @@ async function submit(){
       '<p style="font-size:32px;font-weight:900;color:var(--accent)">'+data.numero+'</p></div>'+
       '<p style="color:var(--muted);font-size:13px;margin-top:16px">Mesa '+MESA+' · '+escHtml(nombre)+'</p></div>';
     document.getElementById('fab').style.display='none';
-    document.querySelectorAll('.cats,.cat-sec').forEach(function(e){e.style.display='none';});
+    document.querySelectorAll('.cats,.cat-sec,.steps').forEach(function(e){e.style.display='none';});
   }catch(e){
     btn.disabled=false;btn.textContent='Confirmar pedido';
     alert('Error: '+e.message);

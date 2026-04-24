@@ -151,6 +151,29 @@ export class DevolucionesService {
       }
     }
 
+    // 7. Registrar salida en caja activa (si hay una abierta)
+    try {
+      const [cajaAbierta] = await this.dataSource.query(
+        `SELECT id, total_salidas FROM cajas WHERE tienda_id = ? AND estado = 'abierta' LIMIT 1`,
+        [scope.tienda_id],
+      );
+      if (cajaAbierta) {
+        const concepto = `Devolución ${devolucion.folio} (Venta ${venta.folio})`.slice(0, 200);
+        await this.dataSource.query(
+          `INSERT INTO movimientos_caja (caja_id, usuario_id, tipo, monto, concepto)
+           VALUES (?, ?, 'salida', ?, ?)`,
+          [cajaAbierta.id, scope.id || scope.sub, montoTotal, concepto],
+        );
+        await this.dataSource.query(
+          `UPDATE cajas SET total_salidas = total_salidas + ? WHERE id = ?`,
+          [montoTotal, cajaAbierta.id],
+        );
+        this.logger.log(`Caja ${cajaAbierta.id}: salida $${montoTotal.toFixed(2)} por devolución ${devolucion.folio}`);
+      }
+    } catch (e: any) {
+      this.logger.error(`Error actualizando caja tras devolución: ${e?.message}`);
+    }
+
     this.logger.log(`Devolución ${devolucion.folio} creada — Venta ${venta.folio} — $${montoTotal.toFixed(2)}`);
     return devolucion;
   }
