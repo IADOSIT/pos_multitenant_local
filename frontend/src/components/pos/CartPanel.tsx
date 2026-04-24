@@ -425,13 +425,20 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
           </div>
 
           {isPostPago ? (
-            <button
-              onClick={onEnviarPedido}
-              disabled={(!mesaActiva && !mesaNumeroOculto) || cart.length === 0}
-              className="btn-primary w-full text-lg mt-3 disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              <Send size={20} /> Enviar Pedido{mesaActiva ? ` — Mesa ${mesaActiva}` : ''}
-            </button>
+            <div className="space-y-2 mt-3">
+              {precuentaEnabled && onPreCuenta && cart.length > 0 && (
+                <button onClick={onPreCuenta} className="btn-secondary w-full flex items-center justify-center gap-2 text-sm">
+                  <FileText size={16} /> Pre-cuenta
+                </button>
+              )}
+              <button
+                onClick={onEnviarPedido}
+                disabled={(!mesaActiva && !mesaNumeroOculto) || cart.length === 0}
+                className="btn-primary w-full text-lg disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <Send size={20} /> Enviar Pedido{mesaActiva ? ` — Mesa ${mesaActiva}` : ''}
+              </button>
+            </div>
           ) : pedidoActivo ? (
             <div className="space-y-2 mt-3">
               {precuentaEnabled && onPreCuenta && (

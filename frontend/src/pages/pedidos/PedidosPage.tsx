@@ -6,7 +6,8 @@ import { useNotificaciones } from '../../hooks/useNotificaciones';
 import { printTicket, printComanda } from '../../utils/printTicket';
 import { resolveUploadUrl } from '../../api/client';
 import toast from 'react-hot-toast';
-import { ClipboardList, Clock, ChefHat, PackageCheck, CreditCard, XCircle, RefreshCw, Smartphone, Check, Ban, Receipt } from 'lucide-react';
+import { ClipboardList, Clock, ChefHat, PackageCheck, CreditCard, XCircle, RefreshCw, Smartphone, Check, Ban, Receipt, FileText } from 'lucide-react';
+import { tiendasApi } from '../../api/endpoints';
 import PinConfirmModal from '../../components/ui/PinConfirmModal';
 
 const estadoConfig: Record<string, { label: string; color: string; bg: string; icon: any }> = {
@@ -36,6 +37,7 @@ export default function PedidosPage() {
   const [showPinCancelar, setShowPinCancelar] = useState(false);
   const [showRechazarSO, setShowRechazarSO] = useState(false);
   const [rechazarMotivo, setRechazarMotivo] = useState('');
+  const [precuentaEnabled, setPrecuentaEnabled] = useState(false);
 
   // Payment state for cobrar
   const [metodo, setMetodo] = useState<'efectivo' | 'tarjeta' | 'transferencia'>('efectivo');
@@ -55,6 +57,14 @@ export default function PedidosPage() {
   }, [tab]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (user?.tienda_id) {
+      tiendasApi.get(user.tienda_id).then(r => {
+        setPrecuentaEnabled(r.data?.config_pos?.precuenta_enabled || false);
+      }).catch(() => {});
+    }
+  }, [user?.tienda_id]);
 
   // SSE: auto-refresh on new pedido events
   useNotificaciones({
@@ -151,6 +161,29 @@ export default function PedidosPage() {
       setSelected(null);
       load();
     } catch (e: any) { toast.error(e.response?.data?.message || 'Error'); }
+  };
+
+  const handlePreCuenta = async (pedido: any) => {
+    try {
+      const items = pedido.detalles?.map((d: any) => ({
+        nombre: d.producto_nombre,
+        cantidad: Number(d.cantidad),
+        precio: Number(d.precio_unitario),
+        descuento: Number(d.descuento || 0),
+        notas: d.notas,
+      })) || [];
+      const { data: ticket } = await ticketsApi.precuenta({
+        items,
+        subtotal: Number(pedido.subtotal),
+        impuestos: Number(pedido.impuestos || 0),
+        total: Number(pedido.total),
+        mesa: pedido.mesa,
+        cliente_nombre: pedido.cliente_nombre || undefined,
+        notas: pedido.notas || undefined,
+      });
+      printTicket(ticket.raw, ticket.ancho_papel, ticket.fuente_familia, ticket.fuente_tamano, null, ticket.logo_posicion, 1);
+      toast.success('Pre-cuenta impresa');
+    } catch { toast.error('Error al generar pre-cuenta'); }
   };
 
   const canManage = ['cajero', 'admin', 'manager', 'superadmin'].includes(user?.rol || '');
@@ -316,6 +349,15 @@ export default function PedidosPage() {
                   className="btn-primary text-sm"
                 >
                   <CreditCard size={16} className="mr-1" />Cobrar
+                </button>
+              )}
+              {precuentaEnabled && (
+                <button
+                  onClick={() => handlePreCuenta(selected)}
+                  className="btn-secondary text-xs flex items-center gap-1"
+                  title="Imprimir Pre-cuenta"
+                >
+                  <FileText size={14} /> Pre-cuenta
                 </button>
               )}
               <button
