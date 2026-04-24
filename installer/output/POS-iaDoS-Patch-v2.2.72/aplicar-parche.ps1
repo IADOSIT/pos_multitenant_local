@@ -2,16 +2,15 @@ param(
     [string]$InstallDir = "C:\POS-iaDoS",
     [string]$PatchDir   = $PSScriptRoot
 )
-$ErrorActionPreference = "SilentlyContinue"
 
+$VERSION = "2.2.72"
 $NSSM    = "$InstallDir\tools\nssm.exe"
 $SVC     = "PosIaDos-Backend"
-$VERSION = "2.2.72"
 
-function Write-Step($msg)  { Write-Host "  $msg" -ForegroundColor Yellow }
-function Write-Ok($msg)    { Write-Host "    OK: $msg" -ForegroundColor Green }
-function Write-Warn($msg)  { Write-Host "    AVISO: $msg" -ForegroundColor Yellow }
-function Write-Fail($msg)  { Write-Host "    ERROR: $msg" -ForegroundColor Red }
+function Write-Step($msg) { Write-Host "  >> $msg" -ForegroundColor Yellow }
+function Write-Ok($msg)   { Write-Host "     OK: $msg" -ForegroundColor Green }
+function Write-Warn($msg) { Write-Host "     AVISO: $msg" -ForegroundColor Yellow }
+function Write-Fail($msg) { Write-Host "     ERROR: $msg" -ForegroundColor Red; exit 1 }
 
 Write-Host ""
 Write-Host "  POS-iaDoS Parche v$VERSION" -ForegroundColor Cyan
@@ -19,158 +18,137 @@ Write-Host "  ========================================" -ForegroundColor DarkGra
 Write-Host ""
 
 if (-not (Test-Path $InstallDir)) {
-    Write-Fail "No se encontro el directorio de instalacion: $InstallDir"
-    Write-Host "  Si instalaste en otra ruta, ejecuta:" -ForegroundColor White
-    Write-Host "  powershell -File aplicar-parche.ps1 -InstallDir C:\tu\ruta" -ForegroundColor Gray
-    exit 1
+    Write-Fail "No se encontro la instalacion en: $InstallDir"
 }
 
-Write-Step "Deteniendo servicio backend..."
+# ── 1. Matar proceso node.exe primero (evita archivos bloqueados) ─────────────
+Write-Step "Deteniendo procesos node.exe..."
+Get-Process -Name "node" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep 2
+
+# ── 2. Detener servicio NSSM ──────────────────────────────────────────────────
+Write-Step "Deteniendo servicio $SVC..."
 if (Test-Path $NSSM) {
     & $NSSM stop $SVC 2>&1 | Out-Null
-    Start-Sleep 4
-    Write-Ok "Servicio detenido"
 } else {
-    Write-Warn "NSSM no encontrado, continuando"
+    & sc.exe stop $SVC 2>&1 | Out-Null
 }
+Start-Sleep 4
 
-Write-Step "Aplicando migracion de base de datos..."
+# Matar node de nuevo por si NSSM lo revivio
+Get-Process -Name "node" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep 2
+Write-Ok "Procesos detenidos"
+
+# ── 3. Migración SQL ──────────────────────────────────────────────────────────
+Write-Step "Aplicando migracion SQL..."
 $sqlFile = "$PatchDir\migration.sql"
-
 if (Test-Path $sqlFile) {
     $envFile = "$InstallDir\backend\.env"
-    $dbName  = "pos_iados"
-    $dbUser  = "root"
-    $dbPass  = ""
-    $dbPort  = "3306"
-
+    $dbName = "pos_iados"; $dbUser = "root"; $dbPass = ""; $dbPort = "3306"
     if (Test-Path $envFile) {
-        $envLines = Get-Content $envFile
-        foreach ($line in $envLines) {
-            if ($line -match '^DB_DATABASE=(.+)')  { $dbName = $matches[1].Trim() }
-            if ($line -match '^DB_USERNAME=(.+)')  { $dbUser = $matches[1].Trim() }
-            if ($line -match '^DB_PASSWORD=(.+)')  { $dbPass = $matches[1].Trim() }
-            if ($line -match '^DB_PORT=(.+)')      { $dbPort = $matches[1].Trim() }
+        Get-Content $envFile | ForEach-Object {
+            if ($_ -match '^DB_DATABASE=(.+)')  { $dbName = $matches[1].Trim() }
+            if ($_ -match '^DB_USERNAME=(.+)')  { $dbUser = $matches[1].Trim() }
+            if ($_ -match '^DB_PASSWORD=(.+)')  { $dbPass = $matches[1].Trim() }
+            if ($_ -match '^DB_PORT=(.+)')      { $dbPort = $matches[1].Trim() }
         }
     }
-
     $mysqlBin = $null
-    $candidates = @(
-        "$InstallDir\mariadb\bin\mysql.exe",
-        "$InstallDir\mysql\bin\mysql.exe",
-        "C:\Program Files\MariaDB 10.6\bin\mysql.exe",
-        "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe"
-    )
-    foreach ($c in $candidates) { if (Test-Path $c) { $mysqlBin = $c; break } }
-
+    @("$InstallDir\mariadb\bin\mysql.exe","$InstallDir\mysql\bin\mysql.exe",
+      "C:\Program Files\MariaDB 10.6\bin\mysql.exe") | ForEach-Object {
+        if ((Test-Path $_) -and -not $mysqlBin) { $mysqlBin = $_ }
+    }
     if (-not $mysqlBin) {
         $cmd = Get-Command mysql -ErrorAction SilentlyContinue
         if ($cmd) { $mysqlBin = $cmd.Source }
     }
-
     if ($mysqlBin) {
-        $sqlArgs = @("-u", $dbUser, "-P", $dbPort, "--protocol=TCP", "-f")
-        if ($dbPass) { $sqlArgs += "-p$dbPass" }
-        $sqlArgs += $dbName
-
-        $result = Get-Content $sqlFile -Raw | & $mysqlBin @sqlArgs 2>&1
-        $critical = $result | Where-Object { $_ -match "^ERROR" -and $_ -notmatch "already exists|Duplicate|existe" }
-        if ($critical) {
-            Write-Warn "Advertencia SQL:"
-            $critical | ForEach-Object { Write-Host "      $_" -ForegroundColor DarkYellow }
-        } else {
-            Write-Ok "Migracion SQL aplicada"
-        }
+        $args2 = @("-u",$dbUser,"-P",$dbPort,"--protocol=TCP","-f")
+        if ($dbPass) { $args2 += "-p$dbPass" }
+        $args2 += $dbName
+        Get-Content $sqlFile -Raw | & $mysqlBin @args2 2>&1 | Out-Null
+        Write-Ok "Migracion aplicada"
     } else {
-        Write-Warn "mysql.exe no encontrado. Aplica manualmente: $sqlFile"
-    }
-} else {
-    Write-Ok "Sin archivo de migracion"
-}
-
-Write-Step "Actualizando backend (dist)..."
-$srcDist  = "$PatchDir\backend\dist"
-$destDist = "$InstallDir\backend\dist"
-if (Test-Path $srcDist) {
-    if (Test-Path $destDist) { Remove-Item -Recurse -Force $destDist }
-    Copy-Item -Path $srcDist -Destination $destDist -Recurse -Force
-    Write-Ok "backend\dist actualizado"
-} else {
-    Write-Warn "No se encontro backend\dist en el parche"
-}
-
-Write-Step "Actualizando frontend (public)..."
-$srcPub  = "$PatchDir\backend\public"
-$destPub = "$InstallDir\backend\public"
-if (Test-Path $srcPub) {
-    if (Test-Path $destPub) { Remove-Item -Recurse -Force $destPub }
-    Copy-Item -Path $srcPub -Destination $destPub -Recurse -Force
-    Write-Ok "backend\public actualizado"
-} else {
-    Write-Warn "No se encontro backend\public en el parche"
-}
-
-Write-Step "Actualizando version en .env..."
-$envFile2 = "$InstallDir\backend\.env"
-if (Test-Path $envFile2) {
-    $envContent = Get-Content $envFile2 -Raw
-    if ($envContent -match 'APP_VERSION=') {
-        $envContent = $envContent -replace 'APP_VERSION=\S*', "APP_VERSION=$VERSION"
-    } else {
-        $envContent = $envContent.TrimEnd() + "`nAPP_VERSION=$VERSION`n"
-    }
-    $envContent | Set-Content $envFile2 -Encoding UTF8 -NoNewline
-    Write-Ok "APP_VERSION=$VERSION"
-}
-
-$vjFile = "$InstallDir\version.json"
-if (Test-Path $vjFile) {
-    try {
-        $vj = Get-Content $vjFile -Raw | ConvertFrom-Json
-        $vj.version = $VERSION
-        $vj | ConvertTo-Json | Set-Content $vjFile -Encoding UTF8
-        Write-Ok "version.json -> v$VERSION"
-    } catch {
-        Write-Warn "No se pudo actualizar version.json"
+        Write-Warn "mysql.exe no encontrado — aplica $sqlFile manualmente"
     }
 }
 
-Write-Step "Reiniciando servicio backend..."
+# ── 4. Backup del dist actual ─────────────────────────────────────────────────
+Write-Step "Haciendo backup del dist actual..."
+$backupDir = "$InstallDir\_backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
+if (Test-Path "$InstallDir\backend\dist") {
+    Copy-Item "$InstallDir\backend\dist" "$backupDir\dist" -Recurse -Force
+}
+if (Test-Path "$InstallDir\backend\public") {
+    Copy-Item "$InstallDir\backend\public" "$backupDir\public" -Recurse -Force
+}
+Write-Ok "Backup en $backupDir"
+
+# ── 5. Copiar backend dist ────────────────────────────────────────────────────
+Write-Step "Copiando backend\dist..."
+$srcDist = "$PatchDir\backend\dist"
+$dstDist = "$InstallDir\backend\dist"
+if (-not (Test-Path $srcDist)) { Write-Fail "No existe $srcDist en el parche" }
+
+if (Test-Path $dstDist) { Remove-Item $dstDist -Recurse -Force -ErrorAction Stop }
+Copy-Item $srcDist $dstDist -Recurse -Force -ErrorAction Stop
+$count = (Get-ChildItem $dstDist -Recurse -File).Count
+Write-Ok "$count archivos copiados a backend\dist"
+
+# ── 6. Copiar frontend public ─────────────────────────────────────────────────
+Write-Step "Copiando backend\public..."
+$srcPub = "$PatchDir\backend\public"
+$dstPub = "$InstallDir\backend\public"
+if (-not (Test-Path $srcPub)) { Write-Fail "No existe $srcPub en el parche" }
+
+if (Test-Path $dstPub) { Remove-Item $dstPub -Recurse -Force -ErrorAction Stop }
+Copy-Item $srcPub $dstPub -Recurse -Force -ErrorAction Stop
+$count2 = (Get-ChildItem $dstPub -Recurse -File).Count
+Write-Ok "$count2 archivos copiados a backend\public"
+
+# ── 7. Actualizar .env y version.json ────────────────────────────────────────
+Write-Step "Actualizando version..."
+$envF = "$InstallDir\backend\.env"
+if (Test-Path $envF) {
+    $ec = Get-Content $envF -Raw
+    $ec = if ($ec -match 'APP_VERSION=') { $ec -replace 'APP_VERSION=\S*',"APP_VERSION=$VERSION" } `
+          else { $ec.TrimEnd() + "`nAPP_VERSION=$VERSION`n" }
+    $ec | Set-Content $envF -Encoding UTF8 -NoNewline
+}
+$vjF = "$InstallDir\version.json"
+if (Test-Path $vjF) {
+    try { $vj = Get-Content $vjF -Raw | ConvertFrom-Json; $vj.version = $VERSION
+          $vj | ConvertTo-Json | Set-Content $vjF -Encoding UTF8 } catch {}
+}
+Write-Ok "v$VERSION"
+
+# ── 8. Iniciar servicio ───────────────────────────────────────────────────────
+Write-Step "Iniciando servicio..."
 if (Test-Path $NSSM) {
     & $NSSM start $SVC 2>&1 | Out-Null
-    Write-Ok "Servicio iniciado"
 } else {
-    Write-Warn "Inicia el servicio PosIaDos-Backend manualmente"
+    & sc.exe start $SVC 2>&1 | Out-Null
 }
 
-Write-Step "Esperando backend (max 60s)..."
+# ── 9. Esperar backend ────────────────────────────────────────────────────────
+Write-Step "Esperando backend (max 90s)..."
 $ok = $false
-for ($i = 0; $i -lt 20; $i++) {
+for ($i = 0; $i -lt 30; $i++) {
     Start-Sleep 3
-    try {
-        $tcp = New-Object System.Net.Sockets.TcpClient
-        $tcp.Connect("127.0.0.1", 3000)
-        $tcp.Close()
-        $ok = $true
-        break
-    } catch { }
+    try { $t = New-Object System.Net.Sockets.TcpClient; $t.Connect("127.0.0.1",3000); $t.Close(); $ok=$true; break } catch {}
 }
 
 Write-Host ""
 Write-Host "  ========================================" -ForegroundColor DarkGray
 if ($ok) {
-    Write-Host "  PARCHE v$VERSION APLICADO EXITOSAMENTE" -ForegroundColor Green
-    Write-Host ""
-    Write-Host "  Novedades:" -ForegroundColor White
-    Write-Host "   - Devolucion: boton Devolver en POS (busca folio/monto/cliente)" -ForegroundColor Gray
-    Write-Host "   - Pre-cuenta: visible en modo mesa, pedidos y cuentas abiertas" -ForegroundColor Gray
-    Write-Host "   - Pedidos QR Mesa: llegan a Pedidos con badge QR Mesa" -ForegroundColor Gray
-    Write-Host "   - Fix: Worker-poll dual-slug para pedidos de mesas" -ForegroundColor Gray
-    Write-Host ""
-    Write-Host "  Abre http://localhost:3000 en tu navegador" -ForegroundColor Cyan
+    Write-Host "  PARCHE v$VERSION APLICADO OK" -ForegroundColor Green
+    Write-Host "  Abre http://localhost:3000" -ForegroundColor Cyan
 } else {
-    Write-Host "  PARCHE APLICADO - backend no respondio en 60s" -ForegroundColor Yellow
-    Write-Host "  Revisa el servicio PosIaDos-Backend en Servicios de Windows" -ForegroundColor Gray
+    Write-Host "  Archivos copiados pero backend no respondio." -ForegroundColor Yellow
+    Write-Host "  Revisa: $InstallDir\logs\backend-stderr.log" -ForegroundColor Gray
+    Write-Host "  Backup disponible en: $backupDir" -ForegroundColor Gray
 }
 Write-Host "  ========================================" -ForegroundColor DarkGray
 Write-Host ""
