@@ -19,9 +19,10 @@ const typeorm_2 = require("typeorm");
 const menu_digital_config_entity_1 = require("../menu-digital/entities/menu-digital-config.entity");
 const self_order_service_1 = require("./self-order.service");
 let WorkerPollService = class WorkerPollService {
-    constructor(cfgRepo, selfOrderService) {
+    constructor(cfgRepo, selfOrderService, dataSource) {
         this.cfgRepo = cfgRepo;
         this.selfOrderService = selfOrderService;
+        this.dataSource = dataSource;
         this.logger = new common_1.Logger('WorkerPollService');
         this.timer = null;
         this.polling = false;
@@ -38,9 +39,7 @@ let WorkerPollService = class WorkerPollService {
             return;
         this.polling = true;
         try {
-            const configs = await this.cfgRepo.find({
-                where: { is_active: true },
-            });
+            const configs = await this.cfgRepo.find({ where: { is_active: true } });
             for (const cfg of configs) {
                 if (!cfg.worker_url || !cfg.api_key)
                     continue;
@@ -56,9 +55,22 @@ let WorkerPollService = class WorkerPollService {
     }
     async pollOne(cfg) {
         const base = cfg.worker_url.replace(/\/$/, '');
+        const slugsToPoll = new Set([cfg.slug]);
+        try {
+            const [tienda] = await this.dataSource.query('SELECT slug FROM tiendas WHERE id = ?', [cfg.tienda_id]);
+            if (tienda?.slug && tienda.slug !== cfg.slug) {
+                slugsToPoll.add(tienda.slug);
+            }
+        }
+        catch { }
+        for (const slug of slugsToPoll) {
+            await this.pollSlug(cfg, base, slug);
+        }
+    }
+    async pollSlug(cfg, base, slug) {
         let orders;
         try {
-            const res = await fetch(`${base}/orders/${cfg.slug}`, {
+            const res = await fetch(`${base}/orders/${slug}`, {
                 headers: { 'x-api-key': cfg.api_key },
             });
             if (!res.ok)
@@ -80,19 +92,18 @@ let WorkerPollService = class WorkerPollService {
                     notas: order.notas || null,
                 };
                 await this.selfOrderService.crearPedidoCliente(cfg.tienda_id, order.mesa_numero, body);
-                this.logger.log(`Pedido Worker recibido: mesa ${order.mesa_numero} tienda ${cfg.tienda_id}`);
+                this.logger.log(`Pedido Worker recibido: mesa ${order.mesa_numero} tienda ${cfg.tienda_id} slug=${slug}`);
             }
             catch (e) {
-                this.logger.warn(`No se pudo insertar pedido ${order.id}: ${e.message}`);
+                this.logger.warn(`No se pudo insertar pedido ${order.id} (slug=${slug}): ${e.message}`);
             }
             try {
-                await fetch(`${base}/orders/${cfg.slug}/${order.id}/ack`, {
+                await fetch(`${base}/orders/${slug}/${order.id}/ack`, {
                     method: 'POST',
                     headers: { 'x-api-key': cfg.api_key },
                 });
             }
-            catch {
-            }
+            catch { }
         }
     }
 };
@@ -100,7 +111,9 @@ exports.WorkerPollService = WorkerPollService;
 exports.WorkerPollService = WorkerPollService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(menu_digital_config_entity_1.MenuDigitalConfig)),
+    __param(2, (0, typeorm_1.InjectDataSource)()),
     __metadata("design:paramtypes", [typeorm_2.Repository,
-        self_order_service_1.SelfOrderService])
+        self_order_service_1.SelfOrderService,
+        typeorm_2.DataSource])
 ], WorkerPollService);
 //# sourceMappingURL=worker-poll.service.js.map

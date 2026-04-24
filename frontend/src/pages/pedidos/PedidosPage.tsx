@@ -236,9 +236,15 @@ export default function PedidosPage() {
                     <div>
                       <p className="font-mono text-xs text-slate-400 flex items-center gap-1">
                         {p.folio}
-                        {p.self_order && <Smartphone size={11} className="text-iados-secondary" />}
                       </p>
-                      <p className="text-xs text-slate-500">{p.usuario_nombre || (p.self_order ? p.cliente_nombre || 'Cliente' : 'Mesero')}</p>
+                      <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                        {p.self_order && (
+                          <span className="inline-flex items-center gap-1 bg-violet-700/40 border border-violet-500/40 text-violet-300 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                            <Smartphone size={9} /> QR Mesa
+                          </span>
+                        )}
+                        <p className="text-xs text-slate-500">{p.usuario_nombre || (p.self_order ? p.cliente_nombre || 'Cliente' : 'Mesero')}</p>
+                      </div>
                       {p.tipo_servicio === 'para_llevar' && (
                         <span className="text-xs bg-amber-900/40 text-amber-300 px-2 py-0.5 rounded-full">🏃 Para llevar</span>
                       )}
