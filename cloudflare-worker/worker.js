@@ -227,7 +227,7 @@ function categorySections(snap, withCart) {
 function buildMenuHtml(snap) {
   const { tienda, categorias } = snap;
   const catTabs = categorias.map(c =>
-    `<button class="cat-btn" data-id="${c.id}" onclick="scrollTo('cat-${c.id}')">${esc(c.nombre)}</button>`
+    `<button class="cat-btn" data-id="${c.id}" onclick="goTo('cat-${c.id}',this)">${esc(c.nombre)}</button>`
   ).join('');
 
   return `<!DOCTYPE html>
@@ -262,11 +262,25 @@ footer{text-align:center;padding:24px 16px;color:var(--muted);font-size:11px}
   ${isAbsUrl(tienda.logo_url) ? `<img src="${esc(tienda.logo_url)}" class="logo" alt="logo">` : ''}
   <div><div class="t-name">${esc(tienda.nombre)}</div><div class="t-sub">${esc(tienda.empresa_nombre || '')}</div></div>
 </header>
-<nav class="cats">${catTabs}</nav>
+<nav class="cats">
+  <button class="cat-btn active" data-id="all" onclick="goTo(null,this)">Todos</button>
+  ${catTabs}
+</nav>
 ${categorySections(snap, false)}
 <footer>Powered by POS-iaDoS</footer>
 <script>
-function scrollTo(id){var el=document.getElementById(id);if(el)el.scrollIntoView({behavior:'smooth',block:'start'})}
+function goTo(id, btn){
+  document.querySelectorAll('.cat-btn').forEach(function(b){b.classList.remove('active')});
+  if(btn) btn.classList.add('active');
+  if(!id){
+    document.querySelectorAll('.cat-sec').forEach(function(s){s.style.display='';});
+    window.scrollTo({top:0,behavior:'smooth'});
+    return;
+  }
+  document.querySelectorAll('.cat-sec').forEach(function(s){s.style.display='';});
+  var el=document.getElementById(id);
+  if(el){var top=el.getBoundingClientRect().top+window.scrollY-120;window.scrollTo({top:top,behavior:'smooth'});}
+}
 var obs=new IntersectionObserver(function(entries){
   entries.forEach(function(e){
     if(e.isIntersecting){
@@ -274,7 +288,7 @@ var obs=new IntersectionObserver(function(entries){
       document.querySelectorAll('.cat-btn').forEach(function(b){b.classList.toggle('active',b.dataset.id===id)});
     }
   });
-},{rootMargin:'-60px 0px -60% 0px'});
+},{rootMargin:'-120px 0px -60% 0px'});
 document.querySelectorAll('.cat-sec').forEach(function(s){obs.observe(s)});
 </script>
 </body>

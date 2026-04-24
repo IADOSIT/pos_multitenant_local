@@ -356,15 +356,29 @@ export class MenuDigitalService {
   // Sync snapshot to Cloudflare Worker relay
   async syncToWorker(cfg: MenuDigitalConfig, tienda: any, categorias: any[], productos: any[]): Promise<void> {
     const url = cfg.worker_url.replace(/\/$/, '') + '/sync/' + cfg.slug;
+
+    // Convierte rutas relativas a absolutas usando cloud_url como base
+    const base = (cfg.cloud_url || '').replace(/\/$/, '');
+    const toAbs = (u: string) => {
+      if (!u) return null;
+      if (u.startsWith('http://') || u.startsWith('https://')) return u;
+      return base ? base + u : null;
+    };
+
+    const productosAbs = productos.map(p => ({
+      ...p,
+      imagen_url: toAbs(p.imagen_url),
+    }));
+
     const body = {
       api_key: cfg.api_key,
       slug: cfg.slug,
       is_active: cfg.is_active,
       modo_menu: cfg.modo_menu,
       plantilla: cfg.plantilla || 'oscuro',
-      tienda,
+      tienda: { ...tienda, logo_url: toAbs(tienda.logo_url) },
       categorias,
-      productos,
+      productos: productosAbs,
     };
     const res = await fetch(url, {
       method: 'POST',
