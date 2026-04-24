@@ -38,6 +38,9 @@ let VentasController = class VentasController {
     getClientes(scope, q) {
         return this.service.getClientes(scope, q);
     }
+    buscar(scope, q) {
+        return this.service.buscar(scope, q || '');
+    }
     findOne(id) {
         return this.service.findOne(id);
     }
@@ -87,6 +90,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], VentasController.prototype, "getClientes", null);
+__decorate([
+    (0, common_1.Get)('buscar'),
+    (0, roles_decorator_1.Roles)('superadmin', 'admin', 'manager', 'cajero'),
+    __param(0, (0, tenant_decorator_1.TenantScope)()),
+    __param(1, (0, common_1.Query)('q')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], VentasController.prototype, "buscar", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),

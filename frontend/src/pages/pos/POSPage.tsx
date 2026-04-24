@@ -10,7 +10,9 @@ import toast from 'react-hot-toast';
 import CartPanel from '../../components/pos/CartPanel';
 import PayModal from '../../components/pos/PayModal';
 import AbrirCuentaModal from '../../components/pos/AbrirCuentaModal';
-import { Search, ShoppingBag, Wifi, WifiOff, CreditCard, X, Clock, RefreshCw, Trash2, Minus, Plus, FileText } from 'lucide-react';
+import DevolucionBuscarModal from '../../components/pos/DevolucionBuscarModal';
+import DevolucionModal from '../../components/pos/DevolucionModal';
+import { Search, ShoppingBag, Wifi, WifiOff, CreditCard, X, Clock, RefreshCw, Trash2, Minus, Plus, FileText, RotateCcw } from 'lucide-react';
 
 // ── Long-press product card ──────────────────────────────────────────────────
 function ProductCard({ prod, onClick, onLongPress, showStockBadge }: { prod: Producto; onClick: () => void; onLongPress: () => void; showStockBadge?: boolean }) {
@@ -92,6 +94,10 @@ export default function POSPage() {
   const [paraLlevarVisible, setParaLlevarVisible] = useState(true);
   const [stockBadgeEnabled, setStockBadgeEnabled] = useState(false);
   const [precuentaEnabled, setPrecuentaEnabled] = useState(false);
+  const [showDevBuscar, setShowDevBuscar] = useState(false);
+  const [devVentaId, setDevVentaId] = useState<number | null>(null);
+  const [devolucionesEnabled, setDevolucionesEnabled] = useState(false);
+  const [devolucionesRol, setDevolucionesRol] = useState('admin');
 
   const { user } = useAuthStore();
   const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, setMesaActiva, tipoServicio, clearCart, notaPedido, clienteNombre, clienteTelefono, clienteDireccion } = usePOSStore();
@@ -169,6 +175,8 @@ export default function POSPage() {
         setParaLlevarVisible(cp.para_llevar_visible !== false);
         setStockBadgeEnabled(cp.pos_stock_badge_enabled || false);
         setPrecuentaEnabled(cp.precuenta_enabled || false);
+        setDevolucionesEnabled(cp.devoluciones_enabled || false);
+        setDevolucionesRol(cp.devoluciones_rol || 'admin');
         const cr = (cp.cantidades_rapidas || '10,25,50,100')
           .split(',').map((s: string) => parseInt(s.trim(), 10)).filter((n: number) => n > 0);
         setCantidadesRapidas(cr.length ? cr : [10, 25, 50, 100]);
@@ -507,6 +515,18 @@ export default function POSPage() {
             />
           </div>
 
+          {/* Botón Devolución */}
+          {devolucionesEnabled && ['admin', 'superadmin', 'manager', ...(devolucionesRol === 'cajero' ? ['cajero'] : [])].includes(user?.rol || '') && (
+            <button
+              onClick={() => setShowDevBuscar(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600/20 border border-amber-600/40 hover:bg-amber-600/30 text-amber-400 text-sm font-medium transition-colors shrink-0"
+              title="Procesar devolución"
+            >
+              <RotateCcw size={16} />
+              <span className="hidden sm:inline">Devolver</span>
+            </button>
+          )}
+
           {/* Botón Cuentas Abiertas */}
           {cuentaAbiertaEnabled && <button
             onClick={() => { setShowCuentas(true); loadCuentasAbiertas(); }}
@@ -707,6 +727,21 @@ export default function POSPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modales devolución */}
+      {showDevBuscar && (
+        <DevolucionBuscarModal
+          onClose={() => setShowDevBuscar(false)}
+          onSelectVenta={(id) => { setShowDevBuscar(false); setDevVentaId(id); }}
+        />
+      )}
+      {devVentaId && (
+        <DevolucionModal
+          ventaId={devVentaId}
+          onClose={() => setDevVentaId(null)}
+          onSuccess={() => { setDevVentaId(null); loadCaja(); }}
+        />
       )}
 
       {/* Panel: Cuentas Abiertas */}

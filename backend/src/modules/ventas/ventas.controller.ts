@@ -37,6 +37,12 @@ export class VentasController {
     return this.service.getClientes(scope, q);
   }
 
+  @Get('buscar')
+  @Roles('superadmin', 'admin', 'manager', 'cajero')
+  buscar(@TenantScope() scope, @Query('q') q?: string) {
+    return this.service.buscar(scope, q || '');
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.service.findOne(id);

@@ -203,6 +203,36 @@ export class VentasService {
     return this.ventasRepo.findOne({ where: { id }, relations: ['detalles', 'pagos'] });
   }
 
+  async buscar(scope: any, q: string) {
+    if (!q || q.trim().length < 1) {
+      // Sin query: devuelve las últimas 30 ventas completadas del día
+      const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+      return this.dataSource.query(
+        `SELECT v.id, v.folio, v.total, v.estado, v.created_at,
+                v.usuario_nombre, v.cliente_nombre, v.metodo_pago
+         FROM ventas v
+         WHERE v.tenant_id=? AND v.tienda_id=? AND v.estado='completada'
+           AND v.created_at >= ?
+         ORDER BY v.created_at DESC LIMIT 30`,
+        [scope.tenant_id, scope.tienda_id, hoy],
+      );
+    }
+    const term = q.trim();
+    const likeQ = `%${term}%`;
+    const numQ = parseFloat(term) || null;
+    return this.dataSource.query(
+      `SELECT v.id, v.folio, v.total, v.estado, v.created_at,
+              v.usuario_nombre, v.cliente_nombre, v.metodo_pago
+       FROM ventas v
+       WHERE v.tenant_id=? AND v.tienda_id=? AND v.estado='completada'
+         AND (v.folio LIKE ? OR v.cliente_nombre LIKE ? ${numQ ? 'OR v.total = ?' : ''})
+       ORDER BY v.created_at DESC LIMIT 20`,
+      numQ
+        ? [scope.tenant_id, scope.tienda_id, likeQ, likeQ, numQ]
+        : [scope.tenant_id, scope.tienda_id, likeQ, likeQ],
+    );
+  }
+
   async getClientes(scope: any, q?: string) {
     const likeV = q && q.length >= 2 ? 'AND v.cliente_telefono LIKE ?' : '';
     const likeP = q && q.length >= 2 ? 'AND p.cliente_telefono LIKE ?' : '';

@@ -91,6 +91,7 @@ export const ventasApi = {
   cancelar: (id: number, motivo: string) => api.post(`/ventas/${id}/cancelar`, { motivo }),
   sync: (ventas: any[]) => api.post('/ventas/sync', { ventas }),
   clientes: (q?: string) => api.get('/ventas/clientes', { params: q ? { q } : {} }),
+  buscar: (q: string) => api.get('/ventas/buscar', { params: { q } }),
 };
 
 // Devoluciones
