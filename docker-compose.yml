@@ -37,7 +37,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260423-dist-vps"
+        CACHE_BUST: "20260424-dist-vps-absurl"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:
