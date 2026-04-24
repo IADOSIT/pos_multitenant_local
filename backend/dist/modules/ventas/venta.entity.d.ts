@@ -28,6 +28,7 @@ export declare class Venta {
     pago_tarjeta: number;
     pago_transferencia: number;
     cambio: number;
+    propina: number;
     estado: VentaEstado;
     notas: string;
     cliente_nombre: string;

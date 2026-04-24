@@ -100,6 +100,10 @@ __decorate([
     __metadata("design:type", Number)
 ], Venta.prototype, "cambio", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 10, scale: 2, default: 0, nullable: true }),
+    __metadata("design:type", Number)
+], Venta.prototype, "propina", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'enum', enum: VentaEstado, default: VentaEstado.COMPLETADA }),
     __metadata("design:type", String)
 ], Venta.prototype, "estado", void 0);

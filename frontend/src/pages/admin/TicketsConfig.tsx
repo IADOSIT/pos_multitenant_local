@@ -250,6 +250,40 @@ export default function TicketsConfig() {
             </div>
           )}
 
+          {/* Pre-cuenta */}
+          <h3 className="font-bold pt-2 border-t border-slate-700 mt-2">Pre-cuenta</h3>
+          <p className="text-xs text-slate-400">Ticket simplificado que se lleva a la mesa antes de cobrar.</p>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={!!config.precuenta_enabled} onChange={(e) => update('precuenta_enabled', e.target.checked)} className="w-5 h-5 rounded" />
+            <span className="text-sm">Activar botón Pre-cuenta en POS</span>
+          </label>
+
+          {/* Propina */}
+          <h3 className="font-bold pt-2 border-t border-slate-700 mt-2">Propina opcional</h3>
+          <p className="text-xs text-slate-400">Permite al cajero agregar propina al cobrar.</p>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={!!config.propina_enabled} onChange={(e) => update('propina_enabled', e.target.checked)} className="w-5 h-5 rounded" />
+            <span className="text-sm">Activar propina en cobro</span>
+          </label>
+          {config.propina_enabled && (
+            <div className="space-y-2 pl-2 border-l-2 border-iados-primary/30">
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Porcentajes sugeridos (separados por coma)</label>
+                <input
+                  value={config.propina_porcentajes || '10,15,20'}
+                  onChange={(e) => update('propina_porcentajes', e.target.value)}
+                  placeholder="10,15,20"
+                  className="input-touch"
+                />
+                <p className="text-xs text-slate-500 mt-1">Ej: 10,15,20 — se mostrarán como botones de acceso rápido</p>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={config.propina_en_ticket !== false} onChange={(e) => update('propina_en_ticket', e.target.checked)} className="w-5 h-5 rounded" />
+                <span className="text-sm">Mostrar propina en el ticket</span>
+              </label>
+            </div>
+          )}
+
           <div className="flex gap-2 pt-2">
             <button onClick={handlePreview} className="btn-secondary flex-1">Preview</button>
             <button onClick={handleSave} className="btn-primary flex-1">Guardar</button>

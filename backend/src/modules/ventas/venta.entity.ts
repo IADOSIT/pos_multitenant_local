@@ -72,6 +72,9 @@ export class Venta {
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   cambio: number;
 
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0, nullable: true })
+  propina: number;
+
   @Column({ type: 'enum', enum: VentaEstado, default: VentaEstado.COMPLETADA })
   estado: VentaEstado;
 

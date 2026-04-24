@@ -27,6 +27,10 @@ export declare class TicketConfig {
     comanda_auto_print: boolean;
     comanda_mostrar_precio: boolean;
     comanda_copias: number;
+    precuenta_enabled: boolean;
+    propina_enabled: boolean;
+    propina_porcentajes: string;
+    propina_en_ticket: boolean;
     created_at: Date;
     updated_at: Date;
 }

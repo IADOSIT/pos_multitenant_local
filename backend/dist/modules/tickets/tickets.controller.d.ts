@@ -19,4 +19,15 @@ export declare class TicketsController {
         lines: string[];
         raw: string;
     }>;
+    precuenta(data: any, scope: any): Promise<{
+        ancho_papel: number;
+        fuente_familia: string;
+        fuente_tamano: number;
+        logo_posicion: string;
+        logo_url: string | null;
+        copias: number;
+        impresion_enabled: boolean;
+        lines: string[];
+        raw: string;
+    }>;
 }

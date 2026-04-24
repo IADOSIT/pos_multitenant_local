@@ -127,6 +127,22 @@ __decorate([
     __metadata("design:type", Number)
 ], TicketConfig.prototype, "comanda_copias", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ default: false }),
+    __metadata("design:type", Boolean)
+], TicketConfig.prototype, "precuenta_enabled", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ default: false }),
+    __metadata("design:type", Boolean)
+], TicketConfig.prototype, "propina_enabled", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ length: 50, default: '10,15,20' }),
+    __metadata("design:type", String)
+], TicketConfig.prototype, "propina_porcentajes", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ default: true }),
+    __metadata("design:type", Boolean)
+], TicketConfig.prototype, "propina_en_ticket", void 0);
+__decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)
 ], TicketConfig.prototype, "created_at", void 0);

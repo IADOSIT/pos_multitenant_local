@@ -126,6 +126,9 @@ let TicketsService = class TicketsService {
             lines.push(this.right(`Descuento: -$${Number(venta.descuento).toFixed(2)}`, w));
         if (venta.impuestos > 0)
             lines.push(this.right(`Impuestos: $${Number(venta.impuestos).toFixed(2)}`, w));
+        if (venta.propina > 0 && config.propina_en_ticket !== false) {
+            lines.push(this.right(`Propina: $${Number(venta.propina).toFixed(2)}`, w));
+        }
         lines.push(this.right(`TOTAL: $${Number(venta.total).toFixed(2)}`, w));
         lines.push('='.repeat(w));
         if (venta.pago_efectivo)
@@ -141,6 +144,50 @@ let TicketsService = class TicketsService {
             lines.push(this.center(this.s(config.pie_linea2), w));
         if (config.mostrar_marca_iados)
             lines.push(this.center('Desarrollado por iaDoS - iados.mx', w));
+        return { lines, raw: lines.join('\n') };
+    }
+    generatePreCuentaData(data, config) {
+        const lines = [];
+        const w = config.columnas || 42;
+        if (config.encabezado_linea1)
+            lines.push(this.center(this.s(config.encabezado_linea1), w));
+        if (config.encabezado_linea2)
+            lines.push(this.center(this.s(config.encabezado_linea2), w));
+        if (config.encabezado_linea3)
+            lines.push(this.center(this.s(config.encabezado_linea3), w));
+        lines.push('='.repeat(w));
+        lines.push(this.center('*** PRE-CUENTA ***', w));
+        lines.push('');
+        if (data.mesa)
+            lines.push(`Mesa: ${data.mesa}`);
+        lines.push(`Fecha: ${new Date().toLocaleString('es-MX')}`);
+        if (data.cliente_nombre)
+            lines.push(`Cliente: ${this.s(data.cliente_nombre)}`);
+        if (data.notas)
+            lines.push(`Nota: ${this.s(data.notas)}`);
+        lines.push('-'.repeat(w));
+        lines.push(this.formatLine('Producto', 'Cant', 'Precio', 'Subt', w));
+        lines.push('-'.repeat(w));
+        (data.items || []).forEach((d) => {
+            lines.push(this.formatLine(this.s(d.nombre || d.producto_nombre || '').substring(0, 20), String(d.cantidad), `$${Number(d.precio || d.precio_unitario || 0).toFixed(2)}`, `$${(Number(d.cantidad) * Number(d.precio || d.precio_unitario || 0) - Number(d.descuento || 0)).toFixed(2)}`, w));
+            if (d.notas)
+                lines.push(`  > ${this.s(d.notas).substring(0, w - 4)}`);
+        });
+        lines.push('-'.repeat(w));
+        lines.push(this.right(`Subtotal: $${Number(data.subtotal || 0).toFixed(2)}`, w));
+        if (Number(data.descuento) > 0)
+            lines.push(this.right(`Descuento: -$${Number(data.descuento).toFixed(2)}`, w));
+        if (Number(data.impuestos) > 0)
+            lines.push(this.right(`Impuestos: $${Number(data.impuestos).toFixed(2)}`, w));
+        lines.push(this.right(`TOTAL: $${Number(data.total || 0).toFixed(2)}`, w));
+        lines.push('='.repeat(w));
+        lines.push('');
+        lines.push(this.center('** Precio sujeto a cambio **', w));
+        lines.push('');
+        if (config.pie_linea1)
+            lines.push(this.center(this.s(config.pie_linea1), w));
+        if (config.pie_linea2)
+            lines.push(this.center(this.s(config.pie_linea2), w));
         return { lines, raw: lines.join('\n') };
     }
     center(text, w) {

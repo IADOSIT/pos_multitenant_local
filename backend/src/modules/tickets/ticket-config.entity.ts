@@ -92,6 +92,20 @@ export class TicketConfig {
   @Column({ type: 'int', default: 1 })
   comanda_copias: number;
 
+  // Pre-cuenta
+  @Column({ default: false })
+  precuenta_enabled: boolean;
+
+  // Propina opcional
+  @Column({ default: false })
+  propina_enabled: boolean;
+
+  @Column({ length: 50, default: '10,15,20' })
+  propina_porcentajes: string;
+
+  @Column({ default: true })
+  propina_en_ticket: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 

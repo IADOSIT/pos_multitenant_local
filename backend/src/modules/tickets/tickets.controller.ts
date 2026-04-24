@@ -52,4 +52,20 @@ export class TicketsController {
       impresion_enabled: config.impresion_enabled !== false,
     };
   }
+
+  @Post('precuenta')
+  async precuenta(@Body() data: any, @TenantScope() scope) {
+    const config = await this.service.getConfig(scope.tenant_id, scope.empresa_id, scope.tienda_id);
+    const ticket = this.service.generatePreCuentaData(data, config);
+    return {
+      ...ticket,
+      ancho_papel:    config.ancho_papel    ?? 80,
+      fuente_familia: config.fuente_familia ?? 'Courier New',
+      fuente_tamano:  config.fuente_tamano  ?? 9,
+      logo_posicion:  config.logo_posicion  ?? 'centro',
+      logo_url:       config.mostrar_logo ? config.logo_url : null,
+      copias:         1,
+      impresion_enabled: true,
+    };
+  }
 }

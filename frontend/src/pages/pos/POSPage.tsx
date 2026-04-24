@@ -4,7 +4,7 @@ import { useAuthStore } from '../../store/auth.store';
 import { offlineActions } from '../../store/offline.store';
 import { productosApi, categoriasApi, cajaApi, tiendasApi, pedidosApi, ticketsApi, selfOrderApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
-import { printComanda } from '../../utils/printTicket';
+import { printComanda, printTicket } from '../../utils/printTicket';
 import { Producto, Categoria } from '../../types';
 import toast from 'react-hot-toast';
 import CartPanel from '../../components/pos/CartPanel';
@@ -91,6 +91,7 @@ export default function POSPage() {
   const [enSitioVisible, setEnSitioVisible] = useState(true);
   const [paraLlevarVisible, setParaLlevarVisible] = useState(true);
   const [stockBadgeEnabled, setStockBadgeEnabled] = useState(false);
+  const [precuentaEnabled, setPrecuentaEnabled] = useState(false);
 
   const { user } = useAuthStore();
   const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, setMesaActiva, tipoServicio, clearCart, notaPedido, clienteNombre, clienteTelefono, clienteDireccion } = usePOSStore();
@@ -143,6 +144,10 @@ export default function POSPage() {
 
   const loadTiendaConfig = async () => {
     if (!user?.tienda_id) return;
+    // Load ticket config for precuenta/propina flags
+    ticketsApi.getConfig().then(r => {
+      setPrecuentaEnabled(r.data?.precuenta_enabled || false);
+    }).catch(() => {});
     try {
       const { data } = await tiendasApi.get(user.tienda_id);
       if (data.config_pos) {
@@ -411,6 +416,43 @@ export default function POSPage() {
     }
   };
 
+  const handlePreCuenta = async () => {
+    if (cart.length === 0 && !pedidoActivo) return;
+    try {
+      const items = pedidoActivo
+        ? pedidoActivo.detalles?.map((d: any) => ({
+            nombre: d.producto_nombre,
+            cantidad: Number(d.cantidad),
+            precio: Number(d.precio_unitario),
+            descuento: Number(d.descuento || 0),
+            notas: d.notas,
+          }))
+        : cart.map((i) => ({
+            nombre: i.nombre,
+            cantidad: i.cantidad,
+            precio: i.precio,
+            descuento: i.descuento || 0,
+            notas: i.notas,
+          }));
+      const subtotal = pedidoActivo ? Number(pedidoActivo.subtotal) : getSubtotal();
+      const impuestos = pedidoActivo ? Number(pedidoActivo.impuestos) : getImpuestos();
+      const totalPc = pedidoActivo ? Number(pedidoActivo.total) : getTotal();
+      const { data: ticket } = await ticketsApi.precuenta({
+        items,
+        subtotal,
+        impuestos,
+        total: totalPc,
+        mesa: pedidoActivo?.mesa || mesaActiva,
+        cliente_nombre: pedidoActivo?.cliente_nombre || clienteNombre || undefined,
+        notas: pedidoActivo?.notas || notaPedido || undefined,
+      });
+      printTicket(ticket.raw, ticket.ancho_papel, ticket.fuente_familia, ticket.fuente_tamano, null, ticket.logo_posicion, 1);
+      toast.success('Pre-cuenta impresa');
+    } catch (e: any) {
+      toast.error('Error al generar pre-cuenta');
+    }
+  };
+
   const handleCobrarConPedidoActivo = async () => {
     if (!pedidoActivo) return;
     try {
@@ -574,6 +616,8 @@ export default function POSPage() {
           }}
           onEnviarPedido={handleEnviarPedido}
           onAbrirCuenta={() => { setShowAbrirCuenta(true); setCartVisible(false); }}
+          onPreCuenta={handlePreCuenta}
+          precuentaEnabled={precuentaEnabled}
           cuentaAbiertaEnabled={cuentaAbiertaEnabled}
           notasPorItem={notasPorItem}
           notasRapidas={notasRapidas}

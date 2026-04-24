@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { usePOSStore } from '../../store/pos.store';
 import { pedidosApi } from '../../api/endpoints';
-import { Minus, Plus, Trash2, ShoppingCart, Send, BookOpen, MessageSquare, Phone } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingCart, Send, BookOpen, MessageSquare, Phone, FileText } from 'lucide-react';
 
 interface Props {
   onPay: () => void;
   onEnviarPedido?: () => void;
   onAbrirCuenta?: () => void;
+  onPreCuenta?: () => void;
+  precuentaEnabled?: boolean;
   cuentaAbiertaEnabled?: boolean;
   notasPorItem?: boolean;
   notasRapidas?: string[];
@@ -22,7 +24,7 @@ interface Props {
   paraLlevarVisible?: boolean;
 }
 
-export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuentaAbiertaEnabled, notasPorItem, notasRapidas = [], cantidadesRapidas, notasPedidoEnabled, datosEnvioEnabled, pedidoActivo, onActualizarCuenta, onCancelarEdicion, mesaNumeroOculto, cajaManaged, enSitioVisible = true, paraLlevarVisible = true }: Props) {
+export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreCuenta, precuentaEnabled, cuentaAbiertaEnabled, notasPorItem, notasRapidas = [], cantidadesRapidas, notasPedidoEnabled, datosEnvioEnabled, pedidoActivo, onActualizarCuenta, onCancelarEdicion, mesaNumeroOculto, cajaManaged, enSitioVisible = true, paraLlevarVisible = true }: Props) {
   const { cart, updateQuantity, removeFromCart, clearCart, updateItemNotes, getSubtotal, getImpuestos, getTotal, cajaActiva, modoServicio, tipoCobro, mesaActiva, setMesaActiva, tipoServicio, setTipoServicio, notaPedido, setNotaPedido, clienteNombre, setClienteNombre, clienteTelefono, setClienteTelefono, clienteDireccion, setClienteDireccion } = usePOSStore();
 
   // Auto-seleccionar tipo de servicio si solo uno está habilitado
@@ -432,6 +434,11 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuenta
             </button>
           ) : pedidoActivo ? (
             <div className="space-y-2 mt-3">
+              {precuentaEnabled && onPreCuenta && (
+                <button onClick={onPreCuenta} className="btn-secondary w-full flex items-center justify-center gap-2 text-sm">
+                  <FileText size={16} /> Pre-cuenta
+                </button>
+              )}
               <button onClick={onActualizarCuenta} disabled={cart.length === 0} className="btn-secondary w-full flex items-center justify-center gap-2 disabled:opacity-50">
                 <BookOpen size={18} /> Actualizar Mesa {pedidoActivo.mesa}
               </button>
@@ -440,7 +447,12 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, cuenta
               </button>
             </div>
           ) : (
-            <div className="flex gap-2 mt-3">
+            <div className="flex gap-2 mt-3 flex-wrap">
+              {precuentaEnabled && onPreCuenta && cart.length > 0 && (
+                <button onClick={onPreCuenta} className="btn-secondary flex-none flex items-center justify-center gap-1 px-3" title="Pre-cuenta">
+                  <FileText size={18} />
+                </button>
+              )}
               {cuentaAbiertaEnabled && onAbrirCuenta && (
                 <button onClick={onAbrirCuenta} disabled={cart.length === 0} className="btn-secondary flex-none flex items-center justify-center gap-1 px-3 disabled:opacity-50" title="Abrir Cuenta">
                   <BookOpen size={18} />

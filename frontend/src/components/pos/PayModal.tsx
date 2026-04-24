@@ -19,14 +19,18 @@ type MetodoPago = 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto' | 'mp_qr' |
 
 export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Props) {
   const { cart, getSubtotal, getImpuestos, getTotal, clearCart, cajaActiva, setCajaActiva, tipoServicio, notaPedido, clienteNombre, clienteTelefono, clienteDireccion } = usePOSStore();
-  const total = pedido ? Number(pedido.total) : getTotal();
+  const totalBase = pedido ? Number(pedido.total) : getTotal();
   const [metodo, setMetodo] = useState<MetodoPago>('efectivo');
   const [pagoEfectivo, setPagoEfectivo] = useState('');
   const [pagoTarjeta, setPagoTarjeta] = useState('');
   const [pagoTransferencia, setPagoTransferencia] = useState('');
   const [loading, setLoading] = useState(false);
   const [ventaCompletada, setVentaCompletada] = useState<any>(null);
+  const [propina, setPropina] = useState(0);
+  const [propinaCustom, setPropinaCustom] = useState('');
+  const [ticketCfg, setTicketCfg] = useState<any>(null);
   const ticketRawRef = useRef<string>('');
+  const total = totalBase + propina;
 
   // Gateway state
   const [gwConfig, setGwConfig] = useState<any>(null);
@@ -44,6 +48,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
   useEffect(() => {
     if (isOnline) {
       pagosGatewayApi.getConfig().then(r => setGwConfig(r.data)).catch(() => {});
+      ticketsApi.getConfig().then(r => setTicketCfg(r.data)).catch(() => {});
     }
     return () => stopGwPoll();
   }, [isOnline, stopGwPoll]);
@@ -228,6 +233,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
     descuento: 0,
     impuestos: getImpuestos(),
     total,
+    propina: propina || 0,
     metodo_pago: isGatewayMethod(metodo) ? 'tarjeta' : metodo,
     pago_efectivo: metodo === 'efectivo' || metodo === 'mixto' ? Number(pagoEfectivo || 0) : null,
     pago_tarjeta: (metodo === 'tarjeta' || metodo === 'mixto' || isGatewayMethod(metodo)) ? Number(pagoTarjeta || total) : null,
@@ -250,6 +256,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
     pago_tarjeta: (metodo === 'tarjeta' || metodo === 'mixto' || isGatewayMethod(metodo)) ? Number(pagoTarjeta || total) : null,
     pago_transferencia: metodo === 'transferencia' || metodo === 'mixto' ? Number(pagoTransferencia || total) : null,
     cambio,
+    propina: propina || 0,
     gateway: isGatewayMethod(metodo) ? metodo : undefined,
     gateway_transaccion_id: isGatewayMethod(metodo) ? gwTransaccionIdRef.current : undefined,
     pagos: [],
@@ -396,6 +403,9 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
           )}
           <p className="text-sm text-slate-400">Total a cobrar</p>
           <p className="text-4xl font-bold text-iados-accent">${total.toFixed(2)}</p>
+          {propina > 0 && (
+            <p className="text-sm text-green-400 mt-1">Propina incluida: ${propina.toFixed(2)} · Base: ${totalBase.toFixed(2)}</p>
+          )}
         </div>
 
         {/* Métodos de pago */}
@@ -549,6 +559,44 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
             >
               Exacto — ${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
             </button>
+          </div>
+        )}
+
+        {/* Propina opcional */}
+        {ticketCfg?.propina_enabled && (
+          <div className="mb-4 p-3 bg-iados-card/50 rounded-xl border border-slate-700">
+            <p className="text-xs text-slate-400 mb-2 font-medium">Propina (opcional)</p>
+            <div className="flex gap-2 flex-wrap mb-2">
+              <button
+                onClick={() => { setPropina(0); setPropinaCustom(''); }}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${propina === 0 && !propinaCustom ? 'bg-iados-primary border-iados-secondary text-white' : 'bg-iados-card border-slate-600 text-slate-300'}`}
+              >
+                Sin propina
+              </button>
+              {(ticketCfg.propina_porcentajes || '10,15,20').split(',').map((p: string) => {
+                const pct = Number(p.trim());
+                const monto = Math.round(totalBase * pct) / 100;
+                return (
+                  <button
+                    key={pct}
+                    onClick={() => { setPropina(monto); setPropinaCustom(''); }}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${propina === monto && !propinaCustom ? 'bg-green-700 border-green-500 text-white' : 'bg-iados-card border-slate-600 text-slate-300 hover:border-green-500'}`}
+                  >
+                    {pct}% · ${monto.toFixed(2)}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex gap-2 items-center">
+              <span className="text-xs text-slate-500 shrink-0">Otro:</span>
+              <input
+                type="number"
+                value={propinaCustom}
+                onChange={(e) => { setPropinaCustom(e.target.value); setPropina(Number(e.target.value) || 0); }}
+                placeholder="0.00"
+                className="input-touch text-sm text-center flex-1 py-1.5"
+              />
+            </div>
           </div>
         )}
 

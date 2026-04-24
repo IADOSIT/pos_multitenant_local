@@ -52,6 +52,20 @@ let TicketsController = class TicketsController {
             impresion_enabled: config.impresion_enabled !== false,
         };
     }
+    async precuenta(data, scope) {
+        const config = await this.service.getConfig(scope.tenant_id, scope.empresa_id, scope.tienda_id);
+        const ticket = this.service.generatePreCuentaData(data, config);
+        return {
+            ...ticket,
+            ancho_papel: config.ancho_papel ?? 80,
+            fuente_familia: config.fuente_familia ?? 'Courier New',
+            fuente_tamano: config.fuente_tamano ?? 9,
+            logo_posicion: config.logo_posicion ?? 'centro',
+            logo_url: config.mostrar_logo ? config.logo_url : null,
+            copias: 1,
+            impresion_enabled: true,
+        };
+    }
 };
 exports.TicketsController = TicketsController;
 __decorate([
@@ -95,6 +109,14 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], TicketsController.prototype, "preview", null);
+__decorate([
+    (0, common_1.Post)('precuenta'),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, tenant_decorator_1.TenantScope)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], TicketsController.prototype, "precuenta", null);
 exports.TicketsController = TicketsController = __decorate([
     (0, common_1.Controller)('tickets'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), roles_guard_1.RolesGuard),

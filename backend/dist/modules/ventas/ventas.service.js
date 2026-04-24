@@ -70,6 +70,7 @@ let VentasService = class VentasService {
             pago_tarjeta: data.pago_tarjeta,
             pago_transferencia: data.pago_transferencia,
             cambio: data.cambio || 0,
+            propina: data.propina || 0,
             notas: data.notas,
             cliente_nombre: data.cliente_nombre,
             cliente_telefono: data.cliente_telefono,

@@ -151,6 +151,7 @@ export const ticketsApi = {
     return api.post('/tickets/upload-logo', form);
   },
   preview: (venta: any) => api.post('/tickets/preview', { venta }),
+  precuenta: (data: any) => api.post('/tickets/precuenta', data),
 };
 
 // Licencias

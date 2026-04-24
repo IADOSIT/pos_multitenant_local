@@ -12,6 +12,10 @@ export declare class TicketsService {
         lines: string[];
         raw: string;
     };
+    generatePreCuentaData(data: any, config: TicketConfig): {
+        lines: string[];
+        raw: string;
+    };
     private center;
     private right;
     private formatLine;
