@@ -54,15 +54,6 @@ let DevolucionesService = class DevolucionesService {
         const detalles = await this.dataSource.query(`SELECT vd.producto_id, vd.producto_nombre, vd.producto_sku,
               vd.cantidad, vd.precio_unitario
        FROM venta_detalles vd WHERE vd.venta_id = ?`, [dto.venta_id]);
-        const yaDevuelto = await this.dataSource.query(`SELECT JSON_ARRAYAGG(
-         JSON_OBJECT('producto_id', item->>'$.producto_id', 'cantidad', item->>'$.cantidad')
-       ) as items
-       FROM devoluciones d,
-       JSON_TABLE(d.items, '$[*]' COLUMNS(
-         producto_id INT PATH '$.producto_id',
-         cantidad DECIMAL(10,2) PATH '$.cantidad'
-       )) jt
-       WHERE d.venta_id = ?`, [dto.venta_id]);
         const devueltoMap = {};
         const devolucionesExistentes = await this.repo.find({ where: { venta_id: dto.venta_id } });
         for (const dev of devolucionesExistentes) {
