@@ -10,7 +10,7 @@ import toast from 'react-hot-toast';
 import CartPanel from '../../components/pos/CartPanel';
 import PayModal from '../../components/pos/PayModal';
 import AbrirCuentaModal from '../../components/pos/AbrirCuentaModal';
-import { Search, ShoppingBag, Wifi, WifiOff, CreditCard, X, Clock, RefreshCw, Trash2, Minus, Plus } from 'lucide-react';
+import { Search, ShoppingBag, Wifi, WifiOff, CreditCard, X, Clock, RefreshCw, Trash2, Minus, Plus, FileText } from 'lucide-react';
 
 // ── Long-press product card ──────────────────────────────────────────────────
 function ProductCard({ prod, onClick, onLongPress, showStockBadge }: { prod: Producto; onClick: () => void; onLongPress: () => void; showStockBadge?: boolean }) {
@@ -144,10 +144,6 @@ export default function POSPage() {
 
   const loadTiendaConfig = async () => {
     if (!user?.tienda_id) return;
-    // Load ticket config for precuenta/propina flags
-    ticketsApi.getConfig().then(r => {
-      setPrecuentaEnabled(r.data?.precuenta_enabled || false);
-    }).catch(() => {});
     try {
       const { data } = await tiendasApi.get(user.tienda_id);
       if (data.config_pos) {
@@ -172,6 +168,7 @@ export default function POSPage() {
         setEnSitioVisible(cp.en_sitio_visible !== false);
         setParaLlevarVisible(cp.para_llevar_visible !== false);
         setStockBadgeEnabled(cp.pos_stock_badge_enabled || false);
+        setPrecuentaEnabled(cp.precuenta_enabled || false);
         const cr = (cp.cantidades_rapidas || '10,25,50,100')
           .split(',').map((s: string) => parseInt(s.trim(), 10)).filter((n: number) => n > 0);
         setCantidadesRapidas(cr.length ? cr : [10, 25, 50, 100]);
@@ -416,11 +413,12 @@ export default function POSPage() {
     }
   };
 
-  const handlePreCuenta = async () => {
-    if (cart.length === 0 && !pedidoActivo) return;
+  const handlePreCuenta = async (pedidoOverride?: any) => {
+    const pedido = pedidoOverride ?? pedidoActivo;
+    if (cart.length === 0 && !pedido) return;
     try {
-      const items = pedidoActivo
-        ? pedidoActivo.detalles?.map((d: any) => ({
+      const items = pedido
+        ? pedido.detalles?.map((d: any) => ({
             nombre: d.producto_nombre,
             cantidad: Number(d.cantidad),
             precio: Number(d.precio_unitario),
@@ -434,17 +432,17 @@ export default function POSPage() {
             descuento: i.descuento || 0,
             notas: i.notas,
           }));
-      const subtotal = pedidoActivo ? Number(pedidoActivo.subtotal) : getSubtotal();
-      const impuestos = pedidoActivo ? Number(pedidoActivo.impuestos) : getImpuestos();
-      const totalPc = pedidoActivo ? Number(pedidoActivo.total) : getTotal();
+      const subtotal = pedido ? Number(pedido.subtotal) : getSubtotal();
+      const impuestos = pedido ? Number(pedido.impuestos) : getImpuestos();
+      const totalPc = pedido ? Number(pedido.total) : getTotal();
       const { data: ticket } = await ticketsApi.precuenta({
         items,
         subtotal,
         impuestos,
         total: totalPc,
-        mesa: pedidoActivo?.mesa || mesaActiva,
-        cliente_nombre: pedidoActivo?.cliente_nombre || clienteNombre || undefined,
-        notas: pedidoActivo?.notas || notaPedido || undefined,
+        mesa: pedido?.mesa || mesaActiva,
+        cliente_nombre: pedido?.cliente_nombre || clienteNombre || undefined,
+        notas: pedido?.notas || notaPedido || undefined,
       });
       printTicket(ticket.raw, ticket.ancho_papel, ticket.fuente_familia, ticket.fuente_tamano, null, ticket.logo_posicion, 1);
       toast.success('Pre-cuenta impresa');
@@ -786,6 +784,14 @@ export default function POSPage() {
                       >
                         <CreditCard size={13} /> Cobrar
                       </button>
+                      {precuentaEnabled && (
+                        <button
+                          onClick={() => handlePreCuenta(p)}
+                          className="btn-secondary text-xs px-3 py-2 flex items-center gap-1"
+                        >
+                          <FileText size={13} /> Pre-cuenta
+                        </button>
+                      )}
                       <button
                         onClick={() => handleCargarAlCarrito(p)}
                         className="btn-secondary text-xs px-3 py-2 flex items-center gap-1"
