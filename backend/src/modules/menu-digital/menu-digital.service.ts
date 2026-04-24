@@ -380,6 +380,7 @@ export class MenuDigitalService {
       is_active: cfg.is_active,
       modo_menu: cfg.modo_menu,
       plantilla: cfg.plantilla || 'oscuro',
+      cloud_url: cfg.cloud_url || null,
       tienda: { ...tienda, logo_url: toAbs(tienda.logo_url) },
       categorias,
       productos: productosAbs,

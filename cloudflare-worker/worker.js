@@ -133,6 +133,30 @@ async function handleCreateOrder(request, env, slug, mesa) {
   const key = 'ord:' + slug + ':' + String(ts).padStart(16, '0') + ':' + id;
   await env.POS_RELAY.put(key, JSON.stringify(order), { expirationTtl: 86400 });
 
+  // Push inmediato al backend (más rápido que esperar polling)
+  if (snap.cloud_url) {
+    try {
+      const api = snap.cloud_url.replace(/\/$/, '');
+      const r = await fetch(`${api}/api/public/self-order/s/${encodeURIComponent(slug)}/${order.mesa_numero}/pedido`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cliente_nombre: order.cliente_nombre,
+          items: order.items,
+          subtotal: order.total,
+          total: order.total,
+          notas: order.notas,
+        }),
+      });
+      if (r.ok) {
+        // ACK inmediato — el polling no necesita procesarlo
+        await env.POS_RELAY.delete(key);
+      }
+    } catch {
+      // Backend unreachable — polling lo jalará después
+    }
+  }
+
   return jsonRes({ ok: true, id, numero: id.slice(0, 6).toUpperCase() });
 }
 
