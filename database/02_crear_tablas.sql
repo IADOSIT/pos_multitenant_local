@@ -521,6 +521,7 @@ CREATE TABLE IF NOT EXISTS menu_digital_config (
   created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   plantilla VARCHAR(20) NOT NULL DEFAULT 'oscuro',
+  worker_url VARCHAR(500) NULL,
   INDEX IDX_mdc_tenant_empresa (tenant_id, empresa_id),
   UNIQUE KEY UQ_mdc_tienda (tienda_id),
   UNIQUE KEY UQ_mdc_slug (slug)

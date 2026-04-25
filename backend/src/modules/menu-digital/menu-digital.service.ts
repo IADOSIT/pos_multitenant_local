@@ -51,6 +51,7 @@ export class MenuDigitalService {
         sync_mode: 'manual',
         sync_interval: 30,
         cloud_url: defaultCloudUrl,
+        worker_url: process.env.DEFAULT_WORKER_URL || '',
       });
       cfg = await this.configRepo.save(cfg);
     }
@@ -359,20 +360,20 @@ export class MenuDigitalService {
 
   // Sync snapshot to Cloudflare Worker relay
   async syncToWorker(cfg: MenuDigitalConfig, tienda: any, categorias: any[], productos: any[]): Promise<void> {
-    const url = cfg.worker_url.replace(/\/$/, '') + '/sync/' + cfg.slug;
+    const workerBase = cfg.worker_url.replace(/\/$/, '');
+    const url = workerBase + '/sync/' + cfg.slug;
 
-    // Convierte rutas relativas a absolutas usando cloud_url como base
-    const base = (cfg.cloud_url || '').replace(/\/$/, '');
+    // Convierte rutas relativas a absolutas usando cloud_url como base (fallback si no se puede subir al worker)
+    const cloudBase = (cfg.cloud_url || '').replace(/\/$/, '');
     const toAbs = (u: string) => {
       if (!u) return null;
       if (u.startsWith('http://') || u.startsWith('https://')) return u;
-      return base ? base + u : null;
+      return cloudBase ? cloudBase + u : null;
     };
 
-    const productosAbs = productos.map(p => ({
-      ...p,
-      imagen_url: toAbs(p.imagen_url),
-    }));
+    // Sube imágenes locales al Worker KV → URLs permanentes accesibles desde internet
+    const productosAbs = await this.uploadImagesToWorker(workerBase, productos, toAbs);
+    const logoUrl = await this.uploadSingleImageToWorker(workerBase, tienda.logo_url, toAbs);
 
     const body = {
       api_key: cfg.api_key,
@@ -381,7 +382,7 @@ export class MenuDigitalService {
       modo_menu: cfg.modo_menu,
       plantilla: cfg.plantilla || 'oscuro',
       cloud_url: cfg.cloud_url || null,
-      tienda: { ...tienda, logo_url: toAbs(tienda.logo_url) },
+      tienda: { ...tienda, logo_url: logoUrl },
       categorias,
       productos: productosAbs,
     };
@@ -394,7 +395,50 @@ export class MenuDigitalService {
       const text = await res.text();
       throw new Error(`Worker sync failed (${res.status}): ${text}`);
     }
-    this.logger.log(`Worker sync OK → ${url}`);
+    this.logger.log(`Worker sync OK → ${url} (${productosAbs.filter(p => p.imagen_url?.includes('/img/')).length} imgs subidas)`);
+  }
+
+  // Sube cada imagen de producto al Worker KV y reemplaza la URL local por la del Worker
+  private async uploadImagesToWorker(workerBase: string, productos: any[], toAbs: (u: string) => string | null): Promise<any[]> {
+    return Promise.all(productos.map(async (p) => ({
+      ...p,
+      imagen_url: await this.uploadSingleImageToWorker(workerBase, p.imagen_url, toAbs),
+    })));
+  }
+
+  private async uploadSingleImageToWorker(workerBase: string, imageUrl: string | null, toAbs: (u: string) => string | null): Promise<string | null> {
+    if (!imageUrl) return null;
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
+
+    try {
+      const { readFile } = await import('fs/promises');
+      const { join, extname } = await import('path');
+      const { createHash } = await import('crypto');
+
+      // /api/uploads/img/foo.jpg → uploads/img/foo.jpg (relativo al cwd del backend)
+      const relPath = imageUrl.replace(/^\/api\//, '').replace(/^\//, '');
+      const filePath = join(process.cwd(), relPath);
+      const buffer = await readFile(filePath);
+
+      const hash = createHash('sha256').update(buffer).digest('hex').slice(0, 24);
+      const ext = extname(filePath).toLowerCase();
+      const ct = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+
+      const putRes = await fetch(`${workerBase}/img/${hash}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': ct },
+        body: buffer,
+      });
+
+      if (putRes.ok) {
+        return `${workerBase}/img/${hash}`;
+      }
+    } catch (e) {
+      this.logger.warn(`Worker img upload skip: ${imageUrl} — ${(e as Error).message}`);
+    }
+
+    // Fallback: URL absoluta via cloud_url
+    return toAbs(imageUrl);
   }
 
   // Save snapshot directly to local DB

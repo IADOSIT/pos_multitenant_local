@@ -1352,7 +1352,7 @@ export default function ConfiguracionPage() {
                     <input
                       value={mdCfgForm.worker_url ?? ''}
                       onChange={e => setMdCfgForm({ ...mdCfgForm, worker_url: e.target.value.trim() })}
-                      placeholder="https://pos-iados-relay.workers.dev"
+                      placeholder="https://pos-iados-relay.axel-muniz.workers.dev"
                       className="input-touch text-sm font-mono"
                     />
                     {mdCfgForm.worker_url ? (

@@ -53,6 +53,8 @@ export declare class MenuDigitalService {
     getPendingOrders(tiendaId: number, apiKey: string): Promise<MenuDigitalOrder[]>;
     updateOrderStatus(orderId: number, status: string, tiendaId: number): Promise<MenuDigitalOrder>;
     syncToWorker(cfg: MenuDigitalConfig, tienda: any, categorias: any[], productos: any[]): Promise<void>;
+    private uploadImagesToWorker;
+    private uploadSingleImageToWorker;
     private saveSnapshotDirect;
     private generateSlug;
     private countPendingChanges;

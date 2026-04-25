@@ -63,6 +63,10 @@ export default {
         if (p3 === 'ack') return handleAckOrder(request, env, p1, p2);
         return handleGetOrders(request, env, p1);
       }
+      if (route === 'img') {
+        if (request.method === 'PUT') return handlePutImage(request, env, p1);
+        return handleGetImage(env, p1);
+      }
       return jsonRes({ service: 'POS-iaDoS Relay', version: '1.0' });
     } catch (e) {
       return jsonRes({ error: e.message }, 500);
@@ -193,6 +197,35 @@ async function handleAckOrder(request, env, slug, orderId) {
     }
   }
   return jsonRes({ error: 'Pedido no encontrado' }, 404);
+}
+
+// ─────────────────────────────────────────────
+// Image handlers
+// ─────────────────────────────────────────────
+
+async function handleGetImage(env, hash) {
+  if (!hash) return new Response('Not found', { status: 404 });
+  const kv = await env.POS_RELAY.getWithMetadata('img:' + hash, { type: 'arrayBuffer' });
+  if (!kv.value) return new Response('Not found', { status: 404 });
+  return new Response(kv.value, {
+    headers: {
+      'Content-Type': kv.metadata?.ct || 'image/jpeg',
+      'Cache-Control': 'public, max-age=2592000',
+      ...CORS,
+    },
+  });
+}
+
+async function handlePutImage(request, env, hash) {
+  if (!hash) return jsonRes({ error: 'hash requerido' }, 400);
+  const ct = request.headers.get('content-type') || 'image/jpeg';
+  const body = await request.arrayBuffer();
+  if (!body.byteLength) return jsonRes({ error: 'body vacío' }, 400);
+  await env.POS_RELAY.put('img:' + hash, body, {
+    expirationTtl: 86400 * 90,
+    metadata: { ct },
+  });
+  return jsonRes({ ok: true, hash, url: '/img/' + hash });
 }
 
 // ─────────────────────────────────────────────

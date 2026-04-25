@@ -16,11 +16,13 @@
 
 param(
     [ValidateSet("local","online")]
-    [string]$Mode          = "local",
-    [string]$Version       = "",
-    [string]$OutputDir     = "output",
-    [string]$InnoSetupPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
-    [string]$RuntimeSource = "v1.0.0"
+    [string]$Mode             = "local",
+    [string]$Version          = "",
+    [string]$OutputDir        = "output",
+    [string]$InnoSetupPath    = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+    [string]$RuntimeSource    = "v1.0.0",
+    # Ruta opcional a un frontend ya compilado (evita correr vite cuando falla por OOM)
+    [string]$PreBuiltFrontend = ""
 )
 
 # Auto-detectar version desde staging/version.json si no se paso como parametro
@@ -76,35 +78,41 @@ try {
 # =============================================================================
 # 1. Build frontend
 # =============================================================================
-Write-Step "Compilando frontend (npm run build)..."
 
-$FrontendSrcDir = Join-Path $ProjectDir "frontend"
-if (-not (Test-Path "$FrontendSrcDir\package.json")) {
-    Write-Fail "No se encontro frontend en: $FrontendSrcDir"
-}
-
-$env:VITE_API_URL = "/api"
-# Compilar a dist-build (directorio propio, sin problemas de permisos de builds anteriores)
-# dist-prod puede estar bloqueado si fue generado por otro usuario/proceso (e.g. build previo como Admin)
-$distBuildDir = Join-Path $FrontendSrcDir "dist-build"
-if (Test-Path $distBuildDir) {
-    Remove-Item -Recurse -Force $distBuildDir -ErrorAction SilentlyContinue
-}
-$buildResult = & cmd /c "cd /d `"$FrontendSrcDir`" && npx vite build --outDir dist-build --emptyOutDir 2>&1"
-$buildExitCode = $LASTEXITCODE
+$FrontendSrcDir  = Join-Path $ProjectDir "frontend"
+$distBuildDir    = Join-Path $FrontendSrcDir "dist-build"
 $FrontendDistDir = $distBuildDir
-$FrontendIndexHtml = Join-Path $FrontendDistDir "index.html"
-if ($buildExitCode -ne 0) {
-    # Windows Defender puede bloquear sw.js brevemente y reportar EPERM aunque el build este completo.
-    # Si index.html existe y tiene contenido, el build fue exitoso.
-    if ((Test-Path $FrontendIndexHtml) -and ((Get-Item $FrontendIndexHtml).Length -gt 100)) {
-        Write-Warn "npm run build reporto error ($buildExitCode) pero dist-build esta completo. Continuando..."
-    } else {
-        Write-Host $buildResult
-        Write-Fail "npm run build fallo (codigo: $buildExitCode)"
+
+if ($PreBuiltFrontend -and (Test-Path "$PreBuiltFrontend\index.html")) {
+    # Usar frontend pre-compilado (cuando vite falla por OOM u otro error)
+    Write-Step "Usando frontend pre-compilado desde: $PreBuiltFrontend"
+    if (Test-Path $distBuildDir) { Remove-Item -Recurse -Force $distBuildDir -ErrorAction SilentlyContinue }
+    New-Item -ItemType Directory -Path $distBuildDir -Force | Out-Null
+    Copy-Item -Path "$PreBuiltFrontend\*" -Destination $distBuildDir -Recurse -Force
+    Write-OK "Frontend pre-compilado listo ($((Get-ChildItem $distBuildDir -Recurse -File).Count) archivos)"
+} else {
+    Write-Step "Compilando frontend (npm run build)..."
+    if (-not (Test-Path "$FrontendSrcDir\package.json")) {
+        Write-Fail "No se encontro frontend en: $FrontendSrcDir"
     }
+    $env:VITE_API_URL = "/api"
+    if (Test-Path $distBuildDir) {
+        Remove-Item -Recurse -Force $distBuildDir -ErrorAction SilentlyContinue
+    }
+    $buildResult = & cmd /c "cd /d `"$FrontendSrcDir`" && npx vite build --outDir dist-build --emptyOutDir 2>&1"
+    $buildExitCode = $LASTEXITCODE
+    $FrontendIndexHtml = Join-Path $FrontendDistDir "index.html"
+    if ($buildExitCode -ne 0) {
+        # Windows Defender puede bloquear sw.js brevemente y reportar EPERM aunque el build este completo.
+        if ((Test-Path $FrontendIndexHtml) -and ((Get-Item $FrontendIndexHtml).Length -gt 100)) {
+            Write-Warn "npm run build reporto error ($buildExitCode) pero dist-build esta completo. Continuando..."
+        } else {
+            Write-Host $buildResult
+            Write-Fail "npm run build fallo (codigo: $buildExitCode). Si es OOM usa -PreBuiltFrontend ruta-al-dist"
+        }
+    }
+    Write-OK "Frontend compilado correctamente"
 }
-Write-OK "Frontend compilado correctamente"
 
 # =============================================================================
 # 1b. Compilar TypeScript del backend
@@ -304,10 +312,10 @@ if ($Mode -eq "local") {
     Write-OK "Runtimes: Node.js + NSSM (sin MariaDB - modo online)"
 }
 
-# --- App desde staging ---
+# --- App desde staging (excluye node_modules - se maneja por robocopy delta) ---
 Write-Info "Copiando app desde staging..."
-Copy-Item -Path "$StagingDir\app\*" -Destination "$MergedDir\app" -Recurse -Force
-Write-OK "App copiada (staging)"
+& robocopy "$StagingDir\app" "$MergedDir\app" /E /XD node_modules /NP /NFL /NDL /LOG:NUL | Out-Null
+Write-OK "App copiada (staging, sin node_modules)"
 
 # --- Sobrescribir seeds con los frescos de database/ (bypass permisos staging) ---
 if (Test-Path $DbSrcDir) {

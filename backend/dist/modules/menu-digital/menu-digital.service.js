@@ -57,6 +57,7 @@ let MenuDigitalService = class MenuDigitalService {
                 sync_mode: 'manual',
                 sync_interval: 30,
                 cloud_url: defaultCloudUrl,
+                worker_url: process.env.DEFAULT_WORKER_URL || '',
             });
             cfg = await this.configRepo.save(cfg);
         }
@@ -301,19 +302,18 @@ let MenuDigitalService = class MenuDigitalService {
         return this.orderRepo.save(order);
     }
     async syncToWorker(cfg, tienda, categorias, productos) {
-        const url = cfg.worker_url.replace(/\/$/, '') + '/sync/' + cfg.slug;
-        const base = (cfg.cloud_url || '').replace(/\/$/, '');
+        const workerBase = cfg.worker_url.replace(/\/$/, '');
+        const url = workerBase + '/sync/' + cfg.slug;
+        const cloudBase = (cfg.cloud_url || '').replace(/\/$/, '');
         const toAbs = (u) => {
             if (!u)
                 return null;
             if (u.startsWith('http://') || u.startsWith('https://'))
                 return u;
-            return base ? base + u : null;
+            return cloudBase ? cloudBase + u : null;
         };
-        const productosAbs = productos.map(p => ({
-            ...p,
-            imagen_url: toAbs(p.imagen_url),
-        }));
+        const productosAbs = await this.uploadImagesToWorker(workerBase, productos, toAbs);
+        const logoUrl = await this.uploadSingleImageToWorker(workerBase, tienda.logo_url, toAbs);
         const body = {
             api_key: cfg.api_key,
             slug: cfg.slug,
@@ -321,7 +321,7 @@ let MenuDigitalService = class MenuDigitalService {
             modo_menu: cfg.modo_menu,
             plantilla: cfg.plantilla || 'oscuro',
             cloud_url: cfg.cloud_url || null,
-            tienda: { ...tienda, logo_url: toAbs(tienda.logo_url) },
+            tienda: { ...tienda, logo_url: logoUrl },
             categorias,
             productos: productosAbs,
         };
@@ -334,7 +334,42 @@ let MenuDigitalService = class MenuDigitalService {
             const text = await res.text();
             throw new Error(`Worker sync failed (${res.status}): ${text}`);
         }
-        this.logger.log(`Worker sync OK → ${url}`);
+        this.logger.log(`Worker sync OK → ${url} (${productosAbs.filter(p => p.imagen_url?.includes('/img/')).length} imgs subidas)`);
+    }
+    async uploadImagesToWorker(workerBase, productos, toAbs) {
+        return Promise.all(productos.map(async (p) => ({
+            ...p,
+            imagen_url: await this.uploadSingleImageToWorker(workerBase, p.imagen_url, toAbs),
+        })));
+    }
+    async uploadSingleImageToWorker(workerBase, imageUrl, toAbs) {
+        if (!imageUrl)
+            return null;
+        if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))
+            return imageUrl;
+        try {
+            const { readFile } = await Promise.resolve().then(() => require('fs/promises'));
+            const { join, extname } = await Promise.resolve().then(() => require('path'));
+            const { createHash } = await Promise.resolve().then(() => require('crypto'));
+            const relPath = imageUrl.replace(/^\/api\//, '').replace(/^\//, '');
+            const filePath = join(process.cwd(), relPath);
+            const buffer = await readFile(filePath);
+            const hash = createHash('sha256').update(buffer).digest('hex').slice(0, 24);
+            const ext = extname(filePath).toLowerCase();
+            const ct = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+            const putRes = await fetch(`${workerBase}/img/${hash}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': ct },
+                body: buffer,
+            });
+            if (putRes.ok) {
+                return `${workerBase}/img/${hash}`;
+            }
+        }
+        catch (e) {
+            this.logger.warn(`Worker img upload skip: ${imageUrl} — ${e.message}`);
+        }
+        return toAbs(imageUrl);
     }
     async saveSnapshotDirect(data) {
         let snap = await this.snapshotRepo.findOne({ where: { slug: data.slug } });

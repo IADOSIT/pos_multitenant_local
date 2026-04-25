@@ -630,6 +630,7 @@ JWT_EXPIRES_IN=8h
 FRONTEND_URL=http://localhost:$BackendPort
 INSTALL_MODE=local
 APP_VERSION=$AppVersion
+DEFAULT_WORKER_URL=https://pos-iados-relay.axel-muniz.workers.dev
 "@
 $envContent | Set-Content "$InstallDir\backend\.env"
 Write-Log "Backend configurado (.env generado)" "Green"

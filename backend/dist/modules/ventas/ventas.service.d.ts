@@ -14,6 +14,7 @@ export declare class VentasService {
     cancelar(id: number, motivo: string, scope: any): Promise<Venta>;
     findAll(scope: any, fecha_inicio?: string, fecha_fin?: string): Promise<Venta[]>;
     findOne(id: number): Promise<Venta | null>;
+    buscar(scope: any, q: string): Promise<any>;
     getClientes(scope: any, q?: string): Promise<any>;
     private sendStockAlerts;
     syncOffline(ventas: any[], scope: any): Promise<any[]>;

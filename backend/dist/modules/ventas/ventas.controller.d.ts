@@ -9,5 +9,6 @@ export declare class VentasController {
     cancelar(id: number, motivo: string, scope: any): Promise<import("./venta.entity").Venta>;
     findAll(scope: any, desde?: string, hasta?: string): Promise<import("./venta.entity").Venta[]>;
     getClientes(scope: any, q?: string): Promise<any>;
+    buscar(scope: any, q?: string): Promise<any>;
     findOne(id: number): Promise<import("./venta.entity").Venta | null>;
 }

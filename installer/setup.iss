@@ -112,14 +112,17 @@ Source: "{#IconFile}"; DestDir: "{app}"; Flags: ignoreversion
 ; Guía de primer uso (se copia a C:\POS-iaDoS\)
 Source: "staging\PRIMER_USO.html"; DestDir: "{app}"; Flags: ignoreversion
 
+; Launcher con kiosk-printing (Chrome/Edge, impresion silenciosa)
+Source: "staging\abrir-pos.ps1"; DestDir: "{app}"; Flags: ignoreversion
+
 [Icons]
-; Menú inicio
-Name: "{group}\Abrir POS-iaDoS (Navegador)"; \
-  Filename: "{sys}\cmd.exe"; \
-  Parameters: "/c start """" http://localhost:3000"; \
-  WorkingDir: "{#MyInstallDir}"; \
+; Menú inicio — usa PowerShell hidden para abrir Chrome con --kiosk-printing
+Name: "{group}\Abrir POS-iaDoS"; \
+  Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
+  Parameters: "-WindowStyle Hidden -ExecutionPolicy Bypass -File ""{app}\abrir-pos.ps1"""; \
+  WorkingDir: "{app}"; \
   IconFilename: "{app}\pos-iados.ico"; \
-  Comment: "Abre POS-iaDoS en el navegador predeterminado"
+  Comment: "Abre POS-iaDoS en Chrome con impresión automática"
 
 Name: "{group}\Administrador de Servicios"; \
   Filename: "{#MyInstallDir}\setup\services.ps1"; \
@@ -132,13 +135,13 @@ Name: "{group}\Guía de Primer Uso"; \
 Name: "{group}\Desinstalar {#MyAppName}"; \
   Filename: "{uninstallexe}"
 
-; Acceso directo en escritorio (opcional)
+; Acceso directo en escritorio con kiosk-printing
 Name: "{commondesktop}\POS-iaDoS"; \
-  Filename: "{sys}\cmd.exe"; \
-  Parameters: "/c start """" http://localhost:3000"; \
-  WorkingDir: "{#MyInstallDir}"; \
+  Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
+  Parameters: "-WindowStyle Hidden -ExecutionPolicy Bypass -File ""{app}\abrir-pos.ps1"""; \
+  WorkingDir: "{app}"; \
   IconFilename: "{app}\pos-iados.ico"; \
-  Comment: "Abre POS-iaDoS en el navegador predeterminado"; \
+  Comment: "Abre POS-iaDoS en Chrome con impresión automática"; \
   Tasks: desktopicon
 
 [Tasks]

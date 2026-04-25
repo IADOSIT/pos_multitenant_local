@@ -363,8 +363,18 @@
       <div class="step-num">7</div>
       <div class="step-body">
         <h4>¡Listo! Comienza a vender</h4>
-        <p>Ve a <strong>POS</strong>, selecciona productos, elige el método de pago y cobra. El ticket se imprime automáticamente si tienes una impresora térmica configurada.</p>
+        <p>Ve a <strong>POS</strong>, selecciona productos, elige el método de pago y cobra. El ticket se imprime automáticamente si abriste el sistema con el acceso directo del escritorio (Chrome con impresión automática).</p>
       </div>
+    </div>
+  </div>
+
+  <!-- IMPRESIÓN AUTOMÁTICA -->
+  <div class="section-title" style="margin-top:36px;">Impresión automática de tickets</div>
+  <div class="infobox">
+    <div class="infobox-icon">🖨️</div>
+    <div class="infobox-body">
+      <h4>Usa el acceso directo del escritorio para imprimir sin confirmación</h4>
+      <p>El acceso directo <strong>POS-iaDoS</strong> que se crea en el escritorio abre el sistema en <strong>Google Chrome o Microsoft Edge</strong> con el parámetro <code>--kiosk-printing</code>, lo que hace que los tickets se impriman directamente en la impresora predeterminada sin mostrar ningún diálogo. Esto es ideal para un mostrador de ventas. Si no tienes Chrome ni Edge instalado, el sistema abre en el navegador predeterminado (la impresión solicitará confirmación).</p>
     </div>
   </div>
 
@@ -380,12 +390,17 @@
     </thead>
     <tbody>
       <tr>
+        <td>Impresión automática</td>
+        <td>Acceso directo del escritorio</td>
+        <td>Abre en Chrome/Edge con <code>--kiosk-printing</code>; imprime tickets sin diálogo de confirmación</td>
+      </tr>
+      <tr>
         <td>Acceso por PIN táctil</td>
         <td>Automático</td>
         <td>Cajeros y meseros ingresan con PIN numérico desde pantalla touch; no requieren teclado</td>
       </tr>
       <tr>
-        <td>Multiples métodos de pago</td>
+        <td>Múltiples métodos de pago</td>
         <td>POS → Cobrar</td>
         <td>Efectivo, tarjeta y transferencia; cálculo automático de cambio con denominaciones</td>
       </tr>
@@ -393,6 +408,26 @@
         <td>Cuentas abiertas (barra/mesa)</td>
         <td>Config → POS → Cuentas</td>
         <td>Acumula consumos en una cuenta y cobra todo al final; compatible con modo mesa</td>
+      </tr>
+      <tr>
+        <td>Pre-cuenta en mesa</td>
+        <td>POS → Mesa → Pre-cuenta</td>
+        <td>Imprime el desglose del consumo al cliente antes de cobrar, sin cerrar la mesa</td>
+      </tr>
+      <tr>
+        <td>Devoluciones</td>
+        <td>Ventas → Devoluciones</td>
+        <td>Busca cualquier venta por folio o fecha y registra devoluciones parciales o totales con motivo</td>
+      </tr>
+      <tr>
+        <td>Menú Digital QR</td>
+        <td>Config → Menú Digital QR</td>
+        <td>Publica tu menú en internet vía Cloudflare; clientes escanean el QR desde su celular y ven precios en tiempo real. También permite recibir pedidos directamente desde la mesa</td>
+      </tr>
+      <tr>
+        <td>Pedidos desde QR de mesa</td>
+        <td>Config → Menú Digital QR → Modo Pedidos</td>
+        <td>El cliente pide desde su celular; el pedido llega al POS automáticamente con badge naranja de alerta. Badge "QR" visible en el panel de pedidos para identificarlos</td>
       </tr>
       <tr>
         <td>Gestión de mesas</td>
@@ -415,6 +450,11 @@
         <td>Compatible con impresoras térmicas 58 mm y 80 mm; soporte para comanda de cocina</td>
       </tr>
       <tr>
+        <td>Notas por ítem y por pedido</td>
+        <td>Config → POS → activar Notas</td>
+        <td>El cajero puede agregar indicaciones especiales por producto o por pedido completo</td>
+      </tr>
+      <tr>
         <td>Modo offline / sin internet</td>
         <td>Automático</td>
         <td>El sistema funciona completamente sin conexión; todos los datos son locales</td>
@@ -429,18 +469,43 @@
         <td>Admin → Usuarios</td>
         <td>Superadmin, admin, manager, cajero y mesero; acceso a módulos configurable por rol</td>
       </tr>
-      <tr>
-        <td>Módulos de pedidos</td>
-        <td>Pedidos</td>
-        <td>Gestión de pedidos en tiempo real con notificaciones push; estados pendiente / en proceso / listo</td>
-      </tr>
-      <tr>
-        <td>Notas por ítem y por pedido</td>
-        <td>Config → POS</td>
-        <td>El cajero puede agregar indicaciones especiales por producto o por pedido completo</td>
-      </tr>
     </tbody>
   </table>
+
+  <!-- MENÚ DIGITAL QR -->
+  <div class="section-title">Cómo activar el Menú Digital QR</div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h4>Ve a Configuración → Menú Digital QR</h4>
+        <p>En el panel de administración selecciona la sección <strong>Menú Digital QR</strong>.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h4>Completa los campos requeridos</h4>
+        <p><strong>Worker URL:</strong> <code>https://pos-iados-relay.workers.dev</code><br/>
+        <strong>URL del servidor:</strong> haz clic en <strong>"Este servidor"</strong> para rellenar automáticamente.<br/>
+        Verifica que el <strong>slug</strong> (enlace del menú) tenga el nombre de tu negocio.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h4>Activa el menú y pulsa "Publicar"</h4>
+        <p>Activa el toggle <strong>ON</strong> y haz clic en <strong>Publicar Menú</strong>. El sistema sube tus productos, categorías y fotos a la nube. El QR generado puede imprimirse o compartirse con tus clientes.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h4>Republica cuando cambies productos o precios</h4>
+        <p>Cada vez que modifiques tu catálogo vuelve a <strong>Publicar</strong> para que el menú en internet refleje los cambios.</p>
+      </div>
+    </div>
+  </div>
 
   <!-- ACCESO DESDE OTROS DISPOSITIVOS -->
   <div class="section-title">Acceso desde celulares y tablets</div>
