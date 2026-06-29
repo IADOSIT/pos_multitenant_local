@@ -8,8 +8,8 @@ import ProductCard from '@/components/ProductCard'
 import HeroSection from '@/components/HeroSection'
 import { CartProvider } from '@/hooks/useCart'
 
-export default async function HomePage({ params }: { params: Promise<{ subdominio: string }> }) {
-  const { subdominio } = await params
+export default async function HomePage({ params }: { params: { subdominio: string } }) {
+  const { subdominio } = params
   const [info, categorias, productosRes] = await Promise.all([
     fetchTiendaInfo(subdominio),
     fetchCategorias(subdominio),

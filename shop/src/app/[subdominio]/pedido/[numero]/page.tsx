@@ -7,11 +7,11 @@ import Navbar from '@/components/Navbar'
 import StoreFooter from '@/components/StoreFooter'
 
 interface PageProps {
-  params: Promise<{ subdominio: string; numero: string }>
+  params: { subdominio: string; numero: string }
 }
 
 export default async function PedidoPage({ params }: PageProps) {
-  const { subdominio, numero } = await params
+  const { subdominio, numero } = params
   const [info, categorias, pedido] = await Promise.all([
     fetchTiendaInfo(subdominio),
     fetchCategorias(subdominio),

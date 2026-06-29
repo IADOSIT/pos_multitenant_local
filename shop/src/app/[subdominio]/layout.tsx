@@ -4,8 +4,8 @@ import { fetchTiendaInfo } from '@/lib/api'
 import { THEMES, themeToCSS } from '@/themes'
 import { ThemeProvider } from '@/components/ThemeProvider'
 
-export async function generateMetadata({ params }: { params: Promise<{ subdominio: string }> }): Promise<Metadata> {
-  const { subdominio } = await params
+export async function generateMetadata({ params }: { params: { subdominio: string } }): Promise<Metadata> {
+  const { subdominio } = params
   const info = await fetchTiendaInfo(subdominio)
   if (!info) return { title: 'Tienda no encontrada' }
   return {
@@ -25,9 +25,9 @@ export default async function ShopLayout({
   params,
 }: {
   children: React.ReactNode
-  params: Promise<{ subdominio: string }>
+  params: { subdominio: string }
 }) {
-  const { subdominio } = await params
+  const { subdominio } = params
   const info = await fetchTiendaInfo(subdominio)
   if (!info) notFound()
 
@@ -42,24 +42,23 @@ export default async function ShopLayout({
   }
 
   return (
-    <html lang="es" data-theme={theme.id} data-mode={theme.modo}>
-      <head>
-        <style>{`:root { ${cssVars} }`}</style>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href={fontLinks[themeId] || fontLinks.lumina} rel="stylesheet" />
-      </head>
-      <body style={{
-        background: 'var(--color-bg)',
-        color: 'var(--color-text)',
-        fontFamily: 'var(--font-body)',
-        margin: 0,
-        minHeight: '100vh',
-      }}>
-        <ThemeProvider theme={theme} tiendaInfo={info} subdominio={subdominio}>
-          {children}
-        </ThemeProvider>
-      </body>
-    </html>
+    <>
+      <style>{`
+        :root { ${cssVars} }
+        body {
+          background: var(--color-bg);
+          color: var(--color-text);
+          font-family: var(--font-body);
+          margin: 0;
+          min-height: 100vh;
+        }
+      `}</style>
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      <link href={fontLinks[themeId] || fontLinks.lumina} rel="stylesheet" />
+      <ThemeProvider theme={theme} tiendaInfo={info} subdominio={subdominio}>
+        {children}
+      </ThemeProvider>
+    </>
   )
 }

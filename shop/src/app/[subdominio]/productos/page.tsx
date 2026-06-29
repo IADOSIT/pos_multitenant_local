@@ -8,13 +8,13 @@ import ProductCard from '@/components/ProductCard'
 import ProductosFilters from './ProductosFilters'
 
 interface PageProps {
-  params: Promise<{ subdominio: string }>
-  searchParams: Promise<{ categoria_id?: string; buscar?: string; ordenar?: string; page?: string }>
+  params: { subdominio: string }
+  searchParams: { categoria_id?: string; buscar?: string; ordenar?: string; page?: string }
 }
 
 export default async function ProductosPage({ params, searchParams }: PageProps) {
-  const { subdominio } = await params
-  const { categoria_id, buscar, ordenar = 'novedad', page = '1' } = await searchParams
+  const { subdominio } = params
+  const { categoria_id, buscar, ordenar = 'novedad', page = '1' } = searchParams
 
   const [info, categorias, productosRes] = await Promise.all([
     fetchTiendaInfo(subdominio),

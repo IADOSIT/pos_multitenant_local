@@ -7,11 +7,11 @@ import StoreFooter from '@/components/StoreFooter'
 import AddToCartButton from './AddToCartButton'
 
 interface PageProps {
-  params: Promise<{ subdominio: string; slug: string }>
+  params: { subdominio: string; slug: string }
 }
 
 export default async function ProductoPage({ params }: PageProps) {
-  const { subdominio, slug } = await params
+  const { subdominio, slug } = params
   const [info, categorias, producto] = await Promise.all([
     fetchTiendaInfo(subdominio),
     fetchCategorias(subdominio),

@@ -6,11 +6,11 @@ import StoreFooter from '@/components/StoreFooter'
 import CheckoutForm from './CheckoutForm'
 
 interface PageProps {
-  params: Promise<{ subdominio: string }>
+  params: { subdominio: string }
 }
 
 export default async function CheckoutPage({ params }: PageProps) {
-  const { subdominio } = await params
+  const { subdominio } = params
   const [info, categorias] = await Promise.all([fetchTiendaInfo(subdominio), fetchCategorias(subdominio)])
   if (!info) notFound()
 
