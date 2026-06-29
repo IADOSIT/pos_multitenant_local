@@ -78,7 +78,7 @@ export default async function ProductosPage({ params, searchParams }: PageProps)
                     {Array.from({ length: meta.pages }, (_, i) => i + 1).map(p => {
                       const params = new URLSearchParams()
                       if (categoria_id) params.set('categoria_id', categoria_id)
-                      if (q) params.set('q', q)
+                      if (buscar) params.set('buscar', buscar)
                       if (ordenar) params.set('ordenar', ordenar)
                       params.set('page', String(p))
                       return (
