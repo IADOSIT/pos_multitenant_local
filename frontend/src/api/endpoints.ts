@@ -83,6 +83,24 @@ export const productosApi = {
   },
 };
 
+// Ecommerce (admin)
+export const ecommerceApi = {
+  getConfig: () => api.get('/ecommerce/config'),
+  saveConfig: (data: any) => api.put('/ecommerce/config', data),
+  verificarSubdominio: (sub: string) => api.get('/ecommerce/config/verificar-subdominio', { params: { subdominio: sub } }),
+  generarSubdominio: (nombre: string) => api.post('/ecommerce/config/generar-subdominio', { nombre }),
+  getTemas: () => api.get('/ecommerce/config/temas'),
+  // Productos
+  getProductoConfig: (id: number) => api.get(`/ecommerce/productos/${id}/config`),
+  saveProductoConfig: (id: number, data: any) => api.put(`/ecommerce/productos/${id}/config`, data),
+  bulkVisibilidad: (ids: number[], visible: boolean) => api.post('/ecommerce/productos/bulk-visibilidad', { ids, visible }),
+  // Pedidos
+  listPedidos: (params?: any) => api.get('/ecommerce/pedidos', { params }),
+  getPedido: (id: number) => api.get(`/ecommerce/pedidos/${id}`),
+  updateEstado: (id: number, estado: string, notas?: string) => api.put(`/ecommerce/pedidos/${id}/estado`, { estado, notas_internas: notas }),
+  deletePedido: (id: number) => api.delete(`/ecommerce/pedidos/${id}`),
+};
+
 // Ventas
 export const ventasApi = {
   crear: (data: any) => api.post('/ventas', data),

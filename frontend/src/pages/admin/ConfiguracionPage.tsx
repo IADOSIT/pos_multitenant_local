@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers, TrendingUp, DollarSign } from 'lucide-react';
 import PerfilNegocioPage from './PerfilNegocioPage';
 import InventarioDualPage from '../inventario/InventarioDualPage';
+import TiendaEnLineaPage from './TiendaEnLineaPage';
 import QRCode from 'qrcode';
 
 const THEMES: { key: ThemeName; name: string; desc: string; previewStyle: React.CSSProperties }[] = [
@@ -39,7 +40,7 @@ export default function ConfiguracionPage() {
   const [editingNew, setEditingNew] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<any>(null);
   const [expandedSection, setExpandedSection] = useState<string>('pos');
-  const [configTab, setConfigTab] = useState<'tienda' | 'tickets' | 'modulos' | 'especial'>('tienda');
+  const [configTab, setConfigTab] = useState<'tienda' | 'tickets' | 'modulos' | 'especial' | 'ecommerce'>('tienda');
   const [empresaLogo, setEmpresaLogo] = useState<string>('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const logoRef = useRef<HTMLInputElement>(null);
@@ -638,9 +639,10 @@ export default function ConfiguracionPage() {
       {/* Tabs */}
       <div className="flex gap-1 border-b border-slate-700 mb-4">
         {[
-          { id: 'tienda',   label: 'Tienda' },
-          { id: 'tickets',  label: 'Tickets' },
+          { id: 'tienda',    label: 'Tienda' },
+          { id: 'tickets',   label: 'Tickets' },
           ...(['superadmin', 'admin'].includes(user?.rol || '') ? [{ id: 'modulos', label: 'Modulos' }] : []),
+          ...(['superadmin', 'admin'].includes(user?.rol || '') ? [{ id: 'ecommerce', label: '🛒 Tienda en Línea' }] : []),
           ...(user?.rol === 'superadmin' ? [{ id: 'especial', label: '⚙️ Conf. Especial' }] : []),
         ].map(({ id, label }) => (
           <button
@@ -656,6 +658,7 @@ export default function ConfiguracionPage() {
       </div>
 
       {configTab === 'tickets' && <TicketsConfig />}
+      {configTab === 'ecommerce' && <TiendaEnLineaPage />}
 
       {configTab === 'modulos' && (
         <div className="space-y-6">

@@ -6,9 +6,10 @@ import { useNotificaciones } from '../../hooks/useNotificaciones';
 import { printTicket, printComanda } from '../../utils/printTicket';
 import { resolveUploadUrl } from '../../api/client';
 import toast from 'react-hot-toast';
-import { ClipboardList, Clock, ChefHat, PackageCheck, CreditCard, XCircle, RefreshCw, Smartphone, Check, Ban, Receipt, FileText } from 'lucide-react';
+import { ClipboardList, Clock, ChefHat, PackageCheck, CreditCard, XCircle, RefreshCw, Smartphone, Check, Ban, Receipt, FileText, ShoppingBag } from 'lucide-react';
 import { tiendasApi } from '../../api/endpoints';
 import PinConfirmModal from '../../components/ui/PinConfirmModal';
+import PedidosWebPage from '../admin/PedidosWebPage';
 
 const estadoConfig: Record<string, { label: string; color: string; bg: string; icon: any }> = {
   recibido: { label: 'Recibido', color: 'text-yellow-300', bg: 'bg-yellow-900/50', icon: Clock },
@@ -28,7 +29,7 @@ export default function PedidosPage() {
   const { user } = useAuthStore();
   const { cajaActiva } = usePOSStore();
   const [pedidos, setPedidos] = useState<any[]>([]);
-  const [tab, setTab] = useState<'pendientes' | 'completados'>('pendientes');
+  const [tab, setTab] = useState<'pendientes' | 'completados' | 'web'>('pendientes');
   const [selected, setSelected] = useState<any>(null);
   const [showCobrar, setShowCobrar] = useState(false);
   const [showCancelar, setShowCancelar] = useState(false);
@@ -235,10 +236,15 @@ export default function PedidosPage() {
         <button onClick={() => setTab('completados')} className={`px-4 py-2 rounded-xl text-sm font-medium ${tab === 'completados' ? 'bg-iados-primary text-white' : 'bg-iados-card text-slate-400'}`}>
           Completados
         </button>
+        {['superadmin', 'admin', 'manager'].includes(user?.rol || '') && (
+          <button onClick={() => setTab('web')} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium ${tab === 'web' ? 'bg-purple-600 text-white' : 'bg-iados-card text-slate-400'}`}>
+            <ShoppingBag size={14} /> Pedidos Web
+          </button>
+        )}
       </div>
 
-      {/* Pedidos Grid */}
-      {pedidos.length === 0 ? (
+      {/* Pedidos Grid (solo para tabs pendientes/completados) */}
+      {tab !== 'web' && (pedidos.length === 0 ? (
         <div className="text-center text-slate-500 py-16">
           <ClipboardList size={48} className="mx-auto mb-3 opacity-50" />
           <p>{tab === 'pendientes' ? 'No hay pedidos pendientes' : 'No hay pedidos completados'}</p>
@@ -306,7 +312,10 @@ export default function PedidosPage() {
             );
           })}
         </div>
-      )}
+      ))}
+
+      {/* Pedidos Web tab */}
+      {tab === 'web' && <PedidosWebPage />}
 
       {/* Detail + Actions Panel */}
       {selected && tab === 'pendientes' && canManage && (

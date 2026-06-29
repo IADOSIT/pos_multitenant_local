@@ -19,8 +19,8 @@
       DB_DATABASE: pos_iados
       JWT_SECRET: iados_jwt_secret_key_production_2024_cambiar
       JWT_EXPIRES_IN: 8h
-      FRONTEND_URL: http://localhost,http://localhost:8081,https://pos.iados.online
-      APP_VERSION: "2.2.74"
+      FRONTEND_URL: http://localhost,http://localhost:8081,https://pos.iados.online,https://tienda.iados.online
+      APP_VERSION: "2.3.0"
       PEXELS_API_KEY: zTTe3zHwLV7IAsqZSwfavWE41iv2ALaGMgrFAtkKitUw1sawGTRSp1wB
     volumes:
       - ./backend/uploads:/app/uploads
@@ -30,6 +30,24 @@
     dns:
       - 8.8.8.8
       - 1.1.1.1
+
+  # ---- Shop E-commerce (Next.js 14) ----
+  shop:
+    build:
+      context: ./shop
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://posapi.iados.online/api
+    container_name: pos-iados-shop
+    restart: unless-stopped
+    ports:
+      - "3010:3000"
+    environment:
+      NODE_ENV: production
+      BACKEND_URL: http://pos-iados-api:3000
+      NEXT_PUBLIC_API_URL: https://posapi.iados.online/api
+    networks:
+      - web_network
 
   # ---- Frontend CMS (React + Vite + Nginx) ----
   frontend:
