@@ -1,27 +1,20 @@
-FROM node:20-alpine AS base
+# Producción — usa .next/standalone pre-compilado localmente (evita OOM en VPS)
+FROM node:20-alpine
+
+RUN apk add --no-cache curl
+
 WORKDIR /app
 
-FROM base AS deps
-COPY package.json package-lock.json* ./
-RUN npm ci
+# standalone viene pre-compilado desde el repo
+COPY .next/standalone ./
+COPY .next/static ./.next/static
+COPY public ./public
 
-FROM base AS builder
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-ENV NEXT_TELEMETRY_DISABLED=1
-ARG NEXT_PUBLIC_API_URL=/api
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-RUN npm run build
-
-FROM base AS runner
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
-COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-USER nextjs
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+
+HEALTHCHECK --interval=15s --timeout=5s --retries=5 \
+  CMD curl -f http://localhost:3000/ || exit 1
+
 CMD ["node", "server.js"]

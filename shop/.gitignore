@@ -1,4 +1,10 @@
-.next/
+# Excluir cache y todo .next EXCEPTO el standalone y static pre-compilados
+.next/*
+!.next/standalone
+!.next/standalone/**
+!.next/static
+!.next/static/**
+
 node_modules/
 next-env.d.ts
 .env.local
