@@ -102,7 +102,7 @@ let TicketsService = class TicketsService {
         if (config.mostrar_cajero)
             lines.push(`Cajero: ${this.s(venta.usuario_nombre || 'N/A')}`);
         lines.push('-'.repeat(w));
-        if (venta.tipo_servicio === 'para_llevar' && (venta.cliente_nombre || venta.cliente_telefono || venta.cliente_direccion)) {
+        if (venta.cliente_nombre || venta.cliente_telefono || venta.cliente_direccion) {
             if (venta.cliente_nombre)
                 lines.push(`Cliente: ${this.s(venta.cliente_nombre)}`);
             if (venta.cliente_telefono)

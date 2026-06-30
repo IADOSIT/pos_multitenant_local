@@ -67,10 +67,20 @@ export class DashboardService {
     const metodosPago = { efectivo: 0, tarjeta: 0, transferencia: 0, mixto: 0 };
     ventas.forEach(v => { metodosPago[v.metodo_pago] = (metodosPago[v.metodo_pago] || 0) + Number(v.total); });
 
-    // Cancelaciones
-    const cancelaciones = await this.ventasRepo.count({
-      where: { ...where, estado: VentaEstado.CANCELADA },
+    // Cancelaciones: ventas canceladas (post-cobro) + pedidos cancelados (sin cobro)
+    const whereBase = {
+      tenant_id: scope.tenant_id,
+      empresa_id: scope.empresa_id,
+      created_at: Between(new Date(desde), new Date(hasta)),
+      ...(tienda_id ? { tienda_id } : {}),
+    };
+    const cancelacionesVentas = await this.ventasRepo.count({
+      where: { ...whereBase, estado: VentaEstado.CANCELADA },
     });
+    const cancelacionesPedidos = await this.pedidosRepo.count({
+      where: { ...whereBase, estado: PedidoEstado.CANCELADO },
+    });
+    const cancelaciones = cancelacionesVentas + cancelacionesPedidos;
 
     // Top clientes — usar formato local para raw SQL (coincide con timezone de almacenamiento)
     const desdeSQL = isoToLocalSQL(desde);

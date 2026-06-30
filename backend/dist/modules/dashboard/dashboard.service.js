@@ -65,9 +65,19 @@ let DashboardService = class DashboardService {
         });
         const metodosPago = { efectivo: 0, tarjeta: 0, transferencia: 0, mixto: 0 };
         ventas.forEach(v => { metodosPago[v.metodo_pago] = (metodosPago[v.metodo_pago] || 0) + Number(v.total); });
-        const cancelaciones = await this.ventasRepo.count({
-            where: { ...where, estado: venta_entity_1.VentaEstado.CANCELADA },
+        const whereBase = {
+            tenant_id: scope.tenant_id,
+            empresa_id: scope.empresa_id,
+            created_at: (0, typeorm_2.Between)(new Date(desde), new Date(hasta)),
+            ...(tienda_id ? { tienda_id } : {}),
+        };
+        const cancelacionesVentas = await this.ventasRepo.count({
+            where: { ...whereBase, estado: venta_entity_1.VentaEstado.CANCELADA },
         });
+        const cancelacionesPedidos = await this.pedidosRepo.count({
+            where: { ...whereBase, estado: pedido_entity_1.PedidoEstado.CANCELADO },
+        });
+        const cancelaciones = cancelacionesVentas + cancelacionesPedidos;
         const desdeSQL = isoToLocalSQL(desde);
         const hastaSQL = isoToLocalSQL(hasta);
         const topClientes = await this.dataSource.query(`SELECT telefono, MAX(nombre) AS nombre, COUNT(*) AS total_compras, SUM(total) AS total_gastado

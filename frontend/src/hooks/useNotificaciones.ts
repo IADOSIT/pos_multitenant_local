@@ -46,6 +46,9 @@ export function useNotificaciones(options: UseNotificacionesOptions) {
 
     es.addEventListener('pedido_actualizado', (e) => {
       const data = JSON.parse(e.data);
+      if (data.estado === 'cancelado' || data.estado === 'entregado') {
+        setPedidosPendientes((prev) => Math.max(0, prev - 1));
+      }
       onPedidoActualizado?.(data);
     });
 

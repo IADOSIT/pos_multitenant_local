@@ -94,8 +94,9 @@ export class TicketsService {
     if (config.mostrar_cajero) lines.push(`Cajero: ${this.s(venta.usuario_nombre || 'N/A')}`);
     lines.push('-'.repeat(w));
 
-    // Datos de entrega (para llevar)
-    if (venta.tipo_servicio === 'para_llevar' && (venta.cliente_nombre || venta.cliente_telefono || venta.cliente_direccion)) {
+    // Datos del cliente: mostrar siempre que existan,
+    // sin importar el tipo de servicio (cubre: para_llevar, self-order, ecommerce/web)
+    if (venta.cliente_nombre || venta.cliente_telefono || venta.cliente_direccion) {
       if (venta.cliente_nombre) lines.push(`Cliente: ${this.s(venta.cliente_nombre)}`);
       if (venta.cliente_telefono) lines.push(`Tel:     ${this.s(venta.cliente_telefono)}`);
       if (venta.cliente_direccion) lines.push(`Dir:     ${this.s(venta.cliente_direccion)}`);

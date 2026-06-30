@@ -5,7 +5,7 @@ import { resolveUploadUrl } from '../../api/client';
 import toast from 'react-hot-toast';
 import { ShoppingCart, Plus, Minus, X, Send, CheckCircle, Clock, XCircle, Star } from 'lucide-react';
 
-type Step = 'loading' | 'menu' | 'sending' | 'waiting' | 'confirmed' | 'rejected' | 'encuesta' | 'done' | 'error';
+type Step = 'loading' | 'menu' | 'sending' | 'waiting' | 'confirmed' | 'listo' | 'rejected' | 'encuesta' | 'done' | 'error';
 
 interface CartItem { producto_id: number; nombre: string; precio: number; cantidad: number; sku: string; imagen_url?: string; }
 
@@ -118,20 +118,10 @@ export default function SelfOrderPage() {
         } else if (data.estado === 'cancelado') {
           clearInterval(pollRef.current!);
           setStep('rejected');
-        } else if (data.mesero_confirmado || data.estado === 'en_elaboracion' || data.estado === 'listo_para_entrega' || data.estado === 'entregado') {
-          clearInterval(pollRef.current!);
+        } else if (data.estado === 'listo_para_entrega') {
+          setStep('listo');
+        } else if (data.mesero_confirmado || data.estado === 'en_elaboracion') {
           setStep('confirmed');
-          // reiniciar polling solo para detectar encuesta
-          pollRef.current = setInterval(async () => {
-            try {
-              const { data: d2 } = await selfOrderApi.getStatus(token);
-              if (d2.encuesta_lista) {
-                clearInterval(pollRef.current!);
-                try { new Audio('/notification.mp3').play(); } catch {}
-                setStep('encuesta');
-              }
-            } catch {}
-          }, 5000);
         }
       } catch {}
     }, 3000);
@@ -185,6 +175,17 @@ export default function SelfOrderPage() {
           ? <><Clock size={56} className="text-yellow-400 mx-auto mb-4 animate-pulse" /><h2 className="text-xl font-bold mb-2">¡Pedido enviado!</h2><p className="text-slate-400 mb-2">Tu mesero está revisando tu pedido <strong className="text-white">{pedidoFolio}</strong>.</p><p className="text-slate-500 text-sm">En breve recibirás confirmación. Mantén esta pantalla abierta.</p></>
           : <><CheckCircle size={56} className="text-green-400 mx-auto mb-4" /><h2 className="text-xl font-bold mb-2">¡Pedido confirmado!</h2><p className="text-slate-400 mb-2">Tu mesero confirmó el pedido. En preparación 🍳</p><p className="text-slate-500 text-sm">Recibirás una encuesta al finalizar tu pago.</p></>
         }
+      </div>
+    </div>
+  );
+
+  if (step === 'listo') return (
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+      <div className="text-center text-white max-w-sm">
+        <CheckCircle size={56} className="text-green-400 mx-auto mb-4 animate-pulse" />
+        <h2 className="text-xl font-bold mb-2">¡Tu pedido está listo!</h2>
+        <p className="text-slate-400 mb-2">Acércate al mostrador a recogerlo 🎉</p>
+        {pedidoFolio && <p className="text-slate-500 text-sm">Folio: <strong className="text-white">{pedidoFolio}</strong></p>}
       </div>
     </div>
   );
