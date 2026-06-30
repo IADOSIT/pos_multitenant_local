@@ -201,13 +201,20 @@ export default function POSPage() {
       setCategorias(catsRes.data);
       offlineActions.cacheProductos(prodsRes.data);
       offlineActions.cacheCategorias(catsRes.data);
-    } catch {
+    } catch (err: any) {
       const cachedProds = await offlineActions.getCachedProductos();
       const cachedCats = await offlineActions.getCachedCategorias();
       if (cachedProds.length) {
         setProductos(cachedProds);
         setCategorias(cachedCats);
-        toast('Modo offline - datos en cache', { icon: '📡' });
+        // Solo mostrar "offline" si es problema de red, no error del servidor
+        const isNetworkError = !err?.response?.status || err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED';
+        if (isNetworkError) {
+          toast('Modo offline - datos en cache', { icon: '📡' });
+        } else {
+          toast.error(`Error cargando datos (${err?.response?.status || 'desconocido'}) — reintentando...`);
+          setTimeout(loadData, 5000);
+        }
       }
     }
   };
