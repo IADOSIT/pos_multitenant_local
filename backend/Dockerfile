@@ -7,11 +7,12 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install --omit=dev
 
-# dist viene pre-compilado desde el repo
-COPY dist ./dist
-
+# CACHE_BUST debe ir ANTES de COPY dist para invalidar ese layer
 ARG CACHE_BUST=0
 RUN echo "Cache bust: $CACHE_BUST"
+
+# dist viene pre-compilado desde el repo
+COPY dist ./dist
 
 COPY uploads ./uploads-builtin
 COPY docker-entrypoint.sh /docker-entrypoint.sh
