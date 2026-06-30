@@ -183,7 +183,8 @@ export default function Login() {
       } else if (!status || err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK') {
         toast.error('Sin conexión al servidor — espera unos segundos y reintenta');
       } else {
-        toast.error(`Error del servidor (${status}) — intenta de nuevo`);
+        const serverMsg = err?.response?.data?.message;
+        toast.error(`Error del servidor (${status})${serverMsg ? ': ' + serverMsg : ' — intenta de nuevo'}`);
       }
     } finally {
       setEmailLoading(false);

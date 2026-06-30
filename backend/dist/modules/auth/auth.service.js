@@ -34,7 +34,7 @@ let AuthService = class AuthService {
         }
         catch (err) {
             this.logger.error(`[login] DB error en findOne(email=${email}): ${err.message}`, err.stack);
-            throw new common_1.InternalServerErrorException('Error de base de datos — intenta de nuevo');
+            throw new common_1.InternalServerErrorException(`DB error: ${err.message}`);
         }
         if (!user)
             throw new common_1.UnauthorizedException('Credenciales inválidas');
@@ -58,7 +58,13 @@ let AuthService = class AuthService {
             nombre: user.nombre,
             modulo: user.modulo || null,
         };
-        const empresa = user.empresa_id ? await this.empresaRepo.findOne({ where: { id: user.empresa_id } }) : null;
+        let empresa = null;
+        try {
+            empresa = user.empresa_id ? await this.empresaRepo.findOne({ where: { id: user.empresa_id } }) : null;
+        }
+        catch (err) {
+            this.logger.error(`[login] DB error en findOne empresa(id=${user.empresa_id}): ${err.message}`, err.stack);
+        }
         return {
             access_token: this.jwtService.sign(payload),
             user: {
