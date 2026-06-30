@@ -100,11 +100,23 @@ let AuthService = class AuthService {
         const where = { pin, tienda_id, activo: true };
         if (user_id)
             where.id = user_id;
-        const user = await this.usersRepo.findOne({ where });
+        let user;
+        try {
+            user = await this.findOneWithRetry(this.usersRepo, { where }, 'loginPin');
+        }
+        catch (err) {
+            this.logger.error(`[loginPin] DB error findOne: ${err.message}`, err.stack);
+            throw new common_1.InternalServerErrorException(`DB error: ${err.message}`);
+        }
         if (!user)
             throw new common_1.UnauthorizedException('PIN inválido');
         user.ultimo_login = new Date();
-        await this.usersRepo.save(user);
+        try {
+            await this.usersRepo.save(user);
+        }
+        catch (err) {
+            this.logger.error(`[loginPin] DB error save(user.id=${user.id}): ${err.message}`);
+        }
         const payload = {
             sub: user.id,
             email: user.email,
@@ -115,7 +127,15 @@ let AuthService = class AuthService {
             nombre: user.nombre,
             modulo: user.modulo || null,
         };
-        const empresa2 = user.empresa_id ? await this.empresaRepo.findOne({ where: { id: user.empresa_id } }) : null;
+        let empresa2 = null;
+        try {
+            empresa2 = user.empresa_id
+                ? await this.findOneWithRetry(this.empresaRepo, { where: { id: user.empresa_id } }, 'loginPin-empresa')
+                : null;
+        }
+        catch (err) {
+            this.logger.error(`[loginPin] DB error findOne empresa: ${err.message}`);
+        }
         return {
             access_token: this.jwtService.sign(payload),
             user: {
@@ -134,23 +154,33 @@ let AuthService = class AuthService {
         };
     }
     async getUsersByTienda(tienda_id) {
-        const users = await this.usersRepo.find({
-            where: { tienda_id, activo: true },
-            select: ['id', 'nombre', 'rol'],
-            order: { nombre: 'ASC' },
-        });
-        return users;
+        try {
+            return await this.usersRepo.find({
+                where: { tienda_id, activo: true },
+                select: ['id', 'nombre', 'rol'],
+                order: { nombre: 'ASC' },
+            });
+        }
+        catch (err) {
+            const connErr = ['ECONNRESET', 'ETIMEDOUT', 'PROTOCOL_CONNECTION_LOST', 'ENOTFOUND', 'EPIPE'].includes(err.code);
+            if (!connErr)
+                throw err;
+            this.logger.warn(`[getUsersByTienda] conexión MySQL caída (${err.code}) — reintentando...`);
+            return await this.usersRepo.find({
+                where: { tienda_id, activo: true },
+                select: ['id', 'nombre', 'rol'],
+                order: { nombre: 'ASC' },
+            });
+        }
     }
     async verifyPin(pin, tienda_id) {
-        const user = await this.usersRepo.findOne({
-            where: { pin, tienda_id, activo: true },
-        });
+        const user = await this.findOneWithRetry(this.usersRepo, { where: { pin, tienda_id, activo: true } }, 'verifyPin').catch(() => null);
         if (!user)
             return { ok: false, user: null };
         return { ok: true, user: { id: user.id, nombre: user.nombre, rol: user.rol } };
     }
     async validateUser(payload) {
-        return this.usersRepo.findOne({ where: { id: payload.sub, activo: true } });
+        return this.findOneWithRetry(this.usersRepo, { where: { id: payload.sub, activo: true } }, 'validateUser').catch(() => null);
     }
 };
 exports.AuthService = AuthService;
