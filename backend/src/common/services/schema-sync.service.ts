@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 
@@ -100,6 +101,17 @@ export class SchemaSyncService implements OnApplicationBootstrap {
       this.logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     } catch (error) {
       this.logger.error(`Error en verificacion de schema: ${error.message}`);
+    }
+  }
+
+  // Previene que MySQL cierre conexiones idle del pool (default wait_timeout = 8h)
+  // Sin esto, la primera petición después de inactividad falla con ECONNRESET → 500
+  @Cron('*/4 * * * *')
+  async keepAlive() {
+    try {
+      await this.dataSource.query('SELECT 1');
+    } catch {
+      // Silencioso — TypeORM reconecta automáticamente en la siguiente petición real
     }
   }
 }

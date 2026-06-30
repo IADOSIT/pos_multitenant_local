@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SchemaSyncService = void 0;
 const common_1 = require("@nestjs/common");
+const schedule_1 = require("@nestjs/schedule");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 let SchemaSyncService = class SchemaSyncService {
@@ -83,8 +84,21 @@ let SchemaSyncService = class SchemaSyncService {
             this.logger.error(`Error en verificacion de schema: ${error.message}`);
         }
     }
+    async keepAlive() {
+        try {
+            await this.dataSource.query('SELECT 1');
+        }
+        catch {
+        }
+    }
 };
 exports.SchemaSyncService = SchemaSyncService;
+__decorate([
+    (0, schedule_1.Cron)('*/4 * * * *'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], SchemaSyncService.prototype, "keepAlive", null);
 exports.SchemaSyncService = SchemaSyncService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectDataSource)()),
