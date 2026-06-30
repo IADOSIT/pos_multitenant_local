@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260630-bugfix-pedidos-notif-ticket"
+        CACHE_BUST: "20260630-logistica-fase1"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
@@ -55,7 +55,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260630-fix-429-retry"
+        CACHE_BUST: "20260630-logistica-fase1"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

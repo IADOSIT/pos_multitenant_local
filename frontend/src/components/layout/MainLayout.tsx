@@ -8,8 +8,9 @@ import apiClient from '../../api/client';
 import toast from 'react-hot-toast';
 import {
   ShoppingCart, LayoutDashboard, CreditCard, Package,
-  Users, Building2, Settings, LogOut, Menu, X, ClipboardList, FileBarChart, Shield, Warehouse, Database, HardDrive, Lock, BookOpen, Grid3X3
+  Users, Building2, Settings, LogOut, Menu, X, ClipboardList, FileBarChart, Shield, Warehouse, Database, HardDrive, Lock, BookOpen, Grid3X3, Truck
 } from 'lucide-react';
+import { logisticaApi } from '../../api/endpoints';
 import StockAlertBanner from '../ui/StockAlertBanner';
 import LicenciaBanner from './LicenciaBanner';
 import LockScreen from '../ui/LockScreen';
@@ -46,6 +47,7 @@ export default function MainLayout() {
   const [appVersion, setAppVersion] = useState('');
   const [cajeroDashboard, setCajeroDashboard] = useState(false);
   const [sidebarPermisos, setSidebarPermisos] = useState<Record<string, string[]>>({});
+  const [logisticaEnabled, setLogisticaEnabled] = useState(false);
 
   // Fetch DB host from backend health endpoint
   useEffect(() => {
@@ -67,6 +69,15 @@ export default function MainLayout() {
       });
     }
   }, [user?.tienda_id]);
+
+  // Load logistica enabled flag
+  useEffect(() => {
+    if (['admin', 'superadmin', 'manager', 'cajero'].includes(user?.rol || '')) {
+      logisticaApi.getConfig().then(({ data }) => {
+        setLogisticaEnabled(data?.modulo_habilitado || false);
+      }).catch(() => {});
+    }
+  }, [user?.rol]);
 
   const isDbExterno = dbHost !== 'localhost' && dbHost !== '127.0.0.1' && dbHost !== '...';
 
@@ -91,7 +102,7 @@ export default function MainLayout() {
     navigate('/login');
   };
 
-  const filtered = navItems.filter((n) => {
+  const baseFiltered = navItems.filter((n) => {
     if (!user) return false;
     if (!n.roles.includes(user.rol)) return false;
 
@@ -99,17 +110,25 @@ export default function MainLayout() {
     const hasPermList = permList && permList.length > 0 && !['superadmin'].includes(user.rol);
 
     if (hasPermList) {
-      // sidebar_permisos explícito: la lista manda, pero cajeroDashboard puede sumar acceso
       if (n.to === '/dashboard' && user.rol === 'cajero') {
         return permList.includes(n.to) || cajeroDashboard;
       }
       return permList.includes(n.to);
     }
 
-    // Sin sidebar_permisos configurado: flags legacy
     if (n.to === '/dashboard' && user.rol === 'cajero') return cajeroDashboard;
     return true;
   });
+
+  // Logística: se muestra solo si el módulo está habilitado para la empresa
+  const logisticaNavItem = {
+    to: '/logistica', icon: Truck, label: 'Logística',
+    roles: ['superadmin', 'admin', 'manager', 'cajero'],
+    badge: false,
+  };
+  const filtered = logisticaEnabled && user && logisticaNavItem.roles.includes(user.rol)
+    ? [...baseFiltered.slice(0, 6), logisticaNavItem, ...baseFiltered.slice(6)]
+    : baseFiltered;
 
   return (
     <div className="flex h-screen overflow-hidden">

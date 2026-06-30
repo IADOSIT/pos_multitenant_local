@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { pedidosApi, ventasApi, ticketsApi, selfOrderApi } from '../../api/endpoints';
+import { pedidosApi, ventasApi, ticketsApi, selfOrderApi, logisticaApi } from '../../api/endpoints';
 import { usePOSStore } from '../../store/pos.store';
 import { useAuthStore } from '../../store/auth.store';
 import { useNotificaciones } from '../../hooks/useNotificaciones';
 import { printTicket, printComanda } from '../../utils/printTicket';
 import { resolveUploadUrl } from '../../api/client';
 import toast from 'react-hot-toast';
-import { ClipboardList, Clock, ChefHat, PackageCheck, CreditCard, XCircle, RefreshCw, Smartphone, Check, Ban, Receipt, FileText, ShoppingBag } from 'lucide-react';
+import { ClipboardList, Clock, ChefHat, PackageCheck, CreditCard, XCircle, RefreshCw, Smartphone, Check, Ban, Receipt, FileText, ShoppingBag, Truck } from 'lucide-react';
 import { tiendasApi } from '../../api/endpoints';
 import PinConfirmModal from '../../components/ui/PinConfirmModal';
 import PedidosWebPage from '../admin/PedidosWebPage';
@@ -39,6 +39,11 @@ export default function PedidosPage() {
   const [showRechazarSO, setShowRechazarSO] = useState(false);
   const [rechazarMotivo, setRechazarMotivo] = useState('');
   const [precuentaEnabled, setPrecuentaEnabled] = useState(false);
+  const [logisticaEnabled, setLogisticaEnabled] = useState(false);
+  const [entregaActual, setEntregaActual] = useState<any>(null);
+  const [repartidores, setRepartidores] = useState<any[]>([]);
+  const [showAsignarEntrega, setShowAsignarEntrega] = useState(false);
+  const [asignandoRep, setAsignandoRep] = useState<number | null>(null);
 
   // Payment state for cobrar
   const [metodo, setMetodo] = useState<'efectivo' | 'tarjeta' | 'transferencia'>('efectivo');
@@ -66,6 +71,14 @@ export default function PedidosPage() {
       }).catch(() => {});
     }
   }, [user?.tienda_id]);
+
+  useEffect(() => {
+    if (['admin', 'superadmin', 'manager', 'cajero'].includes(user?.rol || '')) {
+      logisticaApi.getConfig().then(r => {
+        setLogisticaEnabled(r.data?.modulo_habilitado || false);
+      }).catch(() => {});
+    }
+  }, [user?.rol]);
 
   // SSE: auto-refresh on new pedido events
   useNotificaciones({
@@ -164,6 +177,27 @@ export default function PedidosPage() {
     } catch (e: any) { toast.error(e.response?.data?.message || 'Error'); }
   };
 
+  const loadEntregaActual = async (pedido: any) => {
+    if (!pedido || !logisticaEnabled) { setEntregaActual(null); return; }
+    try {
+      const { data } = await logisticaApi.getEntregaByPedido(pedido.id);
+      setEntregaActual(data);
+    } catch { setEntregaActual(null); }
+  };
+
+  const handleAsignarEntrega = async (repartidor_id: number) => {
+    if (!selected) return;
+    setAsignandoRep(repartidor_id);
+    try {
+      await logisticaApi.asignar(selected.id, repartidor_id);
+      toast.success('Pedido asignado al repartidor');
+      setShowAsignarEntrega(false);
+      loadEntregaActual(selected);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Error al asignar');
+    } finally { setAsignandoRep(null); }
+  };
+
   const handlePreCuenta = async (pedido: any) => {
     try {
       const items = pedido.detalles?.map((d: any) => ({
@@ -186,6 +220,15 @@ export default function PedidosPage() {
       toast.success('Pre-cuenta impresa');
     } catch { toast.error('Error al generar pre-cuenta'); }
   };
+
+  useEffect(() => {
+    if (selected && logisticaEnabled) {
+      loadEntregaActual(selected);
+      logisticaApi.getRepartidores().then(r => setRepartidores(r.data || [])).catch(() => {});
+    } else {
+      setEntregaActual(null);
+    }
+  }, [selected?.id, logisticaEnabled]);
 
   const canManage = ['cajero', 'admin', 'manager', 'superadmin'].includes(user?.rol || '');
 
@@ -376,6 +419,23 @@ export default function PedidosPage() {
               >
                 <Receipt size={14} /> Comanda
               </button>
+              {/* Asignar entrega — solo si logística habilitada y pedido con datos de entrega */}
+              {logisticaEnabled && (selected.tipo_servicio === 'para_llevar' || selected.self_order || selected.cliente_direccion) && (
+                entregaActual ? (
+                  <span className="text-xs text-slate-400 flex items-center gap-1 px-2 py-2">
+                    <Truck size={13} />
+                    {entregaActual.repartidor_nombre} — {entregaActual.estado}
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => setShowAsignarEntrega(true)}
+                    className="btn-secondary text-xs flex items-center gap-1"
+                    title="Asignar a repartidor"
+                  >
+                    <Truck size={14} /> Asignar entrega
+                  </button>
+                )
+              )}
               <button onClick={() => { setShowCancelar(true); setCancelMotivo(''); }} className="text-red-400 hover:bg-red-900/50 px-3 py-2 rounded-xl text-sm">
                 Cancelar
               </button>
@@ -478,6 +538,46 @@ export default function PedidosPage() {
         onConfirm={() => { setShowPinCancelar(false); handleCancelar(); }}
         onCancel={() => setShowPinCancelar(false)}
       />
+
+      {/* Modal Asignar Repartidor */}
+      {showAsignarEntrega && selected && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-iados-surface rounded-2xl p-6 w-full max-w-sm border border-slate-700">
+            <h3 className="font-bold text-lg mb-1 flex items-center gap-2">
+              <Truck size={18} /> Asignar repartidor
+            </h3>
+            <p className="text-sm text-slate-400 mb-4">
+              {selected.folio} — {selected.cliente_nombre || 'Sin nombre'}
+            </p>
+            {repartidores.filter(r => r.activo).length === 0 ? (
+              <p className="text-slate-500 text-sm text-center py-4">
+                No hay repartidores activos. Crea uno en Logística → Repartidores.
+              </p>
+            ) : (
+              <div className="space-y-2 mb-4">
+                {repartidores.filter(r => r.activo).map(rep => (
+                  <button
+                    key={rep.id}
+                    onClick={() => handleAsignarEntrega(rep.id)}
+                    disabled={asignandoRep !== null}
+                    className="w-full text-left bg-iados-card hover:bg-iados-primary/20 border border-slate-700 rounded-xl p-3 transition-colors disabled:opacity-50"
+                  >
+                    <span className="font-medium">{rep.nombre}</span>
+                    {rep.telefono && <span className="text-slate-400 text-sm ml-2">{rep.telefono}</span>}
+                    {asignandoRep === rep.id && <span className="ml-2 text-xs text-blue-400">Asignando...</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button
+              onClick={() => setShowAsignarEntrega(false)}
+              className="w-full text-slate-400 hover:text-white text-sm py-2"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -333,6 +333,29 @@ export const backupApi = {
   },
 };
 
+// Logística
+export const logisticaApi = {
+  getRepartidores: () => api.get('/logistica/repartidores'),
+  createRepartidor: (data: any) => api.post('/logistica/repartidores', data),
+  updateRepartidor: (id: number, data: any) => api.put(`/logistica/repartidores/${id}`, data),
+  toggleRepartidor: (id: number) => api.patch(`/logistica/repartidores/${id}/toggle`),
+  asignar: (pedido_id: number, repartidor_id: number) =>
+    api.post('/logistica/asignar', { pedido_id, repartidor_id }),
+  getEntregas: (params?: any) => api.get('/logistica/entregas', { params }),
+  getEntregaByPedido: (pedido_id: number) => api.get(`/logistica/entregas/pedido/${pedido_id}`),
+  updateEstado: (id: number, estado: string, notas?: string) =>
+    api.patch(`/logistica/entregas/${id}/estado`, { estado, notas }),
+  getConfig: () => api.get('/logistica/config'),
+  upsertConfig: (data: any) => api.put('/logistica/config', data),
+  getMetricas: (desde: string, hasta: string) =>
+    api.get('/logistica/metricas', { params: { desde, hasta } }),
+  getLogNotif: (pedido_id?: number) =>
+    api.get('/logistica/notif-log', { params: pedido_id ? { pedido_id } : {} }),
+  getRepartidorView: (token: string) => api.get(`/public/logistica/${token}`),
+  updateEstadoByToken: (token: string, entrega_id: number, estado: string, notas?: string) =>
+    api.patch(`/public/logistica/${token}/entrega/${entrega_id}`, { estado, notas }),
+};
+
 // Perfiles de Negocio
 export const perfilesApi = {
   getActivo:      ()                     => api.get('/perfiles/activo'),

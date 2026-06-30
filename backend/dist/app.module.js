@@ -44,6 +44,7 @@ const pagos_gateway_module_1 = require("./modules/pagos-gateway/pagos-gateway.mo
 const perfiles_module_1 = require("./modules/perfiles/perfiles.module");
 const devoluciones_module_1 = require("./modules/devoluciones/devoluciones.module");
 const ecommerce_module_1 = require("./modules/ecommerce/ecommerce.module");
+const logistica_module_1 = require("./modules/logistica/logistica.module");
 const _distProd = (0, path_1.join)(process.cwd(), '..', 'frontend', 'dist-prod');
 const _staticRoot = (0, fs_1.existsSync)(_distProd)
     ? _distProd
@@ -95,6 +96,7 @@ exports.AppModule = AppModule = __decorate([
             perfiles_module_1.PerfilesModule,
             devoluciones_module_1.DevolucionesModule,
             ecommerce_module_1.EcommerceModule,
+            logistica_module_1.LogisticaModule,
         ],
         providers: [schema_sync_service_1.SchemaSyncService],
     })

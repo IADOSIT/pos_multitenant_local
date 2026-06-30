@@ -124,3 +124,69 @@ export interface AlertaStock {
   modulo?: string;
   deficit: number;
 }
+
+// ── Logística ────────────────────────────────────────────────────────────
+
+export interface Repartidor {
+  id: number;
+  tenant_id: number;
+  empresa_id: number;
+  nombre: string;
+  telefono?: string;
+  activo: boolean;
+  token: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type EstadoEntrega = 'asignado' | 'en_camino' | 'entregado' | 'con_problema';
+
+export interface EntregaPedido {
+  id: number;
+  tenant_id: number;
+  empresa_id: number;
+  tienda_id: number;
+  pedido_id: number;
+  repartidor_id: number;
+  repartidor_nombre: string;
+  pedido_folio: string;
+  cliente_nombre?: string;
+  cliente_telefono?: string;
+  cliente_direccion?: string;
+  total: number;
+  estado: EstadoEntrega;
+  notas_repartidor?: string;
+  entregado_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConfigLogistica {
+  id: number;
+  empresa_id: number;
+  tenant_id: number;
+  modulo_habilitado: boolean;
+  notif_whatsapp_enabled: boolean;
+  notif_whatsapp_token?: string;
+  notif_whatsapp_numero?: string;
+  notif_proveedor?: string;
+  msg_asignado?: string;
+  msg_en_camino?: string;
+  msg_entregado?: string;
+  msg_con_problema?: string;
+}
+
+export interface MetricasLogistica {
+  total: number;
+  entregadas: number;
+  en_camino: number;
+  con_problema: number;
+  tiempo_promedio_min: number;
+  por_repartidor: {
+    repartidor_id: number;
+    repartidor_nombre: string;
+    total: number;
+    entregadas: number;
+    con_problema: number;
+  }[];
+}

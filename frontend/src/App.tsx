@@ -28,6 +28,8 @@ import CatalogosPage from './pages/admin/CatalogosPage';
 import InventarioDualPage from './pages/inventario/InventarioDualPage';
 import PerfilNegocioPage from './pages/admin/PerfilNegocioPage';
 import ActivarLicenciaPage from './pages/ActivarLicenciaPage';
+import LogisticaPage from './pages/logistica/LogisticaPage';
+import RepartidorPage from './pages/public/RepartidorPage';
 
 function PrivateRoute({ children, roles }: { children: JSX.Element; roles?: string[] }) {
   const { isAuthenticated, user } = useAuthStore();
@@ -55,6 +57,7 @@ export default function App() {
         <Route path="/menu/:slug" element={<MenuDigitalPage />} />
         <Route path="/self-order/:tienda_id/:mesa_numero" element={<SelfOrderPage />} />
         <Route path="/s/:slug/:mesa_numero" element={<SelfOrderPage />} />
+        <Route path="/repartidor/:token" element={<RepartidorPage />} />
 
         <Route path="/" element={<PrivateRoute><MainLayout /></PrivateRoute>}>
           <Route index element={<Navigate to="/pos" />} />
@@ -114,6 +117,11 @@ export default function App() {
           <Route path="admin/perfil-negocio" element={
             <PrivateRoute roles={['superadmin', 'admin']}>
               <PerfilNegocioPage />
+            </PrivateRoute>
+          } />
+          <Route path="logistica" element={
+            <PrivateRoute roles={['superadmin', 'admin', 'manager', 'cajero']}>
+              <LogisticaPage />
             </PrivateRoute>
           } />
         </Route>
