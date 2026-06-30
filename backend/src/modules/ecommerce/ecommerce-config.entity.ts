@@ -16,7 +16,7 @@ export class EcommerceConfig {
   @Column({ default: false })
   activo: boolean;
 
-  @Column({ length: 63, nullable: true, unique: true })
+  @Column({ length: 63, nullable: true })
   subdominio: string;
 
   @Column({ length: 255, nullable: true })

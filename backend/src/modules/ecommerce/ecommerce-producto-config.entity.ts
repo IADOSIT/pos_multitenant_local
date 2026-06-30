@@ -7,7 +7,7 @@ export class EcommerceProductoConfig {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ unique: true })
+  @Column()
   producto_id: number;
 
   @Column()

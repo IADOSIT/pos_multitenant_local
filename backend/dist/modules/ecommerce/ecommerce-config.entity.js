@@ -31,7 +31,7 @@ __decorate([
     __metadata("design:type", Boolean)
 ], EcommerceConfig.prototype, "activo", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ length: 63, nullable: true, unique: true }),
+    (0, typeorm_1.Column)({ length: 63, nullable: true }),
     __metadata("design:type", String)
 ], EcommerceConfig.prototype, "subdominio", void 0);
 __decorate([

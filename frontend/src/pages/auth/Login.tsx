@@ -176,8 +176,15 @@ export default function Login() {
         toast.success(`Bienvenido, ${data.user.nombre}`);
         navigate('/pos');
       }
-    } catch {
-      toast.error('Credenciales inválidas');
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 401) {
+        toast.error('Credenciales inválidas');
+      } else if (!status || err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK') {
+        toast.error('Sin conexión al servidor — espera unos segundos y reintenta');
+      } else {
+        toast.error(`Error del servidor (${status}) — intenta de nuevo`);
+      }
     } finally {
       setEmailLoading(false);
     }
