@@ -180,6 +180,8 @@ export default function Login() {
       const status = err?.response?.status;
       if (status === 401) {
         toast.error('Credenciales inválidas');
+      } else if (status === 429) {
+        toast.error('Demasiados intentos — espera un minuto antes de reintentar');
       } else if (!status || err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK') {
         toast.error('Sin conexión al servidor — espera unos segundos y reintenta');
       } else {

@@ -16,10 +16,21 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
+  private async findOneWithRetry<T extends object>(repo: Repository<T>, opts: object, ctx: string): Promise<T | null> {
+    try {
+      return await (repo as any).findOne(opts);
+    } catch (err) {
+      const connErr = ['ECONNRESET', 'ETIMEDOUT', 'PROTOCOL_CONNECTION_LOST', 'ENOTFOUND', 'EPIPE'].includes(err.code);
+      if (!connErr) throw err;
+      this.logger.warn(`[${ctx}] conexión MySQL caída (${err.code}) — reintentando...`);
+      return await (repo as any).findOne(opts);
+    }
+  }
+
   async login(email: string, password: string) {
     let user: User | null;
     try {
-      user = await this.usersRepo.findOne({ where: { email, activo: true } });
+      user = await this.findOneWithRetry(this.usersRepo, { where: { email, activo: true } }, 'login');
     } catch (err) {
       this.logger.error(`[login] DB error en findOne(email=${email}): ${err.message}`, err.stack);
       throw new InternalServerErrorException(`DB error: ${err.message}`);
@@ -50,7 +61,9 @@ export class AuthService {
 
     let empresa: Empresa | null = null;
     try {
-      empresa = user.empresa_id ? await this.empresaRepo.findOne({ where: { id: user.empresa_id } }) : null;
+      empresa = user.empresa_id
+        ? await this.findOneWithRetry(this.empresaRepo, { where: { id: user.empresa_id } }, 'login-empresa')
+        : null;
     } catch (err) {
       this.logger.error(`[login] DB error en findOne empresa(id=${user.empresa_id}): ${err.message}`, err.stack);
     }
