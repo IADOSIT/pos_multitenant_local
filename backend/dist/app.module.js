@@ -48,6 +48,7 @@ const _distProd = (0, path_1.join)(process.cwd(), '..', 'frontend', 'dist-prod')
 const _staticRoot = (0, fs_1.existsSync)(_distProd)
     ? _distProd
     : (0, path_1.join)(__dirname, '..', 'public');
+const _serveStatic = (0, fs_1.existsSync)(_staticRoot);
 let AppModule = class AppModule {
     configure(consumer) {
         consumer.apply(tenant_scope_middleware_1.TenantScopeMiddleware).forRoutes('*');
@@ -63,10 +64,10 @@ exports.AppModule = AppModule = __decorate([
                 ...typeorm_config_1.dataSourceOptions,
                 autoLoadEntities: true,
             }),
-            serve_static_1.ServeStaticModule.forRoot({
-                rootPath: _staticRoot,
-                exclude: ['/api/(.*)'],
-            }),
+            ...(_serveStatic ? [serve_static_1.ServeStaticModule.forRoot({
+                    rootPath: _staticRoot,
+                    exclude: ['/api/**'],
+                })] : []),
             health_module_1.HealthModule,
             auth_module_1.AuthModule,
             users_module_1.UsersModule,

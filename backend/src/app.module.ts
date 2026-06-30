@@ -42,6 +42,8 @@ const _distProd = join(process.cwd(), '..', 'frontend', 'dist-prod');
 const _staticRoot = existsSync(_distProd)
   ? _distProd
   : join(__dirname, '..', 'public');
+// Solo cargar ServeStaticModule si el directorio existe (evita interceptar GET en VPS)
+const _serveStatic = existsSync(_staticRoot);
 
 @Module({
   imports: [
@@ -51,10 +53,12 @@ const _staticRoot = existsSync(_distProd)
       ...dataSourceOptions,
       autoLoadEntities: true,
     }),
-    ServeStaticModule.forRoot({
+    // Solo activo cuando el directorio static existe (modo offline/local)
+    // En VPS no existe → se omite → los GET de /api/ llegan a NestJS correctamente
+    ...(_serveStatic ? [ServeStaticModule.forRoot({
       rootPath: _staticRoot,
-      exclude: ['/api/(.*)'],
-    }),
+      exclude: ['/api/**'],  // glob correcto para micromatch (no regex)
+    })] : []),
     HealthModule,
     AuthModule,
     UsersModule,
