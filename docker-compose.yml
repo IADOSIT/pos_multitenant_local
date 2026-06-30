@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260630-force-rebuild"
+        CACHE_BUST: "20260630-fix-nginx-proxy"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:

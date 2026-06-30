@@ -57,7 +57,7 @@ const _serveStatic = existsSync(_staticRoot);
     // En VPS no existe → se omite → los GET de /api/ llegan a NestJS correctamente
     ...(_serveStatic ? [ServeStaticModule.forRoot({
       rootPath: _staticRoot,
-      exclude: ['/api/**'],  // glob correcto para micromatch (no regex)
+      exclude: ['/api/(.*)'],  // path-to-regexp v0.2.5 (usado por @nestjs/serve-static@4)
     })] : []),
     HealthModule,
     AuthModule,

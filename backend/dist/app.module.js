@@ -66,7 +66,7 @@ exports.AppModule = AppModule = __decorate([
             }),
             ...(_serveStatic ? [serve_static_1.ServeStaticModule.forRoot({
                     rootPath: _staticRoot,
-                    exclude: ['/api/**'],
+                    exclude: ['/api/(.*)'],
                 })] : []),
             health_module_1.HealthModule,
             auth_module_1.AuthModule,
