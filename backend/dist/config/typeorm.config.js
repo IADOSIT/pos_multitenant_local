@@ -21,6 +21,10 @@ exports.dataSourceOptions = {
         connectTimeout: 30000,
         ssl: false,
         charset: 'utf8mb4',
+        enableKeepAlive: true,
+        keepAliveInitialDelay: 0,
+        waitForConnections: true,
+        queueLimit: 0,
     },
 };
 const dataSource = new typeorm_1.DataSource(exports.dataSourceOptions);

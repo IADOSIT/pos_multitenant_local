@@ -25,18 +25,29 @@ let AuthService = class AuthService {
         this.usersRepo = usersRepo;
         this.empresaRepo = empresaRepo;
         this.jwtService = jwtService;
+        this.logger = new common_1.Logger('AuthService');
     }
     async login(email, password) {
-        const user = await this.usersRepo.findOne({
-            where: { email, activo: true },
-        });
+        let user;
+        try {
+            user = await this.usersRepo.findOne({ where: { email, activo: true } });
+        }
+        catch (err) {
+            this.logger.error(`[login] DB error en findOne(email=${email}): ${err.message}`, err.stack);
+            throw new common_1.InternalServerErrorException('Error de base de datos — intenta de nuevo');
+        }
         if (!user)
             throw new common_1.UnauthorizedException('Credenciales inválidas');
         const valid = await bcrypt.compare(password, user.password);
         if (!valid)
             throw new common_1.UnauthorizedException('Credenciales inválidas');
         user.ultimo_login = new Date();
-        await this.usersRepo.save(user);
+        try {
+            await this.usersRepo.save(user);
+        }
+        catch (err) {
+            this.logger.error(`[login] DB error en save(user.id=${user.id}): ${err.message}`, err.stack);
+        }
         const payload = {
             sub: user.id,
             email: user.email,

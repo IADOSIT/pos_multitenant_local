@@ -22,6 +22,11 @@ export const dataSourceOptions: DataSourceOptions = {
     connectTimeout: 30000,
     ssl: false,
     charset: 'utf8mb4',
+    // Evita que MySQL cierre conexiones idle y cause 500s en el siguiente request
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0,
+    waitForConnections: true,
+    queueLimit: 0,
   },
 };
 

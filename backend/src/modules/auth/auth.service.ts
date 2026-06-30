@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Logger, InternalServerErrorException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -8,6 +8,8 @@ import { Empresa } from '../empresas/empresa.entity';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger('AuthService');
+
   constructor(
     @InjectRepository(User) private usersRepo: Repository<User>,
     @InjectRepository(Empresa) private empresaRepo: Repository<Empresa>,
@@ -15,16 +17,25 @@ export class AuthService {
   ) {}
 
   async login(email: string, password: string) {
-    const user = await this.usersRepo.findOne({
-      where: { email, activo: true },
-    });
+    let user: User | null;
+    try {
+      user = await this.usersRepo.findOne({ where: { email, activo: true } });
+    } catch (err) {
+      this.logger.error(`[login] DB error en findOne(email=${email}): ${err.message}`, err.stack);
+      throw new InternalServerErrorException('Error de base de datos — intenta de nuevo');
+    }
+
     if (!user) throw new UnauthorizedException('Credenciales inválidas');
 
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) throw new UnauthorizedException('Credenciales inválidas');
 
     user.ultimo_login = new Date();
-    await this.usersRepo.save(user);
+    try {
+      await this.usersRepo.save(user);
+    } catch (err) {
+      this.logger.error(`[login] DB error en save(user.id=${user.id}): ${err.message}`, err.stack);
+    }
 
     const payload = {
       sub: user.id,
