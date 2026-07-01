@@ -1,5 +1,5 @@
 /**
- * fmdMatcher.js — comparador de plantillas biométricas ANSI 378-2004 (FMD) en JavaScript puro.
+ * fmdMatcher.ts — comparador de plantillas biométricas ANSI 378-2004 (FMD) en TypeScript.
  * Portado de FitControl GYM (C:\sites\FITCONTROLGYM\reader-bridge\fmdMatcher.js, matching v2),
  * adaptado de `memberId` a `empleado_id` para el dominio de empleados.
  *
@@ -7,27 +7,41 @@
  *  1. Normalización por centroide — elimina diferencias de posición absoluta
  *  2. Búsqueda rotacional -40°..+40° en pasos de 8° — tolera inclinación del dedo
  *  3. Denominador min(m1,m2) en vez de promedio — no penaliza capturas parciales
+ *
+ * Nota: era un .js plano requerido dinámicamente (require('./fmdMatcher')) — `nest build`
+ * (tsc) no copia archivos .js sueltos a dist/, así que nunca llegaba al build de producción
+ * (MODULE_NOT_FOUND). Convertido a .ts + import normal para que tsc lo compile como todo lo demás.
  */
-'use strict';
 
-function isFmd(b64) {
+interface Minutia {
+  x: number;
+  y: number;
+  a: number;
+}
+
+export interface FmdCandidate {
+  empleado_id: number;
+  fmd_template: string | null | undefined;
+}
+
+export function isFmd(b64: string): boolean {
   try {
     const buf = Buffer.from(b64.substring(0, 8), 'base64');
-    return buf[0] === 0x46 && buf[1] === 0x4D && buf[2] === 0x52; // "FMR"
+    return buf[0] === 0x46 && buf[1] === 0x4d && buf[2] === 0x52; // "FMR"
   } catch {
     return false;
   }
 }
 
-function decodeFMD(b64) {
+export function decodeFMD(b64: string | null | undefined): Minutia[] | null {
   try {
     if (!b64) return null;
     const buf = Buffer.from(b64, 'base64');
     if (buf.length < 30) return null;
-    if (buf[0] !== 0x46 || buf[1] !== 0x4D || buf[2] !== 0x52) return null;
+    if (buf[0] !== 0x46 || buf[1] !== 0x4d || buf[2] !== 0x52) return null;
 
     const minutiaeCount = buf[29];
-    const minutiae = [];
+    const minutiae: Minutia[] = [];
     let offset = 30;
     for (let i = 0; i < minutiaeCount; i++) {
       if (offset + 6 > buf.length) break;
@@ -43,26 +57,26 @@ function decodeFMD(b64) {
   }
 }
 
-function normalizeToCenter(minutiae) {
+function normalizeToCenter(minutiae: Minutia[]): Minutia[] {
   const cx = minutiae.reduce((s, m) => s + m.x, 0) / minutiae.length;
   const cy = minutiae.reduce((s, m) => s + m.y, 0) / minutiae.length;
   return minutiae.map((m) => ({ x: m.x - cx, y: m.y - cy, a: m.a }));
 }
 
-function rotateMinutiae(minutiae, angleRad) {
+function rotateMinutiae(minutiae: Minutia[], angleRad: number): Minutia[] {
   const cos = Math.cos(angleRad);
   const sin = Math.sin(angleRad);
   const aDelta = Math.round((angleRad * 256) / (2 * Math.PI));
   return minutiae.map((m) => ({
     x: m.x * cos - m.y * sin,
     y: m.x * sin + m.y * cos,
-    a: ((m.a + aDelta) % 256 + 256) % 256,
+    a: (((m.a + aDelta) % 256) + 256) % 256,
   }));
 }
 
-function scoreMinutiae(m1, m2, distTolerance, angleTolerance) {
+function scoreMinutiae(m1: Minutia[], m2: Minutia[], distTolerance: number, angleTolerance: number): number {
   let matches = 0;
-  const usedInM2 = new Set();
+  const usedInM2 = new Set<number>();
   for (const p1 of m1) {
     for (let j = 0; j < m2.length; j++) {
       if (usedInM2.has(j)) continue;
@@ -82,7 +96,7 @@ function scoreMinutiae(m1, m2, distTolerance, angleTolerance) {
   return denom > 0 ? (matches / denom) * 100 : 0;
 }
 
-function matchFMDs(fmd1B64, fmd2B64) {
+export function matchFMDs(fmd1B64: string | null | undefined, fmd2B64: string | null | undefined): number {
   const m1 = decodeFMD(fmd1B64);
   const m2 = decodeFMD(fmd2B64);
   if (!m1 || !m2 || m1.length === 0 || m2.length === 0) return 0;
@@ -101,11 +115,15 @@ function matchFMDs(fmd1B64, fmd2B64) {
   return Math.min(100, best);
 }
 
-const THRESHOLD = 45;
-const MIN_GAP = 10;
+export const THRESHOLD = 45;
+export const MIN_GAP = 10;
 
-// candidates = [{ empleado_id, fmd_template }]
-function findMatch(probeB64, candidates, threshold = THRESHOLD, minGap = MIN_GAP) {
+export function findMatch(
+  probeB64: string,
+  candidates: FmdCandidate[],
+  threshold = THRESHOLD,
+  minGap = MIN_GAP,
+): number | null {
   if (!isFmd(probeB64)) return null;
   const probeM = decodeFMD(probeB64);
   if (!probeM || probeM.length < 5) return null;
@@ -121,5 +139,3 @@ function findMatch(probeB64, candidates, threshold = THRESHOLD, minGap = MIN_GAP
   if (second && best.score - second.score < minGap) return null;
   return best.empleado_id;
 }
-
-module.exports = { decodeFMD, matchFMDs, findMatch, isFmd, THRESHOLD, MIN_GAP };

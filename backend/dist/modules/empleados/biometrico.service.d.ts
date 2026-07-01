@@ -28,7 +28,7 @@ export declare class BiometricoService {
         ok: boolean;
         reason?: undefined;
     }>;
-    matchFmd(empresa_id: number, fmdB64: string): Promise<any>;
+    matchFmd(empresa_id: number, fmdB64: string): Promise<number | null>;
     procesarMatch(empresa_token: string, empleado_id: number, timestamp?: Date): Promise<{
         registro: import("./registro-asistencia.entity").RegistroAsistencia;
         nuevo: boolean;

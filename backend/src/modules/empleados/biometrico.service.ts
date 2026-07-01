@@ -5,8 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ConfigBiometrico } from './config-biometrico.entity';
 import { EmpleadosService } from './empleados.service';
 import { AsistenciaService } from './asistencia.service';
-
-const { findMatch, isFmd, decodeFMD } = require('./fmdMatcher');
+import { findMatch, isFmd, decodeFMD } from './fmdMatcher';
 
 @Injectable()
 export class BiometricoService {

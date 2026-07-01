@@ -20,7 +20,7 @@ const uuid_1 = require("uuid");
 const config_biometrico_entity_1 = require("./config-biometrico.entity");
 const empleados_service_1 = require("./empleados.service");
 const asistencia_service_1 = require("./asistencia.service");
-const { findMatch, isFmd, decodeFMD } = require('./fmdMatcher');
+const fmdMatcher_1 = require("./fmdMatcher");
 let BiometricoService = class BiometricoService {
     constructor(configRepo, empleadosService, asistenciaService) {
         this.configRepo = configRepo;
@@ -73,15 +73,15 @@ let BiometricoService = class BiometricoService {
         return { ok: true, refresh_templates: true, activo: config.activo };
     }
     async validarEnrollment(fmdB64, empresa_id, excluir_empleado_id) {
-        if (!isFmd(fmdB64))
+        if (!(0, fmdMatcher_1.isFmd)(fmdB64))
             return { ok: false, reason: 'Formato de huella inválido. Usar SampleFormat.Compressed.' };
-        const decoded = decodeFMD(fmdB64);
+        const decoded = (0, fmdMatcher_1.decodeFMD)(fmdB64);
         if (!decoded || decoded.length < 8)
             return { ok: false, reason: 'Huella incompleta (muy pocas minucias). Reintentar.' };
         const templates = (await this.empleadosService.getTemplates(empresa_id))
             .filter((e) => e.fmd_template && (!excluir_empleado_id || e.id !== excluir_empleado_id))
             .map((e) => ({ empleado_id: e.id, fmd_template: e.fmd_template }));
-        const matchId = findMatch(fmdB64, templates, 55, 8);
+        const matchId = (0, fmdMatcher_1.findMatch)(fmdB64, templates, 55, 8);
         if (matchId)
             return { ok: false, reason: 'Huella ya registrada para otro empleado.' };
         return { ok: true };
@@ -91,7 +91,7 @@ let BiometricoService = class BiometricoService {
             empleado_id: e.id,
             fmd_template: e.fmd_template,
         }));
-        return findMatch(fmdB64, templates);
+        return (0, fmdMatcher_1.findMatch)(fmdB64, templates);
     }
     async procesarMatch(empresa_token, empleado_id, timestamp) {
         const config = await this.configRepo.findOne({ where: { empresa_token } });
