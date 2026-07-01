@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { pedidosApi, ventasApi, ticketsApi, selfOrderApi, logisticaApi } from '../../api/endpoints';
+import { pedidosApi, ventasApi, ticketsApi, selfOrderApi, logisticaApi, empresasApi } from '../../api/endpoints';
 import { usePOSStore } from '../../store/pos.store';
 import { useAuthStore } from '../../store/auth.store';
 import { useNotificaciones } from '../../hooks/useNotificaciones';
@@ -44,6 +44,8 @@ export default function PedidosPage() {
   const [repartidores, setRepartidores] = useState<any[]>([]);
   const [showAsignarEntrega, setShowAsignarEntrega] = useState(false);
   const [asignandoRep, setAsignandoRep] = useState<number | null>(null);
+  const [cfgEspecial, setCfgEspecial] = useState<{ precio_manual: boolean }>({ precio_manual: false });
+  const [preciosManual, setPreciosManual] = useState<Record<number, string>>({});
 
   // Payment state for cobrar
   const [metodo, setMetodo] = useState<'efectivo' | 'tarjeta' | 'transferencia'>('efectivo');
@@ -70,7 +72,16 @@ export default function PedidosPage() {
         setPrecuentaEnabled(r.data?.config_pos?.precuenta_enabled || false);
       }).catch(() => {});
     }
-  }, [user?.tienda_id]);
+    // Cargar config_especial para precio_manual
+    if (user?.empresa_id) {
+      empresasApi.get(user.empresa_id)
+        .then(r => {
+          const cfgEsp = r.data?.config_especial || {};
+          setCfgEspecial({ precio_manual: cfgEsp.precio_manual === true });
+        })
+        .catch(() => {});
+    }
+  }, [user?.tienda_id, user?.empresa_id]);
 
   useEffect(() => {
     if (['admin', 'superadmin', 'manager', 'cajero'].includes(user?.rol || '')) {
@@ -115,7 +126,14 @@ export default function PedidosPage() {
         cambio: 0,
         pagos: [],
       };
-      const total = Number(selected.total);
+      const total = totalConOverride;
+
+      if (cfgEspecial.precio_manual && selected?.detalles) {
+        pagoData.precios_override = selected.detalles.map((d: any) => ({
+          detalle_id: d.id,
+          precio_unitario: parseFloat(preciosManual[d.id] || '0') || 0,
+        }));
+      }
 
       if (metodo === 'efectivo') {
         const pag = Number(pagado) || 0;
@@ -231,6 +249,19 @@ export default function PedidosPage() {
   }, [selected?.id, logisticaEnabled]);
 
   const canManage = ['cajero', 'admin', 'manager', 'superadmin'].includes(user?.rol || '');
+
+  const totalConOverride = cfgEspecial.precio_manual && selected?.detalles
+    ? selected.detalles.reduce((sum: number, d: any) => {
+        const precio = parseFloat(preciosManual[d.id] || '0') || 0;
+        return sum + precio * Number(d.cantidad);
+      }, 0)
+    : Number(selected?.total || 0);
+
+  const todosIngresados = !cfgEspecial.precio_manual || !selected?.detalles
+    || selected.detalles.every((d: any) => {
+        const v = preciosManual[d.id];
+        return v !== undefined && v !== '' && !isNaN(parseFloat(v)) && parseFloat(v) >= 0;
+      });
 
   const handlePrintComanda = async (pedido: any) => {
     try {
@@ -396,7 +427,16 @@ export default function PedidosPage() {
               )}
               {(selected.estado === 'listo_para_entrega' || selected.estado === 'recibido' || selected.estado === 'en_elaboracion') && (
                 <button
-                  onClick={() => { setShowCobrar(true); setMetodo('efectivo'); setPagado(''); }}
+                  onClick={() => {
+                    setShowCobrar(true);
+                    setMetodo('efectivo');
+                    setPagado('');
+                    if (cfgEspecial.precio_manual && selected?.detalles) {
+                      const init: Record<number, string> = {};
+                      selected.detalles.forEach((d: any) => { init[d.id] = ''; });
+                      setPreciosManual(init);
+                    }
+                  }}
                   disabled={!cajaActiva}
                   className="btn-primary text-sm"
                 >
@@ -451,7 +491,46 @@ export default function PedidosPage() {
           <div className="card max-w-md w-full space-y-4">
             <h3 className="text-lg font-bold">Cobrar Pedido - Mesa {selected.mesa}</h3>
             <p className="text-sm text-slate-400">{selected.folio} | {selected.detalles?.length} productos</p>
-            <p className="text-2xl font-bold text-green-400">${Number(selected.total).toFixed(2)}</p>
+
+            {/* MODO PRECIO MANUAL */}
+            {cfgEspecial.precio_manual && selected.detalles ? (
+              <div>
+                <p className="text-xs text-yellow-400 uppercase tracking-wider font-medium mb-2">
+                  Ingresa precio por unidad
+                </p>
+                <div className="space-y-2 max-h-56 overflow-y-auto">
+                  {selected.detalles.map((d: any) => (
+                    <div key={d.id} className="flex items-center gap-3 bg-iados-card rounded-xl p-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{d.producto_nombre}</p>
+                        <p className="text-xs text-slate-400">{Number(d.cantidad)} pza</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-slate-400 text-xs">$/u</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={preciosManual[d.id] ?? ''}
+                          onChange={e => setPreciosManual(prev => ({ ...prev, [d.id]: e.target.value }))}
+                          className="w-24 bg-iados-bg border border-slate-600 rounded-lg px-2 py-1.5 text-sm text-right focus:outline-none focus:border-iados-primary"
+                        />
+                        <span className="text-xs text-slate-500 w-16 text-right">
+                          = ${((parseFloat(preciosManual[d.id] || '0') || 0) * Number(d.cantidad)).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-700">
+                  <span className="font-medium text-sm">Total</span>
+                  <span className="text-xl font-bold text-green-400">${totalConOverride.toFixed(2)}</span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-2xl font-bold text-green-400">${totalConOverride.toFixed(2)}</p>
+            )}
 
             {/* Metodo */}
             <div className="flex gap-2">
@@ -477,15 +556,30 @@ export default function PedidosPage() {
                     <button key={q} onClick={() => setPagado(String(q))} className="bg-iados-card px-3 py-2 rounded-xl text-sm">${q}</button>
                   ))}
                 </div>
-                {Number(pagado) > Number(selected.total) && (
-                  <p className="text-center text-yellow-400 font-bold">Cambio: ${(Number(pagado) - Number(selected.total)).toFixed(2)}</p>
+                {Number(pagado) > totalConOverride && totalConOverride > 0 && (
+                  <p className="text-center text-yellow-400 font-bold">Cambio: ${(Number(pagado) - totalConOverride).toFixed(2)}</p>
                 )}
               </>
             )}
 
+            {cfgEspecial.precio_manual && !todosIngresados && (
+              <p className="text-xs text-yellow-400 text-center">
+                ⚠ Ingresa el precio de todos los productos
+              </p>
+            )}
+
             <div className="flex gap-2">
               <button onClick={() => setShowCobrar(false)} className="btn-secondary flex-1">Cancelar</button>
-              <button onClick={handleCobrar} disabled={loading || (metodo === 'efectivo' && Number(pagado) < Number(selected.total))} className="btn-primary flex-1">
+              <button
+                onClick={handleCobrar}
+                disabled={
+                  loading ||
+                  !todosIngresados ||
+                  (cfgEspecial.precio_manual && totalConOverride <= 0) ||
+                  (metodo === 'efectivo' && Number(pagado) < totalConOverride && totalConOverride > 0)
+                }
+                className="btn-primary flex-1"
+              >
                 {loading ? 'Procesando...' : 'Confirmar Cobro'}
               </button>
             </div>

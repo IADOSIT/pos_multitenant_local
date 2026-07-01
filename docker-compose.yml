@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260629-fix-502-keepalive"
+        CACHE_BUST: "20260701-config-especial-empresa"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
@@ -22,6 +22,7 @@
       FRONTEND_URL: http://localhost,http://localhost:8081,https://pos.iados.online,https://tienda.iados.online
       APP_VERSION: "2.4.1"
       PEXELS_API_KEY: zTTe3zHwLV7IAsqZSwfavWE41iv2ALaGMgrFAtkKitUw1sawGTRSp1wB
+      NODE_OPTIONS: "--max-old-space-size=512"
     volumes:
       - ./backend/uploads:/app/uploads
     networks:
@@ -55,7 +56,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260629-fix-502-keepalive"
+        CACHE_BUST: "20260701-config-especial-empresa"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

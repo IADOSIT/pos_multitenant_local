@@ -10,4 +10,20 @@ export declare class EmpresasService {
     remove(id: number): Promise<{
         deleted: boolean;
     }>;
+    setConfigEspecial(id: number, data: {
+        mostrar_precios?: boolean;
+        precio_manual?: boolean;
+        notif_cliente_estados?: boolean;
+    }, scope: any): Promise<{
+        config_especial: {
+            mostrar_precios?: boolean;
+            precio_manual?: boolean;
+            notif_cliente_estados?: boolean;
+        } | null;
+    }>;
+    getConfigEspecial(empresa_id: number): Promise<{
+        mostrar_precios: boolean;
+        precio_manual: boolean;
+        notif_cliente_estados: boolean;
+    }>;
 }

@@ -166,24 +166,48 @@ export class PedidosService {
     if (pedido.venta_id && !pedido.cuenta_abierta) throw new BadRequestException('Pedido ya cobrado');
     if (pedido.estado === PedidoEstado.CANCELADO) throw new BadRequestException('Pedido cancelado');
 
+    // ── Soporte precio_manual: cajero envía precios por detalle ──
+    const preciosOverride: Record<number, number> = {};
+    if (Array.isArray(pagoData.precios_override)) {
+      for (const p of pagoData.precios_override) {
+        if (typeof p.detalle_id === 'number' && typeof p.precio_unitario === 'number' && p.precio_unitario >= 0) {
+          preciosOverride[p.detalle_id] = p.precio_unitario;
+        }
+      }
+    }
+    const usarOverride = Object.keys(preciosOverride).length > 0;
+
+    const subtotalFinal = usarOverride
+      ? pedido.detalles.reduce((sum, d) => {
+          const precio = preciosOverride[d.id] ?? Number(d.precio_unitario);
+          return sum + (precio * Number(d.cantidad) - Number(d.descuento || 0));
+        }, 0)
+      : Number(pedido.subtotal);
+    const totalFinal = usarOverride ? subtotalFinal : Number(pedido.total);
+
     // Build venta data from pedido + payment info
     const ventaData = {
       caja_id: pagoData.caja_id,
-      items: pedido.detalles.map((d) => ({
-        producto_id: d.producto_id,
-        nombre: d.producto_nombre,
-        sku: d.producto_sku,
-        precio: Number(d.precio_unitario),
-        cantidad: Number(d.cantidad),
-        descuento: Number(d.descuento),
-        impuesto: Number(d.impuesto),
-        modificadores: d.modificadores,
-        notas: d.notas,
-      })),
-      subtotal: Number(pedido.subtotal),
+      items: pedido.detalles.map((d) => {
+        const precioFinal = usarOverride
+          ? (preciosOverride[d.id] ?? Number(d.precio_unitario))
+          : Number(d.precio_unitario);
+        return {
+          producto_id: d.producto_id,
+          nombre: d.producto_nombre,
+          sku: d.producto_sku,
+          precio: precioFinal,
+          cantidad: Number(d.cantidad),
+          descuento: Number(d.descuento),
+          impuesto: Number(d.impuesto),
+          modificadores: d.modificadores,
+          notas: d.notas,
+        };
+      }),
+      subtotal: subtotalFinal,
       descuento: Number(pedido.descuento),
       impuestos: Number(pedido.impuestos),
-      total: Number(pedido.total) + Number(pagoData.propina || 0),
+      total: totalFinal + Number(pagoData.propina || 0),
       metodo_pago: pagoData.metodo_pago,
       pago_efectivo: pagoData.pago_efectivo,
       pago_tarjeta: pagoData.pago_tarjeta,
@@ -197,6 +221,23 @@ export class PedidosService {
       tipo_servicio: pedido.tipo_servicio,
       pagos: pagoData.pagos || [],
     };
+
+    // Persistir precios reales en pedido_detalles para que el ticket los muestre correctamente
+    if (usarOverride) {
+      for (const d of pedido.detalles) {
+        const pFinal = preciosOverride[d.id];
+        if (pFinal !== undefined) {
+          await this.pedidosRepo.manager.query(
+            `UPDATE pedido_detalles SET precio_unitario = ?, subtotal = ? WHERE id = ?`,
+            [pFinal, pFinal * Number(d.cantidad) - Number(d.descuento || 0), d.id],
+          );
+        }
+      }
+      await this.pedidosRepo.update(pedido.id, {
+        subtotal: subtotalFinal,
+        total: totalFinal + Number(pagoData.propina || 0),
+      } as any);
+    }
 
     // Create venta using existing service
     const venta = await this.ventasService.crear(ventaData, scope);
@@ -233,23 +274,47 @@ export class PedidosService {
     if (pedido.estado === PedidoEstado.CANCELADO) throw new BadRequestException('Pedido cancelado');
     if (pedido.estado === PedidoEstado.ENTREGADO) throw new BadRequestException('Pedido ya cerrado');
 
+    // ── Soporte precio_manual: cajero envía precios por detalle ──
+    const preciosOverride: Record<number, number> = {};
+    if (Array.isArray(pagoData.precios_override)) {
+      for (const p of pagoData.precios_override) {
+        if (typeof p.detalle_id === 'number' && typeof p.precio_unitario === 'number' && p.precio_unitario >= 0) {
+          preciosOverride[p.detalle_id] = p.precio_unitario;
+        }
+      }
+    }
+    const usarOverride = Object.keys(preciosOverride).length > 0;
+
+    const subtotalFinal = usarOverride
+      ? pedido.detalles.reduce((sum, d) => {
+          const precio = preciosOverride[d.id] ?? Number(d.precio_unitario);
+          return sum + (precio * Number(d.cantidad) - Number(d.descuento || 0));
+        }, 0)
+      : Number(pedido.subtotal);
+    const totalFinal = usarOverride ? subtotalFinal : Number(pedido.total);
+
     const ventaData = {
       caja_id: pagoData.caja_id,
-      items: pedido.detalles.map((d) => ({
-        producto_id: d.producto_id,
-        nombre: d.producto_nombre,
-        sku: d.producto_sku,
-        precio: Number(d.precio_unitario),
-        cantidad: Number(d.cantidad),
-        descuento: Number(d.descuento),
-        impuesto: Number(d.impuesto),
-        modificadores: d.modificadores,
-        notas: d.notas,
-      })),
-      subtotal: Number(pedido.subtotal),
+      items: pedido.detalles.map((d) => {
+        const precioFinal = usarOverride
+          ? (preciosOverride[d.id] ?? Number(d.precio_unitario))
+          : Number(d.precio_unitario);
+        return {
+          producto_id: d.producto_id,
+          nombre: d.producto_nombre,
+          sku: d.producto_sku,
+          precio: precioFinal,
+          cantidad: Number(d.cantidad),
+          descuento: Number(d.descuento),
+          impuesto: Number(d.impuesto),
+          modificadores: d.modificadores,
+          notas: d.notas,
+        };
+      }),
+      subtotal: subtotalFinal,
       descuento: Number(pedido.descuento),
       impuestos: Number(pedido.impuestos),
-      total: Number(pedido.total) + Number(pagoData.propina || 0),
+      total: totalFinal + Number(pagoData.propina || 0),
       metodo_pago: pagoData.metodo_pago,
       pago_efectivo: pagoData.pago_efectivo,
       pago_tarjeta: pagoData.pago_tarjeta,
@@ -263,6 +328,23 @@ export class PedidosService {
       tipo_servicio: pedido.tipo_servicio,
       pagos: pagoData.pagos || [],
     };
+
+    // Persistir precios reales en pedido_detalles para que el ticket los muestre correctamente
+    if (usarOverride) {
+      for (const d of pedido.detalles) {
+        const pFinal = preciosOverride[d.id];
+        if (pFinal !== undefined) {
+          await this.pedidosRepo.manager.query(
+            `UPDATE pedido_detalles SET precio_unitario = ?, subtotal = ? WHERE id = ?`,
+            [pFinal, pFinal * Number(d.cantidad) - Number(d.descuento || 0), d.id],
+          );
+        }
+      }
+      await this.pedidosRepo.update(pedido.id, {
+        subtotal: subtotalFinal,
+        total: totalFinal + Number(pagoData.propina || 0),
+      } as any);
+    }
 
     const venta = await this.ventasService.crear(ventaData, scope);
 

@@ -242,14 +242,25 @@ export class EcommerceService {
     params.push(+limit, +offset);
 
     const rows = await dataSource.query(sql, params);
+    const mostrarPrecios = await this.mostrarPreciosParaEmpresa(config.empresa_id, dataSource);
     const data = rows.map((r: any) => ({
       ...r,
+      precio_venta: mostrarPrecios ? r.precio_venta : null,
+      precio_mayoreo: mostrarPrecios ? r.precio_mayoreo : null,
       imagenes: [r.imagen_url, ...(r.imagenes_extra ? JSON.parse(r.imagenes_extra) : [])].filter(Boolean),
       etiquetas: r.etiquetas ? JSON.parse(r.etiquetas) : [],
       categoria: { id: r.categoria_id, nombre: r.categoria_nombre },
     }));
 
     return { data, meta: { total: +total, page: +page, limit: +limit, pages: Math.ceil(total / limit) } };
+  }
+
+  // Config especial de la empresa — usado para ocultar precios en catálogos públicos
+  private async mostrarPreciosParaEmpresa(empresa_id: number, dataSource: any): Promise<boolean> {
+    const rows = await dataSource.query('SELECT config_especial FROM empresas WHERE id = ? LIMIT 1', [empresa_id]);
+    const cfgRaw = rows[0]?.config_especial;
+    const cfg = (typeof cfgRaw === 'string' ? JSON.parse(cfgRaw) : cfgRaw) || {};
+    return cfg.mostrar_precios !== false;
   }
 
   async getPublicProductoBySlug(subdominio: string, slug: string, dataSource: any) {
@@ -280,12 +291,16 @@ export class EcommerceService {
       [row.categoria_id, config.empresa_id, row.id],
     );
 
+    const mostrarPrecios = await this.mostrarPreciosParaEmpresa(config.empresa_id, dataSource);
+
     return {
       ...row,
+      precio_venta: mostrarPrecios ? row.precio_venta : null,
+      precio_mayoreo: mostrarPrecios ? row.precio_mayoreo : null,
       imagenes: [row.imagen_url, ...(row.imagenes_extra ? JSON.parse(row.imagenes_extra) : [])].filter(Boolean),
       etiquetas: row.etiquetas ? JSON.parse(row.etiquetas) : [],
       categoria: { id: row.categoria_id, nombre: row.categoria_nombre },
-      relacionados,
+      relacionados: relacionados.map((r: any) => ({ ...r, precio: mostrarPrecios ? r.precio : null })),
     };
   }
 

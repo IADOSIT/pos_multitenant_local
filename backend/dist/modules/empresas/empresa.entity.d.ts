@@ -14,6 +14,11 @@ export declare class Empresa {
         tema: string;
         paleta: string;
     };
+    config_especial: {
+        mostrar_precios?: boolean;
+        precio_manual?: boolean;
+        notif_cliente_estados?: boolean;
+    } | null;
     activo: boolean;
     created_at: Date;
     updated_at: Date;

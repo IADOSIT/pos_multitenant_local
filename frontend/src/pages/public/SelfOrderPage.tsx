@@ -27,7 +27,11 @@ export default function SelfOrderPage() {
   const [calComida, setCalComida] = useState(0);
   const [comentario, setComentario] = useState('');
   const [encuestaEnviada, setEncuestaEnviada] = useState(false);
+  const [mostrarPrecios, setMostrarPrecios] = useState(true);
+  const [notifEstados, setNotifEstados] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const notifEstadosRef = useRef(false);
+  useEffect(() => { notifEstadosRef.current = notifEstados; }, [notifEstados]);
 
   const tiendaId = tienda_id ? Number(tienda_id) : null;
   const mesaNumero = Number(mesa_numero);
@@ -55,6 +59,10 @@ export default function SelfOrderPage() {
       setCategorias(m.data.categorias || []);
       setProductos(m.data.productos || []);
       if (m.data.categorias?.length) setCategoriaActiva(m.data.categorias[0].id);
+      if (m.data.config_especial) {
+        setMostrarPrecios(m.data.config_especial.mostrar_precios !== false);
+        setNotifEstados(m.data.config_especial.notif_cliente_estados === true);
+      }
       setStep('menu');
     } catch (e: any) {
       setErrorMsg(e.response?.data?.message || 'No disponible en este momento');
@@ -66,7 +74,7 @@ export default function SelfOrderPage() {
     setCart((prev) => {
       const existing = prev.find((i) => i.producto_id === prod.id);
       if (existing) return prev.map((i) => i.producto_id === prod.id ? { ...i, cantidad: i.cantidad + 1 } : i);
-      return [...prev, { producto_id: prod.id, nombre: prod.nombre, precio: prod.precio, cantidad: 1, sku: prod.id.toString(), imagen_url: prod.imagen_url }];
+      return [...prev, { producto_id: prod.id, nombre: prod.nombre, precio: prod.precio ?? 0, cantidad: 1, sku: prod.id.toString(), imagen_url: prod.imagen_url }];
     });
   };
 
@@ -111,17 +119,49 @@ export default function SelfOrderPage() {
     pollRef.current = setInterval(async () => {
       try {
         const { data } = await selfOrderApi.getStatus(token);
+
         if (data.encuesta_lista) {
           clearInterval(pollRef.current!);
           try { new Audio('/notification.mp3').play(); } catch {}
           setStep('encuesta');
-        } else if (data.estado === 'cancelado') {
+          return;
+        }
+
+        if (data.estado === 'cancelado') {
           clearInterval(pollRef.current!);
           setStep('rejected');
-        } else if (data.estado === 'listo_para_entrega') {
-          setStep('listo');
-        } else if (data.mesero_confirmado || data.estado === 'en_elaboracion') {
-          setStep('confirmed');
+          return;
+        }
+
+        // Si notif_cliente_estados está activo: mostrar pasos individuales y SEGUIR polling
+        if (notifEstadosRef.current) {
+          if (data.estado === 'listo_para_entrega') {
+            setStep('listo');
+            // polling continúa para detectar encuesta/cobro
+            return;
+          }
+          if (data.mesero_confirmado || data.estado === 'en_elaboracion') {
+            setStep('confirmed');
+            // polling continúa para detectar listo_para_entrega y encuesta
+            return;
+          }
+        } else {
+          // Comportamiento por defecto: colapsar todo en 'confirmed' y detener polling
+          if (data.mesero_confirmado || data.estado === 'en_elaboracion' || data.estado === 'listo_para_entrega' || data.estado === 'entregado') {
+            clearInterval(pollRef.current!);
+            setStep('confirmed');
+            // Reanudar polling solo para detectar encuesta
+            pollRef.current = setInterval(async () => {
+              try {
+                const { data: d2 } = await selfOrderApi.getStatus(token);
+                if (d2.encuesta_lista) {
+                  clearInterval(pollRef.current!);
+                  try { new Audio('/notification.mp3').play(); } catch {}
+                  setStep('encuesta');
+                }
+              } catch {}
+            }, 5000);
+          }
         }
       } catch {}
     }, 3000);
@@ -293,7 +333,9 @@ export default function SelfOrderPage() {
               <div className="p-2 flex flex-col flex-1">
                 <p className="font-semibold text-sm leading-tight mb-1">{prod.nombre}</p>
                 {prod.descripcion && <p className="text-xs text-slate-400 mb-1 line-clamp-2">{prod.descripcion}</p>}
-                <p className="text-iados-secondary font-bold text-sm mt-auto">${Number(prod.precio).toFixed(2)}</p>
+                {mostrarPrecios && prod.precio !== null && prod.precio !== undefined && Number(prod.precio) > 0 && (
+                  <p className="text-iados-secondary font-bold text-sm mt-auto">${Number(prod.precio).toFixed(2)}</p>
+                )}
                 <div className="flex items-center justify-between mt-2">
                   {qty === 0
                     ? <button onClick={() => addToCart(prod)} className="btn-primary text-xs py-1 px-3 w-full"><Plus size={14} className="inline mr-1" />Agregar</button>
@@ -318,7 +360,9 @@ export default function SelfOrderPage() {
           <button onClick={() => setShowCart(true)} className="btn-primary w-full py-3 text-base flex items-center justify-between">
             <span className="bg-white/20 rounded-lg px-2 py-0.5 text-sm">{itemCount}</span>
             <span>Ver pedido</span>
-            <span className="font-bold">${total.toFixed(2)}</span>
+            {mostrarPrecios && (
+              <span className="font-bold">${total.toFixed(2)}</span>
+            )}
           </button>
         </div>
       )}
@@ -341,16 +385,22 @@ export default function SelfOrderPage() {
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium">{item.nombre}</p>
-                    <p className="text-xs text-slate-400">${Number(item.precio).toFixed(2)} c/u</p>
+                    {mostrarPrecios && (
+                      <p className="text-xs text-slate-400">${Number(item.precio).toFixed(2)} c/u</p>
+                    )}
                   </div>
-                  <p className="font-bold text-sm">${(Number(item.precio) * item.cantidad).toFixed(2)}</p>
+                  {mostrarPrecios && (
+                    <p className="font-bold text-sm">${(Number(item.precio) * item.cantidad).toFixed(2)}</p>
+                  )}
                 </div>
               ))}
             </div>
             <div className="p-4 border-t border-slate-700 space-y-3">
-              <div className="flex justify-between font-bold text-lg">
-                <span>Total</span><span className="text-iados-secondary">${total.toFixed(2)}</span>
-              </div>
+              {mostrarPrecios && (
+                <div className="flex justify-between font-bold text-lg">
+                  <span>Total</span><span className="text-iados-secondary">${total.toFixed(2)}</span>
+                </div>
+              )}
               <input
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}

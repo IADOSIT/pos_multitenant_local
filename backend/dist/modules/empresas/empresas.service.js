@@ -43,6 +43,29 @@ let EmpresasService = class EmpresasService {
         await this.repo.delete(id);
         return { deleted: true };
     }
+    async setConfigEspecial(id, data, scope) {
+        const where = { id };
+        if (scope.rol !== user_entity_1.UserRole.SUPERADMIN)
+            where.tenant_id = scope.tenant_id;
+        const empresa = await this.repo.findOne({ where });
+        if (!empresa)
+            throw new common_1.NotFoundException('Empresa no encontrada');
+        empresa.config_especial = {
+            ...(empresa.config_especial || {}),
+            ...data,
+        };
+        const saved = await this.repo.save(empresa);
+        return { config_especial: saved.config_especial };
+    }
+    async getConfigEspecial(empresa_id) {
+        const empresa = await this.repo.findOne({ where: { id: empresa_id } });
+        const cfg = empresa?.config_especial || {};
+        return {
+            mostrar_precios: cfg.mostrar_precios !== false,
+            precio_manual: cfg.precio_manual === true,
+            notif_cliente_estados: cfg.notif_cliente_estados === true,
+        };
+    }
 };
 exports.EmpresasService = EmpresasService;
 exports.EmpresasService = EmpresasService = __decorate([

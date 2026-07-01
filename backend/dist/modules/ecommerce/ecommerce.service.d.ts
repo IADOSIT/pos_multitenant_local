@@ -64,6 +64,7 @@ export declare class EcommerceService {
             pages: number;
         };
     }>;
+    private mostrarPreciosParaEmpresa;
     getPublicProductoBySlug(subdominio: string, slug: string, dataSource: any): Promise<any>;
     crearPedidoPublico(subdominio: string, body: any, dataSource: any): Promise<{
         numero_pedido: string;

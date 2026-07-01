@@ -26,6 +26,10 @@ export declare class SelfOrderService {
     getMenuPublico(tienda_id: number): Promise<{
         categorias: any;
         productos: any;
+        config_especial: {
+            mostrar_precios: boolean;
+            notif_cliente_estados: boolean;
+        };
     }>;
     crearPedidoCliente(tienda_id: number, mesa_numero: number, body: any): Promise<{
         pedido_id: number;
@@ -59,6 +63,10 @@ export declare class SelfOrderService {
     getMenuPublicoBySlug(slug: string): Promise<{
         categorias: any;
         productos: any;
+        config_especial: {
+            mostrar_precios: boolean;
+            notif_cliente_estados: boolean;
+        };
     }>;
     crearPedidoBySlug(slug: string, mesa_numero: number, body: any): Promise<{
         pedido_id: number;

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePOSStore } from '../../store/pos.store';
 import { useAuthStore } from '../../store/auth.store';
 import { offlineActions } from '../../store/offline.store';
-import { productosApi, categoriasApi, cajaApi, tiendasApi, pedidosApi, ticketsApi, selfOrderApi } from '../../api/endpoints';
+import { productosApi, categoriasApi, cajaApi, tiendasApi, pedidosApi, ticketsApi, selfOrderApi, empresasApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
 import { printComanda, printTicket } from '../../utils/printTicket';
 import { Producto, Categoria } from '../../types';
@@ -15,7 +15,7 @@ import DevolucionModal from '../../components/pos/DevolucionModal';
 import { Search, ShoppingBag, Wifi, WifiOff, CreditCard, X, Clock, RefreshCw, Trash2, Minus, Plus, FileText, RotateCcw } from 'lucide-react';
 
 // ── Long-press product card ──────────────────────────────────────────────────
-function ProductCard({ prod, onClick, onLongPress, showStockBadge }: { prod: Producto; onClick: () => void; onLongPress: () => void; showStockBadge?: boolean }) {
+function ProductCard({ prod, onClick, onLongPress, showStockBadge, mostrarPrecios }: { prod: Producto; onClick: () => void; onLongPress: () => void; showStockBadge?: boolean; mostrarPrecios?: boolean }) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const firedRef = useRef(false);
 
@@ -53,7 +53,9 @@ function ProductCard({ prod, onClick, onLongPress, showStockBadge }: { prod: Pro
         </div>
       )}
       <span className="text-sm font-medium leading-tight line-clamp-2">{prod.nombre}</span>
-      <span className="text-iados-accent font-bold mt-1">${Number(prod.precio).toFixed(2)}</span>
+      {mostrarPrecios !== false && (
+        <span className="text-iados-accent font-bold mt-1">${Number(prod.precio).toFixed(2)}</span>
+      )}
       {stockBajoCritico && (
         <span className="absolute top-1.5 right-1.5 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
           ⚠ {stockActual}
@@ -98,6 +100,7 @@ export default function POSPage() {
   const [devVentaId, setDevVentaId] = useState<number | null>(null);
   const [devolucionesEnabled, setDevolucionesEnabled] = useState(false);
   const [devolucionesRol, setDevolucionesRol] = useState('admin');
+  const [mostrarPrecios, setMostrarPrecios] = useState(true);
 
   const { user } = useAuthStore();
   const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, setMesaActiva, tipoServicio, clearCart, notaPedido, clienteNombre, clienteTelefono, clienteDireccion } = usePOSStore();
@@ -189,6 +192,15 @@ export default function POSPage() {
         }
       }
     } catch {}
+
+    // Cargar config_especial de empresa
+    if (user?.empresa_id) {
+      try {
+        const empR = await empresasApi.get(user.empresa_id);
+        const cfgEsp = empR.data?.config_especial || {};
+        setMostrarPrecios(cfgEsp.mostrar_precios !== false);
+      } catch {}
+    }
   };
 
   const loadData = async () => {
@@ -615,6 +627,7 @@ export default function POSPage() {
                 onClick={() => handleProductClick(prod)}
                 onLongPress={() => handleProductLongPress(prod)}
                 showStockBadge={stockBadgeEnabled}
+                mostrarPrecios={mostrarPrecios}
               />
             ))}
           </div>

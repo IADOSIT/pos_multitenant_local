@@ -35,6 +35,9 @@ let EmpresasController = class EmpresasController {
         return { logo_url: logoUrl };
     }
     delete(id) { return this.service.remove(id); }
+    setConfigEspecial(id, data, scope) {
+        return this.service.setConfigEspecial(id, data, scope);
+    }
 };
 exports.EmpresasController = EmpresasController;
 __decorate([
@@ -83,6 +86,16 @@ __decorate([
     __metadata("design:paramtypes", [Number]),
     __metadata("design:returntype", void 0)
 ], EmpresasController.prototype, "delete", null);
+__decorate([
+    (0, common_1.Patch)(':id/config-especial'),
+    (0, roles_decorator_1.Roles)('superadmin', 'admin'),
+    __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, tenant_decorator_1.TenantScope)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Number, Object, Object]),
+    __metadata("design:returntype", void 0)
+], EmpresasController.prototype, "setConfigEspecial", null);
 exports.EmpresasController = EmpresasController = __decorate([
     (0, common_1.Controller)('empresas'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), roles_guard_1.RolesGuard),

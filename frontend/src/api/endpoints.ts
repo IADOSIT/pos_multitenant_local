@@ -40,6 +40,8 @@ export const empresasApi = {
     form.append('logo', file);
     return api.post(`/empresas/${id}/upload-logo`, form);
   },
+  setConfigEspecial: (id: number, data: Partial<{ mostrar_precios: boolean; precio_manual: boolean; notif_cliente_estados: boolean }>) =>
+    api.patch(`/empresas/${id}/config-especial`, data),
 };
 
 // Tiendas

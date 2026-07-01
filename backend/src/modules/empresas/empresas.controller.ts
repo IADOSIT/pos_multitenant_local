@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards, ParseIntPipe, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Param, Body, UseGuards, ParseIntPipe, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -36,4 +36,14 @@ export class EmpresasController {
   @Delete(':id')
   @Roles('superadmin')
   delete(@Param('id', ParseIntPipe) id: number) { return this.service.remove(id); }
+
+  @Patch(':id/config-especial')
+  @Roles('superadmin', 'admin')
+  setConfigEspecial(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() data: { mostrar_precios?: boolean; precio_manual?: boolean; notif_cliente_estados?: boolean },
+    @TenantScope() scope,
+  ) {
+    return this.service.setConfigEspecial(id, data, scope);
+  }
 }

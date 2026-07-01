@@ -14,6 +14,10 @@ export declare class SelfOrderPublicController {
     getMenuBySlug(slug: string): Promise<{
         categorias: any;
         productos: any;
+        config_especial: {
+            mostrar_precios: boolean;
+            notif_cliente_estados: boolean;
+        };
     }>;
     crearPedidoBySlug(slug: string, mesa_numero: number, body: any): Promise<{
         pedido_id: number;
@@ -32,6 +36,10 @@ export declare class SelfOrderPublicController {
     getMenuPublico(tienda_id: number): Promise<{
         categorias: any;
         productos: any;
+        config_especial: {
+            mostrar_precios: boolean;
+            notif_cliente_estados: boolean;
+        };
     }>;
     crearPedido(tienda_id: number, mesa_numero: number, body: any): Promise<{
         pedido_id: number;

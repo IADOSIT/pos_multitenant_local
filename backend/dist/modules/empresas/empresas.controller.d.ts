@@ -12,4 +12,15 @@ export declare class EmpresasController {
     delete(id: number): Promise<{
         deleted: boolean;
     }>;
+    setConfigEspecial(id: number, data: {
+        mostrar_precios?: boolean;
+        precio_manual?: boolean;
+        notif_cliente_estados?: boolean;
+    }, scope: any): Promise<{
+        config_especial: {
+            mostrar_precios?: boolean;
+            precio_manual?: boolean;
+            notif_cliente_estados?: boolean;
+        } | null;
+    }>;
 }

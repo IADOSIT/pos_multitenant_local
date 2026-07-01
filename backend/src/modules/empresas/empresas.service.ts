@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Empresa } from './empresa.entity';
@@ -31,5 +31,33 @@ export class EmpresasService {
   async remove(id: number) {
     await this.repo.delete(id);
     return { deleted: true };
+  }
+
+  async setConfigEspecial(
+    id: number,
+    data: { mostrar_precios?: boolean; precio_manual?: boolean; notif_cliente_estados?: boolean },
+    scope: any,
+  ) {
+    const where: any = { id };
+    if (scope.rol !== UserRole.SUPERADMIN) where.tenant_id = scope.tenant_id;
+    const empresa = await this.repo.findOne({ where });
+    if (!empresa) throw new NotFoundException('Empresa no encontrada');
+    empresa.config_especial = {
+      ...(empresa.config_especial || {}),
+      ...data,
+    };
+    const saved = await this.repo.save(empresa);
+    return { config_especial: saved.config_especial };
+  }
+
+  // Usado por módulos públicos (self-order, e-commerce) para respetar la config sin exponer el resto de la entidad
+  async getConfigEspecial(empresa_id: number): Promise<{ mostrar_precios: boolean; precio_manual: boolean; notif_cliente_estados: boolean }> {
+    const empresa = await this.repo.findOne({ where: { id: empresa_id } });
+    const cfg = empresa?.config_especial || {};
+    return {
+      mostrar_precios: cfg.mostrar_precios !== false, // true por defecto si undefined
+      precio_manual: cfg.precio_manual === true,       // false por defecto
+      notif_cliente_estados: cfg.notif_cliente_estados === true, // false por defecto
+    };
   }
 }

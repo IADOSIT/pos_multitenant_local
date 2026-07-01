@@ -80,9 +80,23 @@ let SelfOrderService = class SelfOrderService {
        WHERE p.activo = 1 AND p.disponible = 1
          AND (pt.id IS NULL OR pt.disponible = 1)
        ORDER BY p.orden ASC, p.nombre ASC`, [tienda_id, tienda_id]);
+        const empresaRows = await this.dataSource.query(`SELECT e.config_especial FROM empresas e
+       INNER JOIN tiendas t ON t.empresa_id = e.id
+       WHERE t.id = ? LIMIT 1`, [tienda_id]);
+        const cfgRaw = empresaRows[0]?.config_especial;
+        const cfg = (typeof cfgRaw === 'string' ? JSON.parse(cfgRaw) : cfgRaw) || {};
+        const mostrarPrecios = cfg.mostrar_precios !== false;
         return {
             categorias,
-            productos: productos.map((p) => ({ ...p, descripcion: this.cleanDesc(p.descripcion) })),
+            productos: productos.map((p) => ({
+                ...p,
+                descripcion: this.cleanDesc(p.descripcion),
+                precio: mostrarPrecios ? p.precio : null,
+            })),
+            config_especial: {
+                mostrar_precios: mostrarPrecios,
+                notif_cliente_estados: cfg.notif_cliente_estados === true,
+            },
         };
     }
     async crearPedidoCliente(tienda_id, mesa_numero, body) {

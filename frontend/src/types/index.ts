@@ -190,3 +190,9 @@ export interface MetricasLogistica {
     con_problema: number;
   }[];
 }
+
+export interface ConfigEspecialEmpresa {
+  mostrar_precios?: boolean;
+  precio_manual?: boolean;
+  notif_cliente_estados?: boolean;
+}

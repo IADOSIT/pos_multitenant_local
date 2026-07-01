@@ -38,6 +38,13 @@ export class Empresa {
     paleta: string;
   };
 
+  @Column({ type: 'json', nullable: true })
+  config_especial: {
+    mostrar_precios?: boolean;      // default implícito: true (si null/undefined, se trata como true)
+    precio_manual?: boolean;        // default implícito: false
+    notif_cliente_estados?: boolean; // default implícito: false
+  } | null;
+
   @Column({ default: true })
   activo: boolean;
 

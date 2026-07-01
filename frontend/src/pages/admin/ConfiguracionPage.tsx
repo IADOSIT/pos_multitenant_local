@@ -44,6 +44,12 @@ export default function ConfiguracionPage() {
   const [configTab, setConfigTab] = useState<'tienda' | 'tickets' | 'modulos' | 'especial' | 'ecommerce'>('tienda');
   const [empresaLogo, setEmpresaLogo] = useState<string>('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [cfgEspecial, setCfgEspecial] = useState<{
+    mostrar_precios: boolean;
+    precio_manual: boolean;
+    notif_cliente_estados: boolean;
+  }>({ mostrar_precios: true, precio_manual: false, notif_cliente_estados: false });
+  const [savingCfgEsp, setSavingCfgEsp] = useState(false);
   const logoRef = useRef<HTMLInputElement>(null);
   const [systemInfo, setSystemInfo] = useState<any>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
@@ -200,7 +206,29 @@ export default function ConfiguracionPage() {
         setTheme((data.config_apariencia.tema as ThemeName) || 'default');
         setPalette((data.config_apariencia.paleta as PaletteName) || 'default');
       }
+      const cfgEsp = data?.config_especial || {};
+      setCfgEspecial({
+        mostrar_precios: cfgEsp.mostrar_precios !== false,
+        precio_manual: cfgEsp.precio_manual === true,
+        notif_cliente_estados: cfgEsp.notif_cliente_estados === true,
+      });
     } catch {}
+  };
+
+  const handleToggleCfgEspecial = async (campo: 'mostrar_precios' | 'precio_manual' | 'notif_cliente_estados', valor: boolean) => {
+    const empId = user?.empresa_id;
+    if (!empId) return;
+    setSavingCfgEsp(true);
+    const nuevaCfg = { ...cfgEspecial, [campo]: valor };
+    try {
+      await empresasApi.setConfigEspecial(empId, { [campo]: valor });
+      setCfgEspecial(nuevaCfg);
+      toast.success('Configuración guardada');
+    } catch {
+      toast.error('Error al guardar configuración');
+    } finally {
+      setSavingCfgEsp(false);
+    }
   };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -676,6 +704,75 @@ export default function ConfiguracionPage() {
           <div>
             <h2 className="text-base font-bold flex items-center gap-2 mb-3"><Truck size={18} className="text-iados-accent" /> Logística de Entregas</h2>
             <LogisticaConfigSection />
+          </div>
+          <hr className="border-slate-700" />
+
+          {/* ── Configuraciones Especiales ─────────────────────────── */}
+          <div className="bg-iados-card rounded-2xl border border-slate-700 p-5">
+            <h3 className="font-semibold text-base mb-1 flex items-center gap-2">
+              <Settings size={16} className="text-iados-primary" />
+              Configuraciones Especiales
+            </h3>
+            <p className="text-xs text-slate-400 mb-4">
+              Aplican únicamente para esta empresa. No afectan a otras empresas del sistema.
+            </p>
+
+            {/* Toggle 1: Mostrar precios */}
+            <div className="flex items-start justify-between py-3 border-b border-slate-700/60">
+              <div className="flex-1 pr-4">
+                <p className="text-sm font-medium">Mostrar precios en menú público</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Cuando está desactivado, los precios no aparecen en el menú QR, e-commerce ni en el catálogo del POS. El cliente solo ve productos y cantidades.
+                </p>
+              </div>
+              <button
+                onClick={() => handleToggleCfgEspecial('mostrar_precios', !cfgEspecial.mostrar_precios)}
+                disabled={savingCfgEsp}
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none ${
+                  cfgEspecial.mostrar_precios ? 'bg-iados-primary' : 'bg-slate-600'
+                }`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${cfgEspecial.mostrar_precios ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+
+            {/* Toggle 2: Precio manual */}
+            <div className="flex items-start justify-between py-3 border-b border-slate-700/60">
+              <div className="flex-1 pr-4">
+                <p className="text-sm font-medium">Permitir precio manual al cobrar</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Al cobrar un pedido, el cajero ingresa el precio por unidad de cada producto manualmente. El total se calcula automáticamente. Útil para precios variables por cliente.
+                </p>
+              </div>
+              <button
+                onClick={() => handleToggleCfgEspecial('precio_manual', !cfgEspecial.precio_manual)}
+                disabled={savingCfgEsp}
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none ${
+                  cfgEspecial.precio_manual ? 'bg-iados-primary' : 'bg-slate-600'
+                }`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${cfgEspecial.precio_manual ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+
+            {/* Toggle 3: Notificaciones de estado al cliente */}
+            <div className="flex items-start justify-between py-3">
+              <div className="flex-1 pr-4">
+                <p className="text-sm font-medium">Notificaciones de estado al cliente</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Cuando el cliente hace un pedido por menú QR, su pantalla muestra el progreso en tiempo real: "En preparación" → "¡Listo para recoger!". El cajero confirma y el cliente lo ve al instante.
+                </p>
+              </div>
+              <button
+                onClick={() => handleToggleCfgEspecial('notif_cliente_estados', !cfgEspecial.notif_cliente_estados)}
+                disabled={savingCfgEsp}
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none ${
+                  cfgEspecial.notif_cliente_estados ? 'bg-iados-primary' : 'bg-slate-600'
+                }`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${cfgEspecial.notif_cliente_estados ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
           </div>
         </div>
       )}
