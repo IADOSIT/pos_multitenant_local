@@ -120,16 +120,15 @@ export default function MainLayout() {
     return true;
   });
 
-  // Logística: admin/superadmin siempre lo ven (para poder activarlo desde su Configuración);
-  // manager/cajero solo lo ven una vez que el módulo ya está habilitado para la empresa
+  // Logística: se muestra solo si el módulo está habilitado para la empresa.
+  // El toggle para activarlo vive en Configuración > Módulos (siempre accesible para admin/superadmin),
+  // así que no hace falta forzar este link a mostrarse antes de activar el módulo.
   const logisticaNavItem = {
     to: '/logistica', icon: Truck, label: 'Logística',
     roles: ['superadmin', 'admin', 'manager', 'cajero'],
     badge: false,
   };
-  const canManageLogistica = ['superadmin', 'admin'].includes(user?.rol || '');
-  const showLogisticaNav = (logisticaEnabled || canManageLogistica) && user && logisticaNavItem.roles.includes(user.rol);
-  const filtered = showLogisticaNav
+  const filtered = logisticaEnabled && user && logisticaNavItem.roles.includes(user.rol)
     ? [...baseFiltered.slice(0, 6), logisticaNavItem, ...baseFiltered.slice(6)]
     : baseFiltered;
 

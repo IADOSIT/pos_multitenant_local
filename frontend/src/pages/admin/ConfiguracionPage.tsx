@@ -6,10 +6,11 @@ import { useAuthStore } from '../../store/auth.store';
 import TicketsConfig from './TicketsConfig';
 import { useThemeStore, ThemeName, PaletteName } from '../../store/theme.store';
 import toast from 'react-hot-toast';
-import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers, TrendingUp, DollarSign } from 'lucide-react';
+import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers, TrendingUp, DollarSign, Truck } from 'lucide-react';
 import PerfilNegocioPage from './PerfilNegocioPage';
 import InventarioDualPage from '../inventario/InventarioDualPage';
 import TiendaEnLineaPage from './TiendaEnLineaPage';
+import { LogisticaConfigSection } from '../logistica/LogisticaPage';
 import QRCode from 'qrcode';
 
 const THEMES: { key: ThemeName; name: string; desc: string; previewStyle: React.CSSProperties }[] = [
@@ -670,6 +671,11 @@ export default function ConfiguracionPage() {
           <div>
             <h2 className="text-base font-bold flex items-center gap-2 mb-3"><Layers size={18} className="text-iados-accent" /> Inventario Dual</h2>
             <InventarioDualPage />
+          </div>
+          <hr className="border-slate-700" />
+          <div>
+            <h2 className="text-base font-bold flex items-center gap-2 mb-3"><Truck size={18} className="text-iados-accent" /> Logística de Entregas</h2>
+            <LogisticaConfigSection />
           </div>
         </div>
       )}

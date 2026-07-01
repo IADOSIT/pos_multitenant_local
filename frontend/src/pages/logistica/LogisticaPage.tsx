@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { logisticaApi } from '../../api/endpoints';
 import type { Repartidor, EntregaPedido, EstadoEntrega, ConfigLogistica, MetricasLogistica } from '../../types';
-import { Truck, Users, BarChart2, Settings, Copy, Check, Plus, Edit2, Power, RefreshCw, MapPin, Phone, Clock, AlertTriangle, CheckCircle, Zap, MessageSquare, Save, ChevronRight } from 'lucide-react';
+import { Truck, Users, BarChart2, Copy, Check, Plus, Edit2, Power, RefreshCw, MapPin, Phone, Clock, AlertTriangle, CheckCircle, Zap, MessageSquare, Save, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-type Tab = 'entregas' | 'repartidores' | 'metricas' | 'config';
+type Tab = 'entregas' | 'repartidores' | 'metricas';
 
 const estadoBadge: Record<EstadoEntrega, { label: string; text: string; bg: string }> = {
   asignado:     { label: 'Asignado',     text: 'text-yellow-400', bg: 'bg-yellow-900/30' },
@@ -21,13 +21,6 @@ const nextEstados: Record<string, EstadoEntrega[]> = {
 
 export default function LogisticaPage() {
   const [tab, setTab] = useState<Tab>('entregas');
-  const [config, setConfig] = useState<ConfigLogistica | null>(null);
-
-  useEffect(() => {
-    logisticaApi.getConfig().then(r => setConfig(r.data)).catch(() => {});
-  }, []);
-
-  const activeCount = 0;
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
@@ -47,7 +40,6 @@ export default function LogisticaPage() {
           { key: 'entregas',     label: 'Entregas',      icon: Truck    },
           { key: 'repartidores', label: 'Repartidores',  icon: Users    },
           { key: 'metricas',     label: 'Métricas',      icon: BarChart2 },
-          { key: 'config',       label: 'Configuración', icon: Settings },
         ] as const).map(t => {
           const Icon = t.icon;
           return (
@@ -68,7 +60,6 @@ export default function LogisticaPage() {
       {tab === 'entregas'     && <TabEntregas />}
       {tab === 'repartidores' && <TabRepartidores />}
       {tab === 'metricas'     && <TabMetricas />}
-      {tab === 'config'       && <TabConfig config={config} onSaved={setConfig} />}
     </div>
   );
 }
@@ -546,8 +537,19 @@ function TabMetricas() {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Tab Configuración
+// Configuración — se embebe en Configuración > Módulos (no vive en LogisticaPage
+// porque el toggle que la habilita necesita ser accesible sin que el módulo esté activo)
 // ──────────────────────────────────────────────────────────────────────────────
+export function LogisticaConfigSection() {
+  const [config, setConfig] = useState<ConfigLogistica | null>(null);
+
+  useEffect(() => {
+    logisticaApi.getConfig().then(r => setConfig(r.data)).catch(() => {});
+  }, []);
+
+  return <TabConfig config={config} onSaved={setConfig} />;
+}
+
 function TabConfig({ config, onSaved }: { config: ConfigLogistica | null; onSaved: (c: ConfigLogistica) => void }) {
   const [form, setForm] = useState<Partial<ConfigLogistica>>({});
   const [saving, setSaving] = useState(false);
