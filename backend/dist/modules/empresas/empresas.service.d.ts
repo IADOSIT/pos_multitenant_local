@@ -14,6 +14,7 @@ export declare class EmpresasService {
         mostrar_precios?: boolean;
         precio_manual?: boolean;
         notif_cliente_estados?: boolean;
+        empleados_enabled?: boolean;
     }, scope: any): Promise<{
         config_especial: {
             mostrar_precios?: boolean;

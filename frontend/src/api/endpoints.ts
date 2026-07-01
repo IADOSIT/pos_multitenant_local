@@ -40,7 +40,7 @@ export const empresasApi = {
     form.append('logo', file);
     return api.post(`/empresas/${id}/upload-logo`, form);
   },
-  setConfigEspecial: (id: number, data: Partial<{ mostrar_precios: boolean; precio_manual: boolean; notif_cliente_estados: boolean }>) =>
+  setConfigEspecial: (id: number, data: Partial<{ mostrar_precios: boolean; precio_manual: boolean; notif_cliente_estados: boolean; empleados_enabled: boolean }>) =>
     api.patch(`/empresas/${id}/config-especial`, data),
 };
 
@@ -366,4 +366,22 @@ export const perfilesApi = {
   alertasStock:   (modulo?: string)      => api.get('/perfiles/alertas-stock', { params: modulo ? { modulo } : {} }),
   resumenModulo:  (modulo: string)       => api.get(`/perfiles/resumen/${modulo}`),
   stockPorModulo: (modulo?: string)      => api.get('/inventario/stock-modulo', { params: modulo ? { modulo } : {} }),
+};
+
+// Empleados + Asistencia Biométrica
+export const empleadosApi = {
+  list:           ()                        => api.get('/empleados'),
+  create:         (d: any)                  => api.post('/empleados', d),
+  update:         (id: number, d: any)      => api.put(`/empleados/${id}`, d),
+  toggle:         (id: number)              => api.patch(`/empleados/${id}/toggle`),
+  clearHuella:    (id: number)              => api.delete(`/empleados/${id}/huella`),
+  getHorario:     (id: number)              => api.get(`/empleados/${id}/horario`),
+  setHorario:     (id: number, h: any[])    => api.put(`/empleados/${id}/horario`, { horarios: h }),
+  getAsistencias: (params?: any)            => api.get('/empleados/asistencia', { params }),
+  manual:         (d: any)                  => api.post('/empleados/asistencia/manual', d),
+  delRegistro:    (id: number)              => api.delete(`/empleados/asistencia/${id}`),
+  kpis:           (desde?: string, hasta?: string) => api.get('/empleados/asistencia/kpis', { params: { desde, hasta } }),
+  getBioConfig:   ()                        => api.get('/empleados/biometrico/config'),
+  putBioConfig:   (d: any)                  => api.put('/empleados/biometrico/config', d),
+  regenToken:     ()                        => api.patch('/empleados/biometrico/regenerar-token'),
 };

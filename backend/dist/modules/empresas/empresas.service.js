@@ -50,9 +50,11 @@ let EmpresasService = class EmpresasService {
         const empresa = await this.repo.findOne({ where });
         if (!empresa)
             throw new common_1.NotFoundException('Empresa no encontrada');
+        const { empleados_enabled, ...rest } = data;
+        const safeData = scope.rol === user_entity_1.UserRole.SUPERADMIN ? data : rest;
         empresa.config_especial = {
             ...(empresa.config_especial || {}),
-            ...data,
+            ...safeData,
         };
         const saved = await this.repo.save(empresa);
         return { config_especial: saved.config_especial };

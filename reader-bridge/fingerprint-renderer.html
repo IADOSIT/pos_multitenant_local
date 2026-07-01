@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>body{margin:0;background:#1a1a2e;color:#fff;font:12px monospace;padding:8px;}</style>
+</head>
+<body>
+<div id="s">Iniciando lector...</div>
+<canvas id="c" style="display:none"></canvas>
+<script>
+(async function() {
+  const status = document.getElementById('s');
+
+  function log(msg) {
+    window.electronAPI?.log(msg);
+    console.log(msg);
+  }
+
+  function setStatus(msg) {
+    status.textContent = msg;
+    log(msg);
+  }
+
+  // Extrae vector 128x128 de datos FID (raw pixels ANSI 381) via Canvas
+  function fidToVector(buf) {
+    // Global header ANSI 381: magic FIR\0 en [0-3]
+    if (buf[0] !== 0x46 || buf[1] !== 0x49 || buf[2] !== 0x52) {
+      log('[renderer] No es FID magic=' + buf.slice(0,4).toString('hex'));
+      return null;
+    }
+    const width  = buf.readUInt16BE(16);
+    const height = buf.readUInt16BE(18);
+    if (!width || !height || width * height > buf.length) {
+      log('[renderer] Dimensiones FID inválidas w=' + width + ' h=' + height);
+      return null;
+    }
+    // Píxeles: últimos width*height bytes del buffer (robusto a variaciones de header)
+    const pixels = buf.slice(buf.length - (width * height));
+    log('[renderer] FID OK w=' + width + ' h=' + height + ' pixels=' + pixels.length);
+
+    const SIZE = 128;
+    const tmp = document.createElement('canvas');
+    tmp.width = width; tmp.height = height;
+    const tmpCtx = tmp.getContext('2d');
+    const imgData = tmpCtx.createImageData(width, height);
+    for (let i = 0; i < pixels.length; i++) {
+      imgData.data[i*4]   = pixels[i];
+      imgData.data[i*4+1] = pixels[i];
+      imgData.data[i*4+2] = pixels[i];
+      imgData.data[i*4+3] = 255;
+    }
+    tmpCtx.putImageData(imgData, 0, 0);
+
+    const c = document.getElementById('c');
+    c.width = SIZE; c.height = SIZE;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(tmp, 0, 0, SIZE, SIZE);
+    const out = ctx.getImageData(0, 0, SIZE, SIZE).data;
+    const vec = new Uint8Array(SIZE * SIZE);
+    for (let i = 0; i < vec.length; i++) vec[i] = out[i * 4];
+    return Buffer.from(vec).toString('base64');
+  }
+
+  try {
+    const { FingerprintReader, SampleFormat } = require('@digitalpersona/devices');
+
+    let enrollInProgress = false;
+    let enrollMemberId   = null;
+    let acquiring        = false;
+    let deviceId         = undefined;
+    let currentFormat    = SampleFormat.Compressed;
+
+    const reader = new FingerprintReader();
+
+    async function startAcq() {
+      if (acquiring) return;
+      try {
+        await reader.startAcquisition(currentFormat, deviceId);
+        log('[renderer] startAcquisition fmt=' + currentFormat + ' OK');
+      } catch(e) {
+        if (currentFormat === SampleFormat.Raw) {
+          log('[renderer] Raw falló, probando Compressed');
+          currentFormat = SampleFormat.Compressed;
+          try {
+            await reader.startAcquisition(currentFormat, deviceId);
+            log('[renderer] startAcquisition Compressed OK');
+          } catch(e2) {
+            log('[renderer] startAcquisition FALLÓ: ' + e2.message);
+            setTimeout(startAcq, 2000);
+          }
+        } else {
+          log('[renderer] startAcquisition FALLÓ: ' + e.message);
+          setTimeout(startAcq, 2000);
+        }
+      }
+    }
+
+    reader.on('DeviceConnected', (ev) => {
+      log('[renderer] DeviceConnected uid=' + ev.deviceUid);
+      if (ev.deviceUid) deviceId = ev.deviceUid;
+    });
+
+    reader.on('DeviceDisconnected', () => {
+      acquiring = false;
+      setStatus('Lector desconectado');
+    });
+
+    reader.on('AcquisitionStarted', () => {
+      acquiring = true;
+      setStatus('Listo — pon el dedo');
+      log('[renderer] AcquisitionStarted ✓');
+    });
+
+    reader.on('AcquisitionStopped', () => {
+      acquiring = false;
+      setStatus('Reiniciando...');
+      log('[renderer] AcquisitionStopped');
+      setTimeout(startAcq, 500);
+    });
+
+    reader.on('QualityReported', (ev) => {
+      log('[renderer] Quality=' + ev.quality);
+    });
+
+    reader.on('SamplesAcquired', (ev) => {
+      try {
+        log('[renderer] SamplesAcquired fmt=' + ev.sampleFormat + ' n=' + (ev.samples ? ev.samples.length : 0));
+        const samples = ev.samples;
+        if (!samples || samples.length === 0) return;
+        const sample = samples[0];
+
+        let rawB64 = typeof sample === 'string' ? sample : (sample.Data || sample.data || null);
+        if (!rawB64) { log('[renderer] Muestra vacía'); return; }
+
+        const buf = Buffer.from(rawB64.replace(/-/g,'+').replace(/_/g,'/'), 'base64');
+        log('[renderer] Sample bytes=' + buf.length + ' magic=' + buf.slice(0,4).toString('hex'));
+
+        let templateB64 = null;
+
+        // Caso 1: FID (Raw format) → extraer píxeles
+        if (buf[0] === 0x46 && buf[1] === 0x49 && buf[2] === 0x52) {
+          templateB64 = fidToVector(buf);
+          if (templateB64) setStatus('Huella capturada (FID) ✓');
+        }
+
+        // Caso 2: JSON wrapper {"Compression":N,"Data":"..."} → extraer Data
+        if (!templateB64) {
+          try {
+            const inner = Buffer.from(rawB64.replace(/-/g,'+').replace(/_/g,'/'), 'base64').toString();
+            if (inner.startsWith('{')) {
+              const parsed = JSON.parse(inner);
+              if (parsed.Data) {
+                rawB64 = parsed.Data;
+                const innerBuf = Buffer.from(rawB64.replace(/-/g,'+').replace(/_/g,'/'), 'base64');
+                if (innerBuf[0] === 0x46 && innerBuf[1] === 0x49 && innerBuf[2] === 0x52) {
+                  templateB64 = fidToVector(innerBuf);
+                } else {
+                  // WSQ u otro — enviar raw sin matching local
+                  templateB64 = rawB64;
+                  log('[renderer] Formato inner magic=' + innerBuf.slice(0,4).toString('hex'));
+                }
+                setStatus('Huella capturada ✓');
+              }
+            }
+          } catch(_) {}
+        }
+
+        // Fallback: enviar raw tal cual
+        if (!templateB64) {
+          templateB64 = rawB64;
+          log('[renderer] Enviando raw sin procesar');
+          setStatus('Huella capturada (raw) ✓');
+        }
+
+        log('[renderer] Template len=' + templateB64.length);
+
+        if (enrollInProgress && enrollMemberId) {
+          const mid = enrollMemberId;
+          enrollInProgress = false; enrollMemberId = null;
+          window.electronAPI.enrollDone({ success: true, memberId: mid, fmdB64: templateB64 });
+        } else {
+          window.electronAPI.fmdCaptured(templateB64);
+        }
+      } catch(e) { log('[renderer] Error SamplesAcquired: ' + e.message); }
+    });
+
+    reader.on('ErrorOccurred', (ev) => {
+      log('[renderer] ErrorOccurred: ' + JSON.stringify(ev));
+    });
+
+    reader.on('CommunicationFailed', () => {
+      log('[renderer] CommunicationFailed');
+      setStatus('Error de comunicación');
+    });
+
+    const devices = await reader.enumerateDevices();
+    const count = Array.isArray(devices) ? devices.length : 0;
+    log('[renderer] Lectores: ' + count);
+    if (count > 0 && devices[0]) deviceId = devices[0];
+
+    await startAcq();
+
+    window.electronAPI.onStartEnroll((memberId) => {
+      enrollInProgress = true; enrollMemberId = memberId;
+      setStatus('Enrolando: ' + memberId);
+    });
+
+    setStatus('FitControl — listo');
+    log('[renderer] Init OK');
+
+  } catch(e) {
+    log('[renderer] Error fatal: ' + e.message);
+    setStatus('ERROR: ' + e.message);
+  }
+})();
+</script>
+</body>
+</html>

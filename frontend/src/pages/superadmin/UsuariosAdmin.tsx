@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react';
-import { usersApi, tenantsApi, empresasApi, tiendasApi } from '../../api/endpoints';
+import { usersApi, tenantsApi, empresasApi, tiendasApi, empleadosApi } from '../../api/endpoints';
+import { getBioSocket } from '../../api/socket';
 import { useAuthStore } from '../../store/auth.store';
 import toast from 'react-hot-toast';
-import { Plus, Users, UserCheck, UserX, Trash2, Edit2 } from 'lucide-react';
+import {
+  Plus, Users, UserCheck, UserX, Trash2, Edit2,
+  Briefcase, UserCog, Clock, Copy, RefreshCw, Settings,
+  Fingerprint, CheckCircle, AlertCircle, Loader, X,
+} from 'lucide-react';
 
 const ROL_COLORS: Record<string, string> = {
   superadmin: 'bg-purple-600', admin: 'bg-blue-600', manager: 'bg-cyan-600',
@@ -46,6 +51,92 @@ export default function UsuariosAdmin() {
   const [editTiendas, setEditTiendas]   = useState<any[]>([]);
 
   const [deleteConfirm, setDeleteConfirm] = useState<any>(null);
+
+  // ── Tab Empleados ──
+  type AdminTab = 'usuarios' | 'empleados';
+  const [activeTab, setActiveTab] = useState<AdminTab>('usuarios');
+  const [empEnabled, setEmpEnabled] = useState(false);
+  const [empleados, setEmpleados] = useState<any[]>([]);
+  const [empLoading, setEmpLoading] = useState(false);
+  const [bioCfg, setBioCfg] = useState<any>(null);
+  const [showEmpForm, setShowEmpForm] = useState(false);
+  const [editEmp, setEditEmp] = useState<any>(null);
+  const [empForm, setEmpForm] = useState({ nombre: '', apellido: '', cargo: '', departamento: '', email: '', telefono: '' });
+  const [showHorario, setShowHorario] = useState<number | null>(null);
+  const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+  const [horarios, setHorarios] = useState<Record<number, { hora_entrada: string; tolerancia: number; activo: boolean }>>(
+    Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map(d => [d, { hora_entrada: '08:00', tolerancia: 10, activo: d >= 1 && d <= 5 }])),
+  );
+  // Enrollment state
+  const [enrollingId, setEnrollingId] = useState<number | null>(null);
+  const [enrollStatus, setEnrollStatus] = useState<'idle' | 'waiting' | 'success' | 'error'>('idle');
+  const [enrollMsg, setEnrollMsg] = useState('');
+
+  useEffect(() => {
+    if (user?.empresa_id) {
+      empresasApi.get(user.empresa_id)
+        .then(r => setEmpEnabled(r.data?.config_especial?.empleados_enabled === true))
+        .catch(() => {});
+    }
+  }, [user?.empresa_id]);
+
+  const loadEmpleados = async () => {
+    setEmpLoading(true);
+    try {
+      const [eR, cR] = await Promise.all([empleadosApi.list(), empleadosApi.getBioConfig()]);
+      setEmpleados(eR.data || []);
+      setBioCfg(cR.data);
+    } catch (e: any) {
+      if (e?.response?.status !== 403) toast.error('Error al cargar empleados');
+    } finally { setEmpLoading(false); }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'empleados' && empEnabled) loadEmpleados();
+  }, [activeTab, empEnabled]);
+
+  const loadHorario = async (emp: any) => {
+    try {
+      const { data } = await empleadosApi.getHorario(emp.id);
+      const base = Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map(d => [d, { hora_entrada: '08:00', tolerancia: 10, activo: false }]));
+      for (const h of data || []) {
+        base[h.dia_semana] = { hora_entrada: h.hora_entrada, tolerancia: h.tolerancia_minutos, activo: h.activo };
+      }
+      setHorarios(base);
+      setShowHorario(emp.id);
+    } catch { toast.error('Error al cargar horario'); }
+  };
+
+  const startEnrollment = (emp: any) => {
+    if (!bioCfg?.empresa_token) { toast.error('Configura el biométrico primero'); return; }
+    setEnrollingId(emp.id);
+    setEnrollStatus('waiting');
+    setEnrollMsg('Pide al empleado que coloque su dedo en el lector...');
+    const sock = getBioSocket();
+    sock.emit('live-join', { empresa_token: bioCfg.empresa_token });
+    sock.emit('enroll-start', { empleado_id: emp.id, empresa_token: bioCfg.empresa_token });
+    sock.once('enroll-result', (data: any) => {
+      if (data.success) {
+        setEnrollStatus('success');
+        setEnrollMsg('Huella registrada correctamente');
+        loadEmpleados();
+        setTimeout(() => { setEnrollingId(null); setEnrollStatus('idle'); }, 2500);
+      } else {
+        setEnrollStatus('error');
+        setEnrollMsg(data.reason || 'Error al registrar huella');
+      }
+    });
+    // Timeout de 30s
+    setTimeout(() => {
+      setEnrollStatus((s) => {
+        if (s === 'waiting') {
+          setEnrollMsg('Tiempo agotado. El bridge no respondió.');
+          return 'error';
+        }
+        return s;
+      });
+    }, 30000);
+  };
 
   useEffect(() => { load(); }, []);
 
@@ -209,6 +300,21 @@ export default function UsuariosAdmin() {
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
+      <div className="flex gap-1 mb-6 border-b border-slate-700">
+        <button onClick={() => setActiveTab('usuarios')}
+          className={`pb-3 px-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'usuarios' ? 'border-iados-primary text-white' : 'border-transparent text-slate-400 hover:text-white'}`}>
+          <UserCog size={14} /> Usuarios del sistema
+        </button>
+        {empEnabled && (
+          <button onClick={() => setActiveTab('empleados')}
+            className={`pb-3 px-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'empleados' ? 'border-iados-primary text-white' : 'border-transparent text-slate-400 hover:text-white'}`}>
+            <Briefcase size={14} /> Empleados
+          </button>
+        )}
+      </div>
+
+      {activeTab === 'usuarios' && (
+      <>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold flex items-center gap-2"><Users size={24} /> Usuarios</h1>
         <button onClick={openWizard} className="btn-primary text-sm"><Plus size={16} className="mr-1" />Nuevo Usuario</button>
@@ -468,6 +574,161 @@ export default function UsuariosAdmin() {
               <button onClick={() => handleDelete(deleteConfirm)} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl flex-1">Eliminar</button>
             </div>
           </div>
+        </div>
+      )}
+      </>
+      )}
+
+      {activeTab === 'empleados' && empEnabled && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold">Empleados</h2>
+            <button onClick={() => { setShowEmpForm(true); setEditEmp(null); setEmpForm({ nombre: '', apellido: '', cargo: '', departamento: '', email: '', telefono: '' }); }}
+              className="btn-primary text-sm flex items-center gap-2"><Plus size={15} />Nuevo empleado</button>
+          </div>
+
+          {empLoading ? (
+            <div className="flex justify-center py-10"><div className="w-7 h-7 border-2 border-iados-primary border-t-transparent rounded-full animate-spin" /></div>
+          ) : (
+            <div className="space-y-2">
+              {empleados.map(emp => (
+                <div key={emp.id} className="bg-iados-card rounded-xl border border-slate-700 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium">{emp.nombre} {emp.apellido}</p>
+                      <p className="text-xs text-slate-400">{emp.cargo || 'Sin cargo'}{emp.departamento ? ` · ${emp.departamento}` : ''}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {emp.fmd_template
+                        ? <span className="text-xs bg-green-900/50 text-green-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Fingerprint size={10} /> Enrolado
+                          </span>
+                        : <span className="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full">Sin huella</span>
+                      }
+                      <button
+                        onClick={() => startEnrollment(emp)}
+                        disabled={enrollingId === emp.id}
+                        className={`p-1.5 rounded-lg text-xs flex items-center gap-1 transition-colors ${
+                          enrollingId === emp.id && enrollStatus === 'waiting' ? 'bg-yellow-900/30 text-yellow-400' :
+                          enrollingId === emp.id && enrollStatus === 'success' ? 'bg-green-900/30 text-green-400' :
+                          enrollingId === emp.id && enrollStatus === 'error' ? 'bg-red-900/30 text-red-400' :
+                          'text-slate-400 hover:text-white hover:bg-slate-700'
+                        }`}
+                        title={emp.fmd_template ? 'Re-capturar huella' : 'Capturar huella'}>
+                        {enrollingId === emp.id && enrollStatus === 'waiting' ? <Loader size={14} className="animate-spin" /> :
+                         enrollingId === emp.id && enrollStatus === 'success' ? <CheckCircle size={14} /> :
+                         enrollingId === emp.id && enrollStatus === 'error' ? <AlertCircle size={14} /> :
+                         <Fingerprint size={14} />}
+                      </button>
+                      {emp.fmd_template && (
+                        <button onClick={async () => { if (confirm('Eliminar huella?')) { await empleadosApi.clearHuella(emp.id); loadEmpleados(); } }}
+                          className="p-1.5 text-red-400/60 hover:text-red-400 hover:bg-red-900/20 rounded-lg" title="Eliminar huella">
+                          <X size={13} />
+                        </button>
+                      )}
+                      <button onClick={() => loadHorario(emp)} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg"><Clock size={14} /></button>
+                      <button onClick={() => { setEditEmp(emp); setEmpForm({ nombre: emp.nombre, apellido: emp.apellido || '', cargo: emp.cargo || '', departamento: emp.departamento || '', email: emp.email || '', telefono: emp.telefono || '' }); setShowEmpForm(true); }}
+                        className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg"><Edit2 size={14} /></button>
+                      <button onClick={async () => { await empleadosApi.toggle(emp.id); loadEmpleados(); }}
+                        className={`p-1.5 rounded-lg ${emp.activo ? 'text-green-400' : 'text-slate-500'}`}>
+                        {emp.activo ? <UserCheck size={14} /> : <UserX size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                  {enrollingId === emp.id && enrollStatus !== 'idle' && (
+                    <div className={`mt-2 text-xs px-3 py-1.5 rounded-lg ${enrollStatus === 'waiting' ? 'bg-yellow-900/20 text-yellow-300' : enrollStatus === 'success' ? 'bg-green-900/20 text-green-300' : 'bg-red-900/20 text-red-300'}`}>
+                      {enrollMsg}
+                      {enrollStatus === 'error' && (
+                        <button onClick={() => { setEnrollingId(null); setEnrollStatus('idle'); }} className="ml-3 underline">Cerrar</button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {empleados.length === 0 && <p className="text-slate-500 text-center py-10 text-sm">Sin empleados registrados</p>}
+            </div>
+          )}
+
+          {bioCfg && (
+            <div className="bg-iados-card rounded-2xl border border-slate-700 p-5">
+              <h3 className="font-medium mb-3 flex items-center gap-2 text-sm"><Settings size={14} /> Dispositivo HID DigitalPersona</h3>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs text-slate-400 mb-1">Token del bridge — pegar en el archivo <code>.env</code> del reader-bridge como <code>EMPRESA_TOKEN</code>:</p>
+                  <div className="flex items-center gap-2 bg-iados-bg rounded-lg px-3 py-2 border border-slate-600">
+                    <code className="text-xs text-green-400 flex-1 break-all">{bioCfg.empresa_token}</code>
+                    <button onClick={() => { navigator.clipboard.writeText(bioCfg.empresa_token); toast.success('Token copiado'); }}
+                      className="text-slate-400 hover:text-white shrink-0"><Copy size={13} /></button>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 mb-1">URL de la pantalla de accesos en tiempo real:</p>
+                  <div className="flex items-center gap-2 bg-iados-bg rounded-lg px-3 py-2 border border-slate-600">
+                    <code className="text-xs text-blue-400 flex-1 break-all">
+                      {`${window.location.origin}/biometrico-live/${bioCfg.empresa_token}`}
+                    </code>
+                    <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/biometrico-live/${bioCfg.empresa_token}`); toast.success('URL copiada'); }}
+                      className="text-slate-400 hover:text-white shrink-0"><Copy size={13} /></button>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Abrir esta URL en pantalla completa en la pantalla de la entrada.</p>
+                </div>
+                <div className="flex items-center gap-3 pt-1">
+                  <button onClick={async () => { if (confirm('Regenerar token? El bridge deberá configurarse de nuevo.')) { const { data } = await empleadosApi.regenToken(); setBioCfg(data); toast.success('Token regenerado'); } }}
+                    className="flex items-center gap-1 text-xs text-yellow-400 hover:text-yellow-300 border border-yellow-800 rounded-lg px-3 py-1.5">
+                    <RefreshCw size={12} /> Regenerar token
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showEmpForm && (
+            <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+              <div className="bg-iados-surface rounded-2xl border border-slate-700 p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+                <h3 className="font-bold mb-4">{editEmp ? 'Editar empleado' : 'Nuevo empleado'}</h3>
+                <div className="space-y-3">
+                  {([['nombre', 'Nombre *'], ['apellido', 'Apellido'], ['cargo', 'Cargo'], ['departamento', 'Departamento'], ['email', 'Email'], ['telefono', 'Teléfono']] as const).map(([k, p]) => (
+                    <input key={k} placeholder={p} value={(empForm as any)[k]} onChange={e => setEmpForm(prev => ({ ...prev, [k]: e.target.value }))}
+                      className="w-full bg-iados-bg border border-slate-600 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-iados-primary" />
+                  ))}
+                </div>
+                <div className="flex gap-3 mt-5">
+                  <button onClick={() => { setShowEmpForm(false); setEditEmp(null); }} className="btn-secondary flex-1 text-sm">Cancelar</button>
+                  <button onClick={async () => { try { const d = { ...empForm }; if (editEmp) await empleadosApi.update(editEmp.id, d); else await empleadosApi.create(d); toast.success('Guardado'); setShowEmpForm(false); setEditEmp(null); loadEmpleados(); } catch (e: any) { toast.error(e.response?.data?.message || 'Error'); } }} disabled={!empForm.nombre} className="btn-primary flex-1 text-sm">Guardar</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showHorario !== null && (
+            <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+              <div className="bg-iados-surface rounded-2xl border border-slate-700 p-6 w-full max-w-sm">
+                <h3 className="font-bold mb-4">Horario del empleado</h3>
+                <div className="space-y-2">
+                  {[0, 1, 2, 3, 4, 5, 6].map(d => (
+                    <div key={d} className="flex items-center gap-3">
+                      <button onClick={() => setHorarios(p => ({ ...p, [d]: { ...p[d], activo: !p[d].activo } }))}
+                        className={`w-10 text-xs font-medium rounded-lg py-1 text-center ${horarios[d]?.activo ? 'bg-iados-primary text-white' : 'bg-slate-700 text-slate-400'}`}>
+                        {DIAS[d]}
+                      </button>
+                      <input type="time" value={horarios[d]?.hora_entrada || '08:00'} disabled={!horarios[d]?.activo}
+                        onChange={e => setHorarios(p => ({ ...p, [d]: { ...p[d], hora_entrada: e.target.value } }))}
+                        className="flex-1 bg-iados-bg border border-slate-600 rounded-lg px-2 py-1 text-sm disabled:opacity-30 focus:outline-none focus:border-iados-primary" />
+                      <input type="number" value={horarios[d]?.tolerancia || 10} min="0" max="60" disabled={!horarios[d]?.activo}
+                        onChange={e => setHorarios(p => ({ ...p, [d]: { ...p[d], tolerancia: parseInt(e.target.value) || 0 } }))}
+                        className="w-14 bg-iados-bg border border-slate-600 rounded-lg px-2 py-1 text-xs text-center disabled:opacity-30" />
+                      <span className="text-xs text-slate-500">min</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-500 mt-3">Min de tolerancia antes de marcar tarde.</p>
+                <div className="flex gap-3 mt-4">
+                  <button onClick={() => setShowHorario(null)} className="btn-secondary flex-1 text-sm">Cancelar</button>
+                  <button onClick={async () => { const arr = [0, 1, 2, 3, 4, 5, 6].filter(d => horarios[d]?.activo).map(d => ({ dia_semana: d, hora_entrada: horarios[d].hora_entrada, tolerancia_minutos: horarios[d].tolerancia, activo: true })); await empleadosApi.setHorario(showHorario, arr); toast.success('Horario guardado'); setShowHorario(null); }} className="btn-primary flex-1 text-sm">Guardar horario</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

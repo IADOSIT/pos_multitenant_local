@@ -48,7 +48,8 @@ export default function ConfiguracionPage() {
     mostrar_precios: boolean;
     precio_manual: boolean;
     notif_cliente_estados: boolean;
-  }>({ mostrar_precios: true, precio_manual: false, notif_cliente_estados: false });
+    empleados_enabled: boolean;
+  }>({ mostrar_precios: true, precio_manual: false, notif_cliente_estados: false, empleados_enabled: false });
   const [savingCfgEsp, setSavingCfgEsp] = useState(false);
   const logoRef = useRef<HTMLInputElement>(null);
   const [systemInfo, setSystemInfo] = useState<any>(null);
@@ -211,11 +212,12 @@ export default function ConfiguracionPage() {
         mostrar_precios: cfgEsp.mostrar_precios !== false,
         precio_manual: cfgEsp.precio_manual === true,
         notif_cliente_estados: cfgEsp.notif_cliente_estados === true,
+        empleados_enabled: cfgEsp.empleados_enabled === true,
       });
     } catch {}
   };
 
-  const handleToggleCfgEspecial = async (campo: 'mostrar_precios' | 'precio_manual' | 'notif_cliente_estados', valor: boolean) => {
+  const handleToggleCfgEspecial = async (campo: 'mostrar_precios' | 'precio_manual' | 'notif_cliente_estados' | 'empleados_enabled', valor: boolean) => {
     const empId = user?.empresa_id;
     if (!empId) return;
     setSavingCfgEsp(true);
@@ -773,6 +775,28 @@ export default function ConfiguracionPage() {
                 <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${cfgEspecial.notif_cliente_estados ? 'translate-x-6' : 'translate-x-1'}`} />
               </button>
             </div>
+
+            {/* Toggle 4: Módulo de empleados y asistencia biométrica — solo superadmin */}
+            {user?.rol === 'superadmin' && (
+              <div className="flex items-start justify-between py-3 mt-2 pt-4 border-t border-slate-600">
+                <div className="flex-1 pr-4">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <p className="text-sm font-medium">Módulo de empleados y asistencia biométrica</p>
+                    <span className="text-xs bg-purple-900/50 text-purple-300 px-2 py-0.5 rounded-full">Solo superadmin</span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Registro de empleados, captura de huella con HID DigitalPersona y dashboard de puntualidad.
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleToggleCfgEspecial('empleados_enabled', !cfgEspecial.empleados_enabled)}
+                  disabled={savingCfgEsp}
+                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none ${cfgEspecial.empleados_enabled ? 'bg-purple-600' : 'bg-slate-600'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${cfgEspecial.empleados_enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

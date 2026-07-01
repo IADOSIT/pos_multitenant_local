@@ -35,16 +35,20 @@ export class EmpresasService {
 
   async setConfigEspecial(
     id: number,
-    data: { mostrar_precios?: boolean; precio_manual?: boolean; notif_cliente_estados?: boolean },
+    data: { mostrar_precios?: boolean; precio_manual?: boolean; notif_cliente_estados?: boolean; empleados_enabled?: boolean },
     scope: any,
   ) {
     const where: any = { id };
     if (scope.rol !== UserRole.SUPERADMIN) where.tenant_id = scope.tenant_id;
     const empresa = await this.repo.findOne({ where });
     if (!empresa) throw new NotFoundException('Empresa no encontrada');
+    // empleados_enabled (modulo biometrico) solo lo puede tocar superadmin, aunque el
+    // endpoint tambien admita admin para el resto de flags de config_especial
+    const { empleados_enabled, ...rest } = data;
+    const safeData = scope.rol === UserRole.SUPERADMIN ? data : rest;
     empresa.config_especial = {
       ...(empresa.config_especial || {}),
-      ...data,
+      ...safeData,
     };
     const saved = await this.repo.save(empresa);
     return { config_especial: saved.config_especial };

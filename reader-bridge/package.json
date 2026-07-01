@@ -1,0 +1,48 @@
+{
+  "name": "pos-iados-reader-bridge",
+  "version": "1.0.0",
+  "description": "Reader Bridge HID DigitalPersona para POS-iaDoS — adaptado de FitControl GYM",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win --x64"
+  },
+  "build": {
+    "appId": "mx.iados.reader-bridge",
+    "productName": "POS-iaDoS Bridge",
+    "win": {
+      "target": ["nsis", "zip"],
+      "requestedExecutionLevel": "requireAdministrator",
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "runAfterFinish": true,
+      "installerLanguages": ["en_US"],
+      "shortcutName": "POS-iaDoS Bridge"
+    },
+    "files": [
+      "main.js",
+      "fingerprint.js",
+      "fingerprint-renderer.html",
+      "fingerprint-preload.js",
+      "fmdMatcher.js",
+      "websdk-shim.js",
+      "websdk-mock/**/*",
+      "package.json",
+      "icon.ico"
+    ]
+  },
+  "dependencies": {
+    "@digitalpersona/devices": "^0.2.6",
+    "@digitalpersona/websdk": "^1.1.0",
+    "async": "^3.2.6",
+    "socket.io-client": "^4.8.3",
+    "WebSdk": "file:./websdk-mock",
+    "ws": "^8.17.0"
+  },
+  "devDependencies": {
+    "electron": "^29.0.0",
+    "electron-builder": "^24.13.3"
+  }
+}

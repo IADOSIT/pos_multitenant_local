@@ -45,6 +45,7 @@ const perfiles_module_1 = require("./modules/perfiles/perfiles.module");
 const devoluciones_module_1 = require("./modules/devoluciones/devoluciones.module");
 const ecommerce_module_1 = require("./modules/ecommerce/ecommerce.module");
 const logistica_module_1 = require("./modules/logistica/logistica.module");
+const empleados_module_1 = require("./modules/empleados/empleados.module");
 const _distProd = (0, path_1.join)(process.cwd(), '..', 'frontend', 'dist-prod');
 const _staticRoot = (0, fs_1.existsSync)(_distProd)
     ? _distProd
@@ -97,6 +98,7 @@ exports.AppModule = AppModule = __decorate([
             devoluciones_module_1.DevolucionesModule,
             ecommerce_module_1.EcommerceModule,
             logistica_module_1.LogisticaModule,
+            empleados_module_1.EmpleadosModule,
         ],
         providers: [schema_sync_service_1.SchemaSyncService],
     })

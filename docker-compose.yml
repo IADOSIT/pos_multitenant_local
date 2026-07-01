@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260701-config-especial-empresa"
+        CACHE_BUST: "20260701-empleados-hid-biometrico"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
@@ -56,7 +56,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260701-config-especial-empresa"
+        CACHE_BUST: "20260701-empleados-hid-biometrico"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

@@ -195,4 +195,30 @@ export interface ConfigEspecialEmpresa {
   mostrar_precios?: boolean;
   precio_manual?: boolean;
   notif_cliente_estados?: boolean;
+  empleados_enabled?: boolean;
+}
+
+export interface Empleado {
+  id: number; tenant_id: number; empresa_id: number;
+  nombre: string; apellido?: string; cargo?: string; departamento?: string;
+  email?: string; telefono?: string; imagen_url?: string;
+  fmd_template?: string | null; fmd_enrolled_at?: string;
+  activo: boolean; created_at: string;
+}
+export interface RegistroAsistencia {
+  id: number; empleado_id: number; empleado_nombre: string; fecha: string;
+  timestamp_entrada: string; tipo: string;
+  estado: 'puntual' | 'tarde' | 'sin_horario';
+  minutos_tarde?: number; notas?: string;
+}
+export interface KPIsAsistencia {
+  total_registros: number; puntuales: number; tardanzas: number; sin_horario: number;
+  pct_puntualidad: number; promedio_minutos_tarde: number;
+  empleados_presentes_hoy: number; empleados_tardanza_hoy: number;
+  top_impuntuales: { empleado_id: number; empleado_nombre: string; tardanzas: number; avg_minutos_tarde: number }[];
+  por_dia: { fecha: string; puntuales: number; tardanzas: number }[];
+}
+export interface ConfigBiometrico {
+  id: number; empresa_id: number; empresa_token: string;
+  activo: boolean; open_device_enabled: boolean; device_ip?: string;
 }

@@ -30,6 +30,7 @@ import PerfilNegocioPage from './pages/admin/PerfilNegocioPage';
 import ActivarLicenciaPage from './pages/ActivarLicenciaPage';
 import LogisticaPage from './pages/logistica/LogisticaPage';
 import RepartidorPage from './pages/public/RepartidorPage';
+import BiometricoLivePage from './pages/public/BiometricoLivePage';
 
 function PrivateRoute({ children, roles }: { children: JSX.Element; roles?: string[] }) {
   const { isAuthenticated, user } = useAuthStore();
@@ -58,6 +59,7 @@ export default function App() {
         <Route path="/self-order/:tienda_id/:mesa_numero" element={<SelfOrderPage />} />
         <Route path="/s/:slug/:mesa_numero" element={<SelfOrderPage />} />
         <Route path="/repartidor/:token" element={<RepartidorPage />} />
+        <Route path="/biometrico-live/:empresa_token" element={<BiometricoLivePage />} />
 
         <Route path="/" element={<PrivateRoute><MainLayout /></PrivateRoute>}>
           <Route index element={<Navigate to="/pos" />} />

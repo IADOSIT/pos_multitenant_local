@@ -41,7 +41,7 @@ export class EmpresasController {
   @Roles('superadmin', 'admin')
   setConfigEspecial(
     @Param('id', ParseIntPipe) id: number,
-    @Body() data: { mostrar_precios?: boolean; precio_manual?: boolean; notif_cliente_estados?: boolean },
+    @Body() data: { mostrar_precios?: boolean; precio_manual?: boolean; notif_cliente_estados?: boolean; empleados_enabled?: boolean },
     @TenantScope() scope,
   ) {
     return this.service.setConfigEspecial(id, data, scope);

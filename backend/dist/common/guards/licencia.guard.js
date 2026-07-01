@@ -12,7 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.LicenciaGuard = void 0;
 const common_1 = require("@nestjs/common");
 const licencias_service_1 = require("../../modules/licencias/licencias.service");
-const BYPASS_PATHS = ['/api/auth', '/api/licencias', '/api/health', '/api/notificaciones', '/api/uploads', '/api/menu-digital/view', '/api/menu-digital/receive', '/api/public/logistica'];
+const BYPASS_PATHS = ['/api/auth', '/api/licencias', '/api/health', '/api/notificaciones', '/api/uploads', '/api/menu-digital/view', '/api/menu-digital/receive', '/api/public/logistica', '/api/public/biometrico'];
 let LicenciaGuard = class LicenciaGuard {
     constructor(licenciasService) {
         this.licenciasService = licenciasService;

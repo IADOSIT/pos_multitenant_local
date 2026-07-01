@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
-import { dashboardApi, tiendasApi } from '../../api/endpoints';
-import { KPI } from '../../types';
+import { dashboardApi, tiendasApi, empleadosApi, empresasApi } from '../../api/endpoints';
+import { KPI, KPIsAsistencia, RegistroAsistencia } from '../../types';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, ShoppingBag, Receipt, DollarSign, Ban, ClipboardList, QrCode, Users, Tag, ChevronDown, ChevronRight, Layers, Package } from 'lucide-react';
+import { TrendingUp, ShoppingBag, Receipt, DollarSign, Ban, ClipboardList, QrCode, Users, Tag, ChevronDown, ChevronRight, Layers, Package, Briefcase, Clock, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
 import SelfOrderDashboard from '../admin/SelfOrderDashboard';
 
 const COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#a855f7', '#84cc16'];
 
-type DashTab = 'ventas' | 'selforder' | 'categorias' | 'presentacion' | 'top_productos';
+type DashTab = 'ventas' | 'selforder' | 'categorias' | 'presentacion' | 'top_productos' | 'empleados';
 
 interface DashConfig {
   ventas_enabled: boolean;
@@ -45,6 +45,13 @@ export default function DashboardPage() {
   // Filtro categoría en top productos
   const [filtroCat, setFiltroCat] = useState<string>('');
 
+  // Tab Empleados / Puntualidad
+  const [empEnabled, setEmpEnabled] = useState(false);
+  const [kpisEmp, setKpisEmp] = useState<KPIsAsistencia | null>(null);
+  const [asistHoy, setAsistHoy] = useState<RegistroAsistencia[]>([]);
+  const [loadingEmp, setLoadingEmp] = useState(false);
+  const [rangoEmp, setRangoEmp] = useState<'hoy' | 'semana' | 'mes'>('semana');
+
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
@@ -67,6 +74,15 @@ export default function DashboardPage() {
     }
   }, [user?.tienda_id]);
 
+  // Cargar empEnabled (config_especial.empleados_enabled)
+  useEffect(() => {
+    if (user?.empresa_id) {
+      empresasApi.get(user.empresa_id)
+        .then(({ data }) => setEmpEnabled(data?.config_especial?.empleados_enabled === true))
+        .catch(() => {});
+    }
+  }, [user?.empresa_id]);
+
   // Si el tab activo queda oculto por config, saltar al primer tab visible
   useEffect(() => {
     const tabShow: Record<DashTab, boolean> = {
@@ -75,12 +91,31 @@ export default function DashboardPage() {
       categorias: cfg.categorias_enabled,
       presentacion: cfg.unidad_enabled,
       top_productos: cfg.top_productos_enabled,
+      empleados: empEnabled,
     };
     if (!tabShow[tab]) {
       const first = (Object.entries(tabShow) as [DashTab, boolean][]).find(([, v]) => v)?.[0];
       if (first) setTab(first);
     }
-  }, [cfg]);
+  }, [cfg, empEnabled]);
+
+  // Cargar KPIs de asistencia cuando se entra al tab empleados
+  useEffect(() => {
+    if (tab !== 'empleados' || !empEnabled) return;
+    setLoadingEmp(true);
+    const hoy = new Date();
+    const desde = new Date(hoy);
+    if (rangoEmp === 'semana') desde.setDate(hoy.getDate() - 7);
+    if (rangoEmp === 'mes') desde.setMonth(hoy.getMonth() - 1);
+    const fmt = (d: Date) => d.toISOString().split('T')[0];
+    Promise.all([
+      empleadosApi.kpis(fmt(desde), fmt(hoy)),
+      empleadosApi.getAsistencias({ fecha: fmt(hoy) }),
+    ]).then(([kR, aR]) => {
+      setKpisEmp(kR.data);
+      setAsistHoy(aR.data || []);
+    }).catch(() => {}).finally(() => setLoadingEmp(false));
+  }, [tab, empEnabled, rangoEmp]);
 
   useEffect(() => { loadKPI(); loadTendencia(); loadPedidosCount(); }, [rango]);
 
@@ -236,6 +271,7 @@ export default function DashboardPage() {
           { id: 'categorias',    icon: Tag,        label: 'Por Categoría',   show: cfg.categorias_enabled },
           { id: 'presentacion',  icon: Layers,     label: 'Por Presentación',show: cfg.unidad_enabled },
           { id: 'top_productos', icon: Package,    label: 'Top Productos',   show: cfg.top_productos_enabled },
+          { id: 'empleados',     icon: Briefcase,  label: 'Empleados',       show: empEnabled },
         ] as { id: DashTab; icon: any; label: string; show: boolean }[])
           .filter(t => t.show)
           .map(({ id, icon: Icon, label }) => (
@@ -575,6 +611,132 @@ export default function DashboardPage() {
         </div>
       </div>
       </>}
+
+      {/* ── TAB: EMPLEADOS / PUNTUALIDAD ──────────────────────────────── */}
+      {tab === 'empleados' && empEnabled && (
+        <div>
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+            <h1 className="text-2xl font-bold flex items-center gap-2"><Briefcase size={22} /> Puntualidad</h1>
+            <div className="flex gap-2">
+              {(['hoy', 'semana', 'mes'] as const).map((r) => (
+                <button key={r} onClick={() => setRangoEmp(r)} className={`btn-touch text-sm px-4 py-2 ${rangoEmp === r ? 'bg-iados-primary' : 'bg-iados-card'}`}>
+                  {r.charAt(0).toUpperCase() + r.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {loadingEmp ? (
+            <div className="text-center text-slate-400 py-12">Cargando...</div>
+          ) : !kpisEmp ? (
+            <div className="text-center text-slate-500 py-12">Sin datos de asistencia todavía</div>
+          ) : (
+            <div className="space-y-4">
+              {/* KPI cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="card text-center">
+                  <Users size={20} className="mx-auto mb-1 text-blue-400" />
+                  <p className="text-2xl font-bold text-blue-400">{kpisEmp.empleados_presentes_hoy}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Presentes hoy</p>
+                </div>
+                <div className="card text-center">
+                  <AlertTriangle size={20} className="mx-auto mb-1 text-yellow-400" />
+                  <p className="text-2xl font-bold text-yellow-400">{kpisEmp.empleados_tardanza_hoy}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Tardanzas hoy</p>
+                </div>
+                <div className="card text-center">
+                  <TrendingUp size={20} className="mx-auto mb-1 text-green-400" />
+                  <p className="text-2xl font-bold text-green-400">{kpisEmp.pct_puntualidad}%</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Puntualidad ({rangoEmp})</p>
+                </div>
+                <div className="card text-center">
+                  <Clock size={20} className="mx-auto mb-1 text-slate-400" />
+                  <p className="text-2xl font-bold">{kpisEmp.promedio_minutos_tarde}min</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Promedio de tardanza</p>
+                </div>
+              </div>
+
+              <div className="grid lg:grid-cols-2 gap-4">
+                {/* Gráfica por día */}
+                <div className="card">
+                  <h3 className="font-bold mb-3">Puntualidad por día</h3>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={kpisEmp.por_dia}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                      <XAxis dataKey="fecha" stroke="#94a3b8" fontSize={10} tickFormatter={(v) => v.slice(5)} />
+                      <YAxis stroke="#94a3b8" fontSize={10} />
+                      <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #475569', borderRadius: 8 }} />
+                      <Bar dataKey="puntuales" stackId="a" fill="#10b981" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="tardanzas" stackId="a" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Top impuntuales */}
+                <div className="card">
+                  <h3 className="font-bold mb-3">Top impuntuales ({rangoEmp})</h3>
+                  {kpisEmp.top_impuntuales.length === 0 ? (
+                    <p className="text-slate-500 text-sm text-center py-8">Sin tardanzas registradas</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {kpisEmp.top_impuntuales.map((e) => (
+                        <div key={e.empleado_id} className="flex items-center justify-between bg-iados-card rounded-xl px-3 py-2">
+                          <span className="text-sm font-medium">{e.empleado_nombre}</span>
+                          <div className="text-right">
+                            <span className="text-sm font-bold text-yellow-400">{e.tardanzas}</span>
+                            <span className="text-xs text-slate-500 ml-1">tardanzas · avg {e.avg_minutos_tarde}min</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Asistencias de hoy */}
+              <div className="card">
+                <h3 className="font-bold mb-3">Asistencias de hoy</h3>
+                {asistHoy.length === 0 ? (
+                  <p className="text-slate-500 text-sm text-center py-8">Sin registros hoy</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-slate-500 text-xs border-b border-slate-700">
+                          <th className="text-left py-2 pr-4">Empleado</th>
+                          <th className="text-left py-2 pr-4">Hora</th>
+                          <th className="text-left py-2 pr-4">Estado</th>
+                          <th className="text-left py-2">Tipo</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {asistHoy.map((r) => (
+                          <tr key={r.id} className="border-b border-slate-800">
+                            <td className="py-2 pr-4 font-medium">{r.empleado_nombre}</td>
+                            <td className="py-2 pr-4 text-slate-400">
+                              {new Date(r.timestamp_entrada).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                            </td>
+                            <td className="py-2 pr-4">
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                                r.estado === 'puntual' ? 'text-green-400 bg-green-900/30' :
+                                r.estado === 'tarde' ? 'text-yellow-400 bg-yellow-900/30' :
+                                'text-slate-400 bg-slate-700/50'
+                              }`}>
+                                {r.estado === 'puntual' ? 'Puntual' : r.estado === 'tarde' ? `Tarde (${r.minutos_tarde}min)` : 'Sin horario'}
+                              </span>
+                            </td>
+                            <td className="py-2 text-xs text-slate-500">{r.tipo === 'biometrico' ? 'Huella' : 'Manual'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
