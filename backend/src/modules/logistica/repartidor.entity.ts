@@ -15,7 +15,7 @@ export class Repartidor {
   @Column({ length: 100 })
   nombre: string;
 
-  @Column({ length: 20, nullable: true })
+  @Column({ type: 'varchar', length: 20, nullable: true })
   telefono: string | null;
 
   @Column({ default: true })

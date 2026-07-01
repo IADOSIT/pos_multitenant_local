@@ -22,7 +22,7 @@ export class LogNotifEntrega {
   @Column({ length: 30 })
   estado_entrega: string;
 
-  @Column({ length: 20, nullable: true })
+  @Column({ type: 'varchar', length: 20, nullable: true })
   destinatario: string | null;
 
   @Column({ type: 'text', nullable: true })

@@ -31,7 +31,7 @@ __decorate([
     __metadata("design:type", String)
 ], Repartidor.prototype, "nombre", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ length: 20, nullable: true }),
+    (0, typeorm_1.Column)({ type: 'varchar', length: 20, nullable: true }),
     __metadata("design:type", Object)
 ], Repartidor.prototype, "telefono", void 0);
 __decorate([
