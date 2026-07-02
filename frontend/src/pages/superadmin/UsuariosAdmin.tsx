@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { usersApi, tenantsApi, empresasApi, tiendasApi, empleadosApi } from '../../api/endpoints';
 import { getBioSocket } from '../../api/socket';
+import { resolveUploadUrl } from '../../api/client';
 import { useAuthStore } from '../../store/auth.store';
 import toast from 'react-hot-toast';
 import {
   Plus, Users, UserCheck, UserX, Trash2, Edit2,
   Briefcase, UserCog, Clock, Copy, RefreshCw, Settings,
-  Fingerprint, CheckCircle, AlertCircle, Loader, X,
+  Fingerprint, CheckCircle, AlertCircle, Loader, X, Download,
 } from 'lucide-react';
 
 const ROL_COLORS: Record<string, string> = {
@@ -62,6 +63,8 @@ export default function UsuariosAdmin() {
   const [showEmpForm, setShowEmpForm] = useState(false);
   const [editEmp, setEditEmp] = useState<any>(null);
   const [empForm, setEmpForm] = useState({ nombre: '', apellido: '', cargo: '', departamento: '', email: '', telefono: '' });
+  const [empFormStep, setEmpFormStep] = useState<'datos' | 'huella'>('datos');
+  const [savingEmp, setSavingEmp] = useState(false);
   const [showHorario, setShowHorario] = useState<number | null>(null);
   const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
   const [horarios, setHorarios] = useState<Record<number, { hora_entrada: string; tolerancia: number; activo: boolean }>>(
@@ -136,6 +139,29 @@ export default function UsuariosAdmin() {
         return s;
       });
     }, 30000);
+  };
+
+  const handleGuardarEmp = async () => {
+    setSavingEmp(true);
+    try {
+      const d = { ...empForm };
+      const { data } = editEmp ? await empleadosApi.update(editEmp.id, d) : await empleadosApi.create(d);
+      toast.success('Guardado');
+      setEditEmp(data);
+      setEmpFormStep('huella');
+      loadEmpleados();
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Error');
+    } finally {
+      setSavingEmp(false);
+    }
+  };
+
+  const cerrarEmpForm = () => {
+    setShowEmpForm(false);
+    setEditEmp(null);
+    setEmpFormStep('datos');
+    if (enrollStatus !== 'waiting') { setEnrollingId(null); setEnrollStatus('idle'); }
   };
 
   useEffect(() => { load(); }, []);
@@ -583,7 +609,7 @@ export default function UsuariosAdmin() {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold">Empleados</h2>
-            <button onClick={() => { setShowEmpForm(true); setEditEmp(null); setEmpForm({ nombre: '', apellido: '', cargo: '', departamento: '', email: '', telefono: '' }); }}
+            <button onClick={() => { setShowEmpForm(true); setEditEmp(null); setEmpFormStep('datos'); setEmpForm({ nombre: '', apellido: '', cargo: '', departamento: '', email: '', telefono: '' }); }}
               className="btn-primary text-sm flex items-center gap-2"><Plus size={15} />Nuevo empleado</button>
           </div>
 
@@ -627,7 +653,7 @@ export default function UsuariosAdmin() {
                         </button>
                       )}
                       <button onClick={() => loadHorario(emp)} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg"><Clock size={14} /></button>
-                      <button onClick={() => { setEditEmp(emp); setEmpForm({ nombre: emp.nombre, apellido: emp.apellido || '', cargo: emp.cargo || '', departamento: emp.departamento || '', email: emp.email || '', telefono: emp.telefono || '' }); setShowEmpForm(true); }}
+                      <button onClick={() => { setEditEmp(emp); setEmpForm({ nombre: emp.nombre, apellido: emp.apellido || '', cargo: emp.cargo || '', departamento: emp.departamento || '', email: emp.email || '', telefono: emp.telefono || '' }); setEmpFormStep('datos'); setShowEmpForm(true); }}
                         className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg"><Edit2 size={14} /></button>
                       <button onClick={async () => { await empleadosApi.toggle(emp.id); loadEmpleados(); }}
                         className={`p-1.5 rounded-lg ${emp.activo ? 'text-green-400' : 'text-slate-500'}`}>
@@ -672,12 +698,20 @@ export default function UsuariosAdmin() {
                   </div>
                   <p className="text-xs text-slate-500 mt-1">Abrir esta URL en pantalla completa en la pantalla de la entrada.</p>
                 </div>
-                <div className="flex items-center gap-3 pt-1">
+                <div className="flex items-center gap-3 pt-1 flex-wrap">
+                  <a href={resolveUploadUrl('/api/uploads/downloads/pos-iados-bridge.zip')} download
+                    className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 border border-blue-800 rounded-lg px-3 py-1.5">
+                    <Download size={12} /> Descargar Bridge Biométrico
+                  </a>
                   <button onClick={async () => { if (confirm('Regenerar token? El bridge deberá configurarse de nuevo.')) { const { data } = await empleadosApi.regenToken(); setBioCfg(data); toast.success('Token regenerado'); } }}
                     className="flex items-center gap-1 text-xs text-yellow-400 hover:text-yellow-300 border border-yellow-800 rounded-lg px-3 py-1.5">
                     <RefreshCw size={12} /> Regenerar token
                   </button>
                 </div>
+                <p className="text-xs text-slate-500">
+                  Instalar en la PC de Windows con el lector conectado. Incluye instrucciones (LEEME.txt)
+                  y el archivo <code>.env.example</code> para configurar el token de arriba.
+                </p>
               </div>
             </div>
           )}
@@ -685,17 +719,67 @@ export default function UsuariosAdmin() {
           {showEmpForm && (
             <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
               <div className="bg-iados-surface rounded-2xl border border-slate-700 p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-                <h3 className="font-bold mb-4">{editEmp ? 'Editar empleado' : 'Nuevo empleado'}</h3>
-                <div className="space-y-3">
-                  {([['nombre', 'Nombre *'], ['apellido', 'Apellido'], ['cargo', 'Cargo'], ['departamento', 'Departamento'], ['email', 'Email'], ['telefono', 'Teléfono']] as const).map(([k, p]) => (
-                    <input key={k} placeholder={p} value={(empForm as any)[k]} onChange={e => setEmpForm(prev => ({ ...prev, [k]: e.target.value }))}
-                      className="w-full bg-iados-bg border border-slate-600 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-iados-primary" />
-                  ))}
-                </div>
-                <div className="flex gap-3 mt-5">
-                  <button onClick={() => { setShowEmpForm(false); setEditEmp(null); }} className="btn-secondary flex-1 text-sm">Cancelar</button>
-                  <button onClick={async () => { try { const d = { ...empForm }; if (editEmp) await empleadosApi.update(editEmp.id, d); else await empleadosApi.create(d); toast.success('Guardado'); setShowEmpForm(false); setEditEmp(null); loadEmpleados(); } catch (e: any) { toast.error(e.response?.data?.message || 'Error'); } }} disabled={!empForm.nombre} className="btn-primary flex-1 text-sm">Guardar</button>
-                </div>
+                {empFormStep === 'huella' ? (
+                  <>
+                    <h3 className="font-bold mb-1">Huella del empleado</h3>
+                    <p className="text-xs text-slate-400 mb-4">
+                      {editEmp?.nombre} {editEmp?.apellido} — guardado correctamente.
+                    </p>
+                    {!bioCfg?.empresa_token ? (
+                      <p className="text-xs text-yellow-400 bg-yellow-900/20 border border-yellow-800 rounded-lg px-3 py-2">
+                        Configura primero el biométrico (tarjeta "Dispositivo HID DigitalPersona" más abajo)
+                        para poder capturar huellas.
+                      </p>
+                    ) : (
+                      <>
+                        <p className="text-sm text-slate-300 mb-3">
+                          {editEmp?.fmd_template
+                            ? 'Ya tiene una huella registrada. Puedes volver a capturarla si es necesario.'
+                            : 'Pide al empleado que coloque su dedo en el lector para registrar su huella.'}
+                        </p>
+                        <button
+                          onClick={() => startEnrollment(editEmp)}
+                          disabled={enrollingId === editEmp?.id}
+                          className={`w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium border transition-colors ${
+                            enrollingId === editEmp?.id && enrollStatus === 'waiting' ? 'bg-yellow-900/30 text-yellow-400 border-yellow-700' :
+                            enrollingId === editEmp?.id && enrollStatus === 'success' ? 'bg-green-900/30 text-green-400 border-green-700' :
+                            enrollingId === editEmp?.id && enrollStatus === 'error' ? 'bg-red-900/30 text-red-400 border-red-700' :
+                            'bg-iados-primary/10 text-iados-primary border-iados-primary hover:bg-iados-primary/20'
+                          }`}>
+                          {enrollingId === editEmp?.id && enrollStatus === 'waiting' ? <><Loader size={16} className="animate-spin" /> Esperando huella...</> :
+                           enrollingId === editEmp?.id && enrollStatus === 'success' ? <><CheckCircle size={16} /> Huella registrada</> :
+                           <><Fingerprint size={16} /> {editEmp?.fmd_template ? 'Re-capturar huella' : 'Capturar huella'}</>}
+                        </button>
+                        {enrollingId === editEmp?.id && enrollStatus !== 'idle' && (
+                          <div className={`mt-2 text-xs px-3 py-2 rounded-lg ${enrollStatus === 'waiting' ? 'bg-yellow-900/20 text-yellow-300' : enrollStatus === 'success' ? 'bg-green-900/20 text-green-300' : 'bg-red-900/20 text-red-300'}`}>
+                            {enrollMsg}
+                          </div>
+                        )}
+                      </>
+                    )}
+                    <div className="flex gap-3 mt-5">
+                      <button onClick={cerrarEmpForm} className="btn-primary flex-1 text-sm">
+                        {editEmp?.fmd_template || (enrollingId === editEmp?.id && enrollStatus === 'success') ? 'Finalizar' : 'Saltar por ahora'}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="font-bold mb-4">{editEmp ? 'Editar empleado' : 'Nuevo empleado'}</h3>
+                    <div className="space-y-3">
+                      {([['nombre', 'Nombre *'], ['apellido', 'Apellido'], ['cargo', 'Cargo'], ['departamento', 'Departamento'], ['email', 'Email'], ['telefono', 'Teléfono']] as const).map(([k, p]) => (
+                        <input key={k} placeholder={p} value={(empForm as any)[k]} onChange={e => setEmpForm(prev => ({ ...prev, [k]: e.target.value }))}
+                          className="w-full bg-iados-bg border border-slate-600 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-iados-primary" />
+                      ))}
+                    </div>
+                    <div className="flex gap-3 mt-5">
+                      <button onClick={cerrarEmpForm} className="btn-secondary flex-1 text-sm">Cancelar</button>
+                      <button onClick={handleGuardarEmp} disabled={!empForm.nombre || savingEmp} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2">
+                        {savingEmp && <Loader size={14} className="animate-spin" />} Guardar
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}

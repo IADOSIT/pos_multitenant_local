@@ -1,0 +1,50 @@
+POS-iaDoS — Bridge Biométrico (lector de huellas HID DigitalPersona)
+=====================================================================
+
+Este programa debe quedar corriendo en la PC de Windows que tiene
+conectado el lector de huellas. Se encarga de leer la huella y
+enviarla al POS para registrar accesos y asistencia de empleados.
+
+REQUISITOS
+----------
+1. Windows con el lector HID DigitalPersona 4500 conectado.
+2. Driver del lector instalado (servicio "DigitalPersona U.are.U
+   Workstation" / DpHostW.exe). Descargar desde:
+   https://www.hidglobal.com/drivers
+   Para verificar que está corriendo: abrir cmd y ejecutar
+   tasklist | findstr DpHostW
+3. Node.js instalado (https://nodejs.org, versión LTS).
+
+INSTALACIÓN
+-----------
+1. Descomprimir esta carpeta en el disco de la PC (ej. C:\pos-bridge).
+2. Copiar el archivo ".env.example" y renombrar la copia a ".env".
+3. Abrir el archivo ".env" con el Bloc de notas y completar:
+     BACKEND_URL=https://posapi.iados.online
+     EMPRESA_TOKEN=<pegar aquí el token>
+   El token se copia desde el POS: Usuarios -> pestaña Empleados ->
+   tarjeta "Dispositivo HID DigitalPersona" -> "Token del bridge".
+4. Doble click en "start.bat". La primera vez instalará las
+   dependencias (puede tardar 1-2 minutos) y luego dejará el programa
+   corriendo — debe aparecer un ícono en la bandeja de Windows
+   (junto al reloj) llamado "POS-iaDoS Bridge".
+
+USO
+---
+- Dejar start.bat corriendo siempre que se quieran registrar huellas
+  o accesos (se puede minimizar, no cerrar la ventana).
+- Para capturar la huella de un empleado nuevo: en el POS, ir a
+  Usuarios -> Empleados -> crear o editar al empleado -> "Capturar
+  huella" y pedirle que ponga el dedo en el lector.
+- Para ver los accesos en tiempo real: abrir en el navegador la URL
+  que aparece en el POS junto al token ("URL de pantalla de accesos")
+  en una pantalla en la entrada del negocio.
+
+PROBLEMAS COMUNES
+------------------
+- Ícono no aparece en la bandeja: revisar el archivo bridge.log que
+  se genera en esta misma carpeta después de correr start.bat.
+- "Bridge desconectado": revisar que BACKEND_URL sea correcto y que
+  la PC tenga internet.
+- El lector no detecta el dedo: confirmar que DpHostW.exe está
+  corriendo (ver REQUISITOS, punto 2).
