@@ -17,6 +17,7 @@ export declare class EmpresasController {
         precio_manual?: boolean;
         notif_cliente_estados?: boolean;
         empleados_enabled?: boolean;
+        campos_formulario?: any;
     }, scope: any): Promise<{
         config_especial: {
             mostrar_precios?: boolean;

@@ -87,6 +87,14 @@ __decorate([
     __metadata("design:type", String)
 ], Pedido.prototype, "cliente_direccion", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 150, nullable: true }),
+    __metadata("design:type", Object)
+], Pedido.prototype, "cliente_email", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 200, nullable: true }),
+    __metadata("design:type", Object)
+], Pedido.prototype, "cliente_empresa", void 0);
+__decorate([
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", Number)
 ], Pedido.prototype, "venta_id", void 0);

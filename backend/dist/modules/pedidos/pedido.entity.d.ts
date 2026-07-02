@@ -22,6 +22,8 @@ export declare class Pedido {
     cliente_nombre: string;
     cliente_telefono: string;
     cliente_direccion: string;
+    cliente_email: string | null;
+    cliente_empresa: string | null;
     venta_id: number;
     usuario_nombre: string;
     self_order: boolean;

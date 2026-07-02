@@ -35,7 +35,7 @@ export class EmpresasService {
 
   async setConfigEspecial(
     id: number,
-    data: { mostrar_precios?: boolean; precio_manual?: boolean; notif_cliente_estados?: boolean; empleados_enabled?: boolean },
+    data: { mostrar_precios?: boolean; precio_manual?: boolean; notif_cliente_estados?: boolean; empleados_enabled?: boolean; campos_formulario?: any },
     scope: any,
   ) {
     const where: any = { id };

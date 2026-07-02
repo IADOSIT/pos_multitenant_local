@@ -15,6 +15,7 @@ export declare class EcommercePedido {
     total: number;
     estado: string;
     notas_cliente: string;
+    cliente_empresa: string | null;
     notas_internas: string;
     created_at: Date;
     updated_at: Date;

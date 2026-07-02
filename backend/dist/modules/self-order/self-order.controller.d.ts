@@ -17,6 +17,7 @@ export declare class SelfOrderPublicController {
         config_especial: {
             mostrar_precios: boolean;
             notif_cliente_estados: boolean;
+            campos_formulario: import("../empresas/campos-formulario.helper").CamposFormulario;
         };
     }>;
     crearPedidoBySlug(slug: string, mesa_numero: number, body: any): Promise<{
@@ -39,6 +40,7 @@ export declare class SelfOrderPublicController {
         config_especial: {
             mostrar_precios: boolean;
             notif_cliente_estados: boolean;
+            campos_formulario: import("../empresas/campos-formulario.helper").CamposFormulario;
         };
     }>;
     crearPedido(tienda_id: number, mesa_numero: number, body: any): Promise<{

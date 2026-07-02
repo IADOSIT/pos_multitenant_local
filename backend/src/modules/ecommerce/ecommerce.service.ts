@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { EcommerceConfig } from './ecommerce-config.entity';
 import { EcommercePedido } from './ecommerce-pedido.entity';
 import { EcommerceProductoConfig } from './ecommerce-producto-config.entity';
+import { resolveCamposFormulario } from '../empresas/campos-formulario.helper';
 
 function slugify(text: string): string {
   return text
@@ -159,9 +160,10 @@ export class EcommerceService {
   async getPublicInfo(subdominio: string, dataSource: any) {
     const config = await this.getConfigBySubdominio(subdominio);
     const [empresa] = await dataSource.query(
-      'SELECT nombre, telefono, email, direccion, logo_url FROM empresas WHERE id = ?',
+      'SELECT nombre, telefono, email, direccion, logo_url, config_especial FROM empresas WHERE id = ?',
       [config.empresa_id],
     );
+    const campos_formulario = resolveCamposFormulario(empresa?.config_especial);
     return {
       nombre_tienda: config.nombre_tienda || empresa?.nombre,
       descripcion: config.descripcion,
@@ -175,7 +177,8 @@ export class EcommerceService {
       politica_envio: config.politica_envio,
       terminos: config.terminos,
       tema_id: config.tema_id,
-      empresa: empresa || null,
+      empresa: empresa ? { nombre: empresa.nombre, telefono: empresa.telefono, email: empresa.email, direccion: empresa.direccion, logo_url: empresa.logo_url } : null,
+      campos_formulario,
     };
   }
 
@@ -310,9 +313,27 @@ export class EcommerceService {
     const cliente_nombre = body.cliente_nombre || body.cliente?.nombre;
     const cliente_email = body.cliente_email || body.cliente?.email;
     const cliente_tel = body.cliente_tel || body.cliente?.tel;
+    const cliente_empresa = body.cliente_empresa;
     const { direccion_envio, items: itemsInput, notas_cliente } = body;
-    if (!cliente_nombre || !cliente_email || !itemsInput?.length) {
-      throw new BadRequestException('Datos incompletos');
+
+    if (!itemsInput?.length) throw new BadRequestException('Sin productos');
+
+    const [empRow] = await dataSource.query(`SELECT config_especial FROM empresas WHERE id = ? LIMIT 1`, [config.empresa_id]);
+    const camposConfig = resolveCamposFormulario(empRow?.config_especial);
+    const CAMPO_A_BODY: Record<string, any> = {
+      nombre: cliente_nombre,
+      telefono: cliente_tel,
+      email: cliente_email,
+      direccion: direccion_envio,
+      empresa: cliente_empresa,
+      notas: notas_cliente,
+    };
+    for (const [campo, campoConf] of Object.entries(camposConfig)) {
+      if (campoConf.ecommerce && campoConf.activo && campoConf.requerido) {
+        const val = CAMPO_A_BODY[campo];
+        const isEmpty = !val || (typeof val === 'string' && !val.trim()) || (typeof val === 'object' && !Object.values(val).some((v) => v));
+        if (isEmpty) throw new BadRequestException(`El campo "${campoConf.label}" es obligatorio`);
+      }
     }
 
     // Validar stock y calcular totales
@@ -373,6 +394,7 @@ export class EcommerceService {
       cliente_nombre,
       cliente_email,
       cliente_tel: cliente_tel || null,
+      cliente_empresa: cliente_empresa?.trim() || null,
       direccion_envio: direccion_envio || null,
       items,
       subtotal,

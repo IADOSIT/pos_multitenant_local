@@ -24,6 +24,7 @@ const encuestas_service_1 = require("../encuestas/encuestas.service");
 const notificaciones_service_1 = require("../notificaciones/notificaciones.service");
 const typeorm_3 = require("@nestjs/typeorm");
 const typeorm_4 = require("typeorm");
+const campos_formulario_helper_1 = require("../empresas/campos-formulario.helper");
 let SelfOrderService = class SelfOrderService {
     constructor(pedidoRepo, mesaRepo, mesasService, encuestasService, notificacionesService, dataSource) {
         this.pedidoRepo = pedidoRepo;
@@ -86,6 +87,7 @@ let SelfOrderService = class SelfOrderService {
         const cfgRaw = empresaRows[0]?.config_especial;
         const cfg = (typeof cfgRaw === 'string' ? JSON.parse(cfgRaw) : cfgRaw) || {};
         const mostrarPrecios = cfg.mostrar_precios !== false;
+        const campos_formulario = (0, campos_formulario_helper_1.resolveCamposFormulario)(cfg);
         return {
             categorias,
             productos: productos.map((p) => ({
@@ -96,6 +98,7 @@ let SelfOrderService = class SelfOrderService {
             config_especial: {
                 mostrar_precios: mostrarPrecios,
                 notif_cliente_estados: cfg.notif_cliente_estados === true,
+                campos_formulario,
             },
         };
     }
@@ -109,10 +112,26 @@ let SelfOrderService = class SelfOrderService {
         const configPos = typeof tienda.config_pos === 'string' ? JSON.parse(tienda.config_pos) : tienda.config_pos;
         if (!configPos?.self_order_enabled)
             throw new common_1.BadRequestException('Self Order no está activo');
-        if (!body.cliente_nombre?.trim())
-            throw new common_1.BadRequestException('El nombre es obligatorio');
         if (!body.items?.length)
             throw new common_1.BadRequestException('El pedido está vacío');
+        const [empresaCfgRow] = await this.dataSource.query(`SELECT config_especial FROM empresas WHERE id = ? LIMIT 1`, [tienda.empresa_id]);
+        const camposConfig = (0, campos_formulario_helper_1.resolveCamposFormulario)(empresaCfgRow?.config_especial);
+        const CAMPO_A_BODY = {
+            nombre: 'cliente_nombre',
+            telefono: 'cliente_telefono',
+            email: 'cliente_email',
+            direccion: 'cliente_direccion',
+            empresa: 'cliente_empresa',
+            notas: 'notas',
+        };
+        for (const [campo, campoConf] of Object.entries(camposConfig)) {
+            if (campoConf.selforder && campoConf.activo && campoConf.requerido) {
+                const bodyKey = CAMPO_A_BODY[campo];
+                if (!body[bodyKey]?.toString().trim()) {
+                    throw new common_1.BadRequestException(`El campo "${campoConf.label}" es obligatorio`);
+                }
+            }
+        }
         const asignacion = await this.mesasService.getMeseroAsignado(mesa.id, tienda_id);
         const encuesta_token = (0, uuid_1.v4)();
         const folio = `SO-${Date.now().toString(36).toUpperCase()}`;
@@ -128,8 +147,12 @@ let SelfOrderService = class SelfOrderService {
             descuento: body.descuento || 0,
             impuestos: body.impuestos || 0,
             total: body.total,
-            notas: body.notas || null,
-            cliente_nombre: body.cliente_nombre,
+            notas: body.notas?.trim() || null,
+            cliente_nombre: body.cliente_nombre?.trim() || null,
+            cliente_telefono: body.cliente_telefono?.trim() || null,
+            cliente_email: body.cliente_email?.trim() || null,
+            cliente_direccion: body.cliente_direccion?.trim() || null,
+            cliente_empresa: body.cliente_empresa?.trim() || null,
             self_order: true,
             mesero_id: asignacion?.user_id || null,
             mesero_nombre: asignacion?.user_nombre || null,

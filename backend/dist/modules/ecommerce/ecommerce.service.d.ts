@@ -52,7 +52,14 @@ export declare class EcommerceService {
         politica_envio: string;
         terminos: string;
         tema_id: string;
-        empresa: any;
+        empresa: {
+            nombre: any;
+            telefono: any;
+            email: any;
+            direccion: any;
+            logo_url: any;
+        } | null;
+        campos_formulario: import("../empresas/campos-formulario.helper").CamposFormulario;
     }>;
     getPublicCategorias(subdominio: string, dataSource: any): Promise<any>;
     getPublicProductos(subdominio: string, dataSource: any, query: any): Promise<{

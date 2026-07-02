@@ -83,6 +83,10 @@ __decorate([
     __metadata("design:type", String)
 ], EcommercePedido.prototype, "notas_cliente", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 200, nullable: true }),
+    __metadata("design:type", Object)
+], EcommercePedido.prototype, "cliente_empresa", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'text', nullable: true }),
     __metadata("design:type", String)
 ], EcommercePedido.prototype, "notas_internas", void 0);

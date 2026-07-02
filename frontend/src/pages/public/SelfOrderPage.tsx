@@ -18,7 +18,10 @@ export default function SelfOrderPage() {
   const [categoriaActiva, setCategoriaActiva] = useState<number | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
-  const [nombre, setNombre] = useState('');
+  // Formulario dinámico — campos cargados desde config_especial.campos_formulario
+  const [camposFormulario, setCamposFormulario] = useState<Record<string, any> | null>(null);
+  const [campos, setCampos] = useState<Record<string, string>>({});
+  const setCampo = (key: string, val: string) => setCampos((prev) => ({ ...prev, [key]: val }));
   const [errorMsg, setErrorMsg] = useState('');
   const [encuestaToken, setEncuestaToken] = useState('');
   const [pedidoFolio, setPedidoFolio] = useState('');
@@ -62,6 +65,15 @@ export default function SelfOrderPage() {
       if (m.data.config_especial) {
         setMostrarPrecios(m.data.config_especial.mostrar_precios !== false);
         setNotifEstados(m.data.config_especial.notif_cliente_estados === true);
+        // Inicializar formulario vacío con los campos del selforder activos
+        if (m.data.config_especial.campos_formulario) {
+          setCamposFormulario(m.data.config_especial.campos_formulario);
+          const cfInit: Record<string, string> = {};
+          Object.entries(m.data.config_especial.campos_formulario).forEach(([k, v]: [string, any]) => {
+            if (v.activo && v.selforder) cfInit[k] = '';
+          });
+          setCampos(cfInit);
+        }
       }
       setStep('menu');
     } catch (e: any) {
@@ -90,14 +102,35 @@ export default function SelfOrderPage() {
   const total = cart.reduce((s, i) => s + i.precio * i.cantidad, 0);
   const itemCount = cart.reduce((s, i) => s + i.cantidad, 0);
 
+  const CAMPO_A_BACKEND: Record<string, string> = {
+    nombre: 'cliente_nombre',
+    telefono: 'cliente_telefono',
+    email: 'cliente_email',
+    direccion: 'cliente_direccion',
+    empresa: 'cliente_empresa',
+    notas: 'notas',
+  };
+
   const handleConfirmar = async () => {
-    if (!nombre.trim()) return toast.error('Ingresa tu nombre para continuar');
+    if (camposFormulario) {
+      for (const [key, cfg] of Object.entries(camposFormulario) as any[]) {
+        if (cfg.activo && cfg.selforder && cfg.requerido && !campos[key]?.trim()) {
+          return toast.error(`El campo "${cfg.label}" es obligatorio`);
+        }
+      }
+    } else if (!campos['nombre']?.trim()) {
+      return toast.error('Ingresa tu nombre para continuar');
+    }
     if (!cart.length) return toast.error('Agrega al menos un producto');
     setStep('sending');
     try {
       const subtotal = cart.reduce((s, i) => s + i.precio * i.cantidad, 0);
+      const camposBody: Record<string, string> = {};
+      Object.entries(campos).forEach(([key, val]) => {
+        if (CAMPO_A_BACKEND[key] && val?.trim()) camposBody[CAMPO_A_BACKEND[key]] = val.trim();
+      });
       const pedidoBody = {
-        cliente_nombre: nombre.trim(),
+        ...camposBody,
         items: cart.map((i) => ({ producto_id: i.producto_id, nombre: i.nombre, sku: i.sku, precio: i.precio, cantidad: i.cantidad })),
         subtotal,
         total: subtotal,
@@ -401,14 +434,40 @@ export default function SelfOrderPage() {
                   <span>Total</span><span className="text-iados-secondary">${total.toFixed(2)}</span>
                 </div>
               )}
-              <input
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                placeholder="Tu nombre *"
-                className="input-touch"
-              />
+              {/* Formulario dinámico — campos configurados por la empresa */}
+              {Object.entries(camposFormulario || {
+                nombre: { activo: true, requerido: true, selforder: true, label: 'Nombre', ecommerce: true },
+              }).map(([key, cfg]: [string, any]) => {
+                if (!cfg.activo || !cfg.selforder) return null;
+                const isTextarea = key === 'notas' || key === 'direccion';
+                return (
+                  <div key={key}>
+                    {isTextarea ? (
+                      <textarea
+                        value={campos[key] || ''}
+                        onChange={(e) => setCampo(key, e.target.value)}
+                        placeholder={`${cfg.label}${cfg.requerido ? ' *' : ' (opcional)'}`}
+                        className="input-touch resize-none"
+                        rows={2}
+                      />
+                    ) : (
+                      <input
+                        value={campos[key] || ''}
+                        onChange={(e) => setCampo(key, e.target.value)}
+                        placeholder={`${cfg.label}${cfg.requerido ? ' *' : ' (opcional)'}`}
+                        type={key === 'email' ? 'email' : key === 'telefono' ? 'tel' : 'text'}
+                        className="input-touch"
+                      />
+                    )}
+                  </div>
+                );
+              })}
               <p className="text-xs text-slate-400 text-center">Al confirmar, recibirás una encuesta al finalizar tu pago.</p>
-              <button onClick={() => { setShowCart(false); handleConfirmar(); }} disabled={!nombre.trim()} className="btn-primary w-full py-3 flex items-center justify-center gap-2 disabled:opacity-50">
+              <button
+                onClick={() => { setShowCart(false); handleConfirmar(); }}
+                disabled={Object.entries(camposFormulario || { nombre: { activo: true, requerido: true, selforder: true } })
+                  .some(([key, cfg]: [string, any]) => cfg.activo && cfg.selforder && cfg.requerido && !campos[key]?.trim())}
+                className="btn-primary w-full py-3 flex items-center justify-center gap-2 disabled:opacity-50">
                 <Send size={18} /> Confirmar pedido
               </button>
             </div>

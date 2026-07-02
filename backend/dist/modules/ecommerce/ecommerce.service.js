@@ -19,6 +19,7 @@ const typeorm_2 = require("typeorm");
 const ecommerce_config_entity_1 = require("./ecommerce-config.entity");
 const ecommerce_pedido_entity_1 = require("./ecommerce-pedido.entity");
 const ecommerce_producto_config_entity_1 = require("./ecommerce-producto-config.entity");
+const campos_formulario_helper_1 = require("../empresas/campos-formulario.helper");
 function slugify(text) {
     return text
         .toLowerCase()
@@ -149,7 +150,8 @@ let EcommerceService = class EcommerceService {
     }
     async getPublicInfo(subdominio, dataSource) {
         const config = await this.getConfigBySubdominio(subdominio);
-        const [empresa] = await dataSource.query('SELECT nombre, telefono, email, direccion, logo_url FROM empresas WHERE id = ?', [config.empresa_id]);
+        const [empresa] = await dataSource.query('SELECT nombre, telefono, email, direccion, logo_url, config_especial FROM empresas WHERE id = ?', [config.empresa_id]);
+        const campos_formulario = (0, campos_formulario_helper_1.resolveCamposFormulario)(empresa?.config_especial);
         return {
             nombre_tienda: config.nombre_tienda || empresa?.nombre,
             descripcion: config.descripcion,
@@ -163,7 +165,8 @@ let EcommerceService = class EcommerceService {
             politica_envio: config.politica_envio,
             terminos: config.terminos,
             tema_id: config.tema_id,
-            empresa: empresa || null,
+            empresa: empresa ? { nombre: empresa.nombre, telefono: empresa.telefono, email: empresa.email, direccion: empresa.direccion, logo_url: empresa.logo_url } : null,
+            campos_formulario,
         };
     }
     async getPublicCategorias(subdominio, dataSource) {
@@ -279,9 +282,27 @@ let EcommerceService = class EcommerceService {
         const cliente_nombre = body.cliente_nombre || body.cliente?.nombre;
         const cliente_email = body.cliente_email || body.cliente?.email;
         const cliente_tel = body.cliente_tel || body.cliente?.tel;
+        const cliente_empresa = body.cliente_empresa;
         const { direccion_envio, items: itemsInput, notas_cliente } = body;
-        if (!cliente_nombre || !cliente_email || !itemsInput?.length) {
-            throw new common_1.BadRequestException('Datos incompletos');
+        if (!itemsInput?.length)
+            throw new common_1.BadRequestException('Sin productos');
+        const [empRow] = await dataSource.query(`SELECT config_especial FROM empresas WHERE id = ? LIMIT 1`, [config.empresa_id]);
+        const camposConfig = (0, campos_formulario_helper_1.resolveCamposFormulario)(empRow?.config_especial);
+        const CAMPO_A_BODY = {
+            nombre: cliente_nombre,
+            telefono: cliente_tel,
+            email: cliente_email,
+            direccion: direccion_envio,
+            empresa: cliente_empresa,
+            notas: notas_cliente,
+        };
+        for (const [campo, campoConf] of Object.entries(camposConfig)) {
+            if (campoConf.ecommerce && campoConf.activo && campoConf.requerido) {
+                const val = CAMPO_A_BODY[campo];
+                const isEmpty = !val || (typeof val === 'string' && !val.trim()) || (typeof val === 'object' && !Object.values(val).some((v) => v));
+                if (isEmpty)
+                    throw new common_1.BadRequestException(`El campo "${campoConf.label}" es obligatorio`);
+            }
         }
         const items = [];
         let subtotal = 0;
@@ -329,6 +350,7 @@ let EcommerceService = class EcommerceService {
             cliente_nombre,
             cliente_email,
             cliente_tel: cliente_tel || null,
+            cliente_empresa: cliente_empresa?.trim() || null,
             direccion_envio: direccion_envio || null,
             items,
             subtotal,

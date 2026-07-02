@@ -17,7 +17,14 @@ export declare class EcommercePublicController {
         politica_envio: string;
         terminos: string;
         tema_id: string;
-        empresa: any;
+        empresa: {
+            nombre: any;
+            telefono: any;
+            email: any;
+            direccion: any;
+            logo_url: any;
+        } | null;
+        campos_formulario: import("../empresas/campos-formulario.helper").CamposFormulario;
     }>;
     getCategorias(sub: string): Promise<any>;
     getProductos(sub: string, query: any): Promise<{

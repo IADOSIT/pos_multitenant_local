@@ -12,6 +12,7 @@ import InventarioDualPage from '../inventario/InventarioDualPage';
 import TiendaEnLineaPage from './TiendaEnLineaPage';
 import { LogisticaConfigSection } from '../logistica/LogisticaPage';
 import QRCode from 'qrcode';
+import type { CampoFormularioConfig } from '../../types';
 
 const THEMES: { key: ThemeName; name: string; desc: string; previewStyle: React.CSSProperties }[] = [
   { key: 'default', name: 'Default', desc: 'Redondeado clasico', previewStyle: { borderRadius: '1rem', border: '1px solid rgba(100,116,139,0.4)' } },
@@ -29,6 +30,16 @@ const PALETTES: { key: PaletteName; name: string; colors: [string, string, strin
   { key: 'rubi', name: 'Rubi', colors: ['#b91c1c', '#ef4444', '#fb923c'] },
   { key: 'oceano', name: 'Oceano', colors: ['#0e7490', '#06b6d4', '#a3e635'] },
 ];
+
+type CampoKey = 'nombre' | 'telefono' | 'email' | 'direccion' | 'empresa' | 'notas';
+const DEFAULT_CAMPOS: Record<CampoKey, CampoFormularioConfig> = {
+  nombre:    { activo: true,  requerido: true,  selforder: true,  ecommerce: true,  label: 'Nombre' },
+  telefono:  { activo: false, requerido: false, selforder: true,  ecommerce: true,  label: 'Teléfono' },
+  email:     { activo: false, requerido: false, selforder: false, ecommerce: true,  label: 'Correo electrónico' },
+  direccion: { activo: false, requerido: false, selforder: false, ecommerce: false, label: 'Dirección' },
+  empresa:   { activo: false, requerido: false, selforder: false, ecommerce: false, label: 'Empresa / Razón Social' },
+  notas:     { activo: true,  requerido: false, selforder: true,  ecommerce: true,  label: 'Notas / Comentarios' },
+};
 
 export default function ConfiguracionPage() {
   const { user } = useAuthStore();
@@ -51,6 +62,9 @@ export default function ConfiguracionPage() {
     empleados_enabled: boolean;
   }>({ mostrar_precios: true, precio_manual: false, notif_cliente_estados: false, empleados_enabled: false });
   const [savingCfgEsp, setSavingCfgEsp] = useState(false);
+  const [campos, setCampos] = useState<Record<CampoKey, CampoFormularioConfig>>(DEFAULT_CAMPOS);
+  const [savingCampos, setSavingCampos] = useState(false);
+
   const logoRef = useRef<HTMLInputElement>(null);
   const [systemInfo, setSystemInfo] = useState<any>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
@@ -214,6 +228,16 @@ export default function ConfiguracionPage() {
         notif_cliente_estados: cfgEsp.notif_cliente_estados === true,
         empleados_enabled: cfgEsp.empleados_enabled === true,
       });
+      const savedCampos = cfgEsp.campos_formulario;
+      if (savedCampos) {
+        const merged = { ...DEFAULT_CAMPOS };
+        for (const key of Object.keys(DEFAULT_CAMPOS) as CampoKey[]) {
+          if (savedCampos[key]) merged[key] = { ...DEFAULT_CAMPOS[key], ...savedCampos[key] };
+        }
+        // nombre siempre bloqueado
+        merged.nombre = { ...merged.nombre, activo: true, requerido: true, selforder: true };
+        setCampos(merged);
+      }
     } catch {}
   };
 
@@ -230,6 +254,29 @@ export default function ConfiguracionPage() {
       toast.error('Error al guardar configuración');
     } finally {
       setSavingCfgEsp(false);
+    }
+  };
+
+  const handleCampoChange = async (campo: CampoKey, prop: keyof CampoFormularioConfig, valor: boolean | string) => {
+    if (campo === 'nombre' && ['activo', 'requerido', 'selforder'].includes(prop as string)) return; // bloqueado
+    const empId = user?.empresa_id;
+    if (!empId) return;
+    const nuevoCampos = {
+      ...campos,
+      [campo]: { ...campos[campo], [prop]: valor },
+    };
+    // Si se desactiva, quitar requerido también
+    if (prop === 'activo' && valor === false) {
+      nuevoCampos[campo] = { ...nuevoCampos[campo], requerido: false };
+    }
+    setCampos(nuevoCampos);
+    setSavingCampos(true);
+    try {
+      await empresasApi.setConfigEspecial(empId, { campos_formulario: nuevoCampos });
+    } catch {
+      toast.error('Error al guardar');
+    } finally {
+      setSavingCampos(false);
     }
   };
 
@@ -774,6 +821,83 @@ export default function ConfiguracionPage() {
               >
                 <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${cfgEspecial.notif_cliente_estados ? 'translate-x-6' : 'translate-x-1'}`} />
               </button>
+            </div>
+
+            {/* ── Campos del formulario de pedido ───────────────────────── */}
+            <div className="mt-4 pt-4 border-t border-slate-700">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-sm font-medium">Campos del formulario de pedido</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Configura qué datos se solicitan al cliente al hacer un pedido por menú QR o tienda en línea.
+                  </p>
+                </div>
+                {savingCampos && <div className="w-4 h-4 border-2 border-iados-primary border-t-transparent rounded-full animate-spin" />}
+              </div>
+
+              <div className="rounded-xl border border-slate-700 overflow-hidden">
+                <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-0 bg-slate-800/60 px-4 py-2">
+                  <span className="text-xs text-slate-400 font-medium">Campo</span>
+                  <span className="text-xs text-slate-400 text-center w-16">Activo</span>
+                  <span className="text-xs text-slate-400 text-center w-20">Requerido</span>
+                  <span className="text-xs text-slate-400 text-center w-16">QR Mesa</span>
+                  <span className="text-xs text-slate-400 text-center w-20">E-commerce</span>
+                </div>
+
+                {(Object.keys(campos) as CampoKey[]).map((key, i) => {
+                  const c = campos[key];
+                  const bloqueado = key === 'nombre';
+                  return (
+                    <div key={key} className={`grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-0 px-4 py-3 ${i > 0 ? 'border-t border-slate-700/60' : ''} ${bloqueado ? 'bg-slate-800/30' : ''}`}>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium flex items-center gap-2">
+                          {c.label}
+                          {bloqueado && <span className="text-xs text-slate-500 bg-slate-700/50 px-1.5 py-0.5 rounded">siempre</span>}
+                        </p>
+                      </div>
+                      <div className="flex justify-center w-16">
+                        <button
+                          disabled={bloqueado}
+                          onClick={() => handleCampoChange(key, 'activo', !c.activo)}
+                          className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${bloqueado ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${c.activo ? 'bg-iados-primary' : 'bg-slate-600'}`}>
+                          <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${c.activo ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                        </button>
+                      </div>
+                      <div className="flex justify-center w-20">
+                        <button
+                          disabled={bloqueado || !c.activo}
+                          onClick={() => handleCampoChange(key, 'requerido', !c.requerido)}
+                          className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${(bloqueado || !c.activo) ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'} ${c.requerido ? 'bg-yellow-500' : 'bg-slate-600'}`}>
+                          <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${c.requerido ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                        </button>
+                      </div>
+                      <div className="flex justify-center w-16">
+                        <button
+                          disabled={bloqueado || !c.activo}
+                          onClick={() => handleCampoChange(key, 'selforder', !c.selforder)}
+                          className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${(bloqueado || !c.activo) ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'} ${c.selforder ? 'bg-blue-500' : 'bg-slate-600'}`}>
+                          <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${c.selforder ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                        </button>
+                      </div>
+                      <div className="flex justify-center w-20">
+                        <button
+                          disabled={!c.activo}
+                          onClick={() => handleCampoChange(key, 'ecommerce', !c.ecommerce)}
+                          className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${!c.activo ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'} ${c.ecommerce ? 'bg-green-500' : 'bg-slate-600'}`}>
+                          <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${c.ecommerce ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="flex gap-4 mt-3 flex-wrap">
+                <span className="flex items-center gap-1.5 text-xs text-slate-400"><span className="w-2.5 h-2.5 rounded-full bg-iados-primary inline-block" />Activo</span>
+                <span className="flex items-center gap-1.5 text-xs text-slate-400"><span className="w-2.5 h-2.5 rounded-full bg-yellow-500 inline-block" />Requerido</span>
+                <span className="flex items-center gap-1.5 text-xs text-slate-400"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />Menú QR</span>
+                <span className="flex items-center gap-1.5 text-xs text-slate-400"><span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block" />E-commerce</span>
+              </div>
             </div>
 
             {/* Toggle 4: Módulo de empleados y asistencia biométrica — solo superadmin */}

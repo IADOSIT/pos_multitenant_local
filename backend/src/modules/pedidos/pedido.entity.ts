@@ -60,6 +60,12 @@ export class Pedido {
   @Column({ length: 300, nullable: true })
   cliente_direccion: string;
 
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  cliente_email: string | null;
+
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  cliente_empresa: string | null;
+
   @Column({ nullable: true })
   venta_id: number;
 

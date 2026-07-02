@@ -196,6 +196,7 @@ export interface ConfigEspecialEmpresa {
   precio_manual?: boolean;
   notif_cliente_estados?: boolean;
   empleados_enabled?: boolean;
+  campos_formulario?: Record<string, { activo: boolean; requerido: boolean; selforder: boolean; ecommerce: boolean; label: string }>;
 }
 
 export interface Empleado {
@@ -222,3 +223,16 @@ export interface ConfigBiometrico {
   id: number; empresa_id: number; empresa_token: string;
   activo: boolean; open_device_enabled: boolean; device_ip?: string;
 }
+
+export interface CampoFormularioConfig {
+  activo: boolean;
+  requerido: boolean;
+  selforder: boolean;
+  ecommerce: boolean;
+  label: string;
+}
+
+export type CamposFormulario = Record<
+  'nombre' | 'telefono' | 'email' | 'direccion' | 'empresa' | 'notas',
+  CampoFormularioConfig
+>;

@@ -57,6 +57,9 @@ export class EcommercePedido {
   @Column({ type: 'text', nullable: true })
   notas_cliente: string;
 
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  cliente_empresa: string | null;
+
   @Column({ type: 'text', nullable: true })
   notas_internas: string;
 
