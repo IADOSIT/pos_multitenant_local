@@ -6,6 +6,24 @@ import toast from 'react-hot-toast';
 
 type Tab = 'entregas' | 'repartidores' | 'metricas';
 
+// Fecha local (YYYY-MM-DD) del navegador — NO usar toISOString() aquí, que normaliza
+// a UTC y puede adelantar/atrasar el día cerca de la medianoche según la zona horaria
+// del negocio (ej. después de las 6pm en México ya es "mañana" en UTC).
+function localDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Convierte una fecha "YYYY-MM-DD" (día calendario local del navegador) a los instantes
+// UTC exactos de inicio/fin de ese día, para que el backend no tenga que adivinar en qué
+// zona horaria interpretar un string de fecha sin offset.
+function localDayBounds(dateStr: string): { desde: string; hasta: string } {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return {
+    desde: new Date(y, m - 1, d, 0, 0, 0, 0).toISOString(),
+    hasta: new Date(y, m - 1, d, 23, 59, 59, 999).toISOString(),
+  };
+}
+
 const estadoBadge: Record<EstadoEntrega, { label: string; text: string; bg: string }> = {
   asignado:     { label: 'Asignado',     text: 'text-yellow-400', bg: 'bg-yellow-900/30' },
   en_camino:    { label: 'En camino',    text: 'text-blue-400',   bg: 'bg-blue-900/30'   },
@@ -77,7 +95,7 @@ function TabEntregas() {
   const [cambioEstado, setCambioEstado] = useState<EstadoEntrega | ''>('');
   const [cambiando, setCambiando] = useState(false);
 
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = localDateStr(new Date());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -85,8 +103,9 @@ function TabEntregas() {
       const params: any = {};
       if (filtroEstado) params.estado = filtroEstado;
       if (filtroRep) params.repartidor_id = filtroRep;
-      params.desde = hoy + 'T00:00:00';
-      params.hasta = hoy + 'T23:59:59';
+      const { desde, hasta } = localDayBounds(hoy);
+      params.desde = desde;
+      params.hasta = hasta;
       const [e, r] = await Promise.all([
         logisticaApi.getEntregas(params),
         logisticaApi.getRepartidores(),
@@ -442,14 +461,14 @@ function TabMetricas() {
   const [desde, setDesde] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 7);
-    return d.toISOString().slice(0, 10);
+    return localDateStr(d);
   });
-  const [hasta, setHasta] = useState(() => new Date().toISOString().slice(0, 10));
+  const [hasta, setHasta] = useState(() => localDateStr(new Date()));
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await logisticaApi.getMetricas(desde + 'T00:00:00', hasta + 'T23:59:59');
+      const { data } = await logisticaApi.getMetricas(localDayBounds(desde).desde, localDayBounds(hasta).hasta);
       setMetricas(data);
     } catch {}
     setLoading(false);

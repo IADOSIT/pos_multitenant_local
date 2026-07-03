@@ -484,8 +484,11 @@ export default function PedidosPage() {
               >
                 <Receipt size={14} /> Comanda
               </button>
-              {/* Asignar entrega — solo si logística habilitada y pedido con datos de entrega */}
-              {logisticaEnabled && (selected.tipo_servicio === 'para_llevar' || selected.self_order || selected.cliente_direccion) && (
+              {/* Asignar entrega — visible para cualquier pedido pendiente si logística está habilitada.
+                  Antes solo aparecía si tipo_servicio/self_order/cliente_direccion ya traían datos de
+                  entrega, lo que lo hacía aparecer inconsistente (ej. pedidos tomados manualmente en
+                  POS sin esos campos). El cajero decide si aplica o no. */}
+              {logisticaEnabled && (
                 entregaActual ? (
                   <span className="text-xs text-slate-400 flex items-center gap-1 px-2 py-2">
                     <Truck size={13} />
