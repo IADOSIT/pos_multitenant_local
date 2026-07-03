@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { pedidosApi, ventasApi, ticketsApi, selfOrderApi, logisticaApi, empresasApi } from '../../api/endpoints';
+import { pedidosApi, ventasApi, ticketsApi, selfOrderApi, logisticaApi, empresasApi, cajaApi } from '../../api/endpoints';
 import { usePOSStore } from '../../store/pos.store';
 import { useAuthStore } from '../../store/auth.store';
 import { useNotificaciones } from '../../hooks/useNotificaciones';
 import { printTicket, printComanda } from '../../utils/printTicket';
 import { resolveUploadUrl } from '../../api/client';
 import toast from 'react-hot-toast';
-import { ClipboardList, Clock, ChefHat, PackageCheck, CreditCard, XCircle, RefreshCw, Smartphone, Check, Ban, Receipt, FileText, ShoppingBag, Truck } from 'lucide-react';
+import { ClipboardList, Clock, ChefHat, PackageCheck, CreditCard, XCircle, RefreshCw, Smartphone, Check, Ban, Receipt, FileText, ShoppingBag, Truck, AlertTriangle } from 'lucide-react';
 import { tiendasApi } from '../../api/endpoints';
 import PinConfirmModal from '../../components/ui/PinConfirmModal';
 import PedidosWebPage from '../admin/PedidosWebPage';
@@ -27,7 +27,8 @@ const nextEstado: Record<string, string> = {
 
 export default function PedidosPage() {
   const { user } = useAuthStore();
-  const { cajaActiva } = usePOSStore();
+  const { cajaActiva, setCajaActiva } = usePOSStore();
+  const [checkingCaja, setCheckingCaja] = useState(true);
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [tab, setTab] = useState<'pendientes' | 'completados' | 'web'>('pendientes');
   const [selected, setSelected] = useState<any>(null);
@@ -44,7 +45,7 @@ export default function PedidosPage() {
   const [repartidores, setRepartidores] = useState<any[]>([]);
   const [showAsignarEntrega, setShowAsignarEntrega] = useState(false);
   const [asignandoRep, setAsignandoRep] = useState<number | null>(null);
-  const [cfgEspecial, setCfgEspecial] = useState<{ precio_manual: boolean }>({ precio_manual: false });
+  const [cfgEspecial, setCfgEspecial] = useState<{ precio_manual: boolean; mostrar_precios: boolean }>({ precio_manual: false, mostrar_precios: true });
   const [preciosManual, setPreciosManual] = useState<Record<number, string>>({});
 
   // Payment state for cobrar
@@ -72,14 +73,24 @@ export default function PedidosPage() {
         setPrecuentaEnabled(r.data?.config_pos?.precuenta_enabled || false);
       }).catch(() => {});
     }
-    // Cargar config_especial para precio_manual
+    // Cargar config_especial para precio_manual y mostrar_precios
     if (user?.empresa_id) {
       empresasApi.get(user.empresa_id)
         .then(r => {
           const cfgEsp = r.data?.config_especial || {};
-          setCfgEspecial({ precio_manual: cfgEsp.precio_manual === true });
+          setCfgEspecial({ precio_manual: cfgEsp.precio_manual === true, mostrar_precios: cfgEsp.mostrar_precios !== false });
         })
         .catch(() => {});
+    }
+    // Si se entra directo a Pedidos sin pasar por POS, el store puede no tener la caja activa
+    // aunque sí haya una abierta en el turno. Se refresca aquí para que "Cobrar" funcione igual.
+    if (!cajaActiva) {
+      cajaApi.activa()
+        .then(r => { if (r.data) setCajaActiva(r.data); })
+        .catch(() => {})
+        .finally(() => setCheckingCaja(false));
+    } else {
+      setCheckingCaja(false);
     }
   }, [user?.tienda_id, user?.empresa_id]);
 
@@ -378,8 +389,10 @@ export default function PedidosPage() {
                   {p.detalles?.length > 3 && <p className="text-slate-500">+{p.detalles.length - 3} mas...</p>}
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <span className="text-green-400 font-bold">${Number(p.total).toFixed(2)}</span>
+                <div className={`flex items-center ${cfgEspecial.mostrar_precios ? 'justify-between' : 'justify-end'}`}>
+                  {cfgEspecial.mostrar_precios && (
+                    <span className="text-green-400 font-bold">${Number(p.total).toFixed(2)}</span>
+                  )}
                   <span className="text-xs text-slate-500">{timeAgo(p.created_at)}</span>
                 </div>
               </div>
@@ -389,7 +402,7 @@ export default function PedidosPage() {
       ))}
 
       {/* Pedidos Web tab */}
-      {tab === 'web' && <PedidosWebPage />}
+      {tab === 'web' && <PedidosWebPage mostrarPrecios={cfgEspecial.mostrar_precios} />}
 
       {/* Detail + Actions Panel */}
       {selected && tab === 'pendientes' && canManage && (
@@ -399,8 +412,12 @@ export default function PedidosPage() {
               <span className="font-bold">Mesa {selected.mesa}</span>
               <span className="text-slate-400 mx-2">|</span>
               <span className="font-mono text-sm">{selected.folio}</span>
-              <span className="text-slate-400 mx-2">|</span>
-              <span className="text-green-400 font-bold">${Number(selected.total).toFixed(2)}</span>
+              {cfgEspecial.mostrar_precios && (
+                <>
+                  <span className="text-slate-400 mx-2">|</span>
+                  <span className="text-green-400 font-bold">${Number(selected.total).toFixed(2)}</span>
+                </>
+              )}
             </div>
             <div className="flex gap-2 flex-wrap">
               {/* Self-order: confirm/reject when received and not yet confirmed by mesero */}
@@ -426,22 +443,30 @@ export default function PedidosPage() {
                 </button>
               )}
               {(selected.estado === 'listo_para_entrega' || selected.estado === 'recibido' || selected.estado === 'en_elaboracion') && (
-                <button
-                  onClick={() => {
-                    setShowCobrar(true);
-                    setMetodo('efectivo');
-                    setPagado('');
-                    if (cfgEspecial.precio_manual && selected?.detalles) {
-                      const init: Record<number, string> = {};
-                      selected.detalles.forEach((d: any) => { init[d.id] = ''; });
-                      setPreciosManual(init);
-                    }
-                  }}
-                  disabled={!cajaActiva}
-                  className="btn-primary text-sm"
-                >
-                  <CreditCard size={16} className="mr-1" />Cobrar
-                </button>
+                <div className="flex flex-col items-start gap-1">
+                  <button
+                    onClick={() => {
+                      setShowCobrar(true);
+                      setMetodo('efectivo');
+                      setPagado('');
+                      if (cfgEspecial.precio_manual && selected?.detalles) {
+                        const init: Record<number, string> = {};
+                        selected.detalles.forEach((d: any) => { init[d.id] = ''; });
+                        setPreciosManual(init);
+                      }
+                    }}
+                    disabled={!cajaActiva || checkingCaja}
+                    title={!checkingCaja && !cajaActiva ? 'No hay caja abierta — ábrela en POS o Caja para poder cobrar' : undefined}
+                    className="btn-primary text-sm"
+                  >
+                    <CreditCard size={16} className="mr-1" />Cobrar
+                  </button>
+                  {!checkingCaja && !cajaActiva && (
+                    <span className="flex items-center gap-1 text-xs text-yellow-400 bg-yellow-900/30 border border-yellow-800 rounded-lg px-2 py-1">
+                      <AlertTriangle size={12} /> No puedes cobrar: no hay caja abierta. Ábrela en POS o Caja.
+                    </span>
+                  )}
+                </div>
               )}
               {precuentaEnabled && (
                 <button

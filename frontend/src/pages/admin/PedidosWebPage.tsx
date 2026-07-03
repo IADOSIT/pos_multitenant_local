@@ -16,7 +16,7 @@ const NEXT_ESTADO: Record<string, string> = {
   pendiente: 'confirmado', confirmado: 'preparando', preparando: 'enviado', enviado: 'entregado',
 };
 
-export default function PedidosWebPage() {
+export default function PedidosWebPage({ mostrarPrecios = true }: { mostrarPrecios?: boolean }) {
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [meta, setMeta] = useState<any>({});
   const [loading, setLoading] = useState(false);
@@ -88,17 +88,17 @@ export default function PedidosWebPage() {
               <th className="text-left px-4 py-3"># Pedido</th>
               <th className="text-left px-4 py-3">Cliente</th>
               <th className="text-left px-4 py-3">Tipo</th>
-              <th className="text-right px-4 py-3">Total</th>
+              {mostrarPrecios && <th className="text-right px-4 py-3">Total</th>}
               <th className="text-left px-4 py-3">Estado</th>
               <th className="text-center px-4 py-3">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={6} className="text-center py-8 text-slate-500"><Loader2 size={18} className="animate-spin inline" /></td></tr>
+              <tr><td colSpan={mostrarPrecios ? 6 : 5} className="text-center py-8 text-slate-500"><Loader2 size={18} className="animate-spin inline" /></td></tr>
             )}
             {!loading && pedidos.length === 0 && (
-              <tr><td colSpan={6} className="text-center py-8 text-slate-500">No hay pedidos web aún</td></tr>
+              <tr><td colSpan={mostrarPrecios ? 6 : 5} className="text-center py-8 text-slate-500">No hay pedidos web aún</td></tr>
             )}
             {!loading && pedidos.map(p => {
               const est = ESTADOS[p.estado] || ESTADOS.pendiente;
@@ -113,7 +113,9 @@ export default function PedidosWebPage() {
                       {p.tipo_venta}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right text-white font-semibold">${Number(p.total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                  {mostrarPrecios && (
+                    <td className="px-4 py-3 text-right text-white font-semibold">${Number(p.total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                  )}
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${est.bg} ${est.color}`}>
                       <EstIcon size={10} /> {est.label}
@@ -183,15 +185,19 @@ export default function PedidosWebPage() {
                     <p className="text-white">{item.nombre}</p>
                     <p className="text-xs text-slate-400">SKU: {item.sku} · Cant: {item.qty}</p>
                   </div>
-                  <p className="text-white font-medium">${Number(item.subtotal).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+                  {mostrarPrecios && (
+                    <p className="text-white font-medium">${Number(item.subtotal).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+                  )}
                 </div>
               ))}
             </div>
 
-            <div className="flex justify-between text-base font-bold text-white pt-2">
-              <span>Total</span>
-              <span>${Number(selected.total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
-            </div>
+            {mostrarPrecios && (
+              <div className="flex justify-between text-base font-bold text-white pt-2">
+                <span>Total</span>
+                <span>${Number(selected.total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
 
             {/* Cambiar estado */}
             {NEXT_ESTADO[selected.estado] && (
