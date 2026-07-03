@@ -536,12 +536,15 @@ export default function PedidosPage() {
                       <div className="flex items-center gap-1.5 shrink-0">
                         <span className="text-slate-400 text-xs">$/u</span>
                         <input
-                          type="number"
-                          min="0"
-                          step="0.01"
+                          type="text"
+                          inputMode="decimal"
                           placeholder="0.00"
                           value={preciosManual[d.id] ?? ''}
-                          onChange={e => setPreciosManual(prev => ({ ...prev, [d.id]: e.target.value }))}
+                          onChange={e => {
+                            const v = e.target.value.replace(/[^0-9.]/g, '');
+                            setPreciosManual(prev => ({ ...prev, [d.id]: v }));
+                          }}
+                          onFocus={e => e.target.select()}
                           className="w-24 bg-iados-bg border border-slate-600 rounded-lg px-2 py-1.5 text-sm text-right focus:outline-none focus:border-iados-primary"
                         />
                         <span className="text-xs text-slate-500 w-16 text-right">
@@ -573,9 +576,11 @@ export default function PedidosPage() {
               <>
                 <input
                   value={pagado}
-                  onChange={(e) => setPagado(e.target.value)}
+                  onChange={(e) => setPagado(e.target.value.replace(/[^0-9.]/g, ''))}
+                  onFocus={e => e.target.select()}
                   placeholder="Monto recibido"
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   className="input-touch text-center text-2xl"
                   autoFocus
                 />

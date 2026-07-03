@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { usePOSStore } from '../../store/pos.store';
+import { useAuthStore } from '../../store/auth.store';
 import { offlineActions } from '../../store/offline.store';
-import { ventasApi, ticketsApi, pedidosApi, pagosGatewayApi, cajaApi } from '../../api/endpoints';
+import { ventasApi, ticketsApi, pedidosApi, pagosGatewayApi, cajaApi, empresasApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
 import { printTicket } from '../../utils/printTicket';
 import toast from 'react-hot-toast';
@@ -19,7 +20,36 @@ type MetodoPago = 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto' | 'mp_qr' |
 
 export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Props) {
   const { cart, getSubtotal, getImpuestos, getTotal, clearCart, cajaActiva, setCajaActiva, tipoServicio, notaPedido, clienteNombre, clienteTelefono, clienteDireccion } = usePOSStore();
-  const totalBase = pedido ? Number(pedido.total) : getTotal();
+  const { user } = useAuthStore();
+
+  // Precio manual — mismos items que se muestran/cobran, vengan de un pedido o del carrito directo
+  const itemsParaPrecio: { id: string | number; nombre: string; cantidad: number }[] = pedido
+    ? (pedido.detalles || []).map((d: any) => ({ id: d.id, nombre: d.producto_nombre, cantidad: Number(d.cantidad) }))
+    : cart.map((i) => ({ id: i.id, nombre: i.nombre, cantidad: Number(i.cantidad) }));
+
+  const [cfgEspecial, setCfgEspecial] = useState<{ precio_manual: boolean }>({ precio_manual: false });
+  const [preciosManual, setPreciosManual] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    itemsParaPrecio.forEach((it) => { init[it.id] = ''; });
+    return init;
+  });
+
+  useEffect(() => {
+    if (user?.empresa_id) {
+      empresasApi.get(user.empresa_id)
+        .then((r) => setCfgEspecial({ precio_manual: r.data?.config_especial?.precio_manual === true }))
+        .catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.empresa_id]);
+
+  const precioManualActivo = cfgEspecial.precio_manual;
+
+  const todosPreciosIngresados = !precioManualActivo || itemsParaPrecio.every((it) => {
+    const v = preciosManual[it.id];
+    return v !== undefined && v !== '' && !isNaN(parseFloat(v)) && parseFloat(v) >= 0;
+  });
+
   const [metodo, setMetodo] = useState<MetodoPago>('efectivo');
   const [pagoEfectivo, setPagoEfectivo] = useState('');
   const [pagoTarjeta, setPagoTarjeta] = useState('');
@@ -30,6 +60,9 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
   const [propinaCustom, setPropinaCustom] = useState('');
   const [ticketCfg, setTicketCfg] = useState<any>(null);
   const ticketRawRef = useRef<string>('');
+  const totalBase = precioManualActivo
+    ? itemsParaPrecio.reduce((sum, it) => sum + (parseFloat(preciosManual[it.id] || '0') || 0) * it.cantidad, 0)
+    : (pedido ? Number(pedido.total) : getTotal());
   const total = totalBase + propina;
 
   // Gateway state
@@ -68,6 +101,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
   };
 
   const canPay = () => {
+    if (precioManualActivo && (!todosPreciosIngresados || total <= 0)) return false;
     if (metodo === 'efectivo') return Number(pagoEfectivo || 0) >= total;
     if (metodo === 'tarjeta' || metodo === 'transferencia') return true;
     if (metodo === 'mixto') {
@@ -88,7 +122,9 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
     setGwExternalId('');
     stopGwPoll();
     try {
-      const items = pedido ? pedido.detalles?.map((d: any) => ({ sku: d.sku, nombre: d.nombre, precio: Number(d.precio), cantidad: Number(d.cantidad) })) : cart.map(i => ({ sku: i.sku, nombre: i.nombre, precio: i.precio, cantidad: i.cantidad }));
+      const items = pedido
+        ? pedido.detalles?.map((d: any) => ({ sku: d.sku, nombre: d.producto_nombre, precio: precioManualActivo ? (parseFloat(preciosManual[d.id] || '0') || 0) : Number(d.precio), cantidad: Number(d.cantidad) }))
+        : cart.map(i => ({ sku: i.sku, nombre: i.nombre, precio: precioManualActivo ? (parseFloat(preciosManual[i.id] || '0') || 0) : i.precio, cantidad: i.cantidad }));
       const { data } = await pagosGatewayApi.crearQrMP({ total, folio, items });
       setGwExternalId(data.external_id);
       gwTransaccionIdRef.current = data.transaccion_id;
@@ -222,16 +258,16 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
       producto_id: i.producto_id,
       sku: i.sku,
       nombre: i.nombre,
-      precio: i.precio,
+      precio: precioManualActivo ? (parseFloat(preciosManual[i.id] || '0') || 0) : i.precio,
       cantidad: i.cantidad,
       descuento: i.descuento,
       impuesto: i.impuesto,
       modificadores: i.modificadores,
       notas: i.notas,
     })),
-    subtotal: getSubtotal(),
+    subtotal: precioManualActivo ? totalBase : getSubtotal(),
     descuento: 0,
-    impuestos: getImpuestos(),
+    impuestos: precioManualActivo ? 0 : getImpuestos(),
     total,
     propina: propina || 0,
     metodo_pago: isGatewayMethod(metodo) ? 'tarjeta' : metodo,
@@ -259,6 +295,9 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
     propina: propina || 0,
     gateway: isGatewayMethod(metodo) ? metodo : undefined,
     gateway_transaccion_id: isGatewayMethod(metodo) ? gwTransaccionIdRef.current : undefined,
+    precios_override: precioManualActivo
+      ? itemsParaPrecio.map((it) => ({ detalle_id: it.id, precio_unitario: parseFloat(preciosManual[it.id] || '0') || 0 }))
+      : undefined,
     pagos: [],
   });
 
@@ -395,6 +434,45 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
           <button onClick={() => onClose()} className="p-2 hover:bg-iados-card rounded-xl"><X size={24} /></button>
         </div>
 
+        {precioManualActivo && (
+          <div className="mb-4">
+            <p className="text-xs text-yellow-400 uppercase tracking-wider font-medium mb-2">
+              Ingresa precio por unidad
+            </p>
+            <div className="space-y-2 max-h-56 overflow-y-auto">
+              {itemsParaPrecio.map((it) => (
+                <div key={it.id} className="flex items-center gap-3 bg-iados-card rounded-xl p-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{it.nombre}</p>
+                    <p className="text-xs text-slate-400">{it.cantidad} pza</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-slate-400 text-xs">$/u</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      value={preciosManual[it.id] ?? ''}
+                      onChange={e => {
+                        const v = e.target.value.replace(/[^0-9.]/g, '');
+                        setPreciosManual(prev => ({ ...prev, [it.id]: v }));
+                      }}
+                      onFocus={e => e.target.select()}
+                      className="w-24 bg-iados-bg border border-slate-600 rounded-lg px-2 py-1.5 text-sm text-right focus:outline-none focus:border-iados-primary"
+                    />
+                    <span className="text-xs text-slate-500 w-16 text-right">
+                      = ${((parseFloat(preciosManual[it.id] || '0') || 0) * it.cantidad).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {!todosPreciosIngresados && (
+              <p className="text-xs text-yellow-400 text-center mt-2">⚠ Ingresa el precio de todos los productos</p>
+            )}
+          </div>
+        )}
+
         <div className="text-center mb-6">
           {(pedido?.tipo_servicio === 'para_llevar' || (!pedido && tipoServicio === 'para_llevar')) && (
             <div className="inline-flex items-center gap-1 bg-orange-600/20 border border-orange-500/40 text-orange-300 text-sm font-medium px-3 py-1 rounded-full mb-3">
@@ -471,9 +549,11 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
             <div className="flex gap-2 items-center mb-3">
               {metodo === 'mixto' && <label className="text-sm text-slate-400 shrink-0">Efectivo</label>}
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 value={pagoEfectivo}
-                onChange={(e) => setPagoEfectivo(e.target.value)}
+                onChange={(e) => setPagoEfectivo(e.target.value.replace(/[^0-9.]/g, ''))}
+                onFocus={e => e.target.select()}
                 className="input-touch text-2xl text-center flex-1"
                 placeholder="0.00"
                 autoFocus
@@ -496,9 +576,11 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
             <div className="flex gap-2 items-center mb-3">
               <label className="text-sm text-slate-400 shrink-0">Tarjeta</label>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 value={pagoTarjeta}
-                onChange={(e) => setPagoTarjeta(e.target.value)}
+                onChange={(e) => setPagoTarjeta(e.target.value.replace(/[^0-9.]/g, ''))}
+                onFocus={e => e.target.select()}
                 className="input-touch text-xl text-center flex-1"
                 placeholder={metodo === 'tarjeta' ? total.toFixed(2) : '0.00'}
               />
@@ -514,9 +596,11 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
             <div className="flex gap-2 items-center mb-3">
               <label className="text-sm text-slate-400 shrink-0">Transferencia</label>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 value={pagoTransferencia}
-                onChange={(e) => setPagoTransferencia(e.target.value)}
+                onChange={(e) => setPagoTransferencia(e.target.value.replace(/[^0-9.]/g, ''))}
+                onFocus={e => e.target.select()}
                 className="input-touch text-xl text-center flex-1"
                 placeholder={metodo === 'transferencia' ? total.toFixed(2) : '0.00'}
               />
@@ -590,9 +674,11 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
             <div className="flex gap-2 items-center">
               <span className="text-xs text-slate-500 shrink-0">Otro:</span>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 value={propinaCustom}
-                onChange={(e) => { setPropinaCustom(e.target.value); setPropina(Number(e.target.value) || 0); }}
+                onChange={(e) => { const v = e.target.value.replace(/[^0-9.]/g, ''); setPropinaCustom(v); setPropina(Number(v) || 0); }}
+                onFocus={e => e.target.select()}
                 placeholder="0.00"
                 className="input-touch text-sm text-center flex-1 py-1.5"
               />

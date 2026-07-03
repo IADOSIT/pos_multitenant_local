@@ -662,6 +662,7 @@ export default function POSPage() {
           cajaManaged={cajaManaged}
           enSitioVisible={enSitioVisible}
           paraLlevarVisible={paraLlevarVisible}
+          mostrarPrecios={mostrarPrecios}
         />
       </div>
 

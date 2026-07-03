@@ -7,6 +7,12 @@
    ======================================== */
 
 :root {
+  /* Le dice al navegador (y a Chrome Android en especial) que esta app ya
+     maneja su propio modo oscuro/claro, para que NO aplique su algoritmo de
+     "forzar oscuro" sobre los campos de formulario — eso es lo que causaba
+     texto blanco sobre fondo blanco en inputs con el tema por default. */
+  color-scheme: dark;
+
   /* Default - Blue & Amber */
   --c-primary: 30 64 175;
   --c-primary-hover: 29 78 216;
@@ -657,6 +663,7 @@ header {
 
 /* -- Variables de color al modo claro -- */
 [data-theme="claro"] {
+  color-scheme: light;
   --c-dark:     248 250 252;   /* slate-50  — fondo principal */
   --c-surface:  241 245 249;   /* slate-100 — paneles */
   --c-card:     255 255 255;   /* blanco    — tarjetas */

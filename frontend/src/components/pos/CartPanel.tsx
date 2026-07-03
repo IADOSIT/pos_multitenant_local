@@ -22,9 +22,10 @@ interface Props {
   cajaManaged?: boolean;
   enSitioVisible?: boolean;
   paraLlevarVisible?: boolean;
+  mostrarPrecios?: boolean;
 }
 
-export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreCuenta, precuentaEnabled, cuentaAbiertaEnabled, notasPorItem, notasRapidas = [], cantidadesRapidas, notasPedidoEnabled, datosEnvioEnabled, pedidoActivo, onActualizarCuenta, onCancelarEdicion, mesaNumeroOculto, cajaManaged, enSitioVisible = true, paraLlevarVisible = true }: Props) {
+export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreCuenta, precuentaEnabled, cuentaAbiertaEnabled, notasPorItem, notasRapidas = [], cantidadesRapidas, notasPedidoEnabled, datosEnvioEnabled, pedidoActivo, onActualizarCuenta, onCancelarEdicion, mesaNumeroOculto, cajaManaged, enSitioVisible = true, paraLlevarVisible = true, mostrarPrecios = true }: Props) {
   const { cart, updateQuantity, removeFromCart, clearCart, updateItemNotes, getSubtotal, getImpuestos, getTotal, cajaActiva, modoServicio, tipoCobro, mesaActiva, setMesaActiva, tipoServicio, setTipoServicio, notaPedido, setNotaPedido, clienteNombre, setClienteNombre, clienteTelefono, setClienteTelefono, clienteDireccion, setClienteDireccion } = usePOSStore();
 
   // Auto-seleccionar tipo de servicio si solo uno está habilitado
@@ -285,7 +286,7 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
 
               {/* Fila 2: precio · controles · subtotal */}
               <div className="flex items-center gap-1.5">
-                <span className="text-xs text-slate-400 flex-1">${Number(item.precio).toFixed(2)} c/u</span>
+                <span className="text-xs text-slate-400 flex-1">{mostrarPrecios ? `$${Number(item.precio).toFixed(2)} c/u` : ''}</span>
 
                 {notasPorItem && (
                   <button
@@ -330,7 +331,9 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
                 <button onClick={() => updateQuantity(item.id, item.cantidad + 1)} className="w-7 h-7 rounded-lg bg-iados-surface flex items-center justify-center active:scale-90 shrink-0"><Plus size={13} /></button>
                 <button onClick={() => removeFromCart(item.id)} className="w-7 h-7 rounded-lg bg-red-900/50 text-red-400 flex items-center justify-center active:scale-90 shrink-0"><Trash2 size={13} /></button>
 
-                <span className="font-bold text-sm text-right shrink-0 min-w-[3.5rem]">${item.subtotal.toFixed(2)}</span>
+                {mostrarPrecios && (
+                  <span className="font-bold text-sm text-right shrink-0 min-w-[3.5rem]">${item.subtotal.toFixed(2)}</span>
+                )}
               </div>
 
               {/* Nota visible */}
@@ -409,20 +412,24 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
       {/* Totales */}
       {cart.length > 0 && (
         <div className="p-4 border-t border-slate-700 space-y-2">
-          <div className="flex justify-between text-sm text-slate-400">
-            <span>Subtotal</span>
-            <span>${getSubtotal().toFixed(2)}</span>
-          </div>
-          {getImpuestos() > 0 && (
-            <div className="flex justify-between text-sm text-slate-400">
-              <span>Impuestos</span>
-              <span>${getImpuestos().toFixed(2)}</span>
-            </div>
+          {mostrarPrecios && (
+            <>
+              <div className="flex justify-between text-sm text-slate-400">
+                <span>Subtotal</span>
+                <span>${getSubtotal().toFixed(2)}</span>
+              </div>
+              {getImpuestos() > 0 && (
+                <div className="flex justify-between text-sm text-slate-400">
+                  <span>Impuestos</span>
+                  <span>${getImpuestos().toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-xl font-bold pt-2 border-t border-slate-600">
+                <span>Total</span>
+                <span className="text-iados-accent">${getTotal().toFixed(2)}</span>
+              </div>
+            </>
           )}
-          <div className="flex justify-between text-xl font-bold pt-2 border-t border-slate-600">
-            <span>Total</span>
-            <span className="text-iados-accent">${getTotal().toFixed(2)}</span>
-          </div>
 
           {isPostPago ? (
             <div className="space-y-2 mt-3">
@@ -450,7 +457,7 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
                 <BookOpen size={18} /> Actualizar Mesa {pedidoActivo.mesa}
               </button>
               <button onClick={onPay} disabled={(!cajaActiva && !cajaManaged) || cart.length === 0} className="btn-accent w-full text-lg disabled:opacity-50">
-                Cobrar Mesa {pedidoActivo.mesa} — ${getTotal().toFixed(2)}
+                Cobrar Mesa {pedidoActivo.mesa}{mostrarPrecios ? ` — $${getTotal().toFixed(2)}` : ''}
               </button>
             </div>
           ) : (
@@ -467,7 +474,7 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
                 </button>
               )}
               <button onClick={onPay} disabled={(!cajaActiva && !cajaManaged) || (isMesa && !mesaActiva && !mesaNumeroOculto)} className="btn-accent flex-1 text-lg disabled:opacity-50">
-                Cobrar ${getTotal().toFixed(2)}
+                Cobrar{mostrarPrecios ? ` $${getTotal().toFixed(2)}` : ''}
               </button>
             </div>
           )}
