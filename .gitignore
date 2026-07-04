@@ -1,4 +1,8 @@
 node_modules/
+# shop/.next/standalone incluye su propio node_modules recortado (necesario para
+# Docker: el Dockerfile del shop NO corre npm install, solo copia standalone/)
+!shop/.next/standalone/node_modules/
+!shop/.next/standalone/node_modules/**
 build/
 # dist/ excluido globalmente EXCEPTO backend/dist y frontend/dist-prod (necesarios para Docker)
 dist/

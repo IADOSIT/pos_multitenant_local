@@ -6,5 +6,9 @@
 !.next/static/**
 
 node_modules/
+# el node_modules recortado dentro de standalone SI debe commitearse — el Dockerfile
+# del shop no corre npm install, solo copia .next/standalone tal cual
+!.next/standalone/node_modules/
+!.next/standalone/node_modules/**
 next-env.d.ts
 .env.local
