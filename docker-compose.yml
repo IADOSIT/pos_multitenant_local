@@ -49,6 +49,10 @@
       NEXT_PUBLIC_API_URL: https://posapi.iados.online/api
     networks:
       - web_network
+      - internet_out
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
 
   # ---- Frontend CMS (React + Vite + Nginx) ----
   frontend:
