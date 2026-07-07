@@ -60,7 +60,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260701-campos-formulario-pedido"
+        CACHE_BUST: "20260706-bugfix-precio-manual-notas-polling"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

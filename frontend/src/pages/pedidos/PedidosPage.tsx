@@ -388,6 +388,16 @@ export default function PedidosPage() {
                   ))}
                   {p.detalles?.length > 3 && <p className="text-slate-500">+{p.detalles.length - 3} mas...</p>}
                 </div>
+                {p.notas?.trim() && (
+                  <p className="text-xs text-amber-300/80 italic mt-1 truncate" title={p.notas}>
+                    💬 {p.notas}
+                  </p>
+                )}
+                {(p.cliente_nombre || p.cliente_telefono) && (
+                  <p className="text-xs text-slate-500 truncate mt-0.5">
+                    👤 {[p.cliente_nombre, p.cliente_telefono].filter(Boolean).join(' · ')}
+                  </p>
+                )}
 
                 <div className={`flex items-center ${cfgEspecial.mostrar_precios ? 'justify-between' : 'justify-end'}`}>
                   {cfgEspecial.mostrar_precios && (

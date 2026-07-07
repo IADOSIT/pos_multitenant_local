@@ -149,54 +149,57 @@ export default function SelfOrderPage() {
   };
 
   const startPolling = (token: string) => {
+    // UN SOLO intervalo que corre hasta un estado final (encuesta o cancelado).
+    // NUNCA se limpia en estados intermedios — solo se actualiza el step. El bug anterior
+    // mataba el interval al llegar a "confirmed" y arrancaba uno nuevo que solo revisaba
+    // encuesta_lista, por lo que un cambio a listo_para_entrega después de eso nunca se veía.
+    if (pollRef.current) clearInterval(pollRef.current);
+
     pollRef.current = setInterval(async () => {
       try {
         const { data } = await selfOrderApi.getStatus(token);
 
+        // ── Estado final: encuesta lista ──────────────────────────
         if (data.encuesta_lista) {
           clearInterval(pollRef.current!);
+          pollRef.current = null;
           try { new Audio('/notification.mp3').play(); } catch {}
           setStep('encuesta');
           return;
         }
 
+        // ── Estado final: cancelado ────────────────────────────────
         if (data.estado === 'cancelado') {
           clearInterval(pollRef.current!);
+          pollRef.current = null;
           setStep('rejected');
           return;
         }
 
-        // Si notif_cliente_estados está activo: mostrar pasos individuales y SEGUIR polling
-        if (notifEstadosRef.current) {
-          if (data.estado === 'listo_para_entrega') {
-            setStep('listo');
-            // polling continúa para detectar encuesta/cobro
-            return;
-          }
-          if (data.mesero_confirmado || data.estado === 'en_elaboracion') {
-            setStep('confirmed');
-            // polling continúa para detectar listo_para_entrega y encuesta
-            return;
-          }
-        } else {
-          // Comportamiento por defecto: colapsar todo en 'confirmed' y detener polling
-          if (data.mesero_confirmado || data.estado === 'en_elaboracion' || data.estado === 'listo_para_entrega' || data.estado === 'entregado') {
-            clearInterval(pollRef.current!);
-            setStep('confirmed');
-            // Reanudar polling solo para detectar encuesta
-            pollRef.current = setInterval(async () => {
-              try {
-                const { data: d2 } = await selfOrderApi.getStatus(token);
-                if (d2.encuesta_lista) {
-                  clearInterval(pollRef.current!);
-                  try { new Audio('/notification.mp3').play(); } catch {}
-                  setStep('encuesta');
-                }
-              } catch {}
-            }, 5000);
-          }
+        // ── Estado intermedio: listo para recoger ─────────────────
+        // Con notif_cliente_estados activo se muestra tal cual; si no, se colapsa en 'confirmed'.
+        // En ambos casos el intervalo SIGUE corriendo para detectar la encuesta después.
+        if (data.estado === 'listo_para_entrega') {
+          setStep(notifEstadosRef.current ? 'listo' : 'confirmed');
+          return;
         }
-      } catch {}
+
+        // ── Estado intermedio: confirmado / en preparación ────────
+        if (data.mesero_confirmado || data.estado === 'en_elaboracion') {
+          setStep('confirmed');
+          return;
+        }
+
+        // ── Entregado sin encuesta aún — seguir esperando ─────────
+        if (data.estado === 'entregado') {
+          setStep('confirmed');
+          return;
+        }
+
+        // ── Sin confirmar todavía — el step se queda en 'waiting' ─
+      } catch {
+        // Error de red — seguir intentando en el próximo tick, sin detener el polling
+      }
     }, 3000);
   };
 

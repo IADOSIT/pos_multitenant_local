@@ -43,6 +43,7 @@ export interface CartItem {
   sku: string;
   nombre: string;
   precio: number;
+  precioManual?: number;
   cantidad: number;
   modificadores?: any;
   notas?: string;

@@ -101,6 +101,7 @@ export default function POSPage() {
   const [devolucionesEnabled, setDevolucionesEnabled] = useState(false);
   const [devolucionesRol, setDevolucionesRol] = useState('admin');
   const [mostrarPrecios, setMostrarPrecios] = useState(true);
+  const [precioManual, setPrecioManual] = useState(false);
 
   const { user } = useAuthStore();
   const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, setMesaActiva, tipoServicio, clearCart, notaPedido, clienteNombre, clienteTelefono, clienteDireccion } = usePOSStore();
@@ -199,6 +200,7 @@ export default function POSPage() {
         const empR = await empresasApi.get(user.empresa_id);
         const cfgEsp = empR.data?.config_especial || {};
         setMostrarPrecios(cfgEsp.mostrar_precios !== false);
+        setPrecioManual(cfgEsp.precio_manual === true);
       } catch {}
     }
   };
@@ -272,7 +274,7 @@ export default function POSPage() {
           producto_id: i.producto_id,
           nombre: i.nombre,
           sku: i.sku,
-          precio: i.precio,
+          precio: i.precioManual ?? i.precio,
           cantidad: i.cantidad,
           descuento: i.descuento,
           impuesto: i.impuesto,
@@ -327,7 +329,7 @@ export default function POSPage() {
           producto_id: i.producto_id,
           nombre: i.nombre,
           sku: i.sku,
-          precio: i.precio,
+          precio: i.precioManual ?? i.precio,
           cantidad: i.cantidad,
           descuento: i.descuento,
           impuesto: i.impuesto,
@@ -406,7 +408,7 @@ export default function POSPage() {
     producto_id: i.producto_id,
     nombre: i.nombre,
     sku: i.sku,
-    precio: i.precio,
+    precio: i.precioManual ?? i.precio,
     cantidad: i.cantidad,
     descuento: i.descuento,
     impuesto: i.impuesto,
@@ -448,7 +450,7 @@ export default function POSPage() {
         : cart.map((i) => ({
             nombre: i.nombre,
             cantidad: i.cantidad,
-            precio: i.precio,
+            precio: i.precioManual ?? i.precio,
             descuento: i.descuento || 0,
             notas: i.notas,
           }));
@@ -663,6 +665,7 @@ export default function POSPage() {
           enSitioVisible={enSitioVisible}
           paraLlevarVisible={paraLlevarVisible}
           mostrarPrecios={mostrarPrecios}
+          precioManual={precioManual}
         />
       </div>
 

@@ -22,10 +22,14 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
   const { cart, getSubtotal, getImpuestos, getTotal, clearCart, cajaActiva, setCajaActiva, tipoServicio, notaPedido, clienteNombre, clienteTelefono, clienteDireccion } = usePOSStore();
   const { user } = useAuthStore();
 
-  // Precio manual — mismos items que se muestran/cobran, vengan de un pedido o del carrito directo
+  // Precio manual — modo PEDIDO (cobrar mesa/pedido existente): pedido.detalles no vive en el
+  // carrito de Zustand, así que aquí SÍ se captura el precio en este mismo modal.
+  // Modo CARRITO (venta directa/mesa nueva): el precio manual ya se captura en CartPanel antes
+  // de llegar aquí — cada item del carrito trae su propio item.precioManual, y CartPanel ya
+  // bloquea "Cobrar" si falta algún precio, así que este modal solo lee lo que ya viene resuelto.
   const itemsParaPrecio: { id: string | number; nombre: string; cantidad: number }[] = pedido
     ? (pedido.detalles || []).map((d: any) => ({ id: d.id, nombre: d.producto_nombre, cantidad: Number(d.cantidad) }))
-    : cart.map((i) => ({ id: i.id, nombre: i.nombre, cantidad: Number(i.cantidad) }));
+    : [];
 
   const [cfgEspecial, setCfgEspecial] = useState<{ precio_manual: boolean }>({ precio_manual: false });
   const [preciosManual, setPreciosManual] = useState<Record<string, string>>(() => {
@@ -43,7 +47,8 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.empresa_id]);
 
-  const precioManualActivo = cfgEspecial.precio_manual;
+  // Solo aplica el flujo de captura separado en modo pedido — en modo carrito ya viene resuelto
+  const precioManualActivo = cfgEspecial.precio_manual && !!pedido;
 
   const todosPreciosIngresados = !precioManualActivo || itemsParaPrecio.every((it) => {
     const v = preciosManual[it.id];
@@ -124,7 +129,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
     try {
       const items = pedido
         ? pedido.detalles?.map((d: any) => ({ sku: d.sku, nombre: d.producto_nombre, precio: precioManualActivo ? (parseFloat(preciosManual[d.id] || '0') || 0) : Number(d.precio), cantidad: Number(d.cantidad) }))
-        : cart.map(i => ({ sku: i.sku, nombre: i.nombre, precio: precioManualActivo ? (parseFloat(preciosManual[i.id] || '0') || 0) : i.precio, cantidad: i.cantidad }));
+        : cart.map(i => ({ sku: i.sku, nombre: i.nombre, precio: i.precioManual ?? i.precio, cantidad: i.cantidad }));
       const { data } = await pagosGatewayApi.crearQrMP({ total, folio, items });
       setGwExternalId(data.external_id);
       gwTransaccionIdRef.current = data.transaccion_id;
@@ -258,16 +263,16 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
       producto_id: i.producto_id,
       sku: i.sku,
       nombre: i.nombre,
-      precio: precioManualActivo ? (parseFloat(preciosManual[i.id] || '0') || 0) : i.precio,
+      precio: i.precioManual ?? i.precio,
       cantidad: i.cantidad,
       descuento: i.descuento,
       impuesto: i.impuesto,
       modificadores: i.modificadores,
       notas: i.notas,
     })),
-    subtotal: precioManualActivo ? totalBase : getSubtotal(),
+    subtotal: getSubtotal(),
     descuento: 0,
-    impuestos: precioManualActivo ? 0 : getImpuestos(),
+    impuestos: getImpuestos(),
     total,
     propina: propina || 0,
     metodo_pago: isGatewayMethod(metodo) ? 'tarjeta' : metodo,

@@ -37,6 +37,7 @@ interface POSState {
   addToCart: (producto: Producto, cantidad?: number) => void;
   removeFromCart: (itemId: string) => void;
   updateQuantity: (itemId: string, cantidad: number) => void;
+  updateItemPrice: (id: string, price: number) => void;
   updateItemNotes: (itemId: string, notas: string) => void;
   clearCart: () => void;
 
@@ -85,7 +86,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
             ? {
                 ...i,
                 cantidad: i.cantidad + cantidad,
-                subtotal: (i.cantidad + cantidad) * i.precio,
+                subtotal: (i.cantidad + cantidad) * (i.precioManual ?? i.precio),
               }
             : i,
         ),
@@ -117,10 +118,19 @@ export const usePOSStore = create<POSState>((set, get) => ({
     }
     set({
       cart: get().cart.map((i) =>
-        i.id === itemId ? { ...i, cantidad, subtotal: cantidad * i.precio } : i,
+        i.id === itemId ? { ...i, cantidad, subtotal: cantidad * (i.precioManual ?? i.precio) } : i,
       ),
     });
   },
+
+  updateItemPrice: (id, price) =>
+    set((state) => ({
+      cart: state.cart.map((i) =>
+        i.id === id
+          ? { ...i, precioManual: price >= 0 ? price : 0, subtotal: (price >= 0 ? price : 0) * i.cantidad }
+          : i,
+      ),
+    })),
 
   updateItemNotes: (itemId, notas) =>
     set({ cart: get().cart.map((i) => (i.id === itemId ? { ...i, notas } : i)) }),

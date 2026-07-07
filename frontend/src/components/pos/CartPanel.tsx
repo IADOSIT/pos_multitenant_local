@@ -23,10 +23,11 @@ interface Props {
   enSitioVisible?: boolean;
   paraLlevarVisible?: boolean;
   mostrarPrecios?: boolean;
+  precioManual?: boolean;
 }
 
-export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreCuenta, precuentaEnabled, cuentaAbiertaEnabled, notasPorItem, notasRapidas = [], cantidadesRapidas, notasPedidoEnabled, datosEnvioEnabled, pedidoActivo, onActualizarCuenta, onCancelarEdicion, mesaNumeroOculto, cajaManaged, enSitioVisible = true, paraLlevarVisible = true, mostrarPrecios = true }: Props) {
-  const { cart, updateQuantity, removeFromCart, clearCart, updateItemNotes, getSubtotal, getImpuestos, getTotal, cajaActiva, modoServicio, tipoCobro, mesaActiva, setMesaActiva, tipoServicio, setTipoServicio, notaPedido, setNotaPedido, clienteNombre, setClienteNombre, clienteTelefono, setClienteTelefono, clienteDireccion, setClienteDireccion } = usePOSStore();
+export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreCuenta, precuentaEnabled, cuentaAbiertaEnabled, notasPorItem, notasRapidas = [], cantidadesRapidas, notasPedidoEnabled, datosEnvioEnabled, pedidoActivo, onActualizarCuenta, onCancelarEdicion, mesaNumeroOculto, cajaManaged, enSitioVisible = true, paraLlevarVisible = true, mostrarPrecios = true, precioManual = false }: Props) {
+  const { cart, updateQuantity, removeFromCart, clearCart, updateItemNotes, getSubtotal, getImpuestos, getTotal, cajaActiva, modoServicio, tipoCobro, mesaActiva, setMesaActiva, tipoServicio, setTipoServicio, notaPedido, setNotaPedido, clienteNombre, setClienteNombre, clienteTelefono, setClienteTelefono, clienteDireccion, setClienteDireccion, updateItemPrice } = usePOSStore();
 
   // Auto-seleccionar tipo de servicio si solo uno está habilitado
   useEffect(() => {
@@ -41,6 +42,10 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
   // Inline qty editing
   const [editingQtyId, setEditingQtyId] = useState<string | null>(null);
   const [qtyTemp, setQtyTemp] = useState('');
+
+  // Precio manual — buffer de texto crudo por item para no perder el punto decimal
+  // mientras se escribe (ej. "12." se vería como "12" si solo guardaramos el numero)
+  const [precioInputs, setPrecioInputs] = useState<Record<string, string>>({});
 
   // Para llevar — autocomplete con detección automática nombre/teléfono
   const [sugerencias, setSugerencias] = useState<any[]>([]);
@@ -111,6 +116,7 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
 
   const isMesa = modoServicio === 'mesa';
   const isPostPago = isMesa && tipoCobro === 'post_pago';
+  const precioManualIncompleto = precioManual && cart.some(i => i.precioManual === undefined || i.precioManual === 0);
 
   return (
     <div className="flex flex-col h-full">
@@ -286,7 +292,26 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
 
               {/* Fila 2: precio · controles · subtotal */}
               <div className="flex items-center gap-1.5">
-                <span className="text-xs text-slate-400 flex-1">{mostrarPrecios ? `$${Number(item.precio).toFixed(2)} c/u` : ''}</span>
+                {precioManual ? (
+                  <div className="flex items-center gap-1 flex-1">
+                    <span className="text-xs text-slate-500">$/u</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      value={precioInputs[item.id] ?? (item.precioManual !== undefined ? String(item.precioManual) : '')}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/[^0-9.]/g, '');
+                        setPrecioInputs((prev) => ({ ...prev, [item.id]: raw }));
+                        updateItemPrice(item.id, parseFloat(raw) || 0);
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      className="w-20 bg-iados-bg border border-slate-600 rounded-lg px-1.5 py-0.5 text-xs text-right focus:outline-none focus:border-iados-primary"
+                    />
+                  </div>
+                ) : (
+                  <span className="text-xs text-slate-400 flex-1">{mostrarPrecios ? `$${Number(item.precio).toFixed(2)} c/u` : ''}</span>
+                )}
 
                 {notasPorItem && (
                   <button
@@ -331,8 +356,10 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
                 <button onClick={() => updateQuantity(item.id, item.cantidad + 1)} className="w-7 h-7 rounded-lg bg-iados-surface flex items-center justify-center active:scale-90 shrink-0"><Plus size={13} /></button>
                 <button onClick={() => removeFromCart(item.id)} className="w-7 h-7 rounded-lg bg-red-900/50 text-red-400 flex items-center justify-center active:scale-90 shrink-0"><Trash2 size={13} /></button>
 
-                {mostrarPrecios && (
-                  <span className="font-bold text-sm text-right shrink-0 min-w-[3.5rem]">${item.subtotal.toFixed(2)}</span>
+                {(mostrarPrecios || precioManual) && (
+                  <span className={`font-bold text-sm text-right shrink-0 min-w-[3.5rem] ${precioManual && !item.precioManual ? 'text-slate-500' : ''}`}>
+                    ${((item.precioManual ?? item.precio) * item.cantidad).toFixed(2)}
+                  </span>
                 )}
               </div>
 
@@ -412,7 +439,12 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
       {/* Totales */}
       {cart.length > 0 && (
         <div className="p-4 border-t border-slate-700 space-y-2">
-          {mostrarPrecios && (
+          {precioManual && cart.some(i => i.precioManual === undefined || i.precioManual === 0) && (
+            <div className="px-3 py-1.5 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
+              <p className="text-xs text-yellow-400">⚠ Ingresa el precio de todos los productos</p>
+            </div>
+          )}
+          {(mostrarPrecios || precioManual) && (
             <>
               <div className="flex justify-between text-sm text-slate-400">
                 <span>Subtotal</span>
@@ -440,7 +472,7 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
               )}
               <button
                 onClick={onEnviarPedido}
-                disabled={(!mesaActiva && !mesaNumeroOculto) || cart.length === 0}
+                disabled={(!mesaActiva && !mesaNumeroOculto) || cart.length === 0 || precioManualIncompleto}
                 className="btn-primary w-full text-lg disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 <Send size={20} /> Enviar Pedido{mesaActiva ? ` — Mesa ${mesaActiva}` : ''}
@@ -456,7 +488,7 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
               <button onClick={onActualizarCuenta} disabled={cart.length === 0} className="btn-secondary w-full flex items-center justify-center gap-2 disabled:opacity-50">
                 <BookOpen size={18} /> Actualizar Mesa {pedidoActivo.mesa}
               </button>
-              <button onClick={onPay} disabled={(!cajaActiva && !cajaManaged) || cart.length === 0} className="btn-accent w-full text-lg disabled:opacity-50">
+              <button onClick={onPay} disabled={(!cajaActiva && !cajaManaged) || cart.length === 0 || precioManualIncompleto} className="btn-accent w-full text-lg disabled:opacity-50">
                 Cobrar Mesa {pedidoActivo.mesa}{mostrarPrecios ? ` — $${getTotal().toFixed(2)}` : ''}
               </button>
             </div>
@@ -473,7 +505,7 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
                   <span className="text-sm">Cuenta</span>
                 </button>
               )}
-              <button onClick={onPay} disabled={(!cajaActiva && !cajaManaged) || (isMesa && !mesaActiva && !mesaNumeroOculto)} className="btn-accent flex-1 text-lg disabled:opacity-50">
+              <button onClick={onPay} disabled={(!cajaActiva && !cajaManaged) || (isMesa && !mesaActiva && !mesaNumeroOculto) || precioManualIncompleto} className="btn-accent flex-1 text-lg disabled:opacity-50">
                 Cobrar{mostrarPrecios ? ` $${getTotal().toFixed(2)}` : ''}
               </button>
             </div>
