@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const crypto_1 = require("crypto");
+const uuid_1 = require("uuid");
 const menu_digital_config_entity_1 = require("./entities/menu-digital-config.entity");
 const menu_digital_snapshot_entity_1 = require("./entities/menu-digital-snapshot.entity");
 const menu_digital_log_entity_1 = require("./entities/menu-digital-log.entity");
@@ -25,8 +26,9 @@ const producto_entity_1 = require("../productos/producto.entity");
 const categoria_entity_1 = require("../categorias/categoria.entity");
 const tienda_entity_1 = require("../tiendas/tienda.entity");
 const empresa_entity_1 = require("../empresas/empresa.entity");
+const notificaciones_service_1 = require("../notificaciones/notificaciones.service");
 let MenuDigitalService = class MenuDigitalService {
-    constructor(configRepo, snapshotRepo, logRepo, orderRepo, productoRepo, categoriaRepo, tiendaRepo, empresaRepo) {
+    constructor(configRepo, snapshotRepo, logRepo, orderRepo, productoRepo, categoriaRepo, tiendaRepo, empresaRepo, notificacionesService) {
         this.configRepo = configRepo;
         this.snapshotRepo = snapshotRepo;
         this.logRepo = logRepo;
@@ -35,6 +37,7 @@ let MenuDigitalService = class MenuDigitalService {
         this.categoriaRepo = categoriaRepo;
         this.tiendaRepo = tiendaRepo;
         this.empresaRepo = empresaRepo;
+        this.notificacionesService = notificacionesService;
         this.logger = new common_1.Logger('MenuDigitalService');
     }
     async getOrCreateConfig(tiendaId, scope) {
@@ -276,6 +279,7 @@ let MenuDigitalService = class MenuDigitalService {
             tienda_id: snap.tienda_id,
             tenant_id: snap.tenant_id,
             numero_orden,
+            token: (0, uuid_1.v4)(),
             cliente_nombre: dto.cliente_nombre || null,
             mesa_numero: dto.mesa_numero || null,
             items: dto.items,
@@ -283,23 +287,43 @@ let MenuDigitalService = class MenuDigitalService {
             notas: dto.notas || null,
             status: 'pending',
         });
-        return this.orderRepo.save(order);
+        const saved = await this.orderRepo.save(order);
+        this.notificacionesService.emitToTienda(snap.tienda_id, 'nuevo_pedido_menu_digital', {
+            id: saved.id,
+            numero_orden: saved.numero_orden,
+            cliente_nombre: saved.cliente_nombre,
+            mesa_numero: saved.mesa_numero,
+            total: saved.total,
+            items: (dto.items || []).length,
+            created_at: saved.created_at,
+        });
+        return saved;
     }
-    async getPendingOrders(tiendaId, apiKey) {
-        const cfg = await this.configRepo.findOne({ where: { tienda_id: tiendaId } });
-        if (!cfg || cfg.api_key !== apiKey)
+    async getPendingOrders(tiendaId, scope) {
+        const tienda = await this.tiendaRepo.findOne({ where: { id: tiendaId } });
+        if (!tienda)
+            throw new common_1.NotFoundException('Tienda no encontrada');
+        if (scope.tenant_id && scope.tenant_id !== tienda.tenant_id)
             throw new common_1.UnauthorizedException();
         return this.orderRepo.find({
             where: { tienda_id: tiendaId, status: 'pending' },
             order: { created_at: 'ASC' },
         });
     }
-    async updateOrderStatus(orderId, status, tiendaId) {
-        const order = await this.orderRepo.findOne({ where: { id: orderId, tienda_id: tiendaId } });
+    async updateOrderStatus(orderId, status, scope) {
+        const order = await this.orderRepo.findOne({ where: { id: orderId } });
         if (!order)
             throw new common_1.NotFoundException('Orden no encontrada');
+        if (scope.tenant_id && scope.tenant_id !== order.tenant_id)
+            throw new common_1.UnauthorizedException();
         order.status = status;
         return this.orderRepo.save(order);
+    }
+    async getOrderStatus(token) {
+        const order = await this.orderRepo.findOne({ where: { token } });
+        if (!order)
+            throw new common_1.NotFoundException('Pedido no encontrado');
+        return { numero_orden: order.numero_orden, status: order.status };
     }
     async syncToWorker(cfg, tienda, categorias, productos) {
         const workerBase = cfg.worker_url.replace(/\/$/, '');
@@ -446,6 +470,7 @@ exports.MenuDigitalService = MenuDigitalService = __decorate([
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
-        typeorm_2.Repository])
+        typeorm_2.Repository,
+        notificaciones_service_1.NotificacionesService])
 ], MenuDigitalService);
 //# sourceMappingURL=menu-digital.service.js.map

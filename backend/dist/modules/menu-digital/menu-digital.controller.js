@@ -16,6 +16,7 @@ exports.MenuDigitalController = void 0;
 const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
 const menu_digital_service_1 = require("./menu-digital.service");
+const tenant_decorator_1 = require("../../common/decorators/tenant.decorator");
 let MenuDigitalController = class MenuDigitalController {
     constructor(service) {
         this.service = service;
@@ -40,11 +41,11 @@ let MenuDigitalController = class MenuDigitalController {
     getLogs(tiendaId) {
         return this.service.getLogs(tiendaId);
     }
-    getPendingOrders(tiendaId, apiKey) {
-        return this.service.getPendingOrders(tiendaId, apiKey);
+    getPendingOrders(tiendaId, scope) {
+        return this.service.getPendingOrders(tiendaId, scope);
     }
-    updateOrderStatus(orderId, dto) {
-        return this.service.updateOrderStatus(orderId, dto.status, dto.tienda_id);
+    updateOrderStatus(orderId, status, scope) {
+        return this.service.updateOrderStatus(orderId, status, scope);
     }
     receive(dto) {
         return this.service.receiveSnapshot(dto);
@@ -60,6 +61,9 @@ let MenuDigitalController = class MenuDigitalController {
     }
     createOrder(slug, dto) {
         return this.service.createOrder(slug, dto);
+    }
+    getOrderStatus(token) {
+        return this.service.getOrderStatus(token);
     }
 };
 exports.MenuDigitalController = MenuDigitalController;
@@ -112,18 +116,19 @@ __decorate([
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     (0, common_1.Get)('orders/:tienda_id'),
     __param(0, (0, common_1.Param)('tienda_id', common_1.ParseIntPipe)),
-    __param(1, (0, common_1.Headers)('x-api-key')),
+    __param(1, (0, tenant_decorator_1.TenantScope)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number, String]),
+    __metadata("design:paramtypes", [Number, Object]),
     __metadata("design:returntype", void 0)
 ], MenuDigitalController.prototype, "getPendingOrders", null);
 __decorate([
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     (0, common_1.Patch)('orders/:order_id/status'),
     __param(0, (0, common_1.Param)('order_id', common_1.ParseIntPipe)),
-    __param(1, (0, common_1.Body)()),
+    __param(1, (0, common_1.Body)('status')),
+    __param(2, (0, tenant_decorator_1.TenantScope)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number, Object]),
+    __metadata("design:paramtypes", [Number, String, Object]),
     __metadata("design:returntype", void 0)
 ], MenuDigitalController.prototype, "updateOrderStatus", null);
 __decorate([
@@ -162,6 +167,13 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], MenuDigitalController.prototype, "createOrder", null);
+__decorate([
+    (0, common_1.Get)('order-status/:token'),
+    __param(0, (0, common_1.Param)('token')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], MenuDigitalController.prototype, "getOrderStatus", null);
 exports.MenuDigitalController = MenuDigitalController = __decorate([
     (0, common_1.Controller)('menu-digital'),
     __metadata("design:paramtypes", [menu_digital_service_1.MenuDigitalService])

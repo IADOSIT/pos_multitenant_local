@@ -19,6 +19,7 @@ const tienda_entity_1 = require("../tiendas/tienda.entity");
 const empresa_entity_1 = require("../empresas/empresa.entity");
 const menu_digital_service_1 = require("./menu-digital.service");
 const menu_digital_controller_1 = require("./menu-digital.controller");
+const notificaciones_module_1 = require("../notificaciones/notificaciones.module");
 let MenuDigitalModule = class MenuDigitalModule {
 };
 exports.MenuDigitalModule = MenuDigitalModule;
@@ -35,6 +36,7 @@ exports.MenuDigitalModule = MenuDigitalModule = __decorate([
                 tienda_entity_1.Tienda,
                 empresa_entity_1.Empresa,
             ]),
+            notificaciones_module_1.NotificacionesModule,
         ],
         controllers: [menu_digital_controller_1.MenuDigitalController],
         providers: [menu_digital_service_1.MenuDigitalService],

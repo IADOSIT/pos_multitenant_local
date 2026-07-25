@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException, UnauthorizedException } from '@n
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
+import { v4 as uuidv4 } from 'uuid';
 import { MenuDigitalConfig } from './entities/menu-digital-config.entity';
 import { MenuDigitalSnapshot } from './entities/menu-digital-snapshot.entity';
 import { MenuDigitalLog } from './entities/menu-digital-log.entity';
@@ -10,6 +11,7 @@ import { Producto } from '../productos/producto.entity';
 import { Categoria } from '../categorias/categoria.entity';
 import { Tienda } from '../tiendas/tienda.entity';
 import { Empresa } from '../empresas/empresa.entity';
+import { NotificacionesService } from '../notificaciones/notificaciones.service';
 
 @Injectable()
 export class MenuDigitalService {
@@ -24,6 +26,7 @@ export class MenuDigitalService {
     @InjectRepository(Categoria)          private categoriaRepo: Repository<Categoria>,
     @InjectRepository(Tienda)             private tiendaRepo: Repository<Tienda>,
     @InjectRepository(Empresa)            private empresaRepo: Repository<Empresa>,
+    private notificacionesService: NotificacionesService,
   ) {}
 
   // =========================================================================
@@ -327,6 +330,7 @@ export class MenuDigitalService {
       tienda_id: snap.tienda_id,
       tenant_id: snap.tenant_id,
       numero_orden,
+      token: uuidv4(),
       cliente_nombre: dto.cliente_nombre || null,
       mesa_numero: dto.mesa_numero || null,
       items: dto.items,
@@ -335,23 +339,47 @@ export class MenuDigitalService {
       status: 'pending',
     });
 
-    return this.orderRepo.save(order);
+    const saved = await this.orderRepo.save(order);
+
+    // Avisar al personal en tiempo real (mismo canal SSE que self-order) para que no
+    // quede huerfano en la tabla sin que nadie lo vea.
+    this.notificacionesService.emitToTienda(snap.tienda_id, 'nuevo_pedido_menu_digital', {
+      id: saved.id,
+      numero_orden: saved.numero_orden,
+      cliente_nombre: saved.cliente_nombre,
+      mesa_numero: saved.mesa_numero,
+      total: saved.total,
+      items: (dto.items || []).length,
+      created_at: saved.created_at,
+    });
+
+    return saved;
   }
 
-  async getPendingOrders(tiendaId: number, apiKey: string): Promise<MenuDigitalOrder[]> {
-    const cfg = await this.configRepo.findOne({ where: { tienda_id: tiendaId } });
-    if (!cfg || cfg.api_key !== apiKey) throw new UnauthorizedException();
+  async getPendingOrders(tiendaId: number, scope: any): Promise<MenuDigitalOrder[]> {
+    const tienda = await this.tiendaRepo.findOne({ where: { id: tiendaId } });
+    if (!tienda) throw new NotFoundException('Tienda no encontrada');
+    // Superadmin (scope.tenant_id=null) puede ver cualquier tienda; el resto solo la suya
+    if (scope.tenant_id && scope.tenant_id !== tienda.tenant_id) throw new UnauthorizedException();
     return this.orderRepo.find({
       where: { tienda_id: tiendaId, status: 'pending' },
       order: { created_at: 'ASC' },
     });
   }
 
-  async updateOrderStatus(orderId: number, status: string, tiendaId: number): Promise<MenuDigitalOrder> {
-    const order = await this.orderRepo.findOne({ where: { id: orderId, tienda_id: tiendaId } });
+  async updateOrderStatus(orderId: number, status: string, scope: any): Promise<MenuDigitalOrder> {
+    const order = await this.orderRepo.findOne({ where: { id: orderId } });
     if (!order) throw new NotFoundException('Orden no encontrada');
+    if (scope.tenant_id && scope.tenant_id !== order.tenant_id) throw new UnauthorizedException();
     order.status = status;
     return this.orderRepo.save(order);
+  }
+
+  // Polling del cliente (pantalla publica) para ver el estatus de su pedido
+  async getOrderStatus(token: string): Promise<{ numero_orden: string; status: string }> {
+    const order = await this.orderRepo.findOne({ where: { token } });
+    if (!order) throw new NotFoundException('Pedido no encontrado');
+    return { numero_orden: order.numero_orden, status: order.status };
   }
 
   // =========================================================================

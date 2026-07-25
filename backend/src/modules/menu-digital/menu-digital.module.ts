@@ -10,6 +10,7 @@ import { Tienda } from '../tiendas/tienda.entity';
 import { Empresa } from '../empresas/empresa.entity';
 import { MenuDigitalService } from './menu-digital.service';
 import { MenuDigitalController } from './menu-digital.controller';
+import { NotificacionesModule } from '../notificaciones/notificaciones.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { MenuDigitalController } from './menu-digital.controller';
       Tienda,
       Empresa,
     ]),
+    NotificacionesModule,
   ],
   controllers: [MenuDigitalController],
   providers: [MenuDigitalService],

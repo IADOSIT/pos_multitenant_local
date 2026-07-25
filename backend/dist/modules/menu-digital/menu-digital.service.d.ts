@@ -7,6 +7,7 @@ import { Producto } from '../productos/producto.entity';
 import { Categoria } from '../categorias/categoria.entity';
 import { Tienda } from '../tiendas/tienda.entity';
 import { Empresa } from '../empresas/empresa.entity';
+import { NotificacionesService } from '../notificaciones/notificaciones.service';
 export declare class MenuDigitalService {
     private configRepo;
     private snapshotRepo;
@@ -16,8 +17,9 @@ export declare class MenuDigitalService {
     private categoriaRepo;
     private tiendaRepo;
     private empresaRepo;
+    private notificacionesService;
     private readonly logger;
-    constructor(configRepo: Repository<MenuDigitalConfig>, snapshotRepo: Repository<MenuDigitalSnapshot>, logRepo: Repository<MenuDigitalLog>, orderRepo: Repository<MenuDigitalOrder>, productoRepo: Repository<Producto>, categoriaRepo: Repository<Categoria>, tiendaRepo: Repository<Tienda>, empresaRepo: Repository<Empresa>);
+    constructor(configRepo: Repository<MenuDigitalConfig>, snapshotRepo: Repository<MenuDigitalSnapshot>, logRepo: Repository<MenuDigitalLog>, orderRepo: Repository<MenuDigitalOrder>, productoRepo: Repository<Producto>, categoriaRepo: Repository<Categoria>, tiendaRepo: Repository<Tienda>, empresaRepo: Repository<Empresa>, notificacionesService: NotificacionesService);
     getOrCreateConfig(tiendaId: number, scope: any): Promise<MenuDigitalConfig>;
     getServerInfo(): {
         backendUrl: string;
@@ -50,8 +52,12 @@ export declare class MenuDigitalService {
         published_at: Date;
     }>;
     createOrder(slug: string, dto: any): Promise<MenuDigitalOrder>;
-    getPendingOrders(tiendaId: number, apiKey: string): Promise<MenuDigitalOrder[]>;
-    updateOrderStatus(orderId: number, status: string, tiendaId: number): Promise<MenuDigitalOrder>;
+    getPendingOrders(tiendaId: number, scope: any): Promise<MenuDigitalOrder[]>;
+    updateOrderStatus(orderId: number, status: string, scope: any): Promise<MenuDigitalOrder>;
+    getOrderStatus(token: string): Promise<{
+        numero_orden: string;
+        status: string;
+    }>;
     syncToWorker(cfg: MenuDigitalConfig, tienda: any, categorias: any[], productos: any[]): Promise<void>;
     private uploadImagesToWorker;
     private uploadSingleImageToWorker;

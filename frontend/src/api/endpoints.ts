@@ -244,6 +244,7 @@ export const menuDigitalApi = {
   // Public (no auth required - called directly)
   getPublicMenu:   (slug: string) => api.get(`/menu-digital/view/${slug}`),
   createOrder:     (slug: string, data: any) => api.post(`/menu-digital/view/${slug}/order`, data),
+  getOrderStatus:  (token: string) => api.get(`/menu-digital/order-status/${token}`),
 };
 
 // Mesas

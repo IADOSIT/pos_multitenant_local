@@ -19,6 +19,11 @@ export class MenuDigitalOrder {
   @Column({ length: 10 })
   numero_orden: string; // e.g. "001", "042"
 
+  // Identificador opaco para que el cliente consulte su estatus sin exponer el id secuencial
+  @Index({ unique: true })
+  @Column({ length: 36 })
+  token: string;
+
   @Column({ length: 100, nullable: true })
   cliente_nombre: string;
 

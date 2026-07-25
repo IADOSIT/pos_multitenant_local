@@ -35,6 +35,11 @@ __decorate([
     __metadata("design:type", String)
 ], MenuDigitalOrder.prototype, "numero_orden", void 0);
 __decorate([
+    (0, typeorm_1.Index)({ unique: true }),
+    (0, typeorm_1.Column)({ length: 36 }),
+    __metadata("design:type", String)
+], MenuDigitalOrder.prototype, "token", void 0);
+__decorate([
     (0, typeorm_1.Column)({ length: 100, nullable: true }),
     __metadata("design:type", String)
 ], MenuDigitalOrder.prototype, "cliente_nombre", void 0);

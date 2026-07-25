@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260725-whatsapp-fase2-notif-pedidos"
+        CACHE_BUST: "20260725-menu-digital-status-pedido-cliente"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
@@ -60,7 +60,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260725-whatsapp-fase2-config-ui"
+        CACHE_BUST: "20260725-menu-digital-status-admin-panel"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

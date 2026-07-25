@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Put, Patch, Param, Body, Headers, UseGuards, Request, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Param, Body, UseGuards, Request, ParseIntPipe } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { MenuDigitalService } from './menu-digital.service';
+import { TenantScope } from '../../common/decorators/tenant.decorator';
 
 @Controller('menu-digital')
 export class MenuDigitalController {
@@ -50,20 +51,18 @@ export class MenuDigitalController {
 
   @UseGuards(AuthGuard('jwt'))
   @Get('orders/:tienda_id')
-  getPendingOrders(
-    @Param('tienda_id', ParseIntPipe) tiendaId: number,
-    @Headers('x-api-key') apiKey: string,
-  ) {
-    return this.service.getPendingOrders(tiendaId, apiKey);
+  getPendingOrders(@Param('tienda_id', ParseIntPipe) tiendaId: number, @TenantScope() scope) {
+    return this.service.getPendingOrders(tiendaId, scope);
   }
 
   @UseGuards(AuthGuard('jwt'))
   @Patch('orders/:order_id/status')
   updateOrderStatus(
     @Param('order_id', ParseIntPipe) orderId: number,
-    @Body() dto: { status: string; tienda_id: number },
+    @Body('status') status: string,
+    @TenantScope() scope,
   ) {
-    return this.service.updateOrderStatus(orderId, dto.status, dto.tienda_id);
+    return this.service.updateOrderStatus(orderId, status, scope);
   }
 
   // =========================================================================
@@ -99,5 +98,11 @@ export class MenuDigitalController {
   @Post('view/:slug/order')
   createOrder(@Param('slug') slug: string, @Body() dto: any) {
     return this.service.createOrder(slug, dto);
+  }
+
+  // Polling del cliente para ver el estatus de su pedido
+  @Get('order-status/:token')
+  getOrderStatus(@Param('token') token: string) {
+    return this.service.getOrderStatus(token);
   }
 }

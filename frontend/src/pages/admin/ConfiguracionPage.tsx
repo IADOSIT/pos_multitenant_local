@@ -6,7 +6,7 @@ import { useAuthStore } from '../../store/auth.store';
 import TicketsConfig from './TicketsConfig';
 import { useThemeStore, ThemeName, PaletteName } from '../../store/theme.store';
 import toast from 'react-hot-toast';
-import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers, TrendingUp, DollarSign, Truck } from 'lucide-react';
+import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers, TrendingUp, DollarSign, Truck, X } from 'lucide-react';
 import PerfilNegocioPage from './PerfilNegocioPage';
 import InventarioDualPage from '../inventario/InventarioDualPage';
 import TiendaEnLineaPage from './TiendaEnLineaPage';
@@ -95,6 +95,8 @@ export default function ConfiguracionPage() {
   const [mdPublishing, setMdPublishing] = useState(false);
   const [mdQr, setMdQr]               = useState<string>('');
   const [mdCfgForm, setMdCfgForm]     = useState<any>({});
+  const [mdOrders, setMdOrders]       = useState<any[]>([]);
+  const [mdOrdersLoading, setMdOrdersLoading] = useState(false);
 
   // Worker URL toma prioridad sobre cloud_url para el QR del menú.
   const getMenuUrl = (cloudUrl: string, slug: string, workerUrl?: string): string => {
@@ -538,8 +540,36 @@ export default function ConfiguracionPage() {
       if (status.should_auto_sync) {
         handleMdPublish(tiendaId, true);
       }
+      if (status.config?.modo_menu === 'pedidos') {
+        loadMdOrders(tiendaId);
+      } else {
+        setMdOrders([]);
+      }
     } catch {}
   }, []);
+
+  const loadMdOrders = async (tiendaId: number) => {
+    setMdOrdersLoading(true);
+    try {
+      const { data } = await menuDigitalApi.getPendingOrders(tiendaId);
+      setMdOrders(data || []);
+    } catch {
+      setMdOrders([]);
+    } finally {
+      setMdOrdersLoading(false);
+    }
+  };
+
+  const handleMdOrderAction = async (orderId: number, status: 'received' | 'cancelled') => {
+    if (!selected?.id) return;
+    try {
+      await menuDigitalApi.updateOrder(orderId, status, selected.id);
+      toast.success(status === 'received' ? 'Pedido confirmado' : 'Pedido rechazado');
+      loadMdOrders(selected.id);
+    } catch {
+      toast.error('Error al actualizar el pedido');
+    }
+  };
 
   const loadGwConfig = useCallback(async () => {
     try {
@@ -1875,6 +1905,52 @@ export default function ConfiguracionPage() {
                             <Printer size={11} /> Imprimir QR con pasos
                           </button>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Pedidos pendientes (solo si modo_menu = pedidos) */}
+                  {mdCfgForm.modo_menu === 'pedidos' && (
+                    <div className="border-t border-iados-card pt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h5 className="text-xs font-bold text-slate-400">Pedidos pendientes</h5>
+                        <button
+                          onClick={() => selected?.id && loadMdOrders(selected.id)}
+                          className="text-xs text-slate-500 hover:text-white transition-colors flex items-center gap-1"
+                        >
+                          <RefreshCw size={11} className={mdOrdersLoading ? 'animate-spin' : ''} /> Actualizar
+                        </button>
+                      </div>
+                      {mdOrders.length === 0 ? (
+                        <p className="text-xs text-slate-600">No hay pedidos esperando confirmación.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {mdOrders.map((o: any) => (
+                            <div key={o.id} className="p-3 rounded-xl border border-amber-700/30 bg-amber-900/10">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-sm font-bold text-white">#{o.numero_orden}</span>
+                                <span className="text-xs text-amber-300">${Number(o.total).toFixed(2)}</span>
+                              </div>
+                              <p className="text-xs text-slate-400 mb-2">
+                                {o.cliente_nombre || 'Sin nombre'}{o.mesa_numero ? ` · Mesa/Ref: ${o.mesa_numero}` : ''} · {(o.items || []).length} producto{(o.items || []).length !== 1 ? 's' : ''}
+                              </p>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleMdOrderAction(o.id, 'received')}
+                                  className="flex-1 text-xs py-1.5 rounded-lg bg-green-600 hover:bg-green-500 text-white font-semibold flex items-center justify-center gap-1"
+                                >
+                                  <Check size={12} /> Confirmar
+                                </button>
+                                <button
+                                  onClick={() => handleMdOrderAction(o.id, 'cancelled')}
+                                  className="flex-1 text-xs py-1.5 rounded-lg bg-slate-700 hover:bg-red-900/50 text-slate-300 hover:text-red-300 font-semibold flex items-center justify-center gap-1"
+                                >
+                                  <X size={12} /> Rechazar
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 

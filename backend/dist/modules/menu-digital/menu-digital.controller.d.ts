@@ -13,11 +13,8 @@ export declare class MenuDigitalController {
     }>;
     publish(tiendaId: number, req: any): Promise<any>;
     getLogs(tiendaId: number): Promise<import("./entities/menu-digital-log.entity").MenuDigitalLog[]>;
-    getPendingOrders(tiendaId: number, apiKey: string): Promise<import("./entities/menu-digital-order.entity").MenuDigitalOrder[]>;
-    updateOrderStatus(orderId: number, dto: {
-        status: string;
-        tienda_id: number;
-    }): Promise<import("./entities/menu-digital-order.entity").MenuDigitalOrder>;
+    getPendingOrders(tiendaId: number, scope: any): Promise<import("./entities/menu-digital-order.entity").MenuDigitalOrder[]>;
+    updateOrderStatus(orderId: number, status: string, scope: any): Promise<import("./entities/menu-digital-order.entity").MenuDigitalOrder>;
     receive(dto: any): Promise<{
         ok: boolean;
     }>;
@@ -38,4 +35,8 @@ export declare class MenuDigitalController {
         published_at: Date;
     }>;
     createOrder(slug: string, dto: any): Promise<import("./entities/menu-digital-order.entity").MenuDigitalOrder>;
+    getOrderStatus(token: string): Promise<{
+        numero_orden: string;
+        status: string;
+    }>;
 }

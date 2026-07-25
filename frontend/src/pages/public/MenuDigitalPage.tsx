@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { menuDigitalApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
-import { ShoppingCart, Search, X, Plus, Minus, ChevronUp, Send, MapPin, Phone, Clock, Loader2, UtensilsCrossed, ChevronDown } from 'lucide-react';
+import { ShoppingCart, Search, X, Plus, Minus, ChevronUp, Send, MapPin, Phone, Clock, Loader2, UtensilsCrossed, ChevronDown, CheckCircle, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Tienda {
@@ -178,13 +178,33 @@ export default function MenuDigitalPage() {
   const [mesaNumero, setMesaNumero]         = useState('');
   const [sendingOrder, setSendingOrder]     = useState(false);
   const [orderSent, setOrderSent]           = useState<string | null>(null);
+  const [orderToken, setOrderToken]         = useState<string | null>(null);
+  const [orderStatus, setOrderStatus]       = useState<'pending' | 'received' | 'completed' | 'cancelled'>('pending');
   const [expandedProduct, setExpandedProduct] = useState<number | null>(null);
   const catRefs    = useRef<Map<number, HTMLDivElement>>(new Map());
+  const pollRef    = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Resolved theme
   const th = THEMES[plantilla] ?? THEMES.oscuro;
 
   useEffect(() => { loadMenu(); }, [slug]);
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
+  const startPolling = (token: string) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const { data } = await menuDigitalApi.getOrderStatus(token);
+        setOrderStatus(data.status);
+        if (data.status !== 'pending') {
+          clearInterval(pollRef.current!);
+          pollRef.current = null;
+        }
+      } catch {
+        // error de red temporal - seguir intentando en el siguiente tick
+      }
+    }, 3000);
+  };
 
   const loadMenu = async () => {
     if (!slug) return;
@@ -269,8 +289,11 @@ export default function MenuDigitalPage() {
         items, total: cartTotal,
       });
       setOrderSent(data.numero_orden);
+      setOrderToken(data.token);
+      setOrderStatus('pending');
       setCart([]);
       setShowCart(false);
+      startPolling(data.token);
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Error al enviar pedido');
     } finally {
@@ -304,21 +327,33 @@ export default function MenuDigitalPage() {
     </div>
   );
 
-  // ─── Order Confirmed ────────────────────────────────────────────────────────
+  // ─── Order Confirmed / Estatus del pedido ───────────────────────────────────
   if (orderSent) return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: th.page }}>
       <div className="text-center space-y-6 max-w-sm">
         <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto"
-          style={{ background: th.accentBg, border: `2px solid ${th.accent}` }}>
-          <span className="text-4xl">✓</span>
+          style={{ background: th.accentBg, border: `2px solid ${orderStatus === 'cancelled' ? '#ef4444' : th.accent}` }}>
+          {orderStatus === 'cancelled'
+            ? <XCircle size={40} color="#ef4444" />
+            : orderStatus === 'pending'
+              ? <Clock size={40} className="animate-pulse" style={{ color: th.accent }} />
+              : <CheckCircle size={40} style={{ color: th.accent }} />}
         </div>
         <div>
-          <p className="text-sm font-medium mb-1" style={{ color: th.accentFg }}>PEDIDO ENVIADO</p>
+          <p className="text-sm font-medium mb-1" style={{ color: th.accentFg }}>
+            {orderStatus === 'pending' ? 'PEDIDO ENVIADO' : orderStatus === 'cancelled' ? 'PEDIDO NO DISPONIBLE' : 'PEDIDO CONFIRMADO'}
+          </p>
           <h2 className="text-3xl font-black" style={{ color: th.text }}>#{orderSent}</h2>
         </div>
-        <p style={{ color: th.textSub }}>Tu pedido fue enviado al restaurante. En breve te atendemos.</p>
+        <p style={{ color: th.textSub }}>
+          {orderStatus === 'pending'
+            ? 'Tu pedido fue enviado al restaurante. No cierres esta pantalla — en breve recibirás la confirmación.'
+            : orderStatus === 'cancelled'
+              ? 'El restaurante no pudo procesar tu pedido. Por favor acércate a solicitar atención.'
+              : '¡Tu pedido fue confirmado y ya está en preparación! 🍳'}
+        </p>
         <button
-          onClick={() => setOrderSent(null)}
+          onClick={() => { setOrderSent(null); setOrderToken(null); setOrderStatus('pending'); }}
           className="w-full py-3 rounded-2xl font-bold"
           style={{ background: th.cartBtn, color: th.cartColor }}
         >
