@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260701-campos-formulario-pedido"
+        CACHE_BUST: "20260725-whatsapp-fase2-notif-pedidos"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
@@ -60,7 +60,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260706-bugfix-precio-manual-notas-polling"
+        CACHE_BUST: "20260725-whatsapp-fase2-config-ui"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

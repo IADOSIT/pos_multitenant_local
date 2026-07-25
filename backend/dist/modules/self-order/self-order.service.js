@@ -22,16 +22,18 @@ const mesa_entity_1 = require("../mesas/mesa.entity");
 const mesas_service_1 = require("../mesas/mesas.service");
 const encuestas_service_1 = require("../encuestas/encuestas.service");
 const notificaciones_service_1 = require("../notificaciones/notificaciones.service");
+const logistica_service_1 = require("../logistica/logistica.service");
 const typeorm_3 = require("@nestjs/typeorm");
 const typeorm_4 = require("typeorm");
 const campos_formulario_helper_1 = require("../empresas/campos-formulario.helper");
 let SelfOrderService = class SelfOrderService {
-    constructor(pedidoRepo, mesaRepo, mesasService, encuestasService, notificacionesService, dataSource) {
+    constructor(pedidoRepo, mesaRepo, mesasService, encuestasService, notificacionesService, logisticaService, dataSource) {
         this.pedidoRepo = pedidoRepo;
         this.mesaRepo = mesaRepo;
         this.mesasService = mesasService;
         this.encuestasService = encuestasService;
         this.notificacionesService = notificacionesService;
+        this.logisticaService = logisticaService;
         this.dataSource = dataSource;
         this.logger = new common_1.Logger('SelfOrderService');
     }
@@ -221,6 +223,7 @@ let SelfOrderService = class SelfOrderService {
             estado: pedido_entity_1.PedidoEstado.EN_ELABORACION,
             mesero_confirmado: true,
         });
+        this.logisticaService.notificarPedidoWhatsapp(updated, 'confirmado', scope).catch(() => { });
         return updated;
     }
     async rechazarPedido(pedido_id, motivo, scope) {
@@ -236,6 +239,7 @@ let SelfOrderService = class SelfOrderService {
             mesa: pedido.mesa,
             estado: pedido.estado,
         });
+        this.logisticaService.notificarPedidoWhatsapp(pedido, 'rechazado', scope).catch(() => { });
         return pedido;
     }
     async crearEncuestaAlCobrar(pedido) {
@@ -415,12 +419,13 @@ exports.SelfOrderService = SelfOrderService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(pedido_entity_1.Pedido)),
     __param(1, (0, typeorm_1.InjectRepository)(mesa_entity_1.Mesa)),
-    __param(5, (0, typeorm_3.InjectDataSource)()),
+    __param(6, (0, typeorm_3.InjectDataSource)()),
     __metadata("design:paramtypes", [typeorm_2.Repository,
         typeorm_2.Repository,
         mesas_service_1.MesasService,
         encuestas_service_1.EncuestasService,
         notificaciones_service_1.NotificacionesService,
+        logistica_service_1.LogisticaService,
         typeorm_4.DataSource])
 ], SelfOrderService);
 //# sourceMappingURL=self-order.service.js.map

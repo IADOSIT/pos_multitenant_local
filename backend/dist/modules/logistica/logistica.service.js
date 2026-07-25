@@ -21,6 +21,7 @@ const entrega_pedido_entity_1 = require("./entrega-pedido.entity");
 const config_logistica_entity_1 = require("./config-logistica.entity");
 const log_notif_entrega_entity_1 = require("./log-notif-entrega.entity");
 const notificaciones_service_1 = require("../notificaciones/notificaciones.service");
+const whatsapp_util_1 = require("../../common/utils/whatsapp.util");
 let LogisticaService = class LogisticaService {
     constructor(repartidorRepo, entregaRepo, configRepo, logRepo, notificacionesService, dataSource) {
         this.repartidorRepo = repartidorRepo;
@@ -245,6 +246,10 @@ let LogisticaService = class LogisticaService {
                 msg_en_camino: 'Tu pedido #{folio} ya va en camino 🚚',
                 msg_entregado: '¡Tu pedido #{folio} fue entregado! Gracias por tu compra.',
                 msg_con_problema: 'Hubo un problema con la entrega del pedido #{folio}. Te contactaremos pronto.',
+                msg_pedido_confirmado: 'Tu pedido #{folio} fue confirmado y ya está en preparación 👨‍🍳',
+                msg_pedido_listo: '¡Tu pedido #{folio} está listo! 🎉',
+                msg_pedido_entregado: '¡Gracias por tu compra! Esperamos que disfrutes tu pedido #{folio} 🙌',
+                msg_pedido_rechazado: 'No pudimos procesar tu pedido #{folio}. Por favor acércate con el mesero.',
             });
             await this.configRepo.save(config);
         }
@@ -282,10 +287,58 @@ let LogisticaService = class LogisticaService {
                 mensaje,
                 status: config.notif_whatsapp_enabled && entrega.cliente_telefono ? 'pendiente' : 'omitido',
             });
-            await this.logRepo.save(log);
+            const saved = await this.logRepo.save(log);
+            if (saved.status === 'pendiente') {
+                await this.enviarWhatsappYActualizarLog(saved, config);
+            }
         }
         catch (err) {
             console.error('[LogisticaService] registrarLogNotif error:', err);
+        }
+    }
+    async enviarWhatsappYActualizarLog(log, config) {
+        const result = await (0, whatsapp_util_1.enviarWhatsapp)({
+            accountSid: config.notif_whatsapp_account_sid,
+            authToken: config.notif_whatsapp_token,
+            from: config.notif_whatsapp_numero,
+            to: log.destinatario,
+            mensaje: log.mensaje,
+        });
+        log.status = result.success ? 'enviado' : 'error';
+        if (!result.success)
+            log.error_msg = result.error || 'Error desconocido';
+        await this.logRepo.save(log);
+    }
+    async notificarPedidoWhatsapp(pedido, tipo, scope) {
+        if (!pedido.cliente_telefono)
+            return;
+        try {
+            const config = await this.getConfig(scope);
+            if (!config.notif_whatsapp_enabled)
+                return;
+            const templates = {
+                confirmado: config.msg_pedido_confirmado || '',
+                listo: config.msg_pedido_listo || '',
+                entregado: config.msg_pedido_entregado || '',
+                rechazado: config.msg_pedido_rechazado || '',
+            };
+            const mensaje = (templates[tipo] || '').replace('#{folio}', pedido.folio);
+            if (!mensaje)
+                return;
+            const log = await this.logRepo.save(this.logRepo.create({
+                tenant_id: pedido.tenant_id,
+                empresa_id: pedido.empresa_id,
+                pedido_id: pedido.id,
+                pedido_folio: pedido.folio,
+                estado_entrega: `pedido_${tipo}`,
+                destinatario: pedido.cliente_telefono,
+                mensaje,
+                status: 'pendiente',
+            }));
+            await this.enviarWhatsappYActualizarLog(log, config);
+        }
+        catch (err) {
+            console.error('[LogisticaService] notificarPedidoWhatsapp error:', err);
         }
     }
 };

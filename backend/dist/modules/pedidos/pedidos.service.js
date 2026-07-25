@@ -19,11 +19,13 @@ const typeorm_2 = require("typeorm");
 const pedido_entity_1 = require("./pedido.entity");
 const ventas_service_1 = require("../ventas/ventas.service");
 const notificaciones_service_1 = require("../notificaciones/notificaciones.service");
+const logistica_service_1 = require("../logistica/logistica.service");
 let PedidosService = class PedidosService {
-    constructor(pedidosRepo, ventasService, notificacionesService, dataSource, selfOrderService) {
+    constructor(pedidosRepo, ventasService, notificacionesService, logisticaService, dataSource, selfOrderService) {
         this.pedidosRepo = pedidosRepo;
         this.ventasService = ventasService;
         this.notificacionesService = notificacionesService;
+        this.logisticaService = logisticaService;
         this.dataSource = dataSource;
         this.selfOrderService = selfOrderService;
         this.logger = new common_1.Logger('PedidosService');
@@ -147,6 +149,9 @@ let PedidosService = class PedidosService {
             mesa: saved.mesa,
             estado: saved.estado,
         });
+        if (saved.self_order && nuevoEstado === pedido_entity_1.PedidoEstado.LISTO_PARA_ENTREGA) {
+            this.logisticaService.notificarPedidoWhatsapp(saved, 'listo', scope).catch(() => { });
+        }
         return saved;
     }
     async cobrar(id, pagoData, scope) {
@@ -228,6 +233,7 @@ let PedidosService = class PedidosService {
         await this.pedidosRepo.save(pedido);
         if (pedido.self_order && this.selfOrderService) {
             await this.selfOrderService.crearEncuestaAlCobrar(pedido);
+            this.logisticaService.notificarPedidoWhatsapp(pedido, 'entregado', scope).catch(() => { });
         }
         this.notificacionesService.emitToTienda(scope.tienda_id, 'pedido_cobrado', {
             pedido_id: pedido.id,
@@ -419,11 +425,12 @@ exports.PedidosService = PedidosService;
 exports.PedidosService = PedidosService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(pedido_entity_1.Pedido)),
-    __param(3, (0, typeorm_1.InjectDataSource)()),
-    __param(4, (0, common_1.Optional)()),
+    __param(4, (0, typeorm_1.InjectDataSource)()),
+    __param(5, (0, common_1.Optional)()),
     __metadata("design:paramtypes", [typeorm_2.Repository,
         ventas_service_1.VentasService,
         notificaciones_service_1.NotificacionesService,
+        logistica_service_1.LogisticaService,
         typeorm_2.DataSource, Function])
 ], PedidosService);
 //# sourceMappingURL=pedidos.service.js.map

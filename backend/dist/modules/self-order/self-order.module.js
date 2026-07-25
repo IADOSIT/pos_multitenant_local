@@ -18,6 +18,7 @@ const self_order_controller_1 = require("./self-order.controller");
 const mesas_module_1 = require("../mesas/mesas.module");
 const encuestas_module_1 = require("../encuestas/encuestas.module");
 const notificaciones_module_1 = require("../notificaciones/notificaciones.module");
+const logistica_module_1 = require("../logistica/logistica.module");
 let SelfOrderModule = class SelfOrderModule {
 };
 exports.SelfOrderModule = SelfOrderModule;
@@ -28,6 +29,7 @@ exports.SelfOrderModule = SelfOrderModule = __decorate([
             mesas_module_1.MesasModule,
             encuestas_module_1.EncuestasModule,
             notificaciones_module_1.NotificacionesModule,
+            logistica_module_1.LogisticaModule,
         ],
         controllers: [self_order_controller_1.SelfOrderPublicController, self_order_controller_1.SelfOrderController],
         providers: [self_order_service_1.SelfOrderService, worker_poll_service_1.WorkerPollService],

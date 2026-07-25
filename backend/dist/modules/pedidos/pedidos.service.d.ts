@@ -2,15 +2,17 @@ import { Repository, DataSource } from 'typeorm';
 import { Pedido, PedidoEstado } from './pedido.entity';
 import { VentasService } from '../ventas/ventas.service';
 import { NotificacionesService } from '../notificaciones/notificaciones.service';
+import { LogisticaService } from '../logistica/logistica.service';
 import type { SelfOrderService } from '../self-order/self-order.service';
 export declare class PedidosService {
     private pedidosRepo;
     private ventasService;
     private notificacionesService;
+    private logisticaService;
     private dataSource;
     private selfOrderService?;
     private logger;
-    constructor(pedidosRepo: Repository<Pedido>, ventasService: VentasService, notificacionesService: NotificacionesService, dataSource: DataSource, selfOrderService?: SelfOrderService | undefined);
+    constructor(pedidosRepo: Repository<Pedido>, ventasService: VentasService, notificacionesService: NotificacionesService, logisticaService: LogisticaService, dataSource: DataSource, selfOrderService?: SelfOrderService | undefined);
     private generateFolio;
     crear(data: any, scope: any): Promise<Pedido | null>;
     findAll(scope: any, estado?: string): Promise<Pedido[]>;

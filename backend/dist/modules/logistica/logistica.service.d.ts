@@ -38,4 +38,12 @@ export declare class LogisticaService {
     upsertConfig(data: Partial<ConfigLogistica>, scope: any): Promise<ConfigLogistica>;
     getLogNotif(scope: any, pedido_id?: number): Promise<LogNotifEntrega[]>;
     private registrarLogNotif;
+    private enviarWhatsappYActualizarLog;
+    notificarPedidoWhatsapp(pedido: {
+        tenant_id: number;
+        empresa_id: number;
+        id: number;
+        folio: string;
+        cliente_telefono?: string | null;
+    }, tipo: 'confirmado' | 'listo' | 'entregado' | 'rechazado', scope: any): Promise<void>;
 }

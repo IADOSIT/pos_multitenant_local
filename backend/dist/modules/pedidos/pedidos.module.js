@@ -14,6 +14,7 @@ const ventas_module_1 = require("../ventas/ventas.module");
 const pedidos_controller_1 = require("./pedidos.controller");
 const pedidos_service_1 = require("./pedidos.service");
 const self_order_module_1 = require("../self-order/self-order.module");
+const logistica_module_1 = require("../logistica/logistica.module");
 let PedidosModule = class PedidosModule {
 };
 exports.PedidosModule = PedidosModule;
@@ -23,6 +24,7 @@ exports.PedidosModule = PedidosModule = __decorate([
             typeorm_1.TypeOrmModule.forFeature([pedido_entity_1.Pedido, pedido_entity_1.PedidoDetalle]),
             ventas_module_1.VentasModule,
             (0, common_1.forwardRef)(() => self_order_module_1.SelfOrderModule),
+            logistica_module_1.LogisticaModule,
         ],
         controllers: [pedidos_controller_1.PedidosController],
         providers: [pedidos_service_1.PedidosService],

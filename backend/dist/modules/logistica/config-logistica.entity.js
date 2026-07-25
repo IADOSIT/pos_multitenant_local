@@ -43,6 +43,10 @@ __decorate([
     __metadata("design:type", String)
 ], ConfigLogistica.prototype, "notif_whatsapp_numero", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ length: 60, nullable: true }),
+    __metadata("design:type", String)
+], ConfigLogistica.prototype, "notif_whatsapp_account_sid", void 0);
+__decorate([
     (0, typeorm_1.Column)({ length: 20, nullable: true }),
     __metadata("design:type", String)
 ], ConfigLogistica.prototype, "notif_proveedor", void 0);
@@ -62,6 +66,22 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'text', nullable: true }),
     __metadata("design:type", String)
 ], ConfigLogistica.prototype, "msg_con_problema", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'text', nullable: true }),
+    __metadata("design:type", String)
+], ConfigLogistica.prototype, "msg_pedido_confirmado", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'text', nullable: true }),
+    __metadata("design:type", String)
+], ConfigLogistica.prototype, "msg_pedido_listo", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'text', nullable: true }),
+    __metadata("design:type", String)
+], ConfigLogistica.prototype, "msg_pedido_entregado", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'text', nullable: true }),
+    __metadata("design:type", String)
+], ConfigLogistica.prototype, "msg_pedido_rechazado", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)

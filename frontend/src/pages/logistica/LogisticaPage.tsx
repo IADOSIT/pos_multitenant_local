@@ -610,42 +610,74 @@ function TabConfig({ config, onSaved }: { config: ConfigLogistica | null; onSave
         )}
       </div>
 
-      {/* Notificaciones WhatsApp (Fase 2) */}
-      <div className="bg-iados-surface border border-slate-700 rounded-2xl p-5 opacity-70">
-        <div className="flex items-center gap-2 mb-3">
-          <MessageSquare size={16} className="text-green-400" />
-          <h3 className="font-bold">Notificaciones WhatsApp al Cliente</h3>
-          <span className="text-[10px] bg-yellow-900/50 text-yellow-400 border border-yellow-700/40 px-2 py-0.5 rounded-full font-bold">
-            PRÓXIMAMENTE — Fase 2
-          </span>
+      {/* Notificaciones WhatsApp (Twilio) */}
+      <div className="bg-iados-surface border border-slate-700 rounded-2xl p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <MessageSquare size={16} className="text-green-400" />
+            <h3 className="font-bold">Notificaciones WhatsApp al Cliente</h3>
+          </div>
+          <button
+            onClick={() => setForm(f => ({ ...f, notif_whatsapp_enabled: !f.notif_whatsapp_enabled }))}
+            className={`relative w-14 h-7 rounded-full transition-colors ${form.notif_whatsapp_enabled ? 'bg-green-600' : 'bg-slate-600'}`}
+          >
+            <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${form.notif_whatsapp_enabled ? 'translate-x-7' : 'translate-x-0.5'}`} />
+          </button>
         </div>
+        <p className="text-xs text-slate-400 mb-4">
+          Envía mensajes de WhatsApp al cliente cuando cambia el estado de su entrega o de su pedido en mesa/QR.
+          Requiere una cuenta de <strong>Twilio</strong> con WhatsApp habilitado (Account SID, Auth Token y número).
+        </p>
         <div className="space-y-3">
           <div>
-            <label className="text-xs text-slate-400 mb-1 block">Número WhatsApp Business</label>
-            <input disabled placeholder="Disponible en próxima actualización" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-500 cursor-not-allowed" />
+            <label className="text-xs text-slate-400 mb-1 block">Twilio Account SID</label>
+            <input
+              value={form.notif_whatsapp_account_sid || ''}
+              onChange={e => setForm(f => ({ ...f, notif_whatsapp_account_sid: e.target.value }))}
+              placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              className="w-full bg-iados-card border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
+            />
           </div>
           <div>
-            <label className="text-xs text-slate-400 mb-1 block">Token de API</label>
-            <input disabled placeholder="Disponible en próxima actualización" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-500 cursor-not-allowed" />
+            <label className="text-xs text-slate-400 mb-1 block">Twilio Auth Token</label>
+            <input
+              type="password"
+              value={form.notif_whatsapp_token || ''}
+              onChange={e => setForm(f => ({ ...f, notif_whatsapp_token: e.target.value }))}
+              placeholder="Auth Token de Twilio"
+              className="w-full bg-iados-card border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-slate-400 mb-1 block">Número de WhatsApp (Twilio)</label>
+            <input
+              value={form.notif_whatsapp_numero || ''}
+              onChange={e => setForm(f => ({ ...f, notif_whatsapp_numero: e.target.value }))}
+              placeholder="+14155238886"
+              className="w-full bg-iados-card border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
+            />
           </div>
           <div>
             <label className="text-xs text-slate-400 mb-1 block">Proveedor</label>
-            <select disabled className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-500 cursor-not-allowed">
-              <option>Meta / WhatsApp Business API</option>
-              <option>Twilio</option>
+            <select
+              value={form.notif_proveedor || 'twilio'}
+              onChange={e => setForm(f => ({ ...f, notif_proveedor: e.target.value }))}
+              className="w-full bg-iados-card border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
+            >
+              <option value="twilio">Twilio</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* Mensajes personalizables */}
+      {/* Mensajes de entregas a domicilio */}
       <div className="bg-iados-surface border border-slate-700 rounded-2xl p-5">
         <div className="flex items-center gap-2 mb-4">
           <MessageSquare size={16} className="text-blue-400" />
-          <h3 className="font-bold">Mensajes personalizables</h3>
+          <h3 className="font-bold">Mensajes de entregas a domicilio</h3>
         </div>
         <p className="text-xs text-slate-400 mb-4">
-          Estos mensajes se usarán cuando se active WhatsApp en Fase 2. Usa <code className="bg-slate-700 px-1 rounded text-blue-300">{'#{folio}'}</code> para incluir el folio del pedido.
+          Usa <code className="bg-slate-700 px-1 rounded text-blue-300">{'#{folio}'}</code> para incluir el folio del pedido.
         </p>
         <div className="space-y-4">
           {[
@@ -653,6 +685,36 @@ function TabConfig({ config, onSaved }: { config: ConfigLogistica | null; onSave
             { key: 'msg_en_camino',    label: 'Al salir a entregar' },
             { key: 'msg_entregado',    label: 'Al confirmar entrega' },
             { key: 'msg_con_problema', label: 'Al reportar problema' },
+          ].map(({ key, label }) => (
+            <div key={key}>
+              <label className="text-xs text-slate-400 mb-1 block">{label}</label>
+              <textarea
+                value={(form as any)[key] || ''}
+                onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                rows={2}
+                className="w-full bg-iados-card border border-slate-700 rounded-xl px-3 py-2 text-sm text-white resize-none"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Mensajes de pedidos en mesa/QR (self-order) */}
+      <div className="bg-iados-surface border border-slate-700 rounded-2xl p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <MessageSquare size={16} className="text-amber-400" />
+          <h3 className="font-bold">Mensajes de pedidos en mesa/QR</h3>
+        </div>
+        <p className="text-xs text-slate-400 mb-4">
+          Se envían al cliente cuando el mesero confirma, la cocina marca listo, o se cobra el pedido — como respaldo
+          por si cerró la pantalla de seguimiento. Usa <code className="bg-slate-700 px-1 rounded text-blue-300">{'#{folio}'}</code> para el folio.
+        </p>
+        <div className="space-y-4">
+          {[
+            { key: 'msg_pedido_confirmado', label: 'Al confirmar el pedido' },
+            { key: 'msg_pedido_listo',      label: 'Al marcar listo' },
+            { key: 'msg_pedido_entregado',  label: 'Al cobrar/cerrar el pedido' },
+            { key: 'msg_pedido_rechazado',  label: 'Al rechazar el pedido' },
           ].map(({ key, label }) => (
             <div key={key}>
               <label className="text-xs text-slate-400 mb-1 block">{label}</label>

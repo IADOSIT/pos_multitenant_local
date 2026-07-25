@@ -7,6 +7,7 @@ import { Mesa } from '../mesas/mesa.entity';
 import { MesasService } from '../mesas/mesas.service';
 import { EncuestasService } from '../encuestas/encuestas.service';
 import { NotificacionesService } from '../notificaciones/notificaciones.service';
+import { LogisticaService } from '../logistica/logistica.service';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { resolveCamposFormulario } from '../empresas/campos-formulario.helper';
@@ -21,6 +22,7 @@ export class SelfOrderService {
     private mesasService: MesasService,
     private encuestasService: EncuestasService,
     private notificacionesService: NotificacionesService,
+    private logisticaService: LogisticaService,
     @InjectDataSource() private dataSource: DataSource,
   ) {}
 
@@ -251,6 +253,8 @@ export class SelfOrderService {
       mesero_confirmado: true,
     });
 
+    this.logisticaService.notificarPedidoWhatsapp(updated!, 'confirmado', scope).catch(() => {});
+
     return updated;
   }
 
@@ -269,6 +273,8 @@ export class SelfOrderService {
       mesa: pedido.mesa,
       estado: pedido.estado,
     });
+
+    this.logisticaService.notificarPedidoWhatsapp(pedido, 'rechazado', scope).catch(() => {});
 
     return pedido;
   }

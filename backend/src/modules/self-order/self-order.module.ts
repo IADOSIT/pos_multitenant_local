@@ -9,6 +9,7 @@ import { SelfOrderController, SelfOrderPublicController } from './self-order.con
 import { MesasModule } from '../mesas/mesas.module';
 import { EncuestasModule } from '../encuestas/encuestas.module';
 import { NotificacionesModule } from '../notificaciones/notificaciones.module';
+import { LogisticaModule } from '../logistica/logistica.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { NotificacionesModule } from '../notificaciones/notificaciones.module';
     MesasModule,
     EncuestasModule,
     NotificacionesModule,
+    LogisticaModule,
   ],
   controllers: [SelfOrderPublicController, SelfOrderController],
   providers: [SelfOrderService, WorkerPollService],

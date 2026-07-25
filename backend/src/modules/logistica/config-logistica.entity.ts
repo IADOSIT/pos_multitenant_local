@@ -25,6 +25,10 @@ export class ConfigLogistica {
   @Column({ length: 30, nullable: true })
   notif_whatsapp_numero: string;
 
+  // Twilio Account SID (requerido junto con notif_whatsapp_token/numero para enviar por Twilio)
+  @Column({ length: 60, nullable: true })
+  notif_whatsapp_account_sid: string;
+
   @Column({ length: 20, nullable: true })
   notif_proveedor: string;
 
@@ -39,6 +43,19 @@ export class ConfigLogistica {
 
   @Column({ type: 'text', nullable: true })
   msg_con_problema: string;
+
+  // Plantillas para pedidos en mesa/QR (self-order) — mismo canal WhatsApp, distinto flujo al de entregas
+  @Column({ type: 'text', nullable: true })
+  msg_pedido_confirmado: string;
+
+  @Column({ type: 'text', nullable: true })
+  msg_pedido_listo: string;
+
+  @Column({ type: 'text', nullable: true })
+  msg_pedido_entregado: string;
+
+  @Column({ type: 'text', nullable: true })
+  msg_pedido_rechazado: string;
 
   @CreateDateColumn()
   created_at: Date;

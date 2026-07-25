@@ -4,6 +4,7 @@ import { Repository, In, DataSource } from 'typeorm';
 import { Pedido, PedidoDetalle, PedidoEstado } from './pedido.entity';
 import { VentasService } from '../ventas/ventas.service';
 import { NotificacionesService } from '../notificaciones/notificaciones.service';
+import { LogisticaService } from '../logistica/logistica.service';
 import type { SelfOrderService } from '../self-order/self-order.service';
 
 @Injectable()
@@ -14,6 +15,7 @@ export class PedidosService {
     @InjectRepository(Pedido) private pedidosRepo: Repository<Pedido>,
     private ventasService: VentasService,
     private notificacionesService: NotificacionesService,
+    private logisticaService: LogisticaService,
     @InjectDataSource() private dataSource: DataSource,
     @Optional() private selfOrderService?: SelfOrderService,
   ) {}
@@ -157,6 +159,12 @@ export class PedidosService {
       estado: saved.estado,
     });
 
+    // Cliente esperando en su celular (QR de mesa) — avisar por WhatsApp en caso de que
+    // haya cerrado o perdido la pantalla de seguimiento. No bloquea la respuesta.
+    if (saved.self_order && nuevoEstado === PedidoEstado.LISTO_PARA_ENTREGA) {
+      this.logisticaService.notificarPedidoWhatsapp(saved, 'listo', scope).catch(() => {});
+    }
+
     return saved;
   }
 
@@ -254,6 +262,7 @@ export class PedidosService {
     // Si es self-order, crear encuesta y notificar al cliente
     if (pedido.self_order && this.selfOrderService) {
       await this.selfOrderService.crearEncuestaAlCobrar(pedido);
+      this.logisticaService.notificarPedidoWhatsapp(pedido, 'entregado', scope).catch(() => {});
     }
 
     this.notificacionesService.emitToTienda(scope.tienda_id, 'pedido_cobrado', {

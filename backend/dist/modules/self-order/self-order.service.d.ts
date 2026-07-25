@@ -4,6 +4,7 @@ import { Mesa } from '../mesas/mesa.entity';
 import { MesasService } from '../mesas/mesas.service';
 import { EncuestasService } from '../encuestas/encuestas.service';
 import { NotificacionesService } from '../notificaciones/notificaciones.service';
+import { LogisticaService } from '../logistica/logistica.service';
 import { DataSource } from 'typeorm';
 export declare class SelfOrderService {
     private pedidoRepo;
@@ -11,9 +12,10 @@ export declare class SelfOrderService {
     private mesasService;
     private encuestasService;
     private notificacionesService;
+    private logisticaService;
     private dataSource;
     private logger;
-    constructor(pedidoRepo: Repository<Pedido>, mesaRepo: Repository<Mesa>, mesasService: MesasService, encuestasService: EncuestasService, notificacionesService: NotificacionesService, dataSource: DataSource);
+    constructor(pedidoRepo: Repository<Pedido>, mesaRepo: Repository<Mesa>, mesasService: MesasService, encuestasService: EncuestasService, notificacionesService: NotificacionesService, logisticaService: LogisticaService, dataSource: DataSource);
     getTiendaPublica(tienda_id: number, mesa_numero: number): Promise<{
         tienda_nombre: any;
         empresa_nombre: any;
