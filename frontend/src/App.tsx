@@ -24,6 +24,7 @@ import MantenimientoPage from './pages/admin/MantenimientoPage';
 import MesasAdmin from './pages/admin/MesasAdmin';
 import SelfOrderDashboard from './pages/admin/SelfOrderDashboard';
 import SelfOrderPage from './pages/public/SelfOrderPage';
+import BasculaKioskoPage from './pages/public/BasculaKioskoPage';
 import CatalogosPage from './pages/admin/CatalogosPage';
 import InventarioDualPage from './pages/inventario/InventarioDualPage';
 import PerfilNegocioPage from './pages/admin/PerfilNegocioPage';
@@ -58,6 +59,7 @@ export default function App() {
         <Route path="/menu/:slug" element={<MenuDigitalPage />} />
         <Route path="/self-order/:tienda_id/:mesa_numero" element={<SelfOrderPage />} />
         <Route path="/s/:slug/:mesa_numero" element={<SelfOrderPage />} />
+        <Route path="/bascula-kiosko" element={<BasculaKioskoPage />} />
         <Route path="/repartidor/:token" element={<RepartidorPage />} />
         <Route path="/biometrico-live/:empresa_token" element={<BiometricoLivePage />} />
 

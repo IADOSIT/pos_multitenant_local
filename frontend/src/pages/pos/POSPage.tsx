@@ -5,6 +5,7 @@ import { offlineActions } from '../../store/offline.store';
 import { productosApi, categoriasApi, cajaApi, tiendasApi, pedidosApi, ticketsApi, selfOrderApi, empresasApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
 import { printComanda, printTicket } from '../../utils/printTicket';
+import { decodeEan13PesoVariable } from '../../utils/ean13';
 import { Producto, Categoria } from '../../types';
 import toast from 'react-hot-toast';
 import CartPanel from '../../components/pos/CartPanel';
@@ -104,7 +105,34 @@ export default function POSPage() {
   const [precioManual, setPrecioManual] = useState(false);
 
   const { user } = useAuthStore();
-  const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, setMesaActiva, tipoServicio, clearCart, notaPedido, clienteNombre, clienteTelefono, clienteDireccion } = usePOSStore();
+  const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, setMesaActiva, tipoServicio, clearCart, notaPedido, clienteNombre, clienteTelefono, clienteDireccion, updateItemPrice, updateItemNotes } = usePOSStore();
+
+  // Etiqueta de bascula de autoservicio: codigo EAN-13 de peso variable (prefijo "2").
+  // El lector de barras "teclea" el codigo completo casi instantaneo — se detecta apenas
+  // el campo de busqueda llega a 13 digitos, sin esperar Enter.
+  useEffect(() => {
+    if (!/^\d{13}$/.test(busqueda)) return;
+    const decoded = decodeEan13PesoVariable(busqueda);
+    if (!decoded) return; // 13 digitos pero no es un codigo de peso variable valido — se deja como busqueda normal
+    const producto = productos.find((p) => p.id === decoded.plu);
+    if (!producto) {
+      toast.error('Producto de la etiqueta no encontrado');
+      setBusqueda('');
+      return;
+    }
+    addToCart(producto, 1);
+    // El item recien agregado queda al final del carrito (mismo producto sin notas/modificadores previos)
+    setTimeout(() => {
+      const cartActual = usePOSStore.getState().cart;
+      const item = [...cartActual].reverse().find((i) => i.producto_id === producto.id && !i.notas);
+      if (item) {
+        updateItemPrice(item.id, decoded.precio);
+        updateItemNotes(item.id, 'Precio de báscula (etiqueta)');
+      }
+    }, 0);
+    toast.success(`${producto.nombre} — $${decoded.precio.toFixed(2)}`, { duration: 1200 });
+    setBusqueda('');
+  }, [busqueda, productos]);
 
   const loadCuentasAbiertas = useCallback(async () => {
     try {

@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { tiendasApi, empresasApi, tenantsApi, menuDigitalApi, pagosGatewayApi, mesasApi } from '../../api/endpoints';
+import { tiendasApi, empresasApi, tenantsApi, menuDigitalApi, pagosGatewayApi, mesasApi, basculaApi } from '../../api/endpoints';
 import api, { resolveUploadUrl } from '../../api/client';
 import { useAuthStore } from '../../store/auth.store';
 import TicketsConfig from './TicketsConfig';
 import { useThemeStore, ThemeName, PaletteName } from '../../store/theme.store';
 import toast from 'react-hot-toast';
-import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers, TrendingUp, DollarSign, Truck, X } from 'lucide-react';
+import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers, TrendingUp, DollarSign, Truck, X, Scale } from 'lucide-react';
 import PerfilNegocioPage from './PerfilNegocioPage';
 import InventarioDualPage from '../inventario/InventarioDualPage';
 import TiendaEnLineaPage from './TiendaEnLineaPage';
@@ -97,6 +97,12 @@ export default function ConfiguracionPage() {
   const [mdCfgForm, setMdCfgForm]     = useState<any>({});
   const [mdOrders, setMdOrders]       = useState<any[]>([]);
   const [mdOrdersLoading, setMdOrdersLoading] = useState(false);
+
+  // Bascula de autoservicio (frutas y verduras)
+  const [bsConfig, setBsConfig]       = useState<any>(null);
+  const [bsForm, setBsForm]           = useState<any>({});
+  const [bsProductos, setBsProductos] = useState<any[]>([]);
+  const [bsSaving, setBsSaving]       = useState(false);
 
   // Worker URL toma prioridad sobre cloud_url para el QR del menú.
   const getMenuUrl = (cloudUrl: string, slug: string, workerUrl?: string): string => {
@@ -202,6 +208,11 @@ export default function ConfiguracionPage() {
   // Load menu digital status when a tienda is selected
   useEffect(() => {
     if (selected?.id) loadMenuDigital(selected.id);
+  }, [selected?.id]);
+
+  // Load bascula config when a tienda is selected
+  useEffect(() => {
+    if (selected?.id) loadBascula(selected.id);
   }, [selected?.id]);
 
   // Load mesas when selected tienda changes
@@ -569,6 +580,47 @@ export default function ConfiguracionPage() {
     } catch {
       toast.error('Error al actualizar el pedido');
     }
+  };
+
+  const loadBascula = async (tiendaId: number) => {
+    try {
+      const [cfgRes, prodRes] = await Promise.all([
+        basculaApi.getConfig(tiendaId),
+        basculaApi.getProductos(tiendaId).catch(() => ({ data: [] })),
+      ]);
+      setBsConfig(cfgRes.data);
+      setBsForm({
+        activo: cfgRes.data?.activo ?? false,
+        printer_ip: cfgRes.data?.printer_ip ?? '',
+        printer_port: cfgRes.data?.printer_port ?? 9100,
+        label_width_mm: cfgRes.data?.label_width_mm ?? 40,
+        label_height_mm: cfgRes.data?.label_height_mm ?? 30,
+        scale_port: cfgRes.data?.scale_port ?? '',
+        scale_baud_rate: cfgRes.data?.scale_baud_rate ?? 9600,
+      });
+      setBsProductos(prodRes.data || []);
+    } catch { /* silencioso: seccion opcional */ }
+  };
+
+  const saveBsConfig = async () => {
+    if (!selected?.id) return;
+    setBsSaving(true);
+    try {
+      const { data } = await basculaApi.updateConfig(selected.id, bsForm);
+      setBsConfig(data);
+      toast.success('Configuracion de bascula guardada');
+    } catch { toast.error('Error al guardar configuracion de bascula'); }
+    finally { setBsSaving(false); }
+  };
+
+  const regenBsToken = async () => {
+    if (!selected?.id) return;
+    if (!confirm('¿Regenerar token? El bridge actual dejara de conectarse hasta que actualices su .env')) return;
+    try {
+      const { data } = await basculaApi.regenerateToken(selected.id);
+      setBsConfig((c: any) => ({ ...c, tienda_token: data.tienda_token }));
+      toast.success('Token regenerado');
+    } catch { toast.error('Error al regenerar token'); }
   };
 
   const loadGwConfig = useCallback(async () => {
@@ -1991,6 +2043,111 @@ export default function ConfiguracionPage() {
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Seccion: Bascula de autoservicio (frutas y verduras) */}
+          {selected && (
+            <>
+              <SectionHeader id="bascula" icon={Scale} title="Bascula de autoservicio" />
+              {expandedSection === 'bascula' && (
+                <div className="card space-y-5">
+                  <p className="text-xs text-slate-400">
+                    El cliente pesa su fruta/verdura, la selecciona en pantalla y se imprime una etiqueta con
+                    codigo de barras (formato EAN-13 de peso variable, igual que en supermercados) que se
+                    escanea en caja con el lector normal. Requiere bascula con salida serial/USB e impresora
+                    de etiquetas en red — ver <code className="bg-slate-700 px-1 rounded text-blue-300">bascula-bridge/LEEME.txt</code>.
+                  </p>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-sm mb-0.5">Activar para esta tienda</h4>
+                      <p className="text-xs text-slate-500">Muestra el icono "Bascula" en el menu (se abre en ventana aparte)</p>
+                    </div>
+                    <button
+                      onClick={() => setBsForm((f: any) => ({ ...f, activo: !f.activo }))}
+                      className={`relative w-14 h-7 rounded-full transition-colors ${bsForm.activo ? 'bg-green-600' : 'bg-slate-600'}`}
+                    >
+                      <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${bsForm.activo ? 'translate-x-7' : 'translate-x-0.5'}`} />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">IP de la impresora de etiquetas</label>
+                      <input
+                        value={bsForm.printer_ip || ''}
+                        onChange={(e) => setBsForm((f: any) => ({ ...f, printer_ip: e.target.value }))}
+                        placeholder="192.168.1.50"
+                        className="input-touch text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">Puerto (ZPL raw, normalmente 9100)</label>
+                      <input
+                        type="number"
+                        value={bsForm.printer_port ?? 9100}
+                        onChange={(e) => setBsForm((f: any) => ({ ...f, printer_port: Number(e.target.value) }))}
+                        className="input-touch text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">Ancho de etiqueta (mm)</label>
+                      <input
+                        type="number"
+                        value={bsForm.label_width_mm ?? 40}
+                        onChange={(e) => setBsForm((f: any) => ({ ...f, label_width_mm: Number(e.target.value) }))}
+                        className="input-touch text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">Alto de etiqueta (mm)</label>
+                      <input
+                        type="number"
+                        value={bsForm.label_height_mm ?? 30}
+                        onChange={(e) => setBsForm((f: any) => ({ ...f, label_height_mm: Number(e.target.value) }))}
+                        className="input-touch text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <button onClick={saveBsConfig} disabled={bsSaving} className="btn-secondary text-xs flex items-center justify-center gap-1">
+                    <Save size={14} /> {bsSaving ? 'Guardando...' : 'Guardar configuracion'}
+                  </button>
+
+                  {/* Token del bridge */}
+                  {bsConfig?.tienda_token && (
+                    <div className="border-t border-iados-card pt-4">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs text-slate-400 flex items-center gap-1"><Key size={11} /> Token del bridge (bascula-bridge/.env → TIENDA_TOKEN)</label>
+                        <button onClick={regenBsToken} className="text-xs text-slate-500 hover:text-red-400 transition-colors">
+                          Regenerar
+                        </button>
+                      </div>
+                      <code className="text-xs text-slate-600 break-all block">{bsConfig.tienda_token}</code>
+                    </div>
+                  )}
+
+                  {/* Preview de productos vendibles por peso */}
+                  <div className="border-t border-iados-card pt-4">
+                    <h5 className="text-xs font-bold text-slate-400 mb-2">
+                      Productos con unidad "kg" ({bsProductos.length}) — estos son los que apareceran en la pantalla de bascula
+                    </h5>
+                    {bsProductos.length === 0 ? (
+                      <p className="text-xs text-slate-600">Ningun producto tiene unidad "kg" todavia. Configuralos en Catalogos → Productos.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {bsProductos.map((p: any) => (
+                          <span key={p.id} className="text-xs bg-slate-800 border border-slate-700 rounded-full px-2.5 py-1">{p.nombre}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </>

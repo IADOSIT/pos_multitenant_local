@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260725-menu-digital-status-pedido-cliente"
+        CACHE_BUST: "20260727-modulo-bascula-autoservicio"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
@@ -60,7 +60,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260725-menu-digital-status-admin-panel"
+        CACHE_BUST: "20260727-modulo-bascula-kiosko-config"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

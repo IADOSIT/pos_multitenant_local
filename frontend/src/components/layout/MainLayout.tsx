@@ -8,9 +8,9 @@ import apiClient from '../../api/client';
 import toast from 'react-hot-toast';
 import {
   ShoppingCart, LayoutDashboard, CreditCard, Package,
-  Users, Building2, Settings, LogOut, Menu, X, ClipboardList, FileBarChart, Shield, Warehouse, Database, HardDrive, Lock, BookOpen, Grid3X3, Truck
+  Users, Building2, Settings, LogOut, Menu, X, ClipboardList, FileBarChart, Shield, Warehouse, Database, HardDrive, Lock, BookOpen, Grid3X3, Truck, Scale
 } from 'lucide-react';
-import { logisticaApi } from '../../api/endpoints';
+import { logisticaApi, basculaApi } from '../../api/endpoints';
 import StockAlertBanner from '../ui/StockAlertBanner';
 import LicenciaBanner from './LicenciaBanner';
 import LockScreen from '../ui/LockScreen';
@@ -48,6 +48,7 @@ export default function MainLayout() {
   const [cajeroDashboard, setCajeroDashboard] = useState(false);
   const [sidebarPermisos, setSidebarPermisos] = useState<Record<string, string[]>>({});
   const [logisticaEnabled, setLogisticaEnabled] = useState(false);
+  const [basculaEnabled, setBasculaEnabled] = useState(false);
 
   // Fetch DB host from backend health endpoint
   useEffect(() => {
@@ -78,6 +79,15 @@ export default function MainLayout() {
       }).catch(() => {});
     }
   }, [user?.rol]);
+
+  // Load bascula (autoservicio frutas/verduras) enabled flag — es por tienda, no por empresa
+  useEffect(() => {
+    if (user?.tienda_id) {
+      basculaApi.getConfig(user.tienda_id).then(({ data }) => {
+        setBasculaEnabled(data?.activo || false);
+      }).catch(() => {});
+    }
+  }, [user?.tienda_id]);
 
   const isDbExterno = dbHost !== 'localhost' && dbHost !== '127.0.0.1' && dbHost !== '...';
 
@@ -128,9 +138,24 @@ export default function MainLayout() {
     roles: ['superadmin', 'admin', 'manager', 'cajero'],
     badge: false,
   };
-  const filtered = logisticaEnabled && user && logisticaNavItem.roles.includes(user.rol)
+  const withLogistica = logisticaEnabled && user && logisticaNavItem.roles.includes(user.rol)
     ? [...baseFiltered.slice(0, 6), logisticaNavItem, ...baseFiltered.slice(6)]
     : baseFiltered;
+
+  // Bascula: se abre en ventana aparte (popup), no navega dentro del SPA — el cliente
+  // se autodespacha ahi sin tocar el resto del sistema.
+  const basculaNavItem = {
+    to: '/bascula-kiosko', icon: Scale, label: 'Bascula',
+    roles: ['superadmin', 'admin', 'manager', 'cajero', 'mesero'],
+    badge: false, popup: true,
+  };
+  const filtered = basculaEnabled && user && basculaNavItem.roles.includes(user.rol)
+    ? [...withLogistica, basculaNavItem]
+    : withLogistica;
+
+  const abrirBasculaPopup = () => {
+    window.open('/bascula-kiosko', 'bascula_kiosko', 'width=1000,height=800,resizable=yes');
+  };
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -152,23 +177,34 @@ export default function MainLayout() {
 
         <nav className="flex-1 py-2 overflow-y-auto">
           {filtered.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 lg:px-4 py-3 mx-2 rounded-xl transition-colors relative ${
-                  isActive ? 'bg-iados-primary text-white' : 'text-slate-400 hover:text-white hover:bg-iados-card'
-                }`
-              }
-            >
-              <item.icon size={22} />
-              <span className="hidden lg:block text-sm font-medium">{item.label}</span>
-              {'badge' in item && item.badge && pedidosPendientes > 0 && (
-                <span className="absolute top-1 left-8 lg:right-2 lg:left-auto bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
-                  {pedidosPendientes > 9 ? '9+' : pedidosPendientes}
-                </span>
-              )}
-            </NavLink>
+            'popup' in item && item.popup ? (
+              <button
+                key={item.to}
+                onClick={abrirBasculaPopup}
+                className="w-full flex items-center gap-3 px-3 lg:px-4 py-3 mx-2 rounded-xl transition-colors text-slate-400 hover:text-white hover:bg-iados-card"
+              >
+                <item.icon size={22} />
+                <span className="hidden lg:block text-sm font-medium">{item.label}</span>
+              </button>
+            ) : (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 lg:px-4 py-3 mx-2 rounded-xl transition-colors relative ${
+                    isActive ? 'bg-iados-primary text-white' : 'text-slate-400 hover:text-white hover:bg-iados-card'
+                  }`
+                }
+              >
+                <item.icon size={22} />
+                <span className="hidden lg:block text-sm font-medium">{item.label}</span>
+                {'badge' in item && item.badge && pedidosPendientes > 0 && (
+                  <span className="absolute top-1 left-8 lg:right-2 lg:left-auto bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
+                    {pedidosPendientes > 9 ? '9+' : pedidosPendientes}
+                  </span>
+                )}
+              </NavLink>
+            )
           ))}
         </nav>
 
@@ -224,24 +260,35 @@ export default function MainLayout() {
             </div>
             <nav className="flex-1 py-2">
               {filtered.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  onClick={() => setSidebarOpen(false)}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-4 py-3 mx-2 rounded-xl transition-colors relative ${
-                      isActive ? 'bg-iados-primary text-white' : 'text-slate-400 hover:text-white hover:bg-iados-card'
-                    }`
-                  }
-                >
-                  <item.icon size={22} />
-                  <span className="text-sm font-medium">{item.label}</span>
-                  {'badge' in item && item.badge && pedidosPendientes > 0 && (
-                    <span className="ml-auto bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
-                      {pedidosPendientes > 9 ? '9+' : pedidosPendientes}
-                    </span>
-                  )}
-                </NavLink>
+                'popup' in item && item.popup ? (
+                  <button
+                    key={item.to}
+                    onClick={() => { setSidebarOpen(false); abrirBasculaPopup(); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 mx-2 rounded-xl transition-colors text-slate-400 hover:text-white hover:bg-iados-card"
+                  >
+                    <item.icon size={22} />
+                    <span className="text-sm font-medium">{item.label}</span>
+                  </button>
+                ) : (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => setSidebarOpen(false)}
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 px-4 py-3 mx-2 rounded-xl transition-colors relative ${
+                        isActive ? 'bg-iados-primary text-white' : 'text-slate-400 hover:text-white hover:bg-iados-card'
+                      }`
+                    }
+                  >
+                    <item.icon size={22} />
+                    <span className="text-sm font-medium">{item.label}</span>
+                    {'badge' in item && item.badge && pedidosPendientes > 0 && (
+                      <span className="ml-auto bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
+                        {pedidosPendientes > 9 ? '9+' : pedidosPendientes}
+                      </span>
+                    )}
+                  </NavLink>
+                )
               ))}
             </nav>
             <div className="p-4 border-t border-slate-700">

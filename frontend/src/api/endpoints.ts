@@ -359,6 +359,16 @@ export const logisticaApi = {
     api.patch(`/public/logistica/${token}/entrega/${entrega_id}`, { estado, notas }),
 };
 
+// Bascula de autoservicio (frutas y verduras)
+export const basculaApi = {
+  getConfig: (tiendaId: number) => api.get(`/bascula/config/${tiendaId}`),
+  updateConfig: (tiendaId: number, data: any) => api.put(`/bascula/config/${tiendaId}`, data),
+  regenerateToken: (tiendaId: number) => api.post(`/bascula/config/${tiendaId}/regenerate-token`),
+  getProductos: (tiendaId: number) => api.get(`/bascula/productos/${tiendaId}`),
+  registrarPesaje: (data: { tienda_id: number; producto_id: number; peso_kg: number }) =>
+    api.post('/bascula/pesaje', data),
+};
+
 // Perfiles de Negocio
 export const perfilesApi = {
   getActivo:      ()                     => api.get('/perfiles/activo'),

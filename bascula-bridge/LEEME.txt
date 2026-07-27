@@ -1,0 +1,63 @@
+POS-iaDoS — Bridge Bascula (autoservicio de frutas y verduras)
+=====================================================================
+
+Este programa debe quedar corriendo en la PC Windows conectada a la
+bascula y a la impresora de etiquetas de la estacion de autoservicio.
+Lee el peso en vivo y manda imprimir la etiqueta con codigo de barras
+cuando el cliente confirma en la pantalla del kiosko.
+
+REQUISITOS
+----------
+1. Windows con la bascula conectada por USB/RS-232 (aparece como
+   puerto COM en el Administrador de dispositivos).
+2. Impresora de etiquetas compatible ZPL (Zebra/GoDEX/TSC) en la
+   MISMA RED, con IP fija conocida (puerto 9100 por defecto).
+3. Node.js instalado (https://nodejs.org, version LTS).
+
+INSTALACION
+-----------
+1. Descomprimir esta carpeta en el disco de la PC (ej. C:\bascula-bridge).
+2. Copiar el archivo ".env.example" y renombrar la copia a ".env".
+3. Abrir el archivo ".env" con el Bloc de notas y completar:
+     BACKEND_URL=https://posapi.iados.online
+     TIENDA_TOKEN=<pegar aqui el token>
+     SCALE_PORT=COM3   (revisar en Administrador de dispositivos)
+     SCALE_BAUD=9600   (revisar manual de la bascula)
+   El token se copia desde el POS: Configuracion -> Bascula de
+   autoservicio -> "Token del bridge".
+4. En el POS, en la misma pantalla de Configuracion, capturar la IP
+   de la impresora de etiquetas (y el puerto, 9100 por defecto).
+5. Doble click en "start.bat". La primera vez instalara las
+   dependencias (puede tardar 1-2 minutos) y luego dejara el programa
+   corriendo — debe aparecer un icono en la bandeja de Windows
+   (junto al reloj) llamado "POS-iaDoS Bridge Bascula".
+
+USO
+---
+- Dejar start.bat corriendo siempre que la estacion de autoservicio
+  este disponible (se puede minimizar, no cerrar la ventana).
+- El cliente abre la pantalla de bascula desde el menu del POS
+  (se abre en una ventana aparte), selecciona el producto, pone la
+  fruta/verdura en la bascula, y confirma para imprimir la etiqueta.
+
+AJUSTE DEL PROTOCOLO DE LA BASCULA
+-----------------------------------
+El bridge trae un lector generico que busca un numero decimal
+(ej. "001.250") en los datos que manda la bascula por el puerto
+serial. La mayoria de basculas de mostrador funcionan asi, pero si
+el peso no se lee correctamente, revisar el manual del modelo
+comprado para confirmar el formato exacto de la trama y ajustar la
+expresion regular PESO_REGEX en main.js.
+
+PROBLEMAS COMUNES
+------------------
+- Icono no aparece en la bandeja: revisar el archivo bridge.log que
+  se genera en esta misma carpeta despues de correr start.bat.
+- "Bridge desconectado": revisar que BACKEND_URL sea correcto y que
+  la PC tenga internet.
+- "Sin bascula (COMx)": confirmar el puerto COM correcto en
+  Administrador de dispositivos y que ningun otro programa lo tenga
+  abierto.
+- La etiqueta no imprime: confirmar que la impresora esta en la
+  misma red, que la IP configurada es correcta, y que el puerto 9100
+  (o el que corresponda) no esta bloqueado por firewall.

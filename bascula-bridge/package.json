@@ -1,0 +1,38 @@
+{
+  "name": "pos-iados-bascula-bridge",
+  "version": "1.0.0",
+  "description": "Bridge de bascula + impresora de etiquetas para POS-iaDoS",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win --x64"
+  },
+  "build": {
+    "appId": "mx.iados.bascula-bridge",
+    "productName": "POS-iaDoS Bridge Bascula",
+    "win": {
+      "target": ["nsis", "zip"],
+      "requestedExecutionLevel": "asInvoker",
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "runAfterFinish": true,
+      "installerLanguages": ["en_US"],
+      "shortcutName": "POS-iaDoS Bridge Bascula"
+    },
+    "files": [
+      "main.js",
+      "package.json",
+      "icon.ico"
+    ]
+  },
+  "dependencies": {
+    "serialport": "^12.0.0",
+    "socket.io-client": "^4.8.3"
+  },
+  "devDependencies": {
+    "electron": "^29.0.0",
+    "electron-builder": "^24.13.3"
+  }
+}
