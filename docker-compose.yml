@@ -60,7 +60,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260727-bascula-pos-integrada-config-tabs-ui"
+        CACHE_BUST: "20260727-mantenimiento-licencias-tabs-config"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

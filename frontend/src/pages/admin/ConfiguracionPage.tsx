@@ -6,7 +6,7 @@ import { useAuthStore } from '../../store/auth.store';
 import TicketsConfig from './TicketsConfig';
 import { useThemeStore, ThemeName, PaletteName } from '../../store/theme.store';
 import toast from 'react-hot-toast';
-import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers, TrendingUp, DollarSign, Truck, X, Scale, HardDrive, Shield } from 'lucide-react';
+import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers, TrendingUp, DollarSign, Truck, X, Scale } from 'lucide-react';
 import MantenimientoPage from './MantenimientoPage';
 import LicenciasAdmin from './LicenciasAdmin';
 import PerfilNegocioPage from './PerfilNegocioPage';
@@ -54,7 +54,7 @@ export default function ConfiguracionPage() {
   const [editingNew, setEditingNew] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<any>(null);
   const [expandedSection, setExpandedSection] = useState<string>('pos');
-  const [configTab, setConfigTab] = useState<'tienda' | 'tickets' | 'modulos' | 'especial' | 'ecommerce'>('tienda');
+  const [configTab, setConfigTab] = useState<'tienda' | 'tickets' | 'modulos' | 'especial' | 'ecommerce' | 'mantenimiento' | 'licencias'>('tienda');
   const [empresaLogo, setEmpresaLogo] = useState<string>('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [cfgEspecial, setCfgEspecial] = useState<{
@@ -806,6 +806,8 @@ export default function ConfiguracionPage() {
           { id: 'tickets',   label: 'Tickets' },
           ...(['superadmin', 'admin'].includes(user?.rol || '') ? [{ id: 'modulos', label: 'Modulos' }] : []),
           ...(['superadmin', 'admin'].includes(user?.rol || '') ? [{ id: 'ecommerce', label: '🛒 Tienda en Línea' }] : []),
+          ...(['superadmin', 'admin'].includes(user?.rol || '') ? [{ id: 'mantenimiento', label: 'Mantenimiento' }] : []),
+          ...(user?.rol === 'superadmin' ? [{ id: 'licencias', label: 'Licencias' }] : []),
           ...(user?.rol === 'superadmin' ? [{ id: 'especial', label: '⚙️ Conf. Especial' }] : []),
         ].map(({ id, label }) => (
           <button
@@ -822,6 +824,8 @@ export default function ConfiguracionPage() {
 
       {configTab === 'tickets' && <TicketsConfig />}
       {configTab === 'ecommerce' && <TiendaEnLineaPage />}
+      {configTab === 'mantenimiento' && <MantenimientoPage />}
+      {configTab === 'licencias' && user?.rol === 'superadmin' && <LicenciasAdmin />}
 
       {configTab === 'modulos' && (
         <div className="space-y-6">
@@ -1651,26 +1655,6 @@ export default function ConfiguracionPage() {
                 </div>
               )}
             </div>
-          )}
-
-          {/* Seccion: Mantenimiento (antes era su propio item de menu) */}
-          <SectionHeader id="mantenimiento" icon={HardDrive} title="Mantenimiento" />
-          {expandedSection === 'mantenimiento' && (
-            <div className="card p-0 overflow-hidden">
-              <MantenimientoPage />
-            </div>
-          )}
-
-          {/* Seccion: Licencias (antes era su propio item de menu, solo superadmin) */}
-          {user?.rol === 'superadmin' && (
-            <>
-              <SectionHeader id="licencias" icon={Shield} title="Licencias" />
-              {expandedSection === 'licencias' && (
-                <div className="card p-0 overflow-hidden">
-                  <LicenciasAdmin />
-                </div>
-              )}
-            </>
           )}
 
           {/* Seccion: Menu Digital QR */}
