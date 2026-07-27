@@ -54,7 +54,6 @@ export class BasculaGateway implements OnGatewayDisconnect {
 
   // ── Backend pide al bridge que imprima la etiqueta (llamado desde BasculaService) ──
   emitPrintLabel(tiendaId: number, payload: {
-    pagado: boolean; folio?: string;
     producto_nombre: string; peso_kg: number; precio_total: number; barcode: string;
     label_width_mm: number; label_height_mm: number;
     printer_ip: string | null; printer_port: number;

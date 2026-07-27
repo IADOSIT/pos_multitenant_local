@@ -367,10 +367,6 @@ export const basculaApi = {
   getProductos: (tiendaId: number) => api.get(`/bascula/productos/${tiendaId}`),
   registrarPesaje: (data: { tienda_id: number; producto_id: number; peso_kg: number }) =>
     api.post('/bascula/pesaje', data),
-  cobrarPesaje: (data: {
-    tienda_id: number; producto_id: number; peso_kg: number; caja_id: number;
-    metodo_pago: string; pago_efectivo?: number; pago_tarjeta?: number; cambio?: number;
-  }) => api.post('/bascula/cobrar', data),
 };
 
 // Perfiles de Negocio

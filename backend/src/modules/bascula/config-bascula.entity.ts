@@ -8,11 +8,14 @@ export class ConfigBascula {
   @Column() empresa_id: number;
   @Column() tenant_id: number;
 
+  // Habilita el kiosko de autoservicio (ventana aparte): pesa e imprime etiqueta con
+  // precio, el cliente paga despues en cualquier caja que escanee la etiqueta.
   @Column({ default: false }) activo: boolean;
 
-  // 'auto_despacho' = pesa e imprime etiqueta de precio, el cliente paga despues en caja.
-  // 'autocobro' = pesa y paga ahi mismo (registra una venta), imprime recibo pagado.
-  @Column({ type: 'varchar', length: 20, default: 'auto_despacho' }) modo: string;
+  // Habilita la integracion de la bascula dentro del POS normal: al agregar un producto
+  // con unidad "kg" en una venta mixta, el cajero pesa ahi mismo y el cobro sigue el
+  // flujo normal de POS (PayModal) junto con el resto del carrito.
+  @Column({ default: false }) usar_en_pos: boolean;
 
   // Token secreto — el bridge local (bascula-bridge) lo usa para autenticarse por Socket.io
   @Column({ length: 100 }) tienda_token: string;

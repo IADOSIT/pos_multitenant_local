@@ -38,16 +38,4 @@ export class BasculaController {
   registrarPesaje(@Body() dto: { tienda_id: number; producto_id: number; peso_kg: number }, @Request() req: any) {
     return this.service.registrarPesaje(dto, req.user);
   }
-
-  @Post('cobrar')
-  @Roles('superadmin', 'admin', 'manager', 'cajero', 'mesero')
-  cobrarPesaje(
-    @Body() dto: {
-      tienda_id: number; producto_id: number; peso_kg: number; caja_id: number;
-      metodo_pago: string; pago_efectivo?: number; pago_tarjeta?: number; cambio?: number;
-    },
-    @Request() req: any,
-  ) {
-    return this.service.cobrarPesaje(dto, req.user);
-  }
 }

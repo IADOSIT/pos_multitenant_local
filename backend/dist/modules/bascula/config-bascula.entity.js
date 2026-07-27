@@ -35,9 +35,9 @@ __decorate([
     __metadata("design:type", Boolean)
 ], ConfigBascula.prototype, "activo", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'varchar', length: 20, default: 'auto_despacho' }),
-    __metadata("design:type", String)
-], ConfigBascula.prototype, "modo", void 0);
+    (0, typeorm_1.Column)({ default: false }),
+    __metadata("design:type", Boolean)
+], ConfigBascula.prototype, "usar_en_pos", void 0);
 __decorate([
     (0, typeorm_1.Column)({ length: 100 }),
     __metadata("design:type", String)

@@ -21,14 +21,12 @@ const config_bascula_entity_1 = require("./config-bascula.entity");
 const pesaje_log_entity_1 = require("./pesaje-log.entity");
 const ean13_util_1 = require("../../common/utils/ean13.util");
 const bascula_gateway_1 = require("./bascula.gateway");
-const ventas_service_1 = require("../ventas/ventas.service");
 let BasculaService = class BasculaService {
-    constructor(configRepo, logRepo, dataSource, gateway, ventasService) {
+    constructor(configRepo, logRepo, dataSource, gateway) {
         this.configRepo = configRepo;
         this.logRepo = logRepo;
         this.dataSource = dataSource;
         this.gateway = gateway;
-        this.ventasService = ventasService;
         this.logger = new common_1.Logger('BasculaService');
     }
     async getOrCreateConfig(tiendaId, scope) {
@@ -44,6 +42,7 @@ let BasculaService = class BasculaService {
                 tenant_id: tenantId,
                 empresa_id: empresaId,
                 activo: false,
+                usar_en_pos: false,
                 tienda_token: (0, crypto_1.randomBytes)(24).toString('hex'),
             });
             config = await this.configRepo.save(config);
@@ -53,7 +52,7 @@ let BasculaService = class BasculaService {
     async updateConfig(tiendaId, dto, scope) {
         const config = await this.getOrCreateConfig(tiendaId, scope);
         const allowed = [
-            'activo', 'modo', 'printer_ip', 'printer_port', 'label_width_mm', 'label_height_mm',
+            'activo', 'usar_en_pos', 'printer_ip', 'printer_port', 'label_width_mm', 'label_height_mm',
             'scale_port', 'scale_baud_rate', 'scale_protocol',
         ];
         for (const key of allowed) {
@@ -89,8 +88,6 @@ let BasculaService = class BasculaService {
         const config = await this.getOrCreateConfig(dto.tienda_id, scope);
         if (!config.activo)
             throw new common_1.BadRequestException('La bascula de autoservicio no esta activa en esta tienda');
-        if (config.modo !== 'auto_despacho')
-            throw new common_1.BadRequestException('Esta tienda esta configurada en modo autocobro');
         const producto = await this.getProductoOrThrow(dto.producto_id);
         const precioTotal = Math.round(dto.peso_kg * Number(producto.precio) * 100) / 100;
         const precioCentavos = Math.round(precioTotal * 100);
@@ -106,7 +103,6 @@ let BasculaService = class BasculaService {
             barcode,
         }));
         this.gateway.emitPrintLabel(dto.tienda_id, {
-            pagado: false,
             producto_nombre: producto.nombre,
             peso_kg: dto.peso_kg,
             precio_total: precioTotal,
@@ -119,63 +115,6 @@ let BasculaService = class BasculaService {
         this.logger.log(`Pesaje registrado: ${producto.nombre} ${dto.peso_kg}kg = $${precioTotal} (${barcode})`);
         return { producto_nombre: producto.nombre, peso_kg: dto.peso_kg, precio_total: precioTotal, barcode, log_id: log.id };
     }
-    async cobrarPesaje(dto, scope) {
-        if (!dto.peso_kg || dto.peso_kg <= 0)
-            throw new common_1.BadRequestException('Peso invalido');
-        if (!dto.caja_id)
-            throw new common_1.BadRequestException('No hay caja activa');
-        const config = await this.getOrCreateConfig(dto.tienda_id, scope);
-        if (!config.activo)
-            throw new common_1.BadRequestException('La bascula de autoservicio no esta activa en esta tienda');
-        if (config.modo !== 'autocobro')
-            throw new common_1.BadRequestException('Esta tienda esta configurada en modo auto-despacho');
-        const producto = await this.getProductoOrThrow(dto.producto_id);
-        const precioTotal = Math.round(dto.peso_kg * Number(producto.precio) * 100) / 100;
-        const venta = await this.ventasService.crear({
-            caja_id: dto.caja_id,
-            items: [{
-                    producto_id: producto.id,
-                    nombre: producto.nombre,
-                    sku: producto.sku,
-                    precio: precioTotal,
-                    cantidad: 1,
-                }],
-            subtotal: precioTotal,
-            descuento: 0,
-            impuestos: 0,
-            total: precioTotal,
-            metodo_pago: dto.metodo_pago,
-            pago_efectivo: dto.pago_efectivo,
-            pago_tarjeta: dto.pago_tarjeta,
-            cambio: dto.cambio || 0,
-            notas: `Autocobro bascula — ${dto.peso_kg}kg`,
-        }, scope);
-        const log = await this.logRepo.save(this.logRepo.create({
-            tenant_id: config.tenant_id,
-            empresa_id: config.empresa_id,
-            tienda_id: dto.tienda_id,
-            producto_id: producto.id,
-            producto_nombre: producto.nombre,
-            peso_kg: dto.peso_kg,
-            precio_total: precioTotal,
-            barcode: (0, ean13_util_1.generarBarcodeEan13)(producto.id, Math.round(precioTotal * 100)),
-            venta_id: venta.id,
-        }));
-        this.gateway.emitPrintLabel(dto.tienda_id, {
-            pagado: true,
-            folio: venta.folio,
-            producto_nombre: producto.nombre,
-            peso_kg: dto.peso_kg,
-            precio_total: precioTotal,
-            barcode: log.barcode,
-            label_width_mm: config.label_width_mm,
-            label_height_mm: config.label_height_mm,
-            printer_ip: config.printer_ip,
-            printer_port: config.printer_port,
-        });
-        this.logger.log(`Autocobro: ${producto.nombre} ${dto.peso_kg}kg = $${precioTotal} — venta ${venta.folio}`);
-        return { producto_nombre: producto.nombre, peso_kg: dto.peso_kg, precio_total: precioTotal, folio: venta.folio, venta_id: venta.id };
-    }
 };
 exports.BasculaService = BasculaService;
 exports.BasculaService = BasculaService = __decorate([
@@ -186,7 +125,6 @@ exports.BasculaService = BasculaService = __decorate([
     __metadata("design:paramtypes", [typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.DataSource,
-        bascula_gateway_1.BasculaGateway,
-        ventas_service_1.VentasService])
+        bascula_gateway_1.BasculaGateway])
 ], BasculaService);
 //# sourceMappingURL=bascula.service.js.map

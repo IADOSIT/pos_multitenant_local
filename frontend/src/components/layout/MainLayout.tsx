@@ -8,7 +8,7 @@ import apiClient from '../../api/client';
 import toast from 'react-hot-toast';
 import {
   ShoppingCart, LayoutDashboard, CreditCard, Package,
-  Users, Building2, Settings, LogOut, Menu, X, ClipboardList, FileBarChart, Shield, Warehouse, Database, HardDrive, Lock, BookOpen, Grid3X3, Truck, Scale
+  Users, Building2, Settings, LogOut, Menu, X, ClipboardList, FileBarChart, Warehouse, Database, Lock, BookOpen, Grid3X3, Truck, Scale
 } from 'lucide-react';
 import { logisticaApi, basculaApi } from '../../api/endpoints';
 import StockAlertBanner from '../ui/StockAlertBanner';
@@ -34,8 +34,6 @@ const navItems = [
   { to: '/admin/mesas',         icon: Grid3X3,         label: 'Mesas',      roles: ['superadmin', 'admin'] },
   { to: '/admin/usuarios',      icon: Users,           label: 'Usuarios',   roles: ['superadmin', 'admin'] },
   { to: '/admin/configuracion', icon: Settings,        label: 'Config',     roles: ['superadmin', 'admin'] },
-  { to: '/admin/mantenimiento', icon: HardDrive,       label: 'Mant.',      roles: ['superadmin', 'admin'] },
-  { to: '/admin/licencias',     icon: Shield,          label: 'Licencias',  roles: ['superadmin'] },
   { to: '/admin/tenants',       icon: Building2,       label: 'Tenants',    roles: ['superadmin'] },
 ];
 

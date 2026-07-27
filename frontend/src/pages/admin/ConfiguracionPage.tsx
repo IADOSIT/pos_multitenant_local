@@ -6,7 +6,9 @@ import { useAuthStore } from '../../store/auth.store';
 import TicketsConfig from './TicketsConfig';
 import { useThemeStore, ThemeName, PaletteName } from '../../store/theme.store';
 import toast from 'react-hot-toast';
-import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers, TrendingUp, DollarSign, Truck, X, Scale } from 'lucide-react';
+import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers, TrendingUp, DollarSign, Truck, X, Scale, HardDrive, Shield } from 'lucide-react';
+import MantenimientoPage from './MantenimientoPage';
+import LicenciasAdmin from './LicenciasAdmin';
 import PerfilNegocioPage from './PerfilNegocioPage';
 import InventarioDualPage from '../inventario/InventarioDualPage';
 import TiendaEnLineaPage from './TiendaEnLineaPage';
@@ -591,7 +593,7 @@ export default function ConfiguracionPage() {
       setBsConfig(cfgRes.data);
       setBsForm({
         activo: cfgRes.data?.activo ?? false,
-        modo: cfgRes.data?.modo ?? 'auto_despacho',
+        usar_en_pos: cfgRes.data?.usar_en_pos ?? false,
         printer_ip: cfgRes.data?.printer_ip ?? '',
         printer_port: cfgRes.data?.printer_port ?? 9100,
         label_width_mm: cfgRes.data?.label_width_mm ?? 40,
@@ -1651,6 +1653,26 @@ export default function ConfiguracionPage() {
             </div>
           )}
 
+          {/* Seccion: Mantenimiento (antes era su propio item de menu) */}
+          <SectionHeader id="mantenimiento" icon={HardDrive} title="Mantenimiento" />
+          {expandedSection === 'mantenimiento' && (
+            <div className="card p-0 overflow-hidden">
+              <MantenimientoPage />
+            </div>
+          )}
+
+          {/* Seccion: Licencias (antes era su propio item de menu, solo superadmin) */}
+          {user?.rol === 'superadmin' && (
+            <>
+              <SectionHeader id="licencias" icon={Shield} title="Licencias" />
+              {expandedSection === 'licencias' && (
+                <div className="card p-0 overflow-hidden">
+                  <LicenciasAdmin />
+                </div>
+              )}
+            </>
+          )}
+
           {/* Seccion: Menu Digital QR */}
           {selected && (
             <>
@@ -2062,38 +2084,31 @@ export default function ConfiguracionPage() {
                     de etiquetas en red — ver <code className="bg-slate-700 px-1 rounded text-blue-300">bascula-bridge/LEEME.txt</code>.
                   </p>
 
+                  {/* Dos formas de usar la bascula, independientes entre si */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="font-bold text-sm mb-0.5">Activar para esta tienda</h4>
-                      <p className="text-xs text-slate-500">Muestra el icono "Bascula" en el menu (se abre en ventana aparte)</p>
+                      <h4 className="font-bold text-sm mb-0.5">Kiosko de autoservicio</h4>
+                      <p className="text-xs text-slate-500">Icono "Bascula" en el menu (ventana aparte) — el cliente pesa, se imprime etiqueta con precio y paga despues en caja.</p>
                     </div>
                     <button
                       onClick={() => setBsForm((f: any) => ({ ...f, activo: !f.activo }))}
-                      className={`relative w-14 h-7 rounded-full transition-colors ${bsForm.activo ? 'bg-green-600' : 'bg-slate-600'}`}
+                      className={`relative w-14 h-7 rounded-full transition-colors shrink-0 ml-3 ${bsForm.activo ? 'bg-green-600' : 'bg-slate-600'}`}
                     >
                       <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${bsForm.activo ? 'translate-x-7' : 'translate-x-0.5'}`} />
                     </button>
                   </div>
 
-                  {/* Modo: auto-despacho vs autocobro */}
-                  <div>
-                    <label className="text-xs text-slate-400 mb-2 block">Modo de operacion</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => setBsForm((f: any) => ({ ...f, modo: 'auto_despacho' }))}
-                        className={`text-left p-3 rounded-xl border transition-all ${bsForm.modo === 'auto_despacho' ? 'border-iados-primary bg-iados-primary/10' : 'border-slate-700 bg-iados-card'}`}
-                      >
-                        <p className="text-sm font-bold mb-0.5">Auto-despacho</p>
-                        <p className="text-xs text-slate-400">Pesa e imprime etiqueta con el precio. El cliente paga despues en caja.</p>
-                      </button>
-                      <button
-                        onClick={() => setBsForm((f: any) => ({ ...f, modo: 'autocobro' }))}
-                        className={`text-left p-3 rounded-xl border transition-all ${bsForm.modo === 'autocobro' ? 'border-iados-primary bg-iados-primary/10' : 'border-slate-700 bg-iados-card'}`}
-                      >
-                        <p className="text-sm font-bold mb-0.5">Autocobro</p>
-                        <p className="text-xs text-slate-400">Pesa y cobra ahi mismo (efectivo/tarjeta). Imprime recibo, no hace falta pasar por caja.</p>
-                      </button>
+                  <div className="flex items-center justify-between border-t border-iados-card pt-4">
+                    <div>
+                      <h4 className="font-bold text-sm mb-0.5">Usar bascula en el POS</h4>
+                      <p className="text-xs text-slate-500">Al agregar un producto por kg en una venta normal, el cajero pesa ahi mismo y se cobra junto con el resto del carrito.</p>
                     </div>
+                    <button
+                      onClick={() => setBsForm((f: any) => ({ ...f, usar_en_pos: !f.usar_en_pos }))}
+                      className={`relative w-14 h-7 rounded-full transition-colors shrink-0 ml-3 ${bsForm.usar_en_pos ? 'bg-green-600' : 'bg-slate-600'}`}
+                    >
+                      <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${bsForm.usar_en_pos ? 'translate-x-7' : 'translate-x-0.5'}`} />
+                    </button>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">

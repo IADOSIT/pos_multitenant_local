@@ -19,20 +19,4 @@ export declare class BasculaController {
         barcode: string;
         log_id: number;
     }>;
-    cobrarPesaje(dto: {
-        tienda_id: number;
-        producto_id: number;
-        peso_kg: number;
-        caja_id: number;
-        metodo_pago: string;
-        pago_efectivo?: number;
-        pago_tarjeta?: number;
-        cambio?: number;
-    }, req: any): Promise<{
-        producto_nombre: any;
-        peso_kg: number;
-        precio_total: number;
-        folio: string;
-        venta_id: number;
-    }>;
 }

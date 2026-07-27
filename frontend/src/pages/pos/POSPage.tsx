@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePOSStore } from '../../store/pos.store';
 import { useAuthStore } from '../../store/auth.store';
 import { offlineActions } from '../../store/offline.store';
-import { productosApi, categoriasApi, cajaApi, tiendasApi, pedidosApi, ticketsApi, selfOrderApi, empresasApi } from '../../api/endpoints';
+import { productosApi, categoriasApi, cajaApi, tiendasApi, pedidosApi, ticketsApi, selfOrderApi, empresasApi, basculaApi } from '../../api/endpoints';
+import { io, Socket } from 'socket.io-client';
 import { resolveUploadUrl } from '../../api/client';
 import { printComanda, printTicket } from '../../utils/printTicket';
 import { decodeEan13PesoVariable } from '../../utils/ean13';
@@ -103,9 +104,30 @@ export default function POSPage() {
   const [devolucionesRol, setDevolucionesRol] = useState('admin');
   const [mostrarPrecios, setMostrarPrecios] = useState(true);
   const [precioManual, setPrecioManual] = useState(false);
+  const [basculaEnPos, setBasculaEnPos] = useState(false);
+  const [basculaConectada, setBasculaConectada] = useState(false);
+  const [pesoModal, setPesoModal] = useState<{ producto: Producto } | null>(null);
+  const [pesoEnVivo, setPesoEnVivo] = useState(0);
+  const [pesoManualInput, setPesoManualInput] = useState('');
+  const basculaSockRef = useRef<Socket | null>(null);
 
   const { user } = useAuthStore();
   const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, setMesaActiva, tipoServicio, clearCart, notaPedido, clienteNombre, clienteTelefono, clienteDireccion, updateItemPrice, updateItemNotes } = usePOSStore();
+
+  // Conexion al socket de bascula (peso en vivo) — solo si esta habilitada para el POS.
+  useEffect(() => {
+    if (!basculaEnPos || !user?.tienda_id) return;
+    const base = import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://posapi.iados.online';
+    const sock = io(`${base}/bascula`, { transports: ['websocket'] });
+    basculaSockRef.current = sock;
+    sock.on('connect', () => {
+      setBasculaConectada(true);
+      sock.emit('kiosk-join', { tienda_id: user.tienda_id });
+    });
+    sock.on('disconnect', () => setBasculaConectada(false));
+    sock.on('weight-update', (data: { peso_kg: number }) => setPesoEnVivo(data.peso_kg || 0));
+    return () => { sock.disconnect(); };
+  }, [basculaEnPos, user?.tienda_id]);
 
   // Etiqueta de bascula de autoservicio: codigo EAN-13 de peso variable (prefijo "2").
   // El lector de barras "teclea" el codigo completo casi instantaneo — se detecta apenas
@@ -222,6 +244,12 @@ export default function POSPage() {
       }
     } catch {}
 
+    // Bascula: si esta habilitada para usarse en el POS, conectamos el socket de peso
+    try {
+      const { data } = await basculaApi.getConfig(user.tienda_id);
+      setBasculaEnPos(data?.usar_en_pos || false);
+    } catch { setBasculaEnPos(false); }
+
     // Cargar config_especial de empresa
     if (user?.empresa_id) {
       try {
@@ -271,6 +299,12 @@ export default function POSPage() {
   });
 
   const handleProductClick = (producto: Producto) => {
+    if (basculaEnPos && (producto as any).unidad === 'kg') {
+      setPesoEnVivo(0);
+      setPesoManualInput('');
+      setPesoModal({ producto });
+      return;
+    }
     addToCart(producto);
     toast.success(`${producto.nombre} agregado`, { duration: 800 });
   };
@@ -284,6 +318,28 @@ export default function POSPage() {
     addToCart(qtyModal.producto, qtyModal.qty);
     toast.success(`${qtyModal.producto.nombre} x${qtyModal.qty}`, { duration: 800 });
     setQtyModal(null);
+  };
+
+  // Confirma el pesaje inline en el POS: agrega el producto al carrito con el precio
+  // calculado (peso x precio/kg) — el cobro sigue el flujo normal de POS (PayModal),
+  // mezclado con el resto del carrito, junto a los demas productos de la venta.
+  const confirmarPesajePOS = () => {
+    if (!pesoModal) return;
+    const peso = pesoEnVivo > 0 ? pesoEnVivo : Number(pesoManualInput) || 0;
+    if (peso <= 0) return;
+    const producto = pesoModal.producto;
+    const precioCalculado = Math.round(peso * Number(producto.precio) * 100) / 100;
+    addToCart(producto, 1);
+    setTimeout(() => {
+      const cartActual = usePOSStore.getState().cart;
+      const item = [...cartActual].reverse().find((i) => i.producto_id === producto.id && !i.notas);
+      if (item) {
+        updateItemPrice(item.id, precioCalculado);
+        updateItemNotes(item.id, `Peso: ${peso.toFixed(3)}kg`);
+      }
+    }, 0);
+    toast.success(`${producto.nombre} — ${peso.toFixed(3)}kg = $${precioCalculado.toFixed(2)}`, { duration: 1200 });
+    setPesoModal(null);
   };
 
   const handleEnviarPedido = async () => {
@@ -768,6 +824,55 @@ export default function POSPage() {
               <button onClick={() => setQtyModal(null)} className="btn-secondary flex-1">Cancelar</button>
               <button onClick={handleQtyConfirm} className="btn-accent flex-1 text-lg">
                 Agregar {qtyModal.qty} × ${(Number(qtyModal.producto.precio) * qtyModal.qty).toFixed(2)}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de pesaje (producto por kg, bascula integrada al POS) */}
+      {pesoModal && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setPesoModal(null)}>
+          <div className="card w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-bold text-lg">{pesoModal.producto.nombre}</h3>
+              <button onClick={() => setPesoModal(null)} className="text-slate-400 hover:text-white"><X size={20} /></button>
+            </div>
+            <div className="flex items-center gap-1.5 mb-4">
+              <div className={`w-2 h-2 rounded-full ${basculaConectada ? 'bg-green-500' : 'bg-yellow-500 animate-pulse'}`} />
+              <span className="text-xs text-slate-500">{basculaConectada ? 'Báscula conectada' : 'Sin conexión — puedes capturar el peso manual'}</span>
+            </div>
+
+            <div className="bg-iados-card rounded-2xl px-6 py-6 flex flex-col items-center gap-1 mb-4">
+              <p className="text-xs text-slate-500 uppercase tracking-widest">Peso</p>
+              <p className="text-4xl font-black tabular-nums">{pesoEnVivo.toFixed(3)} <span className="text-lg text-slate-500">kg</span></p>
+            </div>
+
+            {!basculaConectada && (
+              <input
+                type="number"
+                inputMode="decimal"
+                value={pesoManualInput}
+                onChange={(e) => setPesoManualInput(e.target.value)}
+                placeholder="Peso manual (kg)"
+                className="input-touch text-center text-xl font-bold mb-4"
+              />
+            )}
+
+            <p className="text-center text-sm text-slate-400 mb-4">
+              Total: <span className="text-white font-bold text-lg">
+                ${(((pesoEnVivo > 0 ? pesoEnVivo : Number(pesoManualInput) || 0)) * Number(pesoModal.producto.precio)).toFixed(2)}
+              </span>
+            </p>
+
+            <div className="flex gap-3">
+              <button onClick={() => setPesoModal(null)} className="btn-secondary flex-1">Cancelar</button>
+              <button
+                onClick={confirmarPesajePOS}
+                disabled={pesoEnVivo <= 0 && !(Number(pesoManualInput) > 0)}
+                className="btn-accent flex-1 text-lg disabled:opacity-40"
+              >
+                Agregar al carrito
               </button>
             </div>
           </div>

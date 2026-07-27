@@ -182,25 +182,6 @@ function construirZpl(payload) {
   const precio = Number(payload.precio_total).toFixed(2);
   const nombre = String(payload.producto_nombre || '').substring(0, 30);
 
-  // Modo autocobro: ya se cobro, no hace falta un barcode de precio para escanear
-  // despues — se imprime como recibo/comprobante con el folio de la venta.
-  if (payload.pagado) {
-    return [
-      '^XA',
-      `^PW${widthDots}`,
-      `^LL${heightDots}`,
-      '^CF0,26',
-      `^FO10,8^FD${nombre}^FS`,
-      '^CF0,22',
-      `^FO10,38^FDPeso: ${Number(payload.peso_kg).toFixed(3)}kg^FS`,
-      '^CF0,32',
-      `^FO10,65^FD$${precio} PAGADO^FS`,
-      '^CF0,18',
-      `^FO10,100^FDFolio: ${payload.folio || ''}^FS`,
-      '^XZ',
-    ].join('\n');
-  }
-
   return [
     '^XA',
     `^PW${widthDots}`,

@@ -51,10 +51,6 @@ __decorate([
     __metadata("design:type", String)
 ], PesajeLog.prototype, "barcode", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'int', nullable: true }),
-    __metadata("design:type", Object)
-], PesajeLog.prototype, "venta_id", void 0);
-__decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)
 ], PesajeLog.prototype, "created_at", void 0);
