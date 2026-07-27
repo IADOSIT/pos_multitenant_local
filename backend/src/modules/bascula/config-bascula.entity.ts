@@ -10,6 +10,10 @@ export class ConfigBascula {
 
   @Column({ default: false }) activo: boolean;
 
+  // 'auto_despacho' = pesa e imprime etiqueta de precio, el cliente paga despues en caja.
+  // 'autocobro' = pesa y paga ahi mismo (registra una venta), imprime recibo pagado.
+  @Column({ type: 'varchar', length: 20, default: 'auto_despacho' }) modo: string;
+
   // Token secreto — el bridge local (bascula-bridge) lo usa para autenticarse por Socket.io
   @Column({ length: 100 }) tienda_token: string;
 

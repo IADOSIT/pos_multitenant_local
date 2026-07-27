@@ -591,6 +591,7 @@ export default function ConfiguracionPage() {
       setBsConfig(cfgRes.data);
       setBsForm({
         activo: cfgRes.data?.activo ?? false,
+        modo: cfgRes.data?.modo ?? 'auto_despacho',
         printer_ip: cfgRes.data?.printer_ip ?? '',
         printer_port: cfgRes.data?.printer_port ?? 9100,
         label_width_mm: cfgRes.data?.label_width_mm ?? 40,
@@ -2072,6 +2073,27 @@ export default function ConfiguracionPage() {
                     >
                       <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${bsForm.activo ? 'translate-x-7' : 'translate-x-0.5'}`} />
                     </button>
+                  </div>
+
+                  {/* Modo: auto-despacho vs autocobro */}
+                  <div>
+                    <label className="text-xs text-slate-400 mb-2 block">Modo de operacion</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setBsForm((f: any) => ({ ...f, modo: 'auto_despacho' }))}
+                        className={`text-left p-3 rounded-xl border transition-all ${bsForm.modo === 'auto_despacho' ? 'border-iados-primary bg-iados-primary/10' : 'border-slate-700 bg-iados-card'}`}
+                      >
+                        <p className="text-sm font-bold mb-0.5">Auto-despacho</p>
+                        <p className="text-xs text-slate-400">Pesa e imprime etiqueta con el precio. El cliente paga despues en caja.</p>
+                      </button>
+                      <button
+                        onClick={() => setBsForm((f: any) => ({ ...f, modo: 'autocobro' }))}
+                        className={`text-left p-3 rounded-xl border transition-all ${bsForm.modo === 'autocobro' ? 'border-iados-primary bg-iados-primary/10' : 'border-slate-700 bg-iados-card'}`}
+                      >
+                        <p className="text-sm font-bold mb-0.5">Autocobro</p>
+                        <p className="text-xs text-slate-400">Pesa y cobra ahi mismo (efectivo/tarjeta). Imprime recibo, no hace falta pasar por caja.</p>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">

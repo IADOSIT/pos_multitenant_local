@@ -37,6 +37,9 @@ let BasculaController = class BasculaController {
     registrarPesaje(dto, req) {
         return this.service.registrarPesaje(dto, req.user);
     }
+    cobrarPesaje(dto, req) {
+        return this.service.cobrarPesaje(dto, req.user);
+    }
 };
 exports.BasculaController = BasculaController;
 __decorate([
@@ -85,6 +88,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", void 0)
 ], BasculaController.prototype, "registrarPesaje", null);
+__decorate([
+    (0, common_1.Post)('cobrar'),
+    (0, roles_decorator_1.Roles)('superadmin', 'admin', 'manager', 'cajero', 'mesero'),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], BasculaController.prototype, "cobrarPesaje", null);
 exports.BasculaController = BasculaController = __decorate([
     (0, common_1.Controller)('bascula'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), roles_guard_1.RolesGuard),

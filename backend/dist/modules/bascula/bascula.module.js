@@ -14,12 +14,13 @@ const pesaje_log_entity_1 = require("./pesaje-log.entity");
 const bascula_service_1 = require("./bascula.service");
 const bascula_gateway_1 = require("./bascula.gateway");
 const bascula_controller_1 = require("./bascula.controller");
+const ventas_module_1 = require("../ventas/ventas.module");
 let BasculaModule = class BasculaModule {
 };
 exports.BasculaModule = BasculaModule;
 exports.BasculaModule = BasculaModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([config_bascula_entity_1.ConfigBascula, pesaje_log_entity_1.PesajeLog])],
+        imports: [typeorm_1.TypeOrmModule.forFeature([config_bascula_entity_1.ConfigBascula, pesaje_log_entity_1.PesajeLog]), ventas_module_1.VentasModule],
         controllers: [bascula_controller_1.BasculaController],
         providers: [bascula_service_1.BasculaService, bascula_gateway_1.BasculaGateway],
         exports: [bascula_service_1.BasculaService],

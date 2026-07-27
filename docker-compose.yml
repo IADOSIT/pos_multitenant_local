@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260727-modulo-bascula-autoservicio"
+        CACHE_BUST: "20260727-bascula-modo-autocobro"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
@@ -60,7 +60,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260727-modulo-bascula-kiosko-config"
+        CACHE_BUST: "20260727-bascula-modo-autocobro-ui"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

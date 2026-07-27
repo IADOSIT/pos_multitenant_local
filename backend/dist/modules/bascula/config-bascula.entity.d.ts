@@ -4,6 +4,7 @@ export declare class ConfigBascula {
     empresa_id: number;
     tenant_id: number;
     activo: boolean;
+    modo: string;
     tienda_token: string;
     printer_ip: string | null;
     printer_port: number;

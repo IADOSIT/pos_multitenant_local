@@ -8,5 +8,6 @@ export declare class PesajeLog {
     peso_kg: number;
     precio_total: number;
     barcode: string;
+    venta_id: number | null;
     created_at: Date;
 }

@@ -19,5 +19,8 @@ export class PesajeLog {
 
   @Column({ length: 13 }) barcode: string;
 
+  // Solo en modo autocobro: liga el pesaje a la venta que se registro al cobrarlo ahi mismo
+  @Column({ type: 'int', nullable: true }) venta_id: number | null;
+
   @CreateDateColumn() created_at: Date;
 }
