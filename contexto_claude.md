@@ -1,7 +1,7 @@
 # CONTEXTO_CLAUDE — POS-iaDoS (iaDoS)
 
-**Última actualización:** 2026-07-27 (Sesión 1 — WhatsApp Fase 2, fix Menu Digital QR, módulo Báscula de autoservicio completo, reordenamiento de Configuración)
-**HEAD actual:** `69882d2` (rama `main`, working tree limpio, ya pusheado a `origin/main`)
+**Última actualización:** 2026-08-02 (Sesión 2 — diagnóstico ecommerce/subdominios, sin cambios de código)
+**HEAD actual:** `0b95c0c` (rama `main`, working tree limpio, ya pusheado a `origin/main`)
 **Tag de checkpoint:** ninguno.
 **Este archivo es la fuente única de verdad de la sesión para Claude Code / Claude web.** Léelo completo antes de tocar cualquier parte del sistema. El archivo `CLAUDE.md` (mismo repo) complementa esto con la arquitectura estable de referencia — este archivo es más narrativo/histórico, `CLAUDE.md` es la ficha técnica.
 
@@ -76,6 +76,38 @@ Construido: módulo backend `bascula` (`ConfigBascula`, `PesajeLog`, `BasculaGat
 
 ---
 
+### Sesión 2 (2026-08-02) — Diagnóstico: "las opciones de ecommerce de las tiendas no funcionan"
+
+Sesión sin cambios de código — investigación pura, a petición del usuario ("ya lo habíamos revisado esto" — no se encontró registro de esa revisión previa ni en memoria ni en este archivo, así que se repitió desde cero).
+
+**Auditoría de código (todo verificado correcto, no es la causa):**
+- Panel admin `TiendaEnLineaPage.tsx` (tab "🛒 Tienda en Línea") — endpoints frontend↔backend (`ecommerceApi` en `endpoints.ts` vs `ecommerce.controller.ts`) coinciden exactamente, sin mismatch de rutas.
+- `ecommerce.service.ts` — lógica de `getPublicInfo`/`getPublicProductos`/`getConfigBySubdominio` correcta (exige `activo:true`, 404 si no).
+- `shop/next.config.mjs` tiene un `rewrites()` que reenvía `/api/*` al contenedor backend (`BACKEND_URL`, interno Docker) — esto cubre incluso el caso de que `NEXT_PUBLIC_API_URL` no quedara bien "horneado" en el build del cliente.
+- **Nota de diseño (no bug, pero puede confundir):** `EcommerceConfig` tiene `@Index(['empresa_id'], {unique:true})` — el ecommerce es **por EMPRESA, no por tienda física**. Una empresa con varias tiendas solo puede tener UNA tienda en línea/subdominio. Si el usuario esperaba una tienda en línea por cada tienda física, esto no es un bug sino una limitación de diseño — aclarado con el usuario, el síntoma real terminó siendo otro (ver abajo).
+
+**Síntoma real confirmado por el usuario:** la URL pública `https://{subdominio}.pos.iados.online` no carga — nada de código, es la conexión misma.
+
+**Diagnóstico de infraestructura (probado con `curl`/`openssl s_client` directo, no solo teoría):**
+```
+pos.iados.online                        → DNS OK (74.208.149.7) → TLS OK → HTTP 200
+{cualquier-subdominio}.pos.iados.online  → DNS OK (mismo wildcard, sí resuelve)
+                                         → TLS falla: SSL alert 112 "unrecognized_name"
+tienda.iados.online                     → NI SIQUIERA RESUELVE EN DNS (dominio fantasma,
+                                            solo aparece en docker-compose.yml FRONTEND_URL,
+                                            nunca se configuró de verdad — no es el dominio real)
+```
+`SSL alert 112 (unrecognized_name)` = el proxy que termina TLS en el VPS (`74.208.149.7`) **rechaza explícitamente** cualquier hostname para el que no tenga un Proxy Host/server block configurado — no es un problema de certificado vencido ni de DNS, es que el wildcard nunca se dio de alta en ese proxy.
+
+**Causa raíz aislada:** el usuario ya había agregado el wildcard DNS + certificado **en el panel de IONOS** — pero confirmó que el proxy reverso que real y efectivamente termina TLS para `pos.iados.online` es un **Nginx Proxy Manager (o similar) corriendo DENTRO del VPS, vía Portainer — un sistema separado de IONOS**. IONOS solo maneja el registro del dominio/DNS; el NPM del VPS es el que decide a qué contenedor Docker mandar cada hostname, y ahí es donde falta la entrada.
+
+**Pendiente de acción del usuario (no es código, no hay nada que Claude pueda pushear):**
+1. En el Nginx Proxy Manager del VPS (Portainer → buscar el contenedor del proxy, admin normalmente en puerto `:81`): **Proxy Hosts → Add Proxy Host**, domain `*.pos.iados.online`, forward al contenedor `pos-iados-shop` puerto **3000** (interno, no el 3010 publicado).
+2. En la pestaña SSL de esa entrada: o generar el certificado wildcard directamente ahí vía Let's Encrypt (reto DNS-01, requiere credenciales de API del proveedor DNS), o subir como certificado "Custom" el `.crt`/`.pem` + llave privada ya generados en IONOS (no basta con que "exista" en IONOS, hay que exportarlo e importarlo a NPM).
+3. Sin confirmar aún cuál de las dos rutas de SSL siguió el usuario — retomar ahí en la próxima sesión si sigue sin resolver.
+
+---
+
 ## 4. Pendiente / próximos pasos
 
 1. **Pull & Redeploy en Portainer** — todo el trabajo de esta sesión vive en `main`/`69882d2` pero aún no se sabe si ya se desplegó a producción (confirmar con el usuario).
@@ -86,3 +118,4 @@ Construido: módulo backend `bascula` (`ConfigBascula`, `PesajeLog`, `BasculaGat
    - Ver el listado de equipo recomendado (báscula Torrey con salida serial, adaptador USB-serial FTDI, impresora Zebra/GoDEX/TSC en red, mini-PC Windows, monitor táctil) dado al usuario en esta sesión si hace falta repetirlo.
 4. **Menú Digital**: el panel "Pedidos pendientes" nuevo solo tiene acciones Confirmar/Rechazar (no hay progresión "completado" — se decidió así para no ampliar el alcance del fix). Si el negocio necesita más estados, es una extensión futura.
 5. **`installer/version.json` (2.2.72) vs `APP_VERSION` en `docker-compose.yml` (2.4.1)**: investigado y descartado como bug — son dos productos de versionado independientes (instalador on-premise vs. instancia cloud), no deben coincidir.
+6. **Ecommerce/subdominios de tienda no cargan** (Sesión 2) — causa raíz confirmada: falta configurar el wildcard `*.pos.iados.online` en el Nginx Proxy Manager del VPS (no basta con IONOS). Ver detalle y pasos exactos en la Sesión 2 arriba. No es código, es infraestructura del VPS — pendiente de que el usuario lo configure y confirme.
