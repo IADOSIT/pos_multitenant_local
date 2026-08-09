@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { productosApi, categoriasApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
+import { removeBackgroundToWhite } from '../../utils/removeBackground';
 import toast from 'react-hot-toast';
-import { Plus, Upload, Download, Search, Edit2, Package, Trash2, Image, X, ImagePlus } from 'lucide-react';
+import { Plus, Upload, Download, Search, Edit2, Package, Trash2, Image, X, ImagePlus, Wand2 } from 'lucide-react';
 
 export default function ProductosAdmin() {
   const [productos, setProductos] = useState<any[]>([]);
@@ -17,10 +18,11 @@ export default function ProductosAdmin() {
   const [searchingImages, setSearchingImages] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<any>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [removingBg, setRemovingBg] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const imageFileRef = useRef<HTMLInputElement>(null);
 
-  const [form, setForm] = useState({ sku: '', nombre: '', descripcion: '', precio: '', costo: '', categoria_id: '', impuesto_pct: '16', unidad: 'pza', imagen_url: '', disponible: true });
+  const [form, setForm] = useState({ sku: '', nombre: '', descripcion: '', precio: '', costo: '', categoria_id: '', impuesto_pct: '16', unidad: 'pza', imagen_url: '', codigo_barras: '', disponible: true });
 
   useEffect(() => { load(); }, []);
 
@@ -47,7 +49,7 @@ export default function ProductosAdmin() {
 
   const handleEdit = (p: any) => {
     setEditItem(p);
-    setForm({ sku: p.sku, nombre: p.nombre, descripcion: p.descripcion || '', precio: String(p.precio), costo: String(p.costo || ''), categoria_id: String(p.categoria_id || ''), impuesto_pct: String(p.impuesto_pct || 16), unidad: p.unidad || 'pza', imagen_url: p.imagen_url || '', disponible: p.disponible !== false });
+    setForm({ sku: p.sku, nombre: p.nombre, descripcion: p.descripcion || '', precio: String(p.precio), costo: String(p.costo || ''), categoria_id: String(p.categoria_id || ''), impuesto_pct: String(p.impuesto_pct || 16), unidad: p.unidad || 'pza', imagen_url: p.imagen_url || '', codigo_barras: p.codigo_barras || '', disponible: p.disponible !== false });
     setShowForm(true);
   };
 
@@ -67,8 +69,15 @@ export default function ProductosAdmin() {
     } catch (e: any) { toast.error(e.response?.data?.message || 'Error al eliminar'); }
   };
 
+  // Combina nombre + primeras palabras de la descripcion para una busqueda mas especifica
+  // que solo el nombre (p.ej. "Aguachile" -> "Aguachile camaron mango picante").
+  const defaultImageQuery = () => {
+    const descWords = (form.descripcion || '').trim().split(/\s+/).slice(0, 6).join(' ');
+    return [form.nombre, descWords].filter(Boolean).join(' ').trim();
+  };
+
   const handleImageSearch = async () => {
-    const q = imageQuery || form.nombre;
+    const q = imageQuery || defaultImageQuery();
     if (!q) return;
     setSearchingImages(true);
     try {
@@ -82,6 +91,19 @@ export default function ProductosAdmin() {
     setForm({ ...form, imagen_url: url });
     setShowImageSearch(false);
     setImageResults([]);
+  };
+
+  const handleRemoveBackground = async () => {
+    if (!form.imagen_url) return;
+    setRemovingBg(true);
+    try {
+      const sourceUrl = resolveUploadUrl(form.imagen_url);
+      const file = await removeBackgroundToWhite(sourceUrl);
+      const { data } = await productosApi.uploadImage(file);
+      setForm({ ...form, imagen_url: data });
+      toast.success('Fondo quitado');
+    } catch (e: any) { toast.error('No se pudo quitar el fondo de esta imagen'); }
+    finally { setRemovingBg(false); }
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -131,7 +153,7 @@ export default function ProductosAdmin() {
           <button onClick={handleCSVDownload} className="btn-secondary text-sm"><Download size={16} className="mr-1" />CSV Template</button>
           <button onClick={() => fileRef.current?.click()} className="btn-secondary text-sm"><Upload size={16} className="mr-1" />Importar CSV</button>
           <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleCSVUpload} />
-          <button onClick={() => { setShowForm(true); setEditItem(null); setForm({ sku: '', nombre: '', descripcion: '', precio: '', costo: '', categoria_id: '', impuesto_pct: '16', unidad: 'pza', imagen_url: '', disponible: true }); }} className="btn-primary text-sm">
+          <button onClick={() => { setShowForm(true); setEditItem(null); setForm({ sku: '', nombre: '', descripcion: '', precio: '', costo: '', categoria_id: '', impuesto_pct: '16', unidad: 'pza', imagen_url: '', codigo_barras: '', disponible: true }); }} className="btn-primary text-sm">
             <Plus size={16} className="mr-1" />Nuevo
           </button>
         </div>
@@ -219,6 +241,16 @@ export default function ProductosAdmin() {
             <h3 className="text-lg font-bold">{editItem ? 'Editar' : 'Nuevo'} Producto</h3>
             <input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder="SKU" className="input-touch" />
             <input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} placeholder="Nombre" className="input-touch" />
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Código de barras (opcional)</label>
+              <input
+                value={form.codigo_barras}
+                onChange={(e) => setForm({ ...form, codigo_barras: e.target.value })}
+                placeholder="Escanea con la pistola o escribe el código"
+                className="input-touch font-mono"
+              />
+              <p className="text-xs text-slate-500 mt-1">Coloca el cursor aquí y escanea con la pistola lectora — se llena solo.</p>
+            </div>
             <input value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} placeholder="Descripcion" className="input-touch" />
             <div>
               <label className="text-xs text-slate-400 mb-1 block">Categoria</label>
@@ -255,7 +287,7 @@ export default function ProductosAdmin() {
               <label className="text-sm text-slate-400 mb-1 block">Imagen</label>
               <div className="flex gap-2">
                 <input value={form.imagen_url} onChange={(e) => setForm({ ...form, imagen_url: e.target.value })} placeholder="URL de imagen" className="input-touch flex-1" />
-                <button onClick={() => { setShowImageSearch(true); setImageQuery(form.nombre); handleImageSearch(); }} className="btn-secondary text-sm shrink-0" title="Buscar en Google">
+                <button onClick={() => { const q = defaultImageQuery(); setShowImageSearch(true); setImageQuery(q); handleImageSearch(); }} className="btn-secondary text-sm shrink-0" title="Buscar imagen">
                   <Search size={16} />
                 </button>
                 <button onClick={() => imageFileRef.current?.click()} disabled={uploadingImage} className="btn-secondary text-sm shrink-0" title="Subir imagen local">
@@ -264,7 +296,19 @@ export default function ProductosAdmin() {
                 <input ref={imageFileRef} type="file" accept=".jpg,.jpeg,.png,.webp,.gif,.heic,.heif" className="hidden" onChange={handleImageUpload} />
               </div>
               {form.imagen_url && (
-                <img src={resolveUploadUrl(form.imagen_url)} alt="Preview" className="w-20 h-20 object-cover rounded mt-2" />
+                <div className="flex items-center gap-3 mt-2">
+                  <img src={resolveUploadUrl(form.imagen_url)} alt="Preview" className="w-20 h-20 object-cover rounded bg-white" />
+                  <button
+                    type="button"
+                    onClick={handleRemoveBackground}
+                    disabled={removingBg}
+                    className="btn-secondary text-xs flex items-center gap-1"
+                    title="Quita el fondo de la imagen y lo deja blanco"
+                  >
+                    <Wand2 size={14} />
+                    {removingBg ? 'Procesando...' : 'Quitar fondo'}
+                  </button>
+                </div>
               )}
             </div>
 

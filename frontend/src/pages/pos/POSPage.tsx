@@ -104,6 +104,8 @@ export default function POSPage() {
   const [devolucionesRol, setDevolucionesRol] = useState('admin');
   const [mostrarPrecios, setMostrarPrecios] = useState(true);
   const [precioManual, setPrecioManual] = useState(false);
+  const [escanerHabilitado, setEscanerHabilitado] = useState(false);
+  const busquedaRef = useRef<HTMLInputElement | null>(null);
   const [basculaEnPos, setBasculaEnPos] = useState(false);
   const [basculaConectada, setBasculaConectada] = useState(false);
   const [pesoModal, setPesoModal] = useState<{ producto: Producto } | null>(null);
@@ -155,6 +157,24 @@ export default function POSPage() {
     toast.success(`${producto.nombre} — $${decoded.precio.toFixed(2)}`, { duration: 1200 });
     setBusqueda('');
   }, [busqueda, productos]);
+
+  // Pistola lectora de codigo de barras (opcional, activable en Configuracion → POS): la
+  // pistola "teclea" el codigo en el mismo buscador y termina con Enter/muy rapido. Si
+  // coincide exactamente con el codigo_barras de un producto, se agrega directo al carrito
+  // sin necesidad de tocar la pantalla.
+  useEffect(() => {
+    if (!escanerHabilitado || !busqueda || busqueda.length < 4) return;
+    const producto = productos.find((p) => (p as any).codigo_barras && (p as any).codigo_barras === busqueda);
+    if (!producto) return;
+    handleProductClick(producto);
+    setBusqueda('');
+    busquedaRef.current?.focus();
+  }, [busqueda, productos, escanerHabilitado]);
+
+  // Al activar el escaner, enfoca el buscador para que la pistola pueda "teclear" de inmediato.
+  useEffect(() => {
+    if (escanerHabilitado) busquedaRef.current?.focus();
+  }, [escanerHabilitado]);
 
   const loadCuentasAbiertas = useCallback(async () => {
     try {
@@ -228,6 +248,7 @@ export default function POSPage() {
         setEnSitioVisible(cp.en_sitio_visible !== false);
         setParaLlevarVisible(cp.para_llevar_visible !== false);
         setStockBadgeEnabled(cp.pos_stock_badge_enabled || false);
+        setEscanerHabilitado(cp.escaner_habilitado || false);
         setPrecuentaEnabled(cp.precuenta_enabled || false);
         setDevolucionesEnabled(cp.devoluciones_enabled || false);
         setDevolucionesRol(cp.devoluciones_rol || 'admin');
@@ -292,7 +313,7 @@ export default function POSPage() {
   const filteredProductos = productos.filter((p) => {
     if (busqueda) {
       const q = busqueda.toLowerCase();
-      return p.nombre.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
+      return p.nombre.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || ((p as any).codigo_barras || '').toLowerCase().includes(q);
     }
     if (categoriaActiva) return p.categoria_id === categoriaActiva;
     return true;
@@ -605,10 +626,11 @@ export default function POSPage() {
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
             <input
+              ref={busquedaRef}
               type="text"
               value={busqueda}
               onChange={(e) => { setBusqueda(e.target.value); setCategoriaActiva(null); }}
-              placeholder="Buscar producto o SKU..."
+              placeholder={escanerHabilitado ? 'Buscar producto o escanear código...' : 'Buscar producto o SKU...'}
               className="input-touch pl-10"
             />
           </div>

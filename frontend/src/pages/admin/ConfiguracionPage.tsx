@@ -6,7 +6,7 @@ import { useAuthStore } from '../../store/auth.store';
 import TicketsConfig from './TicketsConfig';
 import { useThemeStore, ThemeName, PaletteName } from '../../store/theme.store';
 import toast from 'react-hot-toast';
-import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers, TrendingUp, DollarSign, Truck, X, Scale } from 'lucide-react';
+import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers, TrendingUp, DollarSign, Truck, X, Scale, Search } from 'lucide-react';
 import MantenimientoPage from './MantenimientoPage';
 import LicenciasAdmin from './LicenciasAdmin';
 import PerfilNegocioPage from './PerfilNegocioPage';
@@ -142,6 +142,7 @@ export default function ConfiguracionPage() {
     en_sitio_visible: true,
     para_llevar_visible: true,
     pos_stock_badge_enabled: false,
+    escaner_habilitado: false,
     cajero_dashboard_enabled: false,
     precuenta_enabled: false,
     cantidades_rapidas: '10,25,50,100',
@@ -348,6 +349,7 @@ export default function ConfiguracionPage() {
       en_sitio_visible: cp.en_sitio_visible !== false,
       para_llevar_visible: cp.para_llevar_visible !== false,
       pos_stock_badge_enabled: cp.pos_stock_badge_enabled || false,
+      escaner_habilitado: cp.escaner_habilitado || false,
       cajero_dashboard_enabled: cp.cajero_dashboard_enabled || false,
       precuenta_enabled: cp.precuenta_enabled || false,
       cantidades_rapidas: cp.cantidades_rapidas || '10,25,50,100',
@@ -406,6 +408,7 @@ export default function ConfiguracionPage() {
           en_sitio_visible: form.en_sitio_visible,
           para_llevar_visible: form.para_llevar_visible,
           pos_stock_badge_enabled: form.pos_stock_badge_enabled,
+          escaner_habilitado: form.escaner_habilitado,
           cajero_dashboard_enabled: form.cajero_dashboard_enabled,
           cantidades_rapidas: form.cantidades_rapidas || '',
           whatsapp_enabled: form.whatsapp_enabled,
@@ -478,7 +481,7 @@ export default function ConfiguracionPage() {
       nombre: '', direccion: '', telefono: '', email: '',
       zona_horaria: 'America/Mexico_City',
       iva_enabled: false, iva_porcentaje: 16, iva_incluido: true,
-      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false, mostrar_so_pendiente_en_pos: false, devoluciones_enabled: false, devoluciones_rol: 'admin', notas_por_item: false, notas_rapidas: '', notas_pedido_enabled: false, datos_envio_enabled: false, en_sitio_visible: true, para_llevar_visible: true, pos_stock_badge_enabled: false, cajero_dashboard_enabled: false, precuenta_enabled: false, cantidades_rapidas: '10,25,50,100', whatsapp_enabled: false, whatsapp_phone: '', whatsapp_token: '',
+      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false, mostrar_so_pendiente_en_pos: false, devoluciones_enabled: false, devoluciones_rol: 'admin', notas_por_item: false, notas_rapidas: '', notas_pedido_enabled: false, datos_envio_enabled: false, en_sitio_visible: true, para_llevar_visible: true, pos_stock_badge_enabled: false, escaner_habilitado: false, cajero_dashboard_enabled: false, precuenta_enabled: false, cantidades_rapidas: '10,25,50,100', whatsapp_enabled: false, whatsapp_phone: '', whatsapp_token: '',
       impresora_modelo: '', impresora_ancho: 80, impresora_auto_print: false, impresora_copias: 1,
       caja_auto_enabled: false, caja_ocultar_ui: false,
       dashboard_ventas_enabled: true, dashboard_selforder_enabled: true,
@@ -2535,6 +2538,29 @@ export default function ConfiguracionPage() {
                         <p className="text-xs text-slate-400 mt-1">El mesero levanta pedidos asignados a una mesa.</p>
                       </button>
                     </div>
+                  </div>
+
+                  {/* Escaner de codigo de barras */}
+                  <div className="border-t border-slate-700 pt-4">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.escaner_habilitado}
+                        onChange={(e) => setForm({ ...form, escaner_habilitado: e.target.checked })}
+                        className="w-5 h-5 accent-iados-primary rounded mt-0.5"
+                      />
+                      <div>
+                        <span className="text-sm font-medium flex items-center gap-1">
+                          <Search size={14} className="text-iados-secondary" /> Cobro con pistola lectora de código de barras
+                        </span>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          El cajero apunta la pistola al buscador del POS: si el código escaneado coincide con el código de barras
+                          de un producto, se agrega al carrito automáticamente sin necesidad de tocar la pantalla. El buscador
+                          táctil normal (por nombre/SKU) sigue funcionando igual. Da de alta el código de barras de cada producto
+                          en Catálogo → Productos.
+                        </p>
+                      </div>
+                    </label>
                   </div>
 
                   {form.modo_servicio === 'mesa' && (

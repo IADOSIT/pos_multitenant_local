@@ -60,7 +60,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260727-mantenimiento-licencias-tabs-config"
+        CACHE_BUST: "20260809-escaner-codigo-barras-quitar-fondo"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:
