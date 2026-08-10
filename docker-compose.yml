@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260809-generar-imagen-ia-productos"
+        CACHE_BUST: "20260809-csv-import-soporta-imagen-url"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:

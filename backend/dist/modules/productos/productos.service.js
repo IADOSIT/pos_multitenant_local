@@ -88,9 +88,9 @@ let ProductosService = class ProductosService {
         return this.findOne(id);
     }
     getCSVTemplate() {
-        return 'sku,nombre,descripcion,precio,costo,categoria,unidad,impuesto_pct,codigo_barras,controla_stock,stock_actual,stock_minimo\n'
-            + 'PROD001,Hamburguesa Clásica,Carne 150g con lechuga y tomate,89.00,35.00,Hamburguesas,pza,16,7501234567890,false,0,0\n'
-            + 'PROD002,Refresco Cola 600ml,Refresco de cola,25.00,12.00,Bebidas,pza,16,,false,0,0';
+        return 'sku,nombre,descripcion,precio,costo,categoria,unidad,impuesto_pct,codigo_barras,controla_stock,stock_actual,stock_minimo,imagen_url\n'
+            + 'PROD001,Hamburguesa Clásica,Carne 150g con lechuga y tomate,89.00,35.00,Hamburguesas,pza,16,7501234567890,false,0,0,\n'
+            + 'PROD002,Refresco Cola 600ml,Refresco de cola,25.00,12.00,Bebidas,pza,16,,false,0,0,';
     }
     decodeCSV(buffer) {
         if (buffer[0] === 0xFF && buffer[1] === 0xFE) {
@@ -212,6 +212,7 @@ let ProductosService = class ProductosService {
                     unidad: row.unidad || 'pza',
                     impuesto_pct: row.impuesto_pct ? parseFloat(row.impuesto_pct) : 0,
                     codigo_barras: row.codigo_barras || null,
+                    imagen_url: row.imagen_url || null,
                     controla_stock: row.controla_stock === 'true' || row.controla_stock === 'si' || row.controla_stock === '1',
                     stock_actual: row.stock_actual ? parseFloat(row.stock_actual) : 0,
                     stock_minimo: row.stock_minimo ? parseFloat(row.stock_minimo) : 0,
