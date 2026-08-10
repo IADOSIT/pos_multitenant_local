@@ -4,7 +4,7 @@ declare const JwtStrategy_base: new (...args: any[]) => Strategy;
 export declare class JwtStrategy extends JwtStrategy_base {
     private authService;
     constructor(authService: AuthService);
-    validate(payload: any): Promise<{
+    validate(req: any, payload: any): Promise<{
         id: number;
         email: string;
         nombre: string;
@@ -12,6 +12,16 @@ export declare class JwtStrategy extends JwtStrategy_base {
         tenant_id: number;
         empresa_id: number;
         tienda_id: number;
+        modulo: any;
+    } | {
+        tenant_id: number;
+        empresa_id: number;
+        tienda_id: number;
+        viendo_como: boolean;
+        id: number;
+        email: string;
+        nombre: string;
+        rol: import("../../users/user.entity").UserRole;
         modulo: any;
     }>;
 }

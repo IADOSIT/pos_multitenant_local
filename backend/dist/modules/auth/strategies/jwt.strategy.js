@@ -20,14 +20,15 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
             jwtFromRequest: passport_jwt_1.ExtractJwt.fromAuthHeaderAsBearerToken(),
             ignoreExpiration: false,
             secretOrKey: process.env.JWT_SECRET || 'CAMBIAR_EN_PRODUCCION_iados_jwt_secret_key_2024',
+            passReqToCallback: true,
         });
         this.authService = authService;
     }
-    async validate(payload) {
+    async validate(req, payload) {
         const user = await this.authService.validateUser(payload);
         if (!user)
             throw new common_1.UnauthorizedException();
-        return {
+        const base = {
             id: user.id,
             email: user.email,
             nombre: user.nombre,
@@ -37,6 +38,15 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
             tienda_id: user.tienda_id,
             modulo: user.modulo || null,
         };
+        if (user.rol === 'superadmin') {
+            const vTenant = parseInt(req.headers['x-view-tenant-id'], 10);
+            const vEmpresa = parseInt(req.headers['x-view-empresa-id'], 10);
+            const vTienda = parseInt(req.headers['x-view-tienda-id'], 10);
+            if (Number.isInteger(vTenant) && Number.isInteger(vEmpresa) && Number.isInteger(vTienda)) {
+                return { ...base, tenant_id: vTenant, empresa_id: vEmpresa, tienda_id: vTienda, viendo_como: true };
+            }
+        }
+        return base;
     }
 };
 exports.JwtStrategy = JwtStrategy;

@@ -21,7 +21,6 @@ const sync_1 = require("csv-parse/sync");
 const producto_entity_1 = require("./producto.entity");
 const categoria_entity_1 = require("../categorias/categoria.entity");
 const config_ia_imagenes_entity_1 = require("./config-ia-imagenes.entity");
-const user_entity_1 = require("../users/user.entity");
 let ProductosService = class ProductosService {
     constructor(repo, ptRepo, catRepo, iaImagenesRepo, configService) {
         this.repo = repo;
@@ -32,11 +31,7 @@ let ProductosService = class ProductosService {
         this.logger = new common_1.Logger('ProductosService');
     }
     findAll(scope, categoria_id) {
-        const where = { activo: true };
-        if (scope.rol !== user_entity_1.UserRole.SUPERADMIN) {
-            where.tenant_id = scope.tenant_id;
-            where.empresa_id = scope.empresa_id;
-        }
+        const where = { activo: true, tenant_id: scope.tenant_id, empresa_id: scope.empresa_id };
         if (categoria_id)
             where.categoria_id = categoria_id;
         return this.repo.find({ where, relations: ['categoria'], order: { orden: 'ASC', nombre: 'ASC' } });

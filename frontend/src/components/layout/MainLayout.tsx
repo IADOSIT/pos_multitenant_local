@@ -13,6 +13,7 @@ import {
 import { logisticaApi, basculaApi } from '../../api/endpoints';
 import StockAlertBanner from '../ui/StockAlertBanner';
 import LicenciaBanner from './LicenciaBanner';
+import ViewAsBanner from './ViewAsBanner';
 import LockScreen from '../ui/LockScreen';
 
 // Connection info from env
@@ -316,6 +317,7 @@ export default function MainLayout() {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        <ViewAsBanner />
         <LicenciaBanner />
         <StockAlertBanner />
         <main className="flex-1 overflow-y-auto md:pt-0 pt-14">

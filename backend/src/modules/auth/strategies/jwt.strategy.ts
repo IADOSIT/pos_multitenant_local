@@ -10,13 +10,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: process.env.JWT_SECRET || 'CAMBIAR_EN_PRODUCCION_iados_jwt_secret_key_2024',
+      passReqToCallback: true,
     });
   }
 
-  async validate(payload: any) {
+  async validate(req: any, payload: any) {
     const user = await this.authService.validateUser(payload);
     if (!user) throw new UnauthorizedException();
-    return {
+    const base = {
       id: user.id,
       email: user.email,
       nombre: user.nombre,
@@ -26,5 +27,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       tienda_id: user.tienda_id,
       modulo: (user as any).modulo || null,
     };
+
+    // "Ver como tienda": el superadmin puede elegir una tienda desde el selector global del
+    // frontend (MainLayout) y esta cabecera hace que TODO el backend (que ya filtra por
+    // TenantScope en cada modulo) opere sobre esa tienda especifica, sin tocar ningun
+    // controlador/servicio existente. rol se mantiene 'superadmin' (sigue pasando @Roles),
+    // solo cambian tenant_id/empresa_id/tienda_id.
+    if (user.rol === 'superadmin') {
+      const vTenant  = parseInt(req.headers['x-view-tenant-id'], 10);
+      const vEmpresa = parseInt(req.headers['x-view-empresa-id'], 10);
+      const vTienda  = parseInt(req.headers['x-view-tienda-id'], 10);
+      if (Number.isInteger(vTenant) && Number.isInteger(vEmpresa) && Number.isInteger(vTienda)) {
+        return { ...base, tenant_id: vTenant, empresa_id: vEmpresa, tienda_id: vTienda, viendo_como: true };
+      }
+    }
+
+    return base;
   }
 }

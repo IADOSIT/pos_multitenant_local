@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260809-fix-superadmin-401-pedidos-otro-tenant"
+        CACHE_BUST: "20260809-ver-como-tienda-superadmin"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
@@ -60,7 +60,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260809-fix-menu-digital-catalogo-grande-frontend"
+        CACHE_BUST: "20260809-ver-como-tienda-superadmin-frontend"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

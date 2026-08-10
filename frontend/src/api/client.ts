@@ -12,6 +12,21 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('pos_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
+
+  // "Ver como tienda" (solo superadmin) — ver src/store/adminContext.store.ts
+  const userStr = localStorage.getItem('pos_user');
+  const rol = userStr ? JSON.parse(userStr)?.rol : null;
+  if (rol === 'superadmin') {
+    const raw = localStorage.getItem('pos_view_as_tienda');
+    if (raw) {
+      try {
+        const viewAs = JSON.parse(raw);
+        config.headers['x-view-tenant-id'] = String(viewAs.tenant_id);
+        config.headers['x-view-empresa-id'] = String(viewAs.empresa_id);
+        config.headers['x-view-tienda-id'] = String(viewAs.tienda_id);
+      } catch {}
+    }
+  }
   return config;
 });
 

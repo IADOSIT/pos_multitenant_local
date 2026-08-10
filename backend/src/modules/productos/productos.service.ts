@@ -6,7 +6,6 @@ import { parse } from 'csv-parse/sync';
 import { Producto, ProductoTienda } from './producto.entity';
 import { Categoria } from '../categorias/categoria.entity';
 import { ConfigIaImagenes } from './config-ia-imagenes.entity';
-import { UserRole } from '../users/user.entity';
 
 @Injectable()
 export class ProductosService {
@@ -21,11 +20,11 @@ export class ProductosService {
   ) {}
 
   findAll(scope: any, categoria_id?: number) {
-    const where: any = { activo: true };
-    if (scope.rol !== UserRole.SUPERADMIN) {
-      where.tenant_id = scope.tenant_id;
-      where.empresa_id = scope.empresa_id;
-    }
+    // Nunca mezclar catalogos de distintos tenants/empresas — ni siquiera para superadmin.
+    // Si el superadmin no ha elegido "ver como" una tienda especifica (selector en
+    // MainLayout), tenant_id/empresa_id vienen null y esto devuelve una lista vacia
+    // (correcto: no hay una tienda "activa" para mostrar productos de ella).
+    const where: any = { activo: true, tenant_id: scope.tenant_id, empresa_id: scope.empresa_id };
     if (categoria_id) where.categoria_id = categoria_id;
     return this.repo.find({ where, relations: ['categoria'], order: { orden: 'ASC', nombre: 'ASC' } });
   }
