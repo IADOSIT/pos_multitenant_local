@@ -17,6 +17,13 @@ import { NotificacionesService } from '../notificaciones/notificaciones.service'
 export class MenuDigitalService {
   private readonly logger = new Logger('MenuDigitalService');
 
+  // Menu Digital arma un JSON con TODOS los productos activos y lo manda de un jalón al
+  // Worker + lo guarda en la BD (ver publish()). Esta pantalla es para menus estilo
+  // restaurante (decenas/cientos de items) — nunca se probó con un catalogo de miles
+  // (ej. inventario completo de una farmacia). Por arriba de este limite se desactiva
+  // solo y publish() se rehusa a correr, en vez de intentarlo y colgar la petición.
+  private readonly MAX_PRODUCTOS_MENU_DIGITAL = 1500;
+
   constructor(
     @InjectRepository(MenuDigitalConfig)  private configRepo: Repository<MenuDigitalConfig>,
     @InjectRepository(MenuDigitalSnapshot) private snapshotRepo: Repository<MenuDigitalSnapshot>,
@@ -91,12 +98,39 @@ export class MenuDigitalService {
     return { api_key: cfg.api_key };
   }
 
+  private async countProductosActivos(tenantId: number, empresaId: number): Promise<number> {
+    return this.productoRepo.count({ where: { tenant_id: tenantId, empresa_id: empresaId, activo: true, disponible: true } });
+  }
+
+  private async resolveTenantEmpresa(tiendaId: number, scope: any, cfg: MenuDigitalConfig): Promise<{ tenantId: number; empresaId: number }> {
+    if (scope.tenant_id && scope.empresa_id) return { tenantId: scope.tenant_id, empresaId: scope.empresa_id };
+    const tienda = await this.tiendaRepo.findOne({ where: { id: tiendaId } });
+    return { tenantId: scope.tenant_id ?? tienda?.tenant_id ?? cfg.tenant_id, empresaId: scope.empresa_id ?? tienda?.empresa_id ?? cfg.empresa_id };
+  }
+
   async getStatus(tiendaId: number, scope: any) {
     const cfg = await this.getOrCreateConfig(tiendaId, scope);
+    const { tenantId, empresaId } = await this.resolveTenantEmpresa(tiendaId, scope, cfg);
+    const productosCount = await this.countProductosActivos(tenantId, empresaId);
+    const overLimit = productosCount > this.MAX_PRODUCTOS_MENU_DIGITAL;
+
+    if (overLimit && cfg.is_active) {
+      this.logger.warn(`Menu Digital auto-desactivado para tienda ${tiendaId}: ${productosCount} productos activos supera el límite de ${this.MAX_PRODUCTOS_MENU_DIGITAL}`);
+      cfg.is_active = false;
+      await this.configRepo.save(cfg);
+    }
+
     const pendingChanges = await this.countPendingChanges(tiendaId, cfg, scope);
-    const shouldAutoSync = cfg.sync_mode === 'auto' && cfg.is_active && cfg.cloud_url &&
+    const shouldAutoSync = !overLimit && cfg.sync_mode === 'auto' && cfg.is_active && cfg.cloud_url &&
       (!cfg.last_published_at || this.minutesSince(cfg.last_published_at) >= cfg.sync_interval);
-    return { config: cfg, pending_changes: pendingChanges, should_auto_sync: shouldAutoSync };
+    return {
+      config: cfg,
+      pending_changes: pendingChanges,
+      should_auto_sync: shouldAutoSync,
+      productos_count: productosCount,
+      productos_limit: this.MAX_PRODUCTOS_MENU_DIGITAL,
+      over_limit: overLimit,
+    };
   }
 
   async getLogs(tiendaId: number): Promise<MenuDigitalLog[]> {
@@ -114,6 +148,17 @@ export class MenuDigitalService {
   async publish(tiendaId: number, scope: any): Promise<any> {
     const start = Date.now();
     const cfg = await this.getOrCreateConfig(tiendaId, scope);
+
+    const { tenantId: tId0, empresaId: eId0 } = await this.resolveTenantEmpresa(tiendaId, scope, cfg);
+    const productosCount0 = await this.countProductosActivos(tId0, eId0);
+    if (productosCount0 > this.MAX_PRODUCTOS_MENU_DIGITAL) {
+      cfg.is_active = false;
+      await this.configRepo.save(cfg);
+      throw new Error(
+        `Este catálogo tiene ${productosCount0} productos activos — supera el límite de ${this.MAX_PRODUCTOS_MENU_DIGITAL} de Menú Digital ` +
+        `(pensado para menús tipo restaurante, no para inventario completo tipo farmacia). Se desactivó automáticamente.`,
+      );
+    }
 
     // cloud_url es la URL pública del menú (puede ser localhost, IP externa, dominio).
     // Frontend + backend siempre están en el mismo servidor, por lo que el snapshot

@@ -1748,6 +1748,16 @@ export default function ConfiguracionPage() {
               <SectionHeader id="menu-digital" icon={QrCode} title="Menu Digital QR" />
               {expandedSection === 'menu-digital' && (
                 <div className="card space-y-5">
+                  {mdStatus?.over_limit && (
+                    <div className="bg-amber-900/20 border border-amber-700/50 rounded-xl px-4 py-3 text-xs text-amber-300 flex items-start gap-2">
+                      <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                      <span>
+                        Se desactivó automáticamente: esta tienda tiene <strong>{mdStatus.productos_count}</strong> productos activos,
+                        arriba del límite de {mdStatus.productos_limit} de Menú Digital. Esta pantalla está pensada para menús tipo
+                        restaurante (decenas/cientos de productos), no para un catálogo/inventario completo — no la actives para esta tienda.
+                      </span>
+                    </div>
+                  )}
                   {/* Estado y toggle */}
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">

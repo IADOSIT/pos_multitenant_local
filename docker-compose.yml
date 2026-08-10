@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260809-csv-import-soporta-imagen-url"
+        CACHE_BUST: "20260809-fix-menu-digital-catalogo-grande"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
@@ -60,7 +60,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260809-fix-crear-empresa-en-tenant"
+        CACHE_BUST: "20260809-fix-menu-digital-catalogo-grande-frontend"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

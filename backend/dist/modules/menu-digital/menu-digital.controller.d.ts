@@ -6,6 +6,9 @@ export declare class MenuDigitalController {
         config: import("./entities/menu-digital-config.entity").MenuDigitalConfig;
         pending_changes: number;
         should_auto_sync: boolean | "";
+        productos_count: number;
+        productos_limit: number;
+        over_limit: boolean;
     }>;
     updateConfig(tiendaId: number, dto: any, req: any): Promise<import("./entities/menu-digital-config.entity").MenuDigitalConfig>;
     regenerateKey(tiendaId: number, req: any): Promise<{

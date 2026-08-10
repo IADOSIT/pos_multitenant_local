@@ -19,6 +19,7 @@ export declare class MenuDigitalService {
     private empresaRepo;
     private notificacionesService;
     private readonly logger;
+    private readonly MAX_PRODUCTOS_MENU_DIGITAL;
     constructor(configRepo: Repository<MenuDigitalConfig>, snapshotRepo: Repository<MenuDigitalSnapshot>, logRepo: Repository<MenuDigitalLog>, orderRepo: Repository<MenuDigitalOrder>, productoRepo: Repository<Producto>, categoriaRepo: Repository<Categoria>, tiendaRepo: Repository<Tienda>, empresaRepo: Repository<Empresa>, notificacionesService: NotificacionesService);
     getOrCreateConfig(tiendaId: number, scope: any): Promise<MenuDigitalConfig>;
     getServerInfo(): {
@@ -29,10 +30,15 @@ export declare class MenuDigitalService {
     regenerateApiKey(tiendaId: number, scope: any): Promise<{
         api_key: string;
     }>;
+    private countProductosActivos;
+    private resolveTenantEmpresa;
     getStatus(tiendaId: number, scope: any): Promise<{
         config: MenuDigitalConfig;
         pending_changes: number;
         should_auto_sync: boolean | "";
+        productos_count: number;
+        productos_limit: number;
+        over_limit: boolean;
     }>;
     getLogs(tiendaId: number): Promise<MenuDigitalLog[]>;
     publish(tiendaId: number, scope: any): Promise<any>;
