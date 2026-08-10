@@ -9,10 +9,12 @@ import {
 
 const DOMINIOBASE = 'pos.iados.online';
 
-const TEMAS_PREVIEW: Record<string, { bg: string; primary: string; text: string; border: string; nombre: string; desc: string }> = {
-  lumina:   { bg: '#f8fafc', primary: '#1e40af', text: '#0f172a', border: '#e2e8f0', nombre: 'Lumina',   desc: 'Blanco · Azul corporativo' },
-  obsidian: { bg: '#0a0a0a', primary: '#f59e0b', text: '#f4f4f5', border: '#1f1f1f', nombre: 'Obsidian', desc: 'Negro · Dorado premium' },
-  zest:     { bg: '#fffbf5', primary: '#f97316', text: '#1c1917', border: '#fed7aa', nombre: 'Zest',     desc: 'Cálido · Naranja vibrante' },
+const TEMAS_PREVIEW: Record<string, { bg: string; primary: string; secondary: string; text: string; border: string; nombre: string; desc: string }> = {
+  lumina:   { bg: '#f8fafc', primary: '#1e40af', secondary: '#0f172a', text: '#0f172a', border: '#e2e8f0', nombre: 'Lumina',   desc: 'Blanco · Azul corporativo' },
+  obsidian: { bg: '#0a0a0a', primary: '#f59e0b', secondary: '#0a0a0a', text: '#f4f4f5', border: '#1f1f1f', nombre: 'Obsidian', desc: 'Negro · Dorado premium' },
+  zest:     { bg: '#fffbf5', primary: '#f97316', secondary: '#1c1917', text: '#1c1917', border: '#fed7aa', nombre: 'Zest',     desc: 'Cálido · Naranja vibrante' },
+  'iados-electronica': { bg: '#ffffff', primary: '#ff8717', secondary: '#121416', text: '#121416', border: '#e5e5e5', nombre: 'iaDoS Electrónica', desc: 'Tech · Naranja + Dosis' },
+  'iados-market':      { bg: '#ffffff', primary: '#629d23', secondary: '#2c3c28', text: '#1f1f25', border: '#e2e2e2', nombre: 'iaDoS Market',      desc: 'Grocery · Verde + Barlow' },
 };
 
 export default function TiendaEnLineaPage() {
@@ -212,7 +214,7 @@ export default function TiendaEnLineaPage() {
             <p className="text-sm font-semibold text-white flex items-center gap-2"><Palette size={14} /> Diseño de la tienda</p>
             <div className="grid grid-cols-3 gap-3">
               {Object.entries(TEMAS_PREVIEW).map(([id, t]) => (
-                <button key={id} onClick={() => setForm((f: any) => ({ ...f, tema_id: id }))}
+                <button key={id} onClick={() => setForm((f: any) => ({ ...f, tema_id: id, color_primario: t.primary, color_secundario: t.secondary }))}
                   className={`relative rounded-xl overflow-hidden border-2 transition-all ${form.tema_id === id ? 'border-blue-500 ring-2 ring-blue-500/30' : 'border-slate-600 hover:border-slate-400'}`}>
                   {/* Mini preview */}
                   <div style={{ background: t.bg, padding: 8 }}>
