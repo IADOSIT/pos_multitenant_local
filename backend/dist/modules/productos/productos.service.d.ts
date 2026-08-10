@@ -33,6 +33,9 @@ export declare class ProductosService {
     purgeInactive(scope: any): Promise<{
         purged: number;
     }>;
+    reassignBySkuPrefix(prefixes: string[], targetTenantId: number, targetEmpresaId: number): Promise<{
+        reassigned: number;
+    }>;
     searchImages(query: string): Promise<any>;
     uploadImage(file: Express.Multer.File): Promise<string>;
     getIaImagenesConfig(empresa_id: number): Promise<{

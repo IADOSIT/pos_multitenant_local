@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260809-fix-menu-digital-mezclaba-datos-de-otra-empresa"
+        CACHE_BUST: "20260809-herramienta-reasignar-productos-por-sku"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:

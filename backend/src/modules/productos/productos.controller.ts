@@ -113,6 +113,13 @@ export class ProductosController {
     return this.service.purgeInactive(scope);
   }
 
+  // Herramienta puntual de reparacion — ver comentario en productos.service.ts
+  @Post('reassign-by-sku-prefix')
+  @Roles('superadmin')
+  reassignBySkuPrefix(@Body() body: { prefixes: string[]; target_tenant_id: number; target_empresa_id: number }) {
+    return this.service.reassignBySkuPrefix(body.prefixes, body.target_tenant_id, body.target_empresa_id);
+  }
+
   @Delete(':id')
   @Roles('superadmin', 'admin')
   delete(@Param('id', ParseIntPipe) id: number) {

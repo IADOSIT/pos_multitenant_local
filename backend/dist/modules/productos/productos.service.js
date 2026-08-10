@@ -244,6 +244,17 @@ let ProductosService = class ProductosService {
         }
         return { purged: inactivos.length };
     }
+    async reassignBySkuPrefix(prefixes, targetTenantId, targetEmpresaId) {
+        if (!prefixes?.length || !targetTenantId || !targetEmpresaId) {
+            throw new common_1.BadRequestException('Faltan prefixes / target_tenant_id / target_empresa_id');
+        }
+        const qb = this.repo.createQueryBuilder()
+            .update(producto_entity_1.Producto)
+            .set({ tenant_id: targetTenantId, empresa_id: targetEmpresaId });
+        qb.where(prefixes.map((_, i) => `sku LIKE :p${i}`).join(' OR '), Object.fromEntries(prefixes.map((p, i) => [`p${i}`, `${p}%`])));
+        const result = await qb.execute();
+        return { reassigned: result.affected || 0 };
+    }
     async searchImages(query) {
         try {
             const apiKey = process.env.PEXELS_API_KEY;

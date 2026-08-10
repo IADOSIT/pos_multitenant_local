@@ -257,6 +257,23 @@ export class ProductosService {
     return { purged: inactivos.length };
   }
 
+  // Herramienta de reparacion puntual (superadmin): reasigna productos con SKU que empiece
+  // con alguno de los prefijos dados al tenant/empresa correctos. Se agrego por el bug de
+  // "scope.tenant_id ?? tienda.tenant_id" — un import de CSV hecho como superadmin (sin el
+  // selector "ver como tienda") quedaba grabado bajo el tenant/empresa DEL SUPERADMIN en vez
+  // de la tienda destino.
+  async reassignBySkuPrefix(prefixes: string[], targetTenantId: number, targetEmpresaId: number) {
+    if (!prefixes?.length || !targetTenantId || !targetEmpresaId) {
+      throw new BadRequestException('Faltan prefixes / target_tenant_id / target_empresa_id');
+    }
+    const qb = this.repo.createQueryBuilder()
+      .update(Producto)
+      .set({ tenant_id: targetTenantId, empresa_id: targetEmpresaId });
+    qb.where(prefixes.map((_, i) => `sku LIKE :p${i}`).join(' OR '), Object.fromEntries(prefixes.map((p, i) => [`p${i}`, `${p}%`])));
+    const result = await qb.execute();
+    return { reassigned: result.affected || 0 };
+  }
+
   async searchImages(query: string) {
     try {
       const apiKey = process.env.PEXELS_API_KEY;

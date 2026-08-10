@@ -90,6 +90,9 @@ let ProductosController = class ProductosController {
     purge(scope) {
         return this.service.purgeInactive(scope);
     }
+    reassignBySkuPrefix(body) {
+        return this.service.reassignBySkuPrefix(body.prefixes, body.target_tenant_id, body.target_empresa_id);
+    }
     delete(id) {
         return this.service.deleteProduct(id);
     }
@@ -205,6 +208,14 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], ProductosController.prototype, "purge", null);
+__decorate([
+    (0, common_1.Post)('reassign-by-sku-prefix'),
+    (0, roles_decorator_1.Roles)('superadmin'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], ProductosController.prototype, "reassignBySkuPrefix", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     (0, roles_decorator_1.Roles)('superadmin', 'admin'),

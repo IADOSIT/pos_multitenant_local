@@ -39,6 +39,13 @@ export declare class ProductosController {
     purge(scope: any): Promise<{
         purged: number;
     }>;
+    reassignBySkuPrefix(body: {
+        prefixes: string[];
+        target_tenant_id: number;
+        target_empresa_id: number;
+    }): Promise<{
+        reassigned: number;
+    }>;
     delete(id: number): Promise<{
         deleted: boolean;
     }>;
