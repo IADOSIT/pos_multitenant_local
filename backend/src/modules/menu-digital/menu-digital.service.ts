@@ -404,8 +404,10 @@ export class MenuDigitalService {
   async getPendingOrders(tiendaId: number, scope: any): Promise<MenuDigitalOrder[]> {
     const tienda = await this.tiendaRepo.findOne({ where: { id: tiendaId } });
     if (!tienda) throw new NotFoundException('Tienda no encontrada');
-    // Superadmin (scope.tenant_id=null) puede ver cualquier tienda; el resto solo la suya
-    if (scope.tenant_id && scope.tenant_id !== tienda.tenant_id) throw new UnauthorizedException();
+    // Superadmin puede ver cualquier tienda; el resto solo la suya. OJO: no basta con
+    // checar "scope.tenant_id" falsy — un superadmin cuya cuenta SÍ tiene tenant_id propio
+    // asignado (no null) quedaba bloqueado al ver tiendas de otros tenants (401 → deslogueo).
+    if (scope.rol !== 'superadmin' && scope.tenant_id !== tienda.tenant_id) throw new UnauthorizedException();
     return this.orderRepo.find({
       where: { tienda_id: tiendaId, status: 'pending' },
       order: { created_at: 'ASC' },
@@ -415,7 +417,7 @@ export class MenuDigitalService {
   async updateOrderStatus(orderId: number, status: string, scope: any): Promise<MenuDigitalOrder> {
     const order = await this.orderRepo.findOne({ where: { id: orderId } });
     if (!order) throw new NotFoundException('Orden no encontrada');
-    if (scope.tenant_id && scope.tenant_id !== order.tenant_id) throw new UnauthorizedException();
+    if (scope.rol !== 'superadmin' && scope.tenant_id !== order.tenant_id) throw new UnauthorizedException();
     order.status = status;
     return this.orderRepo.save(order);
   }

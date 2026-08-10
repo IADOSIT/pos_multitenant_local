@@ -336,7 +336,7 @@ let MenuDigitalService = class MenuDigitalService {
         const tienda = await this.tiendaRepo.findOne({ where: { id: tiendaId } });
         if (!tienda)
             throw new common_1.NotFoundException('Tienda no encontrada');
-        if (scope.tenant_id && scope.tenant_id !== tienda.tenant_id)
+        if (scope.rol !== 'superadmin' && scope.tenant_id !== tienda.tenant_id)
             throw new common_1.UnauthorizedException();
         return this.orderRepo.find({
             where: { tienda_id: tiendaId, status: 'pending' },
@@ -347,7 +347,7 @@ let MenuDigitalService = class MenuDigitalService {
         const order = await this.orderRepo.findOne({ where: { id: orderId } });
         if (!order)
             throw new common_1.NotFoundException('Orden no encontrada');
-        if (scope.tenant_id && scope.tenant_id !== order.tenant_id)
+        if (scope.rol !== 'superadmin' && scope.tenant_id !== order.tenant_id)
             throw new common_1.UnauthorizedException();
         order.status = status;
         return this.orderRepo.save(order);
