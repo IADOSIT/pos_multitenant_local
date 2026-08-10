@@ -60,7 +60,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260809-ver-como-tienda-superadmin-frontend"
+        CACHE_BUST: "20260809-fix-413-nginx-csv-import-timeout"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

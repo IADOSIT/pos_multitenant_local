@@ -84,7 +84,9 @@ export const productosApi = {
   csvImport: (file: File, update: boolean) => {
     const form = new FormData();
     form.append('file', file);
-    return api.post(`/productos/csv/import?update=${update}`, form);
+    // Catalogos grandes (miles de filas) se procesan uno por uno en el backend y pueden
+    // tardar minutos — el timeout global de 10s del cliente cortaba el import a medias.
+    return api.post(`/productos/csv/import?update=${update}`, form, { timeout: 300000 });
   },
 };
 
