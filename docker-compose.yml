@@ -60,7 +60,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260809-generar-imagen-ia-productos-frontend"
+        CACHE_BUST: "20260809-fix-crear-empresa-en-tenant"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

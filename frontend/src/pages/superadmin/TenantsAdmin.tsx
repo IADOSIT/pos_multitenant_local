@@ -18,6 +18,10 @@ export default function TenantsAdmin() {
   const [tiendaForm, setTiendaForm] = useState({ nombre: '', direccion: '', telefono: '', email: '' });
   const [tiendaEmpresa, setTiendaEmpresa] = useState<any>(null);
 
+  // Empresa state
+  const [showEmpresaForm, setShowEmpresaForm] = useState(false);
+  const [empresaForm, setEmpresaForm] = useState({ nombre: '', razon_social: '', rfc: '', email: '', telefono: '' });
+
   useEffect(() => { load(); }, []);
 
   const load = async () => {
@@ -55,6 +59,22 @@ export default function TenantsAdmin() {
       if (selected?.id === t.id) setSelected(null);
       load();
     } catch (e: any) { toast.error(e.response?.data?.message || 'Error al eliminar'); }
+  };
+
+  // ---- Empresa CRUD ----
+  const openNewEmpresa = () => {
+    setEmpresaForm({ nombre: '', razon_social: '', rfc: '', email: '', telefono: '' });
+    setShowEmpresaForm(true);
+  };
+
+  const handleSaveEmpresa = async () => {
+    if (!selected) return;
+    try {
+      await empresasApi.create({ ...empresaForm, tenant_id: selected.id });
+      toast.success('Empresa creada');
+      setShowEmpresaForm(false);
+      refreshSelected();
+    } catch (e: any) { toast.error(e.response?.data?.message || 'Error'); }
   };
 
   // ---- Tienda CRUD ----
@@ -166,7 +186,12 @@ export default function TenantsAdmin() {
               <p><span className="text-slate-400">Telefono:</span> {selected.telefono || '-'}</p>
             </div>
 
-            <h4 className="font-bold text-sm mb-2">Empresas y Tiendas</h4>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-bold text-sm">Empresas y Tiendas</h4>
+              <button onClick={openNewEmpresa} className="text-xs bg-iados-primary/30 hover:bg-iados-primary/50 text-iados-primary px-2 py-1 rounded-lg flex items-center gap-1">
+                <Plus size={12} /> Empresa
+              </button>
+            </div>
             {selected.empresas?.map((emp: any) => (
               <div key={emp.id} className="bg-iados-card p-3 rounded-xl mb-3">
                 <div className="flex items-center justify-between mb-2">
@@ -200,7 +225,7 @@ export default function TenantsAdmin() {
               </div>
             ))}
             {(!selected.empresas || selected.empresas.length === 0) && (
-              <p className="text-sm text-slate-500">Sin empresas</p>
+              <p className="text-sm text-slate-500">Sin empresas — crea una para poder darle tiendas.</p>
             )}
           </div>
         )}
@@ -222,6 +247,28 @@ export default function TenantsAdmin() {
             <div className="flex gap-2">
               <button onClick={() => setShowForm(false)} className="btn-secondary flex-1">Cancelar</button>
               <button onClick={handleSave} className="btn-primary flex-1">Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Empresa Form */}
+      {showEmpresaForm && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="card max-w-md w-full space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold">Nueva Empresa</h3>
+              <button onClick={() => setShowEmpresaForm(false)}><X size={20} /></button>
+            </div>
+            <p className="text-xs text-slate-400">Tenant: {selected?.nombre}</p>
+            <input value={empresaForm.nombre} onChange={(e) => setEmpresaForm({ ...empresaForm, nombre: e.target.value })} placeholder="Nombre de la empresa" className="input-touch" />
+            <input value={empresaForm.razon_social} onChange={(e) => setEmpresaForm({ ...empresaForm, razon_social: e.target.value })} placeholder="Razon social" className="input-touch" />
+            <input value={empresaForm.rfc} onChange={(e) => setEmpresaForm({ ...empresaForm, rfc: e.target.value })} placeholder="RFC" className="input-touch" />
+            <input value={empresaForm.email} onChange={(e) => setEmpresaForm({ ...empresaForm, email: e.target.value })} placeholder="Email" className="input-touch" />
+            <input value={empresaForm.telefono} onChange={(e) => setEmpresaForm({ ...empresaForm, telefono: e.target.value })} placeholder="Telefono" className="input-touch" />
+            <div className="flex gap-2">
+              <button onClick={() => setShowEmpresaForm(false)} className="btn-secondary flex-1">Cancelar</button>
+              <button onClick={handleSaveEmpresa} className="btn-primary flex-1">Guardar</button>
             </div>
           </div>
         </div>
