@@ -35,12 +35,10 @@ let BasculaService = class BasculaService {
             const [tienda] = await this.dataSource.query(`SELECT tenant_id, empresa_id FROM tiendas WHERE id = ?`, [tiendaId]);
             if (!tienda)
                 throw new common_1.NotFoundException('Tienda no encontrada');
-            const tenantId = scope.tenant_id ?? tienda.tenant_id;
-            const empresaId = scope.empresa_id ?? tienda.empresa_id;
             config = this.configRepo.create({
                 tienda_id: tiendaId,
-                tenant_id: tenantId,
-                empresa_id: empresaId,
+                tenant_id: tienda.tenant_id,
+                empresa_id: tienda.empresa_id,
                 activo: false,
                 usar_en_pos: false,
                 tienda_token: (0, crypto_1.randomBytes)(24).toString('hex'),

@@ -45,14 +45,17 @@ export class MenuDigitalService {
     if (!cfg) {
       const tienda = await this.tiendaRepo.findOne({ where: { id: tiendaId } });
       if (!tienda) throw new NotFoundException('Tienda no encontrada');
-      // Superadmin tiene tenant_id=null — usar el tenant de la tienda como fallback
-      const tenantId  = scope.tenant_id  ?? tienda.tenant_id;
-      const empresaId = scope.empresa_id ?? tienda.empresa_id;
-      // Default cloud_url = this same backend (self-publish works out of the box)
+      // El tenant_id/empresa_id de la config SIEMPRE son los de la tienda misma (dueña real
+      // de los datos que se van a publicar) — NUNCA los de "scope" (quien esta operando).
+      // Antes usaba "scope.tenant_id ?? tienda.tenant_id": como scope casi siempre trae algo
+      // (el propio tenant del superadmin, por ejemplo), esa rama nunca hacia fallback de
+      // verdad y una tienda podia terminar con el tenant/empresa de OTRO cliente distinto
+      // al que la creo/configuro por primera vez — bug real que causo que el menu publico
+      // de una tienda mostrara el logo/productos de otra empresa.
       const defaultCloudUrl = `http://localhost:${process.env.APP_PORT || 3000}`;
       cfg = this.configRepo.create({
-        tenant_id: tenantId,
-        empresa_id: empresaId,
+        tenant_id: tienda.tenant_id,
+        empresa_id: tienda.empresa_id,
         tienda_id: tiendaId,
         slug: this.generateSlug(tienda.nombre),
         api_key: randomBytes(32).toString('hex'),
@@ -64,6 +67,16 @@ export class MenuDigitalService {
         worker_url: process.env.DEFAULT_WORKER_URL || '',
       });
       cfg = await this.configRepo.save(cfg);
+    } else {
+      // Auto-repara configs existentes que hayan quedado con el tenant/empresa equivocado
+      // por el bug de arriba (creadas o re-guardadas mientras el bug estaba activo).
+      const tienda = await this.tiendaRepo.findOne({ where: { id: tiendaId } });
+      if (tienda && (cfg.tenant_id !== tienda.tenant_id || cfg.empresa_id !== tienda.empresa_id)) {
+        this.logger.warn(`Menu Digital config de tienda ${tiendaId} tenia tenant/empresa incorrectos (${cfg.tenant_id}/${cfg.empresa_id} → corrigiendo a ${tienda.tenant_id}/${tienda.empresa_id})`);
+        cfg.tenant_id = tienda.tenant_id;
+        cfg.empresa_id = tienda.empresa_id;
+        cfg = await this.configRepo.save(cfg);
+      }
     }
     return cfg;
   }
@@ -102,15 +115,16 @@ export class MenuDigitalService {
     return this.productoRepo.count({ where: { tenant_id: tenantId, empresa_id: empresaId, activo: true, disponible: true } });
   }
 
-  private async resolveTenantEmpresa(tiendaId: number, scope: any, cfg: MenuDigitalConfig): Promise<{ tenantId: number; empresaId: number }> {
-    if (scope.tenant_id && scope.empresa_id) return { tenantId: scope.tenant_id, empresaId: scope.empresa_id };
+  // El tenant/empresa de una tienda SIEMPRE salen de la tienda misma, nunca de "scope"
+  // (quien esta operando) — ver comentario en getOrCreateConfig.
+  private async resolveTenantEmpresa(tiendaId: number, cfg: MenuDigitalConfig): Promise<{ tenantId: number; empresaId: number }> {
     const tienda = await this.tiendaRepo.findOne({ where: { id: tiendaId } });
-    return { tenantId: scope.tenant_id ?? tienda?.tenant_id ?? cfg.tenant_id, empresaId: scope.empresa_id ?? tienda?.empresa_id ?? cfg.empresa_id };
+    return { tenantId: tienda?.tenant_id ?? cfg.tenant_id, empresaId: tienda?.empresa_id ?? cfg.empresa_id };
   }
 
   async getStatus(tiendaId: number, scope: any) {
     const cfg = await this.getOrCreateConfig(tiendaId, scope);
-    const { tenantId, empresaId } = await this.resolveTenantEmpresa(tiendaId, scope, cfg);
+    const { tenantId, empresaId } = await this.resolveTenantEmpresa(tiendaId, cfg);
     const productosCount = await this.countProductosActivos(tenantId, empresaId);
     const overLimit = productosCount > this.MAX_PRODUCTOS_MENU_DIGITAL;
 
@@ -120,7 +134,7 @@ export class MenuDigitalService {
       await this.configRepo.save(cfg);
     }
 
-    const pendingChanges = await this.countPendingChanges(tiendaId, cfg, scope);
+    const pendingChanges = await this.countPendingChanges(tiendaId, cfg);
     const shouldAutoSync = !overLimit && cfg.sync_mode === 'auto' && cfg.is_active && cfg.cloud_url &&
       (!cfg.last_published_at || this.minutesSince(cfg.last_published_at) >= cfg.sync_interval);
     return {
@@ -149,7 +163,7 @@ export class MenuDigitalService {
     const start = Date.now();
     const cfg = await this.getOrCreateConfig(tiendaId, scope);
 
-    const { tenantId: tId0, empresaId: eId0 } = await this.resolveTenantEmpresa(tiendaId, scope, cfg);
+    const { tenantId: tId0, empresaId: eId0 } = await this.resolveTenantEmpresa(tiendaId, cfg);
     const productosCount0 = await this.countProductosActivos(tId0, eId0);
     if (productosCount0 > this.MAX_PRODUCTOS_MENU_DIGITAL) {
       cfg.is_active = false;
@@ -170,9 +184,10 @@ export class MenuDigitalService {
     try {
       const tienda  = await this.tiendaRepo.findOne({ where: { id: tiendaId } });
       if (!tienda) throw new Error('Tienda no encontrada');
-      // Superadmin tiene scope.tenant_id=null — usar tenant/empresa de la tienda como fallback
-      const tenantId  = scope.tenant_id  ?? tienda.tenant_id;
-      const empresaId = scope.empresa_id ?? tienda.empresa_id;
+      // El tenant/empresa de LOS DATOS que se publican son los de la tienda misma, nunca
+      // los de "scope" (quien le dio publicar) — ver comentario en getOrCreateConfig.
+      const tenantId  = tienda.tenant_id;
+      const empresaId = tienda.empresa_id;
       const empresa = await this.empresaRepo.findOne({ where: { id: empresaId } });
 
       const categorias = await this.categoriaRepo.find({
@@ -548,15 +563,17 @@ export class MenuDigitalService {
     return `${base}-${Date.now().toString(36)}`;
   }
 
-  private async countPendingChanges(tiendaId: number, cfg: MenuDigitalConfig, scope: any): Promise<number> {
+  private async countPendingChanges(tiendaId: number, cfg: MenuDigitalConfig): Promise<number> {
     if (!cfg.last_published_at) return -1; // never published
     const since = cfg.last_published_at;
 
+    // tenant/empresa de la tienda dueña de la config (cfg.tenant_id/empresa_id ya se
+    // autocorrigen en getOrCreateConfig) — nunca "scope" (quien esta consultando).
     const prodChanges = await this.productoRepo
       .createQueryBuilder('p')
       .where('p.tenant_id = :tid AND p.empresa_id = :eid AND p.updated_at > :since', {
-        tid: scope.tenant_id,
-        eid: scope.empresa_id,
+        tid: cfg.tenant_id,
+        eid: cfg.empresa_id,
         since,
       })
       .getCount();
@@ -564,8 +581,8 @@ export class MenuDigitalService {
     const catChanges = await this.categoriaRepo
       .createQueryBuilder('c')
       .where('c.tenant_id = :tid AND c.empresa_id = :eid AND c.updated_at > :since', {
-        tid: scope.tenant_id,
-        eid: scope.empresa_id,
+        tid: cfg.tenant_id,
+        eid: cfg.empresa_id,
         since,
       })
       .getCount();

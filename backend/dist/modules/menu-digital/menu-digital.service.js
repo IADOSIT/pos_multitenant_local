@@ -47,12 +47,10 @@ let MenuDigitalService = class MenuDigitalService {
             const tienda = await this.tiendaRepo.findOne({ where: { id: tiendaId } });
             if (!tienda)
                 throw new common_1.NotFoundException('Tienda no encontrada');
-            const tenantId = scope.tenant_id ?? tienda.tenant_id;
-            const empresaId = scope.empresa_id ?? tienda.empresa_id;
             const defaultCloudUrl = `http://localhost:${process.env.APP_PORT || 3000}`;
             cfg = this.configRepo.create({
-                tenant_id: tenantId,
-                empresa_id: empresaId,
+                tenant_id: tienda.tenant_id,
+                empresa_id: tienda.empresa_id,
                 tienda_id: tiendaId,
                 slug: this.generateSlug(tienda.nombre),
                 api_key: (0, crypto_1.randomBytes)(32).toString('hex'),
@@ -64,6 +62,15 @@ let MenuDigitalService = class MenuDigitalService {
                 worker_url: process.env.DEFAULT_WORKER_URL || '',
             });
             cfg = await this.configRepo.save(cfg);
+        }
+        else {
+            const tienda = await this.tiendaRepo.findOne({ where: { id: tiendaId } });
+            if (tienda && (cfg.tenant_id !== tienda.tenant_id || cfg.empresa_id !== tienda.empresa_id)) {
+                this.logger.warn(`Menu Digital config de tienda ${tiendaId} tenia tenant/empresa incorrectos (${cfg.tenant_id}/${cfg.empresa_id} → corrigiendo a ${tienda.tenant_id}/${tienda.empresa_id})`);
+                cfg.tenant_id = tienda.tenant_id;
+                cfg.empresa_id = tienda.empresa_id;
+                cfg = await this.configRepo.save(cfg);
+            }
         }
         return cfg;
     }
@@ -96,15 +103,13 @@ let MenuDigitalService = class MenuDigitalService {
     async countProductosActivos(tenantId, empresaId) {
         return this.productoRepo.count({ where: { tenant_id: tenantId, empresa_id: empresaId, activo: true, disponible: true } });
     }
-    async resolveTenantEmpresa(tiendaId, scope, cfg) {
-        if (scope.tenant_id && scope.empresa_id)
-            return { tenantId: scope.tenant_id, empresaId: scope.empresa_id };
+    async resolveTenantEmpresa(tiendaId, cfg) {
         const tienda = await this.tiendaRepo.findOne({ where: { id: tiendaId } });
-        return { tenantId: scope.tenant_id ?? tienda?.tenant_id ?? cfg.tenant_id, empresaId: scope.empresa_id ?? tienda?.empresa_id ?? cfg.empresa_id };
+        return { tenantId: tienda?.tenant_id ?? cfg.tenant_id, empresaId: tienda?.empresa_id ?? cfg.empresa_id };
     }
     async getStatus(tiendaId, scope) {
         const cfg = await this.getOrCreateConfig(tiendaId, scope);
-        const { tenantId, empresaId } = await this.resolveTenantEmpresa(tiendaId, scope, cfg);
+        const { tenantId, empresaId } = await this.resolveTenantEmpresa(tiendaId, cfg);
         const productosCount = await this.countProductosActivos(tenantId, empresaId);
         const overLimit = productosCount > this.MAX_PRODUCTOS_MENU_DIGITAL;
         if (overLimit && cfg.is_active) {
@@ -112,7 +117,7 @@ let MenuDigitalService = class MenuDigitalService {
             cfg.is_active = false;
             await this.configRepo.save(cfg);
         }
-        const pendingChanges = await this.countPendingChanges(tiendaId, cfg, scope);
+        const pendingChanges = await this.countPendingChanges(tiendaId, cfg);
         const shouldAutoSync = !overLimit && cfg.sync_mode === 'auto' && cfg.is_active && cfg.cloud_url &&
             (!cfg.last_published_at || this.minutesSince(cfg.last_published_at) >= cfg.sync_interval);
         return {
@@ -134,7 +139,7 @@ let MenuDigitalService = class MenuDigitalService {
     async publish(tiendaId, scope) {
         const start = Date.now();
         const cfg = await this.getOrCreateConfig(tiendaId, scope);
-        const { tenantId: tId0, empresaId: eId0 } = await this.resolveTenantEmpresa(tiendaId, scope, cfg);
+        const { tenantId: tId0, empresaId: eId0 } = await this.resolveTenantEmpresa(tiendaId, cfg);
         const productosCount0 = await this.countProductosActivos(tId0, eId0);
         if (productosCount0 > this.MAX_PRODUCTOS_MENU_DIGITAL) {
             cfg.is_active = false;
@@ -149,8 +154,8 @@ let MenuDigitalService = class MenuDigitalService {
             const tienda = await this.tiendaRepo.findOne({ where: { id: tiendaId } });
             if (!tienda)
                 throw new Error('Tienda no encontrada');
-            const tenantId = scope.tenant_id ?? tienda.tenant_id;
-            const empresaId = scope.empresa_id ?? tienda.empresa_id;
+            const tenantId = tienda.tenant_id;
+            const empresaId = tienda.empresa_id;
             const empresa = await this.empresaRepo.findOne({ where: { id: empresaId } });
             const categorias = await this.categoriaRepo.find({
                 where: { tenant_id: tenantId, empresa_id: empresaId, activo: true },
@@ -454,23 +459,23 @@ let MenuDigitalService = class MenuDigitalService {
             .replace(/\s+/g, '-');
         return `${base}-${Date.now().toString(36)}`;
     }
-    async countPendingChanges(tiendaId, cfg, scope) {
+    async countPendingChanges(tiendaId, cfg) {
         if (!cfg.last_published_at)
             return -1;
         const since = cfg.last_published_at;
         const prodChanges = await this.productoRepo
             .createQueryBuilder('p')
             .where('p.tenant_id = :tid AND p.empresa_id = :eid AND p.updated_at > :since', {
-            tid: scope.tenant_id,
-            eid: scope.empresa_id,
+            tid: cfg.tenant_id,
+            eid: cfg.empresa_id,
             since,
         })
             .getCount();
         const catChanges = await this.categoriaRepo
             .createQueryBuilder('c')
             .where('c.tenant_id = :tid AND c.empresa_id = :eid AND c.updated_at > :since', {
-            tid: scope.tenant_id,
-            eid: scope.empresa_id,
+            tid: cfg.tenant_id,
+            eid: cfg.empresa_id,
             since,
         })
             .getCount();

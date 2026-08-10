@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260809-ver-como-tienda-superadmin"
+        CACHE_BUST: "20260809-fix-menu-digital-mezclaba-datos-de-otra-empresa"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:

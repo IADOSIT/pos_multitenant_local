@@ -26,12 +26,12 @@ export class BasculaService {
         [tiendaId],
       );
       if (!tienda) throw new NotFoundException('Tienda no encontrada');
-      const tenantId = scope.tenant_id ?? tienda.tenant_id;
-      const empresaId = scope.empresa_id ?? tienda.empresa_id;
+      // El tenant/empresa son los de la tienda misma, nunca los de "scope" (quien la esta
+      // configurando) — mismo bug que se encontro y corrigio en menu-digital.service.ts.
       config = this.configRepo.create({
         tienda_id: tiendaId,
-        tenant_id: tenantId,
-        empresa_id: empresaId,
+        tenant_id: tienda.tenant_id,
+        empresa_id: tienda.empresa_id,
         activo: false,
         usar_en_pos: false,
         tienda_token: randomBytes(24).toString('hex'),
