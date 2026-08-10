@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { parse } from 'csv-parse/sync';
 import { Producto, ProductoTienda } from './producto.entity';
 import { Categoria } from '../categorias/categoria.entity';
+import { ConfigIaImagenes } from './config-ia-imagenes.entity';
 import { UserRole } from '../users/user.entity';
 
 @Injectable()
@@ -15,6 +16,7 @@ export class ProductosService {
     @InjectRepository(Producto) private repo: Repository<Producto>,
     @InjectRepository(ProductoTienda) private ptRepo: Repository<ProductoTienda>,
     @InjectRepository(Categoria) private catRepo: Repository<Categoria>,
+    @InjectRepository(ConfigIaImagenes) private iaImagenesRepo: Repository<ConfigIaImagenes>,
     private configService: ConfigService,
   ) {}
 
@@ -278,5 +280,66 @@ export class ProductosService {
   async uploadImage(file: Express.Multer.File): Promise<string> {
     const { saveUploadedImage } = await import('../../common/utils/upload-image.util');
     return saveUploadedImage(file, 'producto');
+  }
+
+  // ── Generar imagen con IA ──────────────────────────────────────────────────
+  // Por defecto (sin configurar nada) el boton "Generar con IA" del frontend usa
+  // Pollinations.ai directo desde el navegador (gratis, sin key). Este config/endpoint
+  // solo aplica si la empresa quiere mejor calidad y captura su propia key de OpenAI —
+  // esa key nunca se manda al navegador, la llamada a OpenAI siempre corre aqui.
+
+  async getIaImagenesConfig(empresa_id: number) {
+    const cfg = await this.iaImagenesRepo.findOne({ where: { empresa_id } });
+    return {
+      provider: cfg?.provider || 'pollinations',
+      openai_api_key: cfg?.openai_api_key ? this.maskKey(cfg.openai_api_key) : '',
+    };
+  }
+
+  async saveIaImagenesConfig(scope: any, data: { provider?: string; openai_api_key?: string }) {
+    let cfg = await this.iaImagenesRepo.findOne({ where: { empresa_id: scope.empresa_id } });
+    if (!cfg) {
+      cfg = this.iaImagenesRepo.create({ empresa_id: scope.empresa_id, tenant_id: scope.tenant_id });
+    }
+    if (data.provider === 'pollinations' || data.provider === 'openai') cfg.provider = data.provider;
+    // Ignora el valor si viene enmascarado (el usuario no lo toco al re-guardar el form)
+    if (data.openai_api_key !== undefined && !data.openai_api_key.includes('***')) {
+      cfg.openai_api_key = data.openai_api_key || null;
+    }
+    const saved = await this.iaImagenesRepo.save(cfg);
+    return { provider: saved.provider, openai_api_key: saved.openai_api_key ? this.maskKey(saved.openai_api_key) : '' };
+  }
+
+  async generateImage(scope: any, prompt: string): Promise<{ image_base64: string }> {
+    const cfg = await this.iaImagenesRepo.findOne({ where: { empresa_id: scope.empresa_id } });
+    if (!cfg?.provider || cfg.provider !== 'openai' || !cfg.openai_api_key) {
+      throw new BadRequestException('Esta empresa no tiene configurada una API key de OpenAI — usa el modo gratis del navegador');
+    }
+    const res = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${cfg.openai_api_key}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-image-1',
+        prompt: `Fotografia de catalogo de producto: ${prompt}. Fondo blanco liso, iluminacion de estudio, un solo producto centrado, sin texto, sin marca de agua.`,
+        size: '1024x1024',
+        n: 1,
+      }),
+    });
+    const json: any = await res.json();
+    if (!res.ok) {
+      this.logger.error('Error generando imagen con OpenAI', JSON.stringify(json));
+      throw new BadRequestException(json?.error?.message || 'Error al generar la imagen con IA');
+    }
+    const b64 = json?.data?.[0]?.b64_json;
+    if (!b64) throw new BadRequestException('OpenAI no devolvio una imagen');
+    return { image_base64: b64 };
+  }
+
+  private maskKey(key: string): string {
+    if (!key || key.length < 8) return '***';
+    return key.substring(0, 3) + '***' + key.substring(key.length - 4);
   }
 }

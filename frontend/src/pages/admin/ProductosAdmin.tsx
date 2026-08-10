@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { productosApi, categoriasApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
 import { removeBackgroundToWhite } from '../../utils/removeBackground';
+import { generateProductImageFree, base64ToBlob } from '../../utils/generateProductImage';
 import toast from 'react-hot-toast';
-import { Plus, Upload, Download, Search, Edit2, Package, Trash2, Image, X, ImagePlus, Wand2 } from 'lucide-react';
+import { Plus, Upload, Download, Search, Edit2, Package, Trash2, Image, X, ImagePlus, Wand2, Sparkles } from 'lucide-react';
 
 export default function ProductosAdmin() {
   const [productos, setProductos] = useState<any[]>([]);
@@ -19,6 +20,8 @@ export default function ProductosAdmin() {
   const [deleteConfirm, setDeleteConfirm] = useState<any>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [removingBg, setRemovingBg] = useState(false);
+  const [generatingImage, setGeneratingImage] = useState(false);
+  const [iaProvider, setIaProvider] = useState<'pollinations' | 'openai'>('pollinations');
   const fileRef = useRef<HTMLInputElement>(null);
   const imageFileRef = useRef<HTMLInputElement>(null);
 
@@ -31,6 +34,10 @@ export default function ProductosAdmin() {
       const [pRes, cRes] = await Promise.all([productosApi.list(), categoriasApi.list()]);
       setProductos(pRes.data);
       setCategorias(cRes.data);
+    } catch {}
+    try {
+      const { data } = await productosApi.getIaImagenesConfig();
+      setIaProvider(data?.provider === 'openai' && data?.openai_api_key ? 'openai' : 'pollinations');
     } catch {}
   };
 
@@ -91,6 +98,29 @@ export default function ProductosAdmin() {
     setForm({ ...form, imagen_url: url });
     setShowImageSearch(false);
     setImageResults([]);
+  };
+
+  const handleGenerateImage = async () => {
+    const prompt = [form.nombre, form.descripcion].filter(Boolean).join(', ');
+    if (!prompt) { toast.error('Escribe primero el nombre o la descripcion del producto'); return; }
+    setGeneratingImage(true);
+    try {
+      let raw: Blob;
+      if (iaProvider === 'openai') {
+        const { data } = await productosApi.generateImage(prompt);
+        raw = base64ToBlob(data.image_base64, 'image/png');
+      } else {
+        raw = await generateProductImageFree(prompt);
+      }
+      const file = await removeBackgroundToWhite(raw);
+      const { data } = await productosApi.uploadImage(file);
+      setForm({ ...form, imagen_url: data });
+      toast.success('Imagen generada');
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'No se pudo generar la imagen');
+    } finally {
+      setGeneratingImage(false);
+    }
   };
 
   const handleRemoveBackground = async () => {
@@ -295,6 +325,16 @@ export default function ProductosAdmin() {
                 </button>
                 <input ref={imageFileRef} type="file" accept=".jpg,.jpeg,.png,.webp,.gif,.heic,.heif" className="hidden" onChange={handleImageUpload} />
               </div>
+              <button
+                type="button"
+                onClick={handleGenerateImage}
+                disabled={generatingImage}
+                className="btn-secondary text-xs flex items-center gap-1 mt-2"
+                title={iaProvider === 'openai' ? 'Genera una imagen con OpenAI a partir del nombre/descripcion' : 'Genera una imagen gratis (Pollinations) a partir del nombre/descripcion'}
+              >
+                <Sparkles size={14} />
+                {generatingImage ? 'Generando...' : `Generar con IA${iaProvider === 'pollinations' ? ' (gratis)' : ''}`}
+              </button>
               {form.imagen_url && (
                 <div className="flex items-center gap-3 mt-2">
                   <img src={resolveUploadUrl(form.imagen_url)} alt="Preview" className="w-20 h-20 object-cover rounded bg-white" />

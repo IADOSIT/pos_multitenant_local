@@ -8,6 +8,22 @@ export declare class ProductosController {
     findForPOS(scope: any): Promise<import("./producto.entity").Producto[]>;
     downloadTemplate(res: Response): void;
     searchImages(query: string): Promise<any>;
+    getIaImagenesConfig(scope: any): Promise<{
+        provider: "pollinations" | "openai";
+        openai_api_key: string;
+    }>;
+    saveIaImagenesConfig(data: {
+        provider?: string;
+        openai_api_key?: string;
+    }, scope: any): Promise<{
+        provider: "pollinations" | "openai";
+        openai_api_key: string;
+    }>;
+    generateImage(body: {
+        prompt: string;
+    }, scope: any): Promise<{
+        image_base64: string;
+    }>;
     findOne(id: number): Promise<import("./producto.entity").Producto | null>;
     create(data: any, scope: any): Promise<import("./producto.entity").Producto[]>;
     importCSV(file: Express.Multer.File, scope: any, update?: string): Promise<{

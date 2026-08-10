@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { tiendasApi, empresasApi, tenantsApi, menuDigitalApi, pagosGatewayApi, mesasApi, basculaApi } from '../../api/endpoints';
+import { tiendasApi, empresasApi, tenantsApi, menuDigitalApi, pagosGatewayApi, mesasApi, basculaApi, productosApi } from '../../api/endpoints';
 import api, { resolveUploadUrl } from '../../api/client';
 import { useAuthStore } from '../../store/auth.store';
 import TicketsConfig from './TicketsConfig';
 import { useThemeStore, ThemeName, PaletteName } from '../../store/theme.store';
 import toast from 'react-hot-toast';
-import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers, TrendingUp, DollarSign, Truck, X, Scale, Search } from 'lucide-react';
+import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers, TrendingUp, DollarSign, Truck, X, Scale, Search, Sparkles } from 'lucide-react';
 import MantenimientoPage from './MantenimientoPage';
 import LicenciasAdmin from './LicenciasAdmin';
 import PerfilNegocioPage from './PerfilNegocioPage';
@@ -64,6 +64,10 @@ export default function ConfiguracionPage() {
     empleados_enabled: boolean;
   }>({ mostrar_precios: true, precio_manual: false, notif_cliente_estados: false, empleados_enabled: false });
   const [savingCfgEsp, setSavingCfgEsp] = useState(false);
+  // Generacion de imagenes de producto con IA (Productos > "Generar con IA")
+  const [iaImgForm, setIaImgForm] = useState<{ provider: 'pollinations' | 'openai'; openai_api_key: string }>({ provider: 'pollinations', openai_api_key: '' });
+  const [savingIaImg, setSavingIaImg] = useState(false);
+  const [showIaImgKey, setShowIaImgKey] = useState(false);
   const [campos, setCampos] = useState<Record<CampoKey, CampoFormularioConfig>>(DEFAULT_CAMPOS);
   const [savingCampos, setSavingCampos] = useState(false);
 
@@ -175,7 +179,27 @@ export default function ConfiguracionPage() {
     ] as { key: string; label: string; enabled: boolean }[],
   });
 
-  useEffect(() => { load(); loadEmpresa(); fetchSystemInfo(); }, []);
+  useEffect(() => { load(); loadEmpresa(); loadIaImgConfig(); fetchSystemInfo(); }, []);
+
+  const loadIaImgConfig = async () => {
+    try {
+      const { data } = await productosApi.getIaImagenesConfig();
+      setIaImgForm({ provider: data?.provider === 'openai' ? 'openai' : 'pollinations', openai_api_key: data?.openai_api_key || '' });
+    } catch {}
+  };
+
+  const handleSaveIaImgConfig = async () => {
+    setSavingIaImg(true);
+    try {
+      const { data } = await productosApi.saveIaImagenesConfig(iaImgForm);
+      setIaImgForm({ provider: data?.provider === 'openai' ? 'openai' : 'pollinations', openai_api_key: data?.openai_api_key || '' });
+      toast.success('Configuración guardada');
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Error al guardar');
+    } finally {
+      setSavingIaImg(false);
+    }
+  };
 
   // Sincronizar selector cascada cuando hay una tienda ya seleccionada
   useEffect(() => {
@@ -1013,6 +1037,64 @@ export default function ConfiguracionPage() {
                 </button>
               </div>
             )}
+          </div>
+
+          {/* ── Generacion de imagenes de producto con IA ──────────────────── */}
+          <div className="bg-iados-card rounded-2xl border border-slate-700 p-5">
+            <h3 className="font-semibold text-base mb-1 flex items-center gap-2">
+              <Sparkles size={16} className="text-iados-primary" />
+              Generación de imágenes de producto con IA
+            </h3>
+            <p className="text-xs text-slate-400 mb-4">
+              Botón "Generar con IA" en Productos: crea una foto de catálogo (fondo blanco) a partir del nombre/descripción.
+              Por defecto usa un servicio gratuito (Pollinations, sin necesidad de configurar nada). Si capturas tu propia
+              API key de OpenAI aquí, se usa esa en su lugar para mejor calidad — tiene costo por imagen y la key nunca se
+              envía al navegador, la llamada la hace el servidor.
+            </p>
+
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <button
+                type="button"
+                onClick={() => setIaImgForm({ ...iaImgForm, provider: 'pollinations' })}
+                className={`p-3 rounded-xl border-2 text-left transition-all ${iaImgForm.provider === 'pollinations' ? 'border-green-500 bg-green-900/20' : 'border-slate-700 bg-iados-card'}`}
+              >
+                <p className="font-bold text-sm">Gratis (Pollinations)</p>
+                <p className="text-xs text-slate-400 mt-1">Sin costo, sin API key. Calidad variable, servicio comunitario.</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIaImgForm({ ...iaImgForm, provider: 'openai' })}
+                className={`p-3 rounded-xl border-2 text-left transition-all ${iaImgForm.provider === 'openai' ? 'border-blue-500 bg-blue-900/20' : 'border-slate-700 bg-iados-card'}`}
+              >
+                <p className="font-bold text-sm">OpenAI (de paga)</p>
+                <p className="text-xs text-slate-400 mt-1">Mejor calidad y consistencia. Cobra por imagen generada (tu cuenta).</p>
+              </button>
+            </div>
+
+            {iaImgForm.provider === 'openai' && (
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">API Key de OpenAI</label>
+                <div className="flex gap-2">
+                  <input
+                    type={showIaImgKey ? 'text' : 'password'}
+                    value={iaImgForm.openai_api_key}
+                    onChange={(e) => setIaImgForm({ ...iaImgForm, openai_api_key: e.target.value })}
+                    placeholder="sk-..."
+                    className="input-touch flex-1 font-mono text-sm"
+                  />
+                  <button type="button" onClick={() => setShowIaImgKey(!showIaImgKey)} className="btn-secondary text-sm shrink-0">
+                    {showIaImgKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Se obtiene en platform.openai.com → API Keys. Se guarda enmascarada; para reemplazarla, escribe una nueva.
+                </p>
+              </div>
+            )}
+
+            <button onClick={handleSaveIaImgConfig} disabled={savingIaImg} className="btn-primary text-sm mt-3">
+              {savingIaImg ? 'Guardando...' : 'Guardar'}
+            </button>
           </div>
         </div>
       )}

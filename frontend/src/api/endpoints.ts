@@ -71,6 +71,9 @@ export const productosApi = {
   update: (id: number, data: any) => api.put(`/productos/${id}`, data),
   delete: (id: number) => api.delete(`/productos/${id}`),
   imageSearch: (q: string) => api.get('/productos/image-search', { params: { q } }),
+  getIaImagenesConfig: () => api.get('/productos/ia-imagenes-config'),
+  saveIaImagenesConfig: (data: { provider?: 'pollinations' | 'openai'; openai_api_key?: string }) => api.put('/productos/ia-imagenes-config', data),
+  generateImage: (prompt: string) => api.post('/productos/generate-image', { prompt }),
   uploadImage: (file: File) => {
     const form = new FormData();
     form.append('image', file);

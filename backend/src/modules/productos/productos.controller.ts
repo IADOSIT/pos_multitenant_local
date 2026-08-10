@@ -38,6 +38,25 @@ export class ProductosController {
     return this.service.searchImages(query);
   }
 
+  @Get('ia-imagenes-config')
+  @Roles('superadmin', 'admin')
+  getIaImagenesConfig(@TenantScope() scope) {
+    return this.service.getIaImagenesConfig(scope.empresa_id);
+  }
+
+  @Put('ia-imagenes-config')
+  @Roles('superadmin', 'admin')
+  saveIaImagenesConfig(@Body() data: { provider?: string; openai_api_key?: string }, @TenantScope() scope) {
+    return this.service.saveIaImagenesConfig(scope, data);
+  }
+
+  @Post('generate-image')
+  @Roles('superadmin', 'admin')
+  async generateImage(@Body() body: { prompt: string }, @TenantScope() scope) {
+    if (!body?.prompt) throw new BadRequestException('Falta la descripcion del producto');
+    return this.service.generateImage(scope, body.prompt);
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.service.findOne(id);

@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260727-bascula-pos-integrada-config-tabs"
+        CACHE_BUST: "20260809-generar-imagen-ia-productos"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
@@ -60,7 +60,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260809-escaner-codigo-barras-quitar-fondo"
+        CACHE_BUST: "20260809-generar-imagen-ia-productos-frontend"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

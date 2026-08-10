@@ -40,6 +40,17 @@ let ProductosController = class ProductosController {
     searchImages(query) {
         return this.service.searchImages(query);
     }
+    getIaImagenesConfig(scope) {
+        return this.service.getIaImagenesConfig(scope.empresa_id);
+    }
+    saveIaImagenesConfig(data, scope) {
+        return this.service.saveIaImagenesConfig(scope, data);
+    }
+    async generateImage(body, scope) {
+        if (!body?.prompt)
+            throw new common_1.BadRequestException('Falta la descripcion del producto');
+        return this.service.generateImage(scope, body.prompt);
+    }
     findOne(id) {
         return this.service.findOne(id);
     }
@@ -115,6 +126,32 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], ProductosController.prototype, "searchImages", null);
+__decorate([
+    (0, common_1.Get)('ia-imagenes-config'),
+    (0, roles_decorator_1.Roles)('superadmin', 'admin'),
+    __param(0, (0, tenant_decorator_1.TenantScope)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], ProductosController.prototype, "getIaImagenesConfig", null);
+__decorate([
+    (0, common_1.Put)('ia-imagenes-config'),
+    (0, roles_decorator_1.Roles)('superadmin', 'admin'),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, tenant_decorator_1.TenantScope)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], ProductosController.prototype, "saveIaImagenesConfig", null);
+__decorate([
+    (0, common_1.Post)('generate-image'),
+    (0, roles_decorator_1.Roles)('superadmin', 'admin'),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, tenant_decorator_1.TenantScope)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], ProductosController.prototype, "generateImage", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),

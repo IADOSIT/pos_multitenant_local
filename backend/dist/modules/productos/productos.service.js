@@ -20,12 +20,14 @@ const typeorm_2 = require("typeorm");
 const sync_1 = require("csv-parse/sync");
 const producto_entity_1 = require("./producto.entity");
 const categoria_entity_1 = require("../categorias/categoria.entity");
+const config_ia_imagenes_entity_1 = require("./config-ia-imagenes.entity");
 const user_entity_1 = require("../users/user.entity");
 let ProductosService = class ProductosService {
-    constructor(repo, ptRepo, catRepo, configService) {
+    constructor(repo, ptRepo, catRepo, iaImagenesRepo, configService) {
         this.repo = repo;
         this.ptRepo = ptRepo;
         this.catRepo = catRepo;
+        this.iaImagenesRepo = iaImagenesRepo;
         this.configService = configService;
         this.logger = new common_1.Logger('ProductosService');
     }
@@ -272,6 +274,59 @@ let ProductosService = class ProductosService {
         const { saveUploadedImage } = await Promise.resolve().then(() => require('../../common/utils/upload-image.util'));
         return saveUploadedImage(file, 'producto');
     }
+    async getIaImagenesConfig(empresa_id) {
+        const cfg = await this.iaImagenesRepo.findOne({ where: { empresa_id } });
+        return {
+            provider: cfg?.provider || 'pollinations',
+            openai_api_key: cfg?.openai_api_key ? this.maskKey(cfg.openai_api_key) : '',
+        };
+    }
+    async saveIaImagenesConfig(scope, data) {
+        let cfg = await this.iaImagenesRepo.findOne({ where: { empresa_id: scope.empresa_id } });
+        if (!cfg) {
+            cfg = this.iaImagenesRepo.create({ empresa_id: scope.empresa_id, tenant_id: scope.tenant_id });
+        }
+        if (data.provider === 'pollinations' || data.provider === 'openai')
+            cfg.provider = data.provider;
+        if (data.openai_api_key !== undefined && !data.openai_api_key.includes('***')) {
+            cfg.openai_api_key = data.openai_api_key || null;
+        }
+        const saved = await this.iaImagenesRepo.save(cfg);
+        return { provider: saved.provider, openai_api_key: saved.openai_api_key ? this.maskKey(saved.openai_api_key) : '' };
+    }
+    async generateImage(scope, prompt) {
+        const cfg = await this.iaImagenesRepo.findOne({ where: { empresa_id: scope.empresa_id } });
+        if (!cfg?.provider || cfg.provider !== 'openai' || !cfg.openai_api_key) {
+            throw new common_1.BadRequestException('Esta empresa no tiene configurada una API key de OpenAI — usa el modo gratis del navegador');
+        }
+        const res = await fetch('https://api.openai.com/v1/images/generations', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${cfg.openai_api_key}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: 'gpt-image-1',
+                prompt: `Fotografia de catalogo de producto: ${prompt}. Fondo blanco liso, iluminacion de estudio, un solo producto centrado, sin texto, sin marca de agua.`,
+                size: '1024x1024',
+                n: 1,
+            }),
+        });
+        const json = await res.json();
+        if (!res.ok) {
+            this.logger.error('Error generando imagen con OpenAI', JSON.stringify(json));
+            throw new common_1.BadRequestException(json?.error?.message || 'Error al generar la imagen con IA');
+        }
+        const b64 = json?.data?.[0]?.b64_json;
+        if (!b64)
+            throw new common_1.BadRequestException('OpenAI no devolvio una imagen');
+        return { image_base64: b64 };
+    }
+    maskKey(key) {
+        if (!key || key.length < 8)
+            return '***';
+        return key.substring(0, 3) + '***' + key.substring(key.length - 4);
+    }
 };
 exports.ProductosService = ProductosService;
 exports.ProductosService = ProductosService = __decorate([
@@ -279,7 +334,9 @@ exports.ProductosService = ProductosService = __decorate([
     __param(0, (0, typeorm_1.InjectRepository)(producto_entity_1.Producto)),
     __param(1, (0, typeorm_1.InjectRepository)(producto_entity_1.ProductoTienda)),
     __param(2, (0, typeorm_1.InjectRepository)(categoria_entity_1.Categoria)),
+    __param(3, (0, typeorm_1.InjectRepository)(config_ia_imagenes_entity_1.ConfigIaImagenes)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
         config_1.ConfigService])
