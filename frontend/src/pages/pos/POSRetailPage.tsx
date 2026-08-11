@@ -172,6 +172,8 @@ export default function POSRetailPage() {
   // El cursor SIEMPRE vive en el buscador. Con texto, Enter agrega; vacío, las flechas
   // navegan el carrito (↓/↑ mover, →/← cantidad, Retroceso/Supr eliminar). F1 o ? = ayuda.
   const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Evitar que el navegador borre/revierta el texto del buscador al presionar Escape.
+    if (e.key === 'Escape') { e.preventDefault(); return; }
     if (e.key === '?') { e.preventDefault(); setShowHelp((h) => !h); return; }
     if (busqueda.trim() !== '') {
       // Navegar la lista de resultados con ↑/↓
