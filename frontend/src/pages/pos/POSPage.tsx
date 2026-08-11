@@ -727,7 +727,7 @@ export default function POSPage() {
 
         {/* Grid de productos */}
         <div className="flex-1 overflow-y-auto p-3">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
             {filteredProductos.map((prod) => (
               <ProductCard
                 key={prod.id}

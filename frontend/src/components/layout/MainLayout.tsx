@@ -44,10 +44,26 @@ export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  // Colapso del sidebar en desktop: se auto-oculta en el POS para dar más espacio
-  // a los productos, y se muestra por defecto en el resto de las vistas.
+  // Colapso del sidebar en desktop: en el POS se colapsa para dar más espacio a
+  // los productos; en el resto de vistas se muestra. En el POS se recuerda la
+  // preferencia manual del usuario (localStorage).
+  const enPos = location.pathname === '/pos';
   const [deskCollapsed, setDeskCollapsed] = useState(false);
-  useEffect(() => { setDeskCollapsed(location.pathname === '/pos'); }, [location.pathname]);
+  useEffect(() => {
+    if (enPos) {
+      const saved = localStorage.getItem('pos_sidebar_collapsed');
+      setDeskCollapsed(saved === null ? true : saved === '1'); // default colapsado
+    } else {
+      setDeskCollapsed(false); // otras vistas: siempre visible
+    }
+  }, [enPos]);
+  function toggleDesk() {
+    setDeskCollapsed((v) => {
+      const next = !v;
+      if (enPos) localStorage.setItem('pos_sidebar_collapsed', next ? '1' : '0');
+      return next;
+    });
+  }
   const [dbHost, setDbHost] = useState('...');
   const [appVersion, setAppVersion] = useState('');
   const [cajeroDashboard, setCajeroDashboard] = useState(false);
@@ -164,20 +180,21 @@ export default function MainLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Botón flotante para mostrar el sidebar cuando está colapsado (desktop) */}
-      {deskCollapsed && (
-        <button
-          onClick={() => setDeskCollapsed(false)}
-          title="Mostrar menú"
-          aria-label="Mostrar menú"
-          className="hidden md:flex fixed top-2 left-2 z-50 items-center justify-center w-10 h-10 rounded-xl bg-iados-surface border border-slate-700 text-slate-300 hover:text-white hover:bg-iados-card shadow-lg"
-        >
-          <PanelLeftOpen size={20} />
-        </button>
-      )}
-
-      {/* Sidebar - Desktop */}
-      <aside className={`${deskCollapsed ? 'hidden' : 'hidden md:flex'} flex-col w-20 lg:w-56 bg-iados-surface border-r border-slate-700 shrink-0`}>
+      {/* Sidebar - Desktop (colapsable a un rail delgado) */}
+      <aside className={`hidden md:flex flex-col bg-iados-surface border-r border-slate-700 shrink-0 transition-all ${deskCollapsed ? 'w-12' : 'w-20 lg:w-56'}`}>
+        {deskCollapsed ? (
+          <div className="p-2 flex justify-center border-b border-slate-700">
+            <button
+              onClick={toggleDesk}
+              title="Mostrar menú"
+              aria-label="Mostrar menú"
+              className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-300 hover:text-white hover:bg-iados-card"
+            >
+              <PanelLeftOpen size={20} />
+            </button>
+          </div>
+        ) : (
+        <>
         <div className="p-3 lg:p-4 border-b border-slate-700 flex items-center justify-center lg:justify-start gap-2">
           {user?.empresa_logo ? (
             <img src={resolveUploadUrl(user.empresa_logo)} alt="" className="w-10 h-10 rounded-xl object-cover" />
@@ -191,7 +208,7 @@ export default function MainLayout() {
             <span className="text-[10px] text-slate-500">POS-iaDoS</span>
           </div>
           <button
-            onClick={() => setDeskCollapsed(true)}
+            onClick={toggleDesk}
             title="Ocultar menú"
             aria-label="Ocultar menú"
             className="hidden lg:flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-white hover:bg-iados-card shrink-0"
@@ -253,6 +270,8 @@ export default function MainLayout() {
             <LogOut size={18} /> <span className="hidden lg:block text-sm">Salir</span>
           </button>
         </div>
+        </>
+        )}
       </aside>
 
       {/* Mobile header */}
