@@ -1,5 +1,10 @@
 import api from './client';
 
+// Control de versión / despliegue (versión autoritativa en BD)
+export const deployApi = {
+  version: () => api.get('/deploy/version'),
+};
+
 // Auth
 export const authApi = {
   login:          (email: string, password: string) => api.post('/auth/login', { email, password }),

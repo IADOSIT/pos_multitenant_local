@@ -30,6 +30,7 @@ const dashboard_module_1 = require("./modules/dashboard/dashboard.module");
 const tickets_module_1 = require("./modules/tickets/tickets.module");
 const print_module_1 = require("./modules/print/print.module");
 const health_module_1 = require("./modules/health/health.module");
+const deploy_module_1 = require("./modules/deploy/deploy.module");
 const pedidos_module_1 = require("./modules/pedidos/pedidos.module");
 const notificaciones_module_1 = require("./modules/notificaciones/notificaciones.module");
 const licencias_module_1 = require("./modules/licencias/licencias.module");
@@ -72,6 +73,7 @@ exports.AppModule = AppModule = __decorate([
                     exclude: ['/api/(.*)'],
                 })] : []),
             health_module_1.HealthModule,
+            deploy_module_1.DeployModule,
             auth_module_1.AuthModule,
             users_module_1.UsersModule,
             tenants_module_1.TenantsModule,

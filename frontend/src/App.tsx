@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './store/auth.store';
 import Login from './pages/auth/Login';
 import MainLayout from './components/layout/MainLayout';
+import DeployWatermark from './components/DeployWatermark';
 
 // Code-splitting por ruta: cada pantalla es su propio chunk. Así el POS no descarga
 // el código de Dashboard/Reportes/etc. (recharts, xlsx, jspdf…) al arrancar.
@@ -139,11 +140,8 @@ export default function App() {
         </Route>
       </Routes>
       </Suspense>
-      {/* Marca de agua de versión: cambia con cada build. Sirve para confirmar de un
-          vistazo si el frontend desplegado se actualizó tras un redeploy. */}
-      <div className="fixed bottom-0.5 right-1.5 z-[9999] pointer-events-none select-none font-mono text-[10px] leading-none text-slate-400/50">
-        build {__BUILD_ID__}
-      </div>
+      {/* Marca de agua: versión autoritativa (BD) + estado de despliegue + sello del build. */}
+      <DeployWatermark />
     </>
   );
 }
