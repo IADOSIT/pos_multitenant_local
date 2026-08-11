@@ -9,19 +9,24 @@ import POSRetailPage from './POSRetailPage';
 // muestra el layout tipo tienda/supermercado.
 export default function PosSwitcher() {
   const { user } = useAuthStore();
-  const [layout, setLayout] = useState<'restaurante' | 'retail' | null>(null);
+  // Render INSTANTÁNEO con el layout cacheado (evita bloquear con "Cargando POS…");
+  // se revalida en segundo plano y se corrige si cambió.
+  const cached = (typeof localStorage !== 'undefined' && localStorage.getItem('pos_layout')) as 'retail' | 'restaurante' | null;
+  const [layout, setLayout] = useState<'restaurante' | 'retail'>(cached === 'retail' ? 'retail' : 'restaurante');
 
   useEffect(() => {
     let activo = true;
-    if (!user?.tienda_id) { setLayout('restaurante'); return; }
+    if (!user?.tienda_id) return;
     tiendasApi.get(user.tienda_id)
-      .then(({ data }) => { if (activo) setLayout(data?.config_pos?.pos_layout === 'retail' ? 'retail' : 'restaurante'); })
-      .catch(() => { if (activo) setLayout('restaurante'); });
+      .then(({ data }) => {
+        if (!activo) return;
+        const l: 'retail' | 'restaurante' = data?.config_pos?.pos_layout === 'retail' ? 'retail' : 'restaurante';
+        setLayout(l);
+        try { localStorage.setItem('pos_layout', l); } catch { /* ignore */ }
+      })
+      .catch(() => { /* mantiene el cacheado */ });
     return () => { activo = false; };
   }, [user?.tienda_id]);
 
-  if (layout === null) {
-    return <div className="h-full flex items-center justify-center text-slate-400">Cargando POS…</div>;
-  }
   return layout === 'retail' ? <POSRetailPage /> : <POSPage />;
 }
