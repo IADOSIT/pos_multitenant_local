@@ -7,7 +7,9 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt': cuando hay versión nueva se avisa (un clic en "Actualizar")
+      // en vez de tener que recargar varias veces para que el SW la aplique.
+      registerType: 'prompt',
       includeAssets: ['icons/icon-192.png', 'icons/icon-512.png'],
       manifest: {
         name: 'POS-iaDoS',
@@ -25,12 +27,14 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        cleanupOutdatedCaches: true,       // limpia precache de builds viejos en el SW
+        navigateFallbackDenylist: [/^\/api/], // /api nunca se sirve como la SPA
       },
     }),
   ],
   build: {
     outDir: 'dist-prod',
-    emptyOutDir: false,
+    emptyOutDir: true, // limpiar en cada build para no acumular assets viejos (bloat del precache)
   },
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') },
