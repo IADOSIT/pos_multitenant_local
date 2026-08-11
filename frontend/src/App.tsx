@@ -5,6 +5,7 @@ import { useAuthStore } from './store/auth.store';
 import Login from './pages/auth/Login';
 import MainLayout from './components/layout/MainLayout';
 import DeployWatermark from './components/DeployWatermark';
+import { useDeployStore } from './store/deploy.store';
 
 // Code-splitting por ruta: cada pantalla es su propio chunk. Así el POS no descarga
 // el código de Dashboard/Reportes/etc. (recharts, xlsx, jspdf…) al arrancar.
@@ -47,9 +48,11 @@ function PrivateRoute({ children, roles }: { children: JSX.Element; roles?: stri
 
 export default function App() {
   const loadFromStorage = useAuthStore((s) => s.loadFromStorage);
+  const startDeploy = useDeployStore((s) => s.start);
 
   useEffect(() => {
     loadFromStorage();
+    startDeploy(); // inicia el poll de versión/estado (compartido con el sidebar)
   }, []);
 
   return (

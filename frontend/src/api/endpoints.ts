@@ -3,6 +3,8 @@ import api from './client';
 // Control de versión / despliegue (versión autoritativa en BD)
 export const deployApi = {
   version: () => api.get('/deploy/version'),
+  enProgreso: (data: { mensaje?: string; version?: string } = {}) => api.post('/deploy/en-progreso', data),
+  completada: (data: { mensaje?: string; version?: string } = {}) => api.post('/deploy/completada', data),
 };
 
 // Auth

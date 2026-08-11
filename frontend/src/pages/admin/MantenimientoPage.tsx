@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { backupApi, tiendasApi } from '../../api/endpoints';
+import { backupApi, tiendasApi, deployApi } from '../../api/endpoints';
+import { useAuthStore } from '../../store/auth.store';
 import toast from 'react-hot-toast';
 import {
   HardDrive, FileSpreadsheet, RefreshCw, Download, Trash2,
   Clock, CheckCircle, XCircle, UploadCloud, Settings, Play,
   Database, Folder, AlertTriangle, Eraser, RotateCcw, Link2Off,
-  Filter,
+  Filter, Rocket,
 } from 'lucide-react';
 
 const HORAS = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
@@ -24,6 +25,9 @@ function fmtDate(d: string | Date) {
 }
 
 export default function MantenimientoPage() {
+  const { user } = useAuthStore();
+  const [deploy, setDeploy] = useState<{ version: string; estado: string; updated_at?: string } | null>(null);
+  const [deployBusy, setDeployBusy] = useState(false);
   const [config, setConfig] = useState<any>(null);
   const [logs, setLogs] = useState<any[]>([]);
   const [files, setFiles] = useState<any[]>([]);
@@ -79,6 +83,23 @@ export default function MantenimientoPage() {
     loadAll();
     tiendasApi.list().then((r) => setTiendas(r.data || [])).catch(() => {});
   }, [loadAll]);
+
+  // Control de versión / despliegue (solo superadmin)
+  useEffect(() => {
+    if (user?.rol === 'superadmin') {
+      deployApi.version().then(({ data }) => setDeploy(data)).catch(() => {});
+    }
+  }, [user?.rol]);
+
+  const marcarDeploy = async (estado: 'en_progreso' | 'completada') => {
+    setDeployBusy(true);
+    try {
+      const { data } = estado === 'en_progreso' ? await deployApi.enProgreso() : await deployApi.completada();
+      setDeploy(data);
+      toast.success(estado === 'en_progreso' ? 'Marcado: actualización en progreso' : 'Marcado: actualización completada');
+    } catch { toast.error('No se pudo cambiar el estado de despliegue'); }
+    finally { setDeployBusy(false); }
+  };
 
   const handleEjecutar = async (tipo: 'db' | 'excel' | 'completo') => {
     setRunning(tipo);
@@ -222,6 +243,38 @@ export default function MantenimientoPage() {
           <RefreshCw size={16} className={`mr-1 ${loading ? 'animate-spin' : ''}`} /> Actualizar
         </button>
       </div>
+
+      {/* Control de versión / despliegue (solo superadmin) */}
+      {user?.rol === 'superadmin' && (
+        <div className="card mb-6">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h2 className="font-bold flex items-center gap-2"><Rocket size={18} className="text-iados-primary" /> Control de versión</h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Versión desplegada (autoritativa, en BD). Marca “en progreso” antes de un redeploy;
+                al arrancar la versión nueva se marca “completada” sola.
+              </p>
+              <div className="flex items-center gap-2 mt-2 text-sm">
+                <span className="font-mono">v{deploy?.version || '—'}</span>
+                {deploy?.estado === 'en_progreso' ? (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-xs font-semibold animate-pulse">Actualización en progreso</span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full bg-green-600/20 text-green-300 text-xs font-semibold">Completada</span>
+                )}
+                {deploy?.updated_at && <span className="text-xs text-slate-500">· {fmtDate(deploy.updated_at)}</span>}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => marcarDeploy('en_progreso')} disabled={deployBusy || deploy?.estado === 'en_progreso'} className="btn-secondary text-sm disabled:opacity-50">
+                <Clock size={16} className="mr-1" /> Marcar en progreso
+              </button>
+              <button onClick={() => marcarDeploy('completada')} disabled={deployBusy || deploy?.estado === 'completada'} className="btn-primary text-sm disabled:opacity-50">
+                <CheckCircle size={16} className="mr-1" /> Marcar completada
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Estado rápido */}
       {config && (

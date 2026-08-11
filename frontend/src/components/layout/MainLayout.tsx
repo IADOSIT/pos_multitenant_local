@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
 import { useAdminContextStore } from '../../store/adminContext.store';
+import { useDeployStore } from '../../store/deploy.store';
 import { useNotificaciones } from '../../hooks/useNotificaciones';
 import { pedidosApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
@@ -79,6 +80,9 @@ const navItems = [
 export default function MainLayout() {
   const { user, logout, lock, isLocked } = useAuthStore();
   const { viewAs } = useAdminContextStore();
+  const deployVersion = useDeployStore((s) => s.version);
+  const deployEstado = useDeployStore((s) => s.estado);
+  const buildId = useDeployStore((s) => s.buildId);
   const navigate = useNavigate();
   const location = useLocation();
   // Superadmin sin tienda elegida: las pantallas por-tienda piden elegir una primero.
@@ -313,6 +317,14 @@ export default function MainLayout() {
         <div className="p-3 border-t border-slate-700">
           {!deskCollapsed && (
             <div className="hidden lg:block mb-2 px-1">
+              {/* Control de versión: versión autoritativa (BD) + sello del build local */}
+              <div className="mb-1.5 font-mono text-[9px] leading-tight text-slate-500">
+                {deployVersion && <span className="text-slate-400">v{deployVersion}</span>}
+                {deployVersion && ' · '}build {buildId}
+                {deployEstado === 'en_progreso' && (
+                  <span className="ml-1 text-amber-400 animate-pulse">· actualizando…</span>
+                )}
+              </div>
               <div className="flex items-center gap-1.5 mb-1">
                 <Database size={12} className={isExterno ? 'text-amber-400' : 'text-green-400'} />
                 <span className={`text-[10px] font-bold ${isExterno ? 'text-amber-400' : 'text-green-400'}`}>{modoConexion}</span>
