@@ -438,7 +438,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
 
   return (
     <div className={inline ? 'h-full overflow-y-auto' : 'fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4'}>
-      <div className={inline ? 'w-full' : 'card max-w-lg w-full max-h-[90vh] overflow-y-auto'}>
+      <div id={inline ? 'retail-pago-panel' : undefined} className={inline ? 'w-full' : 'card max-w-lg w-full max-h-[90vh] overflow-y-auto'}>
         {!inline && (
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -507,7 +507,20 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
         </div>
 
         {/* Métodos de pago */}
-        <div className={`grid gap-2 mb-2 ${inline ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'}`}>
+        <div
+          id={inline ? 'retail-metodo-group' : undefined}
+          tabIndex={inline ? 0 : undefined}
+          onKeyDown={inline ? (e) => {
+            const orden = ['efectivo', 'tarjeta', 'transferencia', 'mixto'] as const;
+            const i = Math.max(0, orden.indexOf(metodo as any));
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); setMetodo(orden[(i + 1) % orden.length]); cancelarGw(); }
+            else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); setMetodo(orden[(i - 1 + orden.length) % orden.length]); cancelarGw(); }
+            else if (e.key >= '1' && e.key <= '4') { e.preventDefault(); setMetodo(orden[+e.key - 1]); cancelarGw(); }
+            else if (e.key === 'Enter') { e.preventDefault(); (document.querySelector('#retail-pago-panel input[inputmode="decimal"]') as HTMLInputElement | null)?.focus(); }
+            else if (e.key === 'Escape') { e.preventDefault(); document.getElementById('retail-buscar')?.focus(); }
+          } : undefined}
+          className={`grid gap-2 mb-2 ${inline ? 'grid-cols-2 outline-none focus:ring-2 focus:ring-iados-primary rounded-xl' : 'grid-cols-2 sm:grid-cols-4'}`}
+        >
           {([
             { key: 'efectivo', label: 'Efectivo', icon: Banknote },
             { key: 'tarjeta', label: 'Tarjeta', icon: CreditCard },
@@ -575,7 +588,10 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
                 value={pagoEfectivo}
                 onChange={(e) => setPagoEfectivo(e.target.value.replace(/[^0-9.]/g, ''))}
                 onFocus={e => e.target.select()}
-                onKeyDown={(e) => { if (e.key === 'Enter' && canPay() && !loading) { e.preventDefault(); handlePay(false); } }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && canPay() && !loading) { e.preventDefault(); handlePay(false); }
+                  else if (e.key === 'Escape') { e.preventDefault(); document.getElementById('retail-metodo-group')?.focus(); }
+                }}
                 className="input-touch text-2xl text-center flex-1"
                 placeholder="0.00"
                 autoFocus={!inline}
@@ -603,7 +619,10 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
                 value={pagoTarjeta}
                 onChange={(e) => setPagoTarjeta(e.target.value.replace(/[^0-9.]/g, ''))}
                 onFocus={e => e.target.select()}
-                onKeyDown={(e) => { if (e.key === 'Enter' && canPay() && !loading) { e.preventDefault(); handlePay(false); } }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && canPay() && !loading) { e.preventDefault(); handlePay(false); }
+                  else if (e.key === 'Escape') { e.preventDefault(); document.getElementById('retail-metodo-group')?.focus(); }
+                }}
                 className="input-touch text-xl text-center flex-1"
                 placeholder={metodo === 'tarjeta' ? total.toFixed(2) : '0.00'}
               />
@@ -624,7 +643,10 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
                 value={pagoTransferencia}
                 onChange={(e) => setPagoTransferencia(e.target.value.replace(/[^0-9.]/g, ''))}
                 onFocus={e => e.target.select()}
-                onKeyDown={(e) => { if (e.key === 'Enter' && canPay() && !loading) { e.preventDefault(); handlePay(false); } }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && canPay() && !loading) { e.preventDefault(); handlePay(false); }
+                  else if (e.key === 'Escape') { e.preventDefault(); document.getElementById('retail-metodo-group')?.focus(); }
+                }}
                 className="input-touch text-xl text-center flex-1"
                 placeholder={metodo === 'transferencia' ? total.toFixed(2) : '0.00'}
               />

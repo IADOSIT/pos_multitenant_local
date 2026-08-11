@@ -135,10 +135,10 @@ export default function POSRetailPage() {
       }
       return;
     }
-    // Buscador vacío
+    // Buscador vacío (o navegando el ticket): Enter → ir a elegir método de pago
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (cart.length > 0) document.getElementById('retail-pago-input')?.focus(); // → poner el dinero
+      if (cart.length > 0) document.getElementById('retail-metodo-group')?.focus();
       return;
     }
     if (cart.length === 0) return;
@@ -171,6 +171,7 @@ export default function POSRetailPage() {
             <ScanLine className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
             <input
               ref={inputRef}
+              id="retail-buscar"
               value={busqueda}
               onChange={(e) => { setBusqueda(e.target.value); setResIdx(0); if (e.target.value) setSelIdx(-1); }}
               onKeyDown={onKey}
@@ -312,12 +313,14 @@ export default function POSRetailPage() {
                 ['Escribir / escanear', 'Busca o lee el código de barras'],
                 ['↓ / ↑ (con texto)', 'Navegar la lista de resultados de búsqueda'],
                 ['Enter (con texto)', 'Agregar el producto resaltado al ticket'],
-                ['Enter (buscador vacío)', 'Ir a cobrar (enfoca el importe "Pagó con")'],
                 ['↓ / ↑ (vacío)', 'Navegar los productos del ticket'],
-                ['→', 'Aumentar la cantidad del producto seleccionado'],
-                ['←', 'Disminuir la cantidad (en 1 lo elimina)'],
+                ['→ / ←', 'Aumentar / disminuir la cantidad (en 1 lo elimina)'],
                 ['Retroceso / Supr', 'Eliminar el producto seleccionado'],
+                ['Enter (vacío o en ticket)', 'Ir a elegir método de pago'],
+                ['← / → o 1–4 (en método)', 'Cambiar el método de pago'],
+                ['Enter (en método)', 'Pasar al importe'],
                 ['Enter (en el importe)', 'Completar la venta'],
+                ['Esc', 'Regresar un paso (importe → método → buscador)'],
                 ['F12', 'Completar la venta (desde cualquier lugar)'],
                 ['F1 o ?', 'Mostrar u ocultar esta ayuda'],
               ].map(([k, d]) => (
