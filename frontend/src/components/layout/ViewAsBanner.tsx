@@ -36,7 +36,7 @@ export default function ViewAsBanner() {
   };
 
   return (
-    <div className={`flex items-center gap-2 px-4 py-1.5 text-xs border-b ${viewAs ? 'bg-purple-900/30 border-purple-700/50 text-purple-200' : 'bg-slate-800/60 border-slate-700 text-slate-400'}`}>
+    <div className={`flex items-center gap-2 px-4 py-1.5 text-xs border-t shrink-0 ${viewAs ? 'bg-purple-900/40 border-purple-600/60 text-purple-100' : 'bg-amber-900/40 border-amber-600/60 text-amber-100'}`}>
       <Building2 size={13} className="shrink-0" />
       {viewAs ? (
         <>

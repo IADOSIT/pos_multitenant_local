@@ -362,12 +362,13 @@ export default function MainLayout() {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <ViewAsBanner />
         <LicenciaBanner />
         <StockAlertBanner />
         <main className="flex-1 overflow-y-auto md:pt-0 pt-14">
           <Outlet />
         </main>
+        {/* Barra de "ver como tienda" (superadmin) al pie, para no robar espacio arriba */}
+        <ViewAsBanner />
       </div>
 
       {/* Lock screen overlay */}
