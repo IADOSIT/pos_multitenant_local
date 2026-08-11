@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
 import { useNotificaciones } from '../../hooks/useNotificaciones';
 import { pedidosApi } from '../../api/endpoints';
@@ -8,7 +8,7 @@ import apiClient from '../../api/client';
 import toast from 'react-hot-toast';
 import {
   ShoppingCart, LayoutDashboard, CreditCard, Package,
-  Users, Building2, Settings, LogOut, Menu, X, ClipboardList, FileBarChart, Warehouse, Database, Lock, BookOpen, Grid3X3, Truck, Scale, Store
+  Users, Building2, Settings, LogOut, Menu, X, ClipboardList, FileBarChart, Warehouse, Database, Lock, BookOpen, Grid3X3, Truck, Scale, Store, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 import { logisticaApi, basculaApi } from '../../api/endpoints';
 import StockAlertBanner from '../ui/StockAlertBanner';
@@ -42,7 +42,12 @@ const navItems = [
 export default function MainLayout() {
   const { user, logout, lock, isLocked } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Colapso del sidebar en desktop: se auto-oculta en el POS para dar más espacio
+  // a los productos, y se muestra por defecto en el resto de las vistas.
+  const [deskCollapsed, setDeskCollapsed] = useState(false);
+  useEffect(() => { setDeskCollapsed(location.pathname === '/pos'); }, [location.pathname]);
   const [dbHost, setDbHost] = useState('...');
   const [appVersion, setAppVersion] = useState('');
   const [cajeroDashboard, setCajeroDashboard] = useState(false);
@@ -159,8 +164,20 @@ export default function MainLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden">
+      {/* Botón flotante para mostrar el sidebar cuando está colapsado (desktop) */}
+      {deskCollapsed && (
+        <button
+          onClick={() => setDeskCollapsed(false)}
+          title="Mostrar menú"
+          aria-label="Mostrar menú"
+          className="hidden md:flex fixed top-2 left-2 z-50 items-center justify-center w-10 h-10 rounded-xl bg-iados-surface border border-slate-700 text-slate-300 hover:text-white hover:bg-iados-card shadow-lg"
+        >
+          <PanelLeftOpen size={20} />
+        </button>
+      )}
+
       {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex flex-col w-20 lg:w-56 bg-iados-surface border-r border-slate-700 shrink-0">
+      <aside className={`${deskCollapsed ? 'hidden' : 'hidden md:flex'} flex-col w-20 lg:w-56 bg-iados-surface border-r border-slate-700 shrink-0`}>
         <div className="p-3 lg:p-4 border-b border-slate-700 flex items-center justify-center lg:justify-start gap-2">
           {user?.empresa_logo ? (
             <img src={resolveUploadUrl(user.empresa_logo)} alt="" className="w-10 h-10 rounded-xl object-cover" />
@@ -169,10 +186,18 @@ export default function MainLayout() {
               {(user?.empresa_nombre || 'P').charAt(0)}
             </div>
           )}
-          <div className="hidden lg:block leading-tight">
+          <div className="hidden lg:block leading-tight flex-1 min-w-0">
             <span className="font-bold text-sm block truncate">{user?.empresa_nombre || 'POS-iaDoS'}</span>
             <span className="text-[10px] text-slate-500">POS-iaDoS</span>
           </div>
+          <button
+            onClick={() => setDeskCollapsed(true)}
+            title="Ocultar menú"
+            aria-label="Ocultar menú"
+            className="hidden lg:flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-white hover:bg-iados-card shrink-0"
+          >
+            <PanelLeftClose size={18} />
+          </button>
         </div>
 
         <nav className="flex-1 py-2 overflow-y-auto">
