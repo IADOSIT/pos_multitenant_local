@@ -142,6 +142,32 @@ export default function POSRetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // "Escribir en cualquier lado": si el usuario empieza a teclear (o dispara la pistola
+  // lectora) sin el foco en un campo, mandamos el texto directo al buscador. NO se
+  // interfiere si está escribiendo en OTRO input/textarea/select (o contenteditable).
+  useEffect(() => {
+    const esCampoTexto = (el: Element | null) => {
+      if (!el) return false;
+      const tag = el.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (el as HTMLElement).isContentEditable;
+    };
+    const h = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;      // atajos: no tocar
+      if (e.key.length !== 1 || e.key === ' ') return;      // solo caracteres imprimibles (sin espacio, para no robar el Space de botones)
+      const activo = document.activeElement;
+      if (activo === inputRef.current) return;              // ya está en el buscador: comportamiento normal
+      if (esCampoTexto(activo)) return;                     // está en OTRO campo: respetarlo
+      e.preventDefault();
+      inputRef.current?.focus();
+      setBusqueda((prev) => prev + e.key);
+      setResIdx(0);
+      setSelIdx(-1);
+    };
+    window.addEventListener('keydown', h, true);
+    return () => window.removeEventListener('keydown', h, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Mantener la fila seleccionada visible al navegar con el teclado.
   useEffect(() => {
     if (selIdx >= 0) document.querySelector(`[data-row="${selIdx}"]`)?.scrollIntoView({ block: 'nearest' });
