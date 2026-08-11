@@ -3,7 +3,17 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
 
+// Sello del build (fecha/hora local MX). Cambia en CADA compilación → sirve como
+// marca de agua para confirmar si el frontend desplegado se actualizó.
+const BUILD_ID = new Date().toLocaleString('es-MX', {
+  timeZone: 'America/Mexico_City', day: '2-digit', month: '2-digit', year: '2-digit',
+  hour: '2-digit', minute: '2-digit', hour12: false,
+}).replace(',', '');
+
 export default defineConfig({
+  define: {
+    __BUILD_ID__: JSON.stringify(BUILD_ID),
+  },
   plugins: [
     react(),
     VitePWA({

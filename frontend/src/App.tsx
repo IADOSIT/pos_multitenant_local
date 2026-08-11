@@ -139,6 +139,11 @@ export default function App() {
         </Route>
       </Routes>
       </Suspense>
+      {/* Marca de agua de versión: cambia con cada build. Sirve para confirmar de un
+          vistazo si el frontend desplegado se actualizó tras un redeploy. */}
+      <div className="fixed bottom-0.5 right-1.5 z-[9999] pointer-events-none select-none font-mono text-[10px] leading-none text-slate-400/50">
+        build {__BUILD_ID__}
+      </div>
     </>
   );
 }
