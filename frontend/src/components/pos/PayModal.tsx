@@ -489,6 +489,19 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
       <div
         id={inline ? 'retail-pago-panel' : undefined}
         onKeyDown={inline ? (e) => {
+          // Enter avanza a la SIGUIENTE sección: método → importe → Completar → (cobrar).
+          if (e.key === 'Enter') {
+            const active = document.activeElement as HTMLElement | null;
+            if (active?.dataset.paySection === 'metodo') {
+              e.preventDefault();
+              (document.querySelector('#retail-pago-panel input[inputmode="decimal"]') as HTMLElement | null)?.focus();
+            } else if (active?.tagName === 'INPUT') {
+              e.preventDefault();
+              (document.querySelector('#retail-pago-panel [data-pay-complete]') as HTMLElement | null)?.focus();
+            }
+            // billetes / Exacto / Completar: se deja su acción nativa (sumar / cobrar).
+            return;
+          }
           const map: Record<string, 'up' | 'down' | 'left' | 'right'> = { ArrowDown: 'down', ArrowUp: 'up', ArrowLeft: 'left', ArrowRight: 'right' };
           const dir = map[e.key];
           if (!dir) return;
@@ -577,6 +590,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
           ] as const).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
+              data-pay-section="metodo"
               onClick={() => { setMetodo(key); cancelarGw(); }}
               onFocus={inline ? () => { setMetodo(key); cancelarGw(); } : undefined}
               className={`btn-touch flex-col gap-1 text-sm outline-none focus:ring-2 focus:ring-inset focus:ring-white/60 ${
@@ -642,8 +656,9 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
                 onChange={(e) => setPagoEfectivo(e.target.value.replace(/[^0-9.]/g, ''))}
                 onFocus={e => e.target.select()}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && canPay() && !loading) { e.preventDefault(); handlePay(false); }
-                  else if (e.key === 'Escape') { e.preventDefault(); (document.querySelector('#retail-pago-panel button') as HTMLElement | null)?.focus(); }
+                  if (e.key === 'Escape') { e.preventDefault(); if (inline) (document.querySelector('#retail-pago-panel button') as HTMLElement | null)?.focus(); return; }
+                  // En inline el panel avanza a Completar; en el modal, Enter cobra directo.
+                  if (e.key === 'Enter' && !inline && canPay() && !loading) { e.preventDefault(); handlePay(false); }
                 }}
                 className="input-touch text-2xl text-center flex-1"
                 placeholder="0.00"
@@ -673,8 +688,9 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
                 onChange={(e) => setPagoTarjeta(e.target.value.replace(/[^0-9.]/g, ''))}
                 onFocus={e => e.target.select()}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && canPay() && !loading) { e.preventDefault(); handlePay(false); }
-                  else if (e.key === 'Escape') { e.preventDefault(); (document.querySelector('#retail-pago-panel button') as HTMLElement | null)?.focus(); }
+                  if (e.key === 'Escape') { e.preventDefault(); if (inline) (document.querySelector('#retail-pago-panel button') as HTMLElement | null)?.focus(); return; }
+                  // En inline el panel avanza a Completar; en el modal, Enter cobra directo.
+                  if (e.key === 'Enter' && !inline && canPay() && !loading) { e.preventDefault(); handlePay(false); }
                 }}
                 className="input-touch text-xl text-center flex-1"
                 placeholder={metodo === 'tarjeta' ? total.toFixed(2) : '0.00'}
@@ -697,8 +713,9 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
                 onChange={(e) => setPagoTransferencia(e.target.value.replace(/[^0-9.]/g, ''))}
                 onFocus={e => e.target.select()}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && canPay() && !loading) { e.preventDefault(); handlePay(false); }
-                  else if (e.key === 'Escape') { e.preventDefault(); (document.querySelector('#retail-pago-panel button') as HTMLElement | null)?.focus(); }
+                  if (e.key === 'Escape') { e.preventDefault(); if (inline) (document.querySelector('#retail-pago-panel button') as HTMLElement | null)?.focus(); return; }
+                  // En inline el panel avanza a Completar; en el modal, Enter cobra directo.
+                  if (e.key === 'Enter' && !inline && canPay() && !loading) { e.preventDefault(); handlePay(false); }
                 }}
                 className="input-touch text-xl text-center flex-1"
                 placeholder={metodo === 'transferencia' ? total.toFixed(2) : '0.00'}
@@ -907,13 +924,17 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
         )}
 
         {/* ── Confirm / pay buttons ─────────────────────────────────────────── */}
-        <button
-          onClick={() => handlePay(false)}
-          disabled={!canPay() || loading}
-          className="btn-success w-full text-lg disabled:opacity-50"
-        >
-          {loading ? 'Procesando...' : pedido ? `Cobrar Mesa ${pedido.mesa} — $${money(total)}` : `Completar Venta $${money(total)}`}
-        </button>
+        {/* En inline (retail) el botón se fija al fondo del panel, siempre visible. */}
+        <div className={inline ? 'sticky bottom-0 z-10 -mx-1 px-1 pt-3 pb-1 bg-iados-surface border-t border-slate-700' : ''}>
+          <button
+            data-pay-complete
+            onClick={() => handlePay(false)}
+            disabled={!canPay() || loading}
+            className="btn-success w-full text-lg disabled:opacity-50 outline-none focus:ring-2 focus:ring-inset focus:ring-white/70"
+          >
+            {loading ? 'Procesando...' : pedido ? `Cobrar Mesa ${pedido.mesa} — $${money(total)}` : `Completar Venta $${money(total)}`}
+          </button>
+        </div>
 
       </div>
     </div>
