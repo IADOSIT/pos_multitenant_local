@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
+import { useAdminContextStore } from '../../store/adminContext.store';
 import { useNotificaciones } from '../../hooks/useNotificaciones';
 import { pedidosApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
@@ -41,6 +42,17 @@ const PAGE_TITLES: Record<string, string> = {
   '/admin/perfil-negocio': 'Perfil del Negocio',
 };
 
+// Rutas cuyo contenido depende de UNA tienda concreta. Para un superadmin que NO ha
+// elegido tienda (selector inferior "ver como"), estas pantallas no deben mostrar datos
+// de la cuenta del superadmin (era un bug: caían al tenant propio, p.ej. Cafe Aroma).
+// Config/Usuarios/Tenants/Licencias/Mantenimiento son globales y sí quedan accesibles
+// (Config es justo donde se administran/eligen las tiendas).
+const RUTAS_POR_TIENDA = new Set([
+  '/pos', '/dashboard', '/pedidos', '/caja', '/reportes', '/inventario', '/inventario-dual',
+  '/catalogos', '/logistica', '/admin/mesas', '/admin/tienda-en-linea', '/admin/materia-prima',
+  '/admin/productos', '/admin/categorias', '/admin/self-order', '/admin/perfil-negocio',
+]);
+
 // Connection info from env
 const apiUrl = import.meta.env.VITE_API_URL || '/api';
 const isExterno = !apiUrl.includes('localhost') && !apiUrl.includes('127.0.0.1');
@@ -66,8 +78,11 @@ const navItems = [
 
 export default function MainLayout() {
   const { user, logout, lock, isLocked } = useAuthStore();
+  const { viewAs } = useAdminContextStore();
   const navigate = useNavigate();
   const location = useLocation();
+  // Superadmin sin tienda elegida: las pantallas por-tienda piden elegir una primero.
+  const necesitaTienda = user?.rol === 'superadmin' && !viewAs && RUTAS_POR_TIENDA.has(location.pathname);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Colapso del sidebar en desktop: en el POS se colapsa para dar más espacio a
   // los productos; en el resto de vistas se muestra. En el POS se recuerda la
@@ -392,9 +407,25 @@ export default function MainLayout() {
         <LicenciaBanner />
         <StockAlertBanner />
         {/* Header estandarizado (todas las pantallas menos el POS, que trae el suyo) */}
-        {!enPos && <PageHeader fallbackTitle={PAGE_TITLES[location.pathname]} />}
+        {!enPos && !necesitaTienda && <PageHeader fallbackTitle={PAGE_TITLES[location.pathname]} />}
         <main className="flex-1 overflow-y-auto md:pt-0 pt-14">
-          <Outlet />
+          {necesitaTienda ? (
+            <div className="h-full flex flex-col items-center justify-center text-center px-6 gap-4">
+              <div className="w-16 h-16 rounded-2xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-center">
+                <Store size={30} className="text-amber-400" />
+              </div>
+              <div className="max-w-md">
+                <h2 className="text-xl font-bold text-slate-100 mb-1">Selecciona una tienda</h2>
+                <p className="text-sm text-slate-400">
+                  Como superadministrador estás sin tienda activa. Esta pantalla muestra datos de
+                  una tienda específica: elige una en el selector <strong>“Elegir tienda…”</strong> de
+                  la barra inferior para empezar a operar de forma segura.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <Outlet />
+          )}
         </main>
         {/* Barra de "ver como tienda" (superadmin) al pie, para no robar espacio arriba */}
         <ViewAsBanner />

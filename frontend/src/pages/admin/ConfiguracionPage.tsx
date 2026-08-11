@@ -408,6 +408,19 @@ export default function ConfiguracionPage() {
     });
   };
 
+  // Al cambiar de tienda, siempre traemos su config FRESCA del backend (el objeto de la
+  // lista puede quedar viejo tras editar otra tienda) — así nunca se ven datos de la
+  // tienda anterior.
+  const selectTiendaFresh = async (id: number) => {
+    try {
+      const { data } = await tiendasApi.get(id);
+      selectTienda(data);
+    } catch {
+      const local = tiendas.find((x) => x.id === id);
+      if (local) selectTienda(local);
+    }
+  };
+
   const handleSave = async () => {
     if (!selected && !editingNew) return;
     setLoading(true);
@@ -832,6 +845,29 @@ export default function ConfiguracionPage() {
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
+
+      {/* Indicador + selector de la tienda activa: visible en todas las pestañas para
+          saber siempre sobre qué tienda se está trabajando y poder cambiarla rápido
+          (recargando sus datos frescos). */}
+      {['superadmin', 'admin'].includes(user?.rol || '') && tiendas.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 bg-iados-surface/60 border border-slate-700 rounded-xl px-4 py-2.5">
+          <div className="w-9 h-9 rounded-lg bg-iados-primary/20 border border-iados-primary/40 flex items-center justify-center shrink-0">
+            <Store size={18} className="text-iados-primary" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-wide text-slate-500 leading-none mb-0.5">Configurando tienda</p>
+            <p className="font-bold text-sm truncate">{selected?.nombre || 'Ninguna seleccionada'}</p>
+          </div>
+          <select
+            value={selected?.id ?? ''}
+            onChange={(e) => { if (e.target.value) { selectTiendaFresh(Number(e.target.value)); setEditingNew(false); setShowForm(false); } }}
+            className="ml-auto bg-iados-card border border-slate-600 rounded-lg px-3 py-2 text-sm max-w-[60%]"
+          >
+            <option value="" disabled>Elegir tienda…</option>
+            {tiendas.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+          </select>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-slate-700 mb-4">
@@ -1446,7 +1482,7 @@ export default function ConfiguracionPage() {
           {tiendas.map((t) => (
             <div
               key={t.id}
-              onClick={() => { selectTienda(t); setEditingNew(false); setShowForm(false); }}
+              onClick={() => { selectTiendaFresh(t.id); setEditingNew(false); setShowForm(false); }}
               className={`card flex items-center gap-3 cursor-pointer transition-all ${selected?.id === t.id ? 'ring-2 ring-iados-primary' : 'hover:ring-1 hover:ring-slate-600'}`}
             >
               <div className="w-10 h-10 bg-iados-primary rounded-xl flex items-center justify-center font-bold">
