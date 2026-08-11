@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { usePOSStore } from '../../store/pos.store';
 import { useAuthStore } from '../../store/auth.store';
+import { useRetailTickets } from '../../store/retailTickets.store';
 import { productosApi, cajaApi, tiendasApi, empresasApi } from '../../api/endpoints';
 import { Producto } from '../../types';
 import { money } from '../../utils/money';
 import PayModal from '../../components/pos/PayModal';
-import { Minus, Plus, Trash2, ShoppingCart, ScanLine, HelpCircle, Keyboard } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingCart, ScanLine, HelpCircle, Keyboard, X, FilePlus } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 // POS estilo TIENDA / RETAIL (tipo supermercado). Componente NUEVO e independiente del
@@ -15,10 +16,23 @@ import toast from 'react-hot-toast';
 export default function POSRetailPage() {
   const { user } = useAuthStore();
   const {
-    addToCart, cart, updateQuantity, removeFromCart, getItemCount,
+    addToCart, cart, setCart, updateQuantity, removeFromCart, getItemCount,
     cajaActiva, setCajaActiva, tipoServicio, setTipoServicio,
     setIvaConfig, setModoServicio,
   } = usePOSStore();
+  const ticketsList = useRetailTickets((s) => s.tickets);
+  const activeTicketId = useRetailTickets((s) => s.activeId);
+
+  // Carga un ticket en el carrito activo del POS.
+  const cargarTicket = (t: { cart: any[]; tipoServicio: 'en_sitio' | 'para_llevar' }) => {
+    setCart(t.cart as any);
+    setTipoServicio(t.tipoServicio);
+    setSelIdx(-1);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+  const nuevoTicket = () => cargarTicket(useRetailTickets.getState().crear());
+  const cambiarTicket = (id: string) => { const t = useRetailTickets.getState().activar(id); if (t) cargarTicket(t); };
+  const cerrarTicket = (id: string) => cargarTicket(useRetailTickets.getState().cerrar(id));
 
   const [productos, setProductos] = useState<Producto[]>([]);
   const [busqueda, setBusqueda] = useState('');
@@ -62,6 +76,13 @@ export default function POSRetailPage() {
   }, []);
 
   useEffect(() => {
+    // Tras conocer la caja, hidrata los tickets temporales (persistidos) y carga el activo.
+    const hidratar = () => {
+      const cid = usePOSStore.getState().cajaActiva?.id ?? null;
+      const activo = useRetailTickets.getState().hydrate(cid);
+      setCart(activo.cart);
+      setTipoServicio(activo.tipoServicio);
+    };
     productosApi.list().then(({ data }) => setProductos(data || [])).catch(() => {});
     if (user?.empresa_id) {
       empresasApi.get(user.empresa_id)
@@ -78,13 +99,19 @@ export default function POSRetailPage() {
         const managed = (cp.caja_auto_enabled || false) || (cp.caja_ocultar_ui || false);
         setCajaManaged(managed);
         await ensureCaja(managed);
-      }).catch(() => ensureCaja(false));
+        hidratar();
+      }).catch(async () => { await ensureCaja(false); hidratar(); });
     } else {
-      ensureCaja(false);
+      ensureCaja(false).then(hidratar);
     }
     setTimeout(() => inputRef.current?.focus(), 100);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.tienda_id, user?.empresa_id]);
+
+  // Guardar continuamente el ticket activo (persiste en localStorage; sobrevive recarga).
+  useEffect(() => {
+    useRetailTickets.getState().guardarActivo(cart, tipoServicio);
+  }, [cart, tipoServicio]);
 
   // Mantener la fila seleccionada visible al navegar con el teclado.
   useEffect(() => {
@@ -119,6 +146,7 @@ export default function POSRetailPage() {
   // navegan el carrito (↓/↑ mover, →/← cantidad, Retroceso/Supr eliminar). F1 o ? = ayuda.
   const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'F1' || e.key === '?') { e.preventDefault(); setShowHelp((h) => !h); return; }
+    if (e.key === 'F2') { e.preventDefault(); nuevoTicket(); return; }
     if (busqueda.trim() !== '') {
       // Navegar la lista de resultados con ↑/↓
       if (resultados.length) {
@@ -201,6 +229,27 @@ export default function POSRetailPage() {
           <button onClick={() => setShowHelp(true)} title="Atajos de teclado (F1)"
             className="shrink-0 w-11 h-11 rounded-xl bg-iados-card border border-slate-600 text-slate-300 hover:text-white hover:border-iados-primary flex items-center justify-center">
             <HelpCircle size={20} />
+          </button>
+        </div>
+
+        {/* Pestañas de tickets (ventas temporales, persistentes) */}
+        <div className="flex items-center gap-1 px-2 py-1.5 bg-iados-dark/40 border-b border-slate-700 overflow-x-auto shrink-0">
+          {ticketsList.map((t) => {
+            const n = t.cart.reduce((s, i) => s + i.cantidad, 0);
+            const activo = t.id === activeTicketId;
+            return (
+              <div key={t.id} onClick={() => cambiarTicket(t.id)}
+                className={`flex items-center gap-1.5 pl-3 pr-1 py-1.5 rounded-lg text-sm cursor-pointer shrink-0 ${activo ? 'bg-iados-primary text-white' : 'bg-iados-card text-slate-300 hover:text-white'}`}>
+                <span className="font-medium">{t.nombre}</span>
+                {n > 0 && <span className={`text-[11px] rounded-full px-1.5 tabular-nums ${activo ? 'bg-white/20' : 'bg-slate-700'}`}>{n}</span>}
+                <button onClick={(e) => { e.stopPropagation(); cerrarTicket(t.id); }} title="Cerrar ticket"
+                  className="w-5 h-5 rounded flex items-center justify-center opacity-60 hover:opacity-100 hover:text-red-300"><X size={12} /></button>
+              </div>
+            );
+          })}
+          <button onClick={nuevoTicket} title="Nuevo ticket (F2)"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-iados-card shrink-0">
+            <FilePlus size={15} /> Nuevo
           </button>
         </div>
 
@@ -293,7 +342,7 @@ export default function POSRetailPage() {
               inline
               isOnline={isOnline}
               cajaManaged={cajaManaged}
-              onClose={() => setPayKey((k) => k + 1)}
+              onClose={() => { cargarTicket(useRetailTickets.getState().ventaCompletada()); setPayKey((k) => k + 1); }}
             />
           )}
         </div>
@@ -322,6 +371,7 @@ export default function POSRetailPage() {
                 ['Enter (en el importe)', 'Completar la venta'],
                 ['Esc', 'Regresar un paso (importe → método → buscador)'],
                 ['F12', 'Completar la venta (desde cualquier lugar)'],
+                ['F2', 'Abrir un ticket nuevo (varias ventas a la vez)'],
                 ['F1 o ?', 'Mostrar u ocultar esta ayuda'],
               ].map(([k, d]) => (
                 <li key={k} className="flex items-start gap-3">
