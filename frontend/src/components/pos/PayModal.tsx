@@ -105,6 +105,8 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
     } else {
       setPagoEfectivo((prev) => String(Math.round((Number(prev || 0) + d) * 100) / 100));
     }
+    // En retail, tras tocar un billete el foco salta al importe para seguir tecleando/cobrar.
+    if (inline) requestAnimationFrame(() => (document.querySelector('#retail-pago-panel input[inputmode="decimal"]') as HTMLInputElement | null)?.focus());
   };
 
   const canPay = () => {
@@ -536,7 +538,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
             else if (e.key === 'Enter') { e.preventDefault(); (document.querySelector('#retail-pago-panel input[inputmode="decimal"]') as HTMLInputElement | null)?.focus(); }
             else if (e.key === 'Escape') { e.preventDefault(); document.getElementById('retail-buscar')?.focus(); }
           } : undefined}
-          className={`grid gap-2 mb-2 ${inline ? 'grid-cols-2 outline-none focus:ring-2 focus:ring-iados-primary rounded-xl' : 'grid-cols-2 sm:grid-cols-4'}`}
+          className={`grid gap-2 mb-2 ${inline ? 'grid-cols-2 outline-none focus:ring-2 focus:ring-inset focus:ring-iados-primary rounded-xl' : 'grid-cols-2 sm:grid-cols-4'}`}
         >
           {([
             { key: 'efectivo', label: 'Efectivo', icon: Banknote },
@@ -548,7 +550,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
               key={key}
               onClick={() => { setMetodo(key); cancelarGw(); }}
               className={`btn-touch flex-col gap-1 text-sm ${
-                metodo === key ? 'bg-iados-primary ring-2 ring-iados-secondary' : 'bg-iados-card'
+                metodo === key ? 'bg-iados-primary ring-2 ring-inset ring-iados-secondary' : 'bg-iados-card'
               }`}
             >
               <Icon size={24} />
