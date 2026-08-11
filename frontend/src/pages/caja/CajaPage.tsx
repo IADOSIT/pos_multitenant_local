@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { usePOSStore } from '../../store/pos.store';
 import { useAuthStore } from '../../store/auth.store';
+import { useScope } from '../../hooks/useScope';
 import { cajaApi, tiendasApi } from '../../api/endpoints';
 import toast from 'react-hot-toast';
 import { DollarSign, ArrowUpCircle, ArrowDownCircle, FileText, Lock } from 'lucide-react';
@@ -23,6 +24,7 @@ export default function CajaPage() {
   usePageHeader({ title: 'Caja', subtitle: 'Apertura, cortes y movimientos de caja' });
   const { cajaActiva, setCajaActiva } = usePOSStore();
   const { user } = useAuthStore();
+  const { tiendaId } = useScope();
   const [fondo, setFondo] = useState('0');
   const [totalReal, setTotalReal] = useState('');
   const [movTipo, setMovTipo] = useState<'entrada' | 'salida'>('entrada');
@@ -40,9 +42,9 @@ export default function CajaPage() {
   }, []);
 
   const loadConfig = async () => {
-    if (!user?.tienda_id) return;
+    if (!tiendaId) return;
     try {
-      const { data } = await tiendasApi.get(user.tienda_id);
+      const { data } = await tiendasApi.get(tiendaId);
       const cp = data?.config_pos || {};
       setCajaAutoEnabled(cp.caja_auto_enabled || false);
       setCajaOcultarUi(cp.caja_ocultar_ui || false);

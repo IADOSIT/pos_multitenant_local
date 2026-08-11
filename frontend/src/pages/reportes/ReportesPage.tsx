@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { cajaApi, dashboardApi, ventasApi, ticketsApi, tiendasApi } from '../../api/endpoints';
 import DevolucionModal from '../../components/pos/DevolucionModal';
 import { useAuthStore } from '../../store/auth.store';
+import { useScope } from '../../hooks/useScope';
 import { printTicket } from '../../utils/printTicket';
 import toast from 'react-hot-toast';
 import {
@@ -27,6 +28,7 @@ import { usePageHeader } from '../../store/pageHeader.store';
 export default function ReportesPage() {
   usePageHeader({ title: 'Reportes', subtitle: 'Ventas, caja, clientes y KPIs' });
   const { user } = useAuthStore();
+  const { tiendaId } = useScope();
   const [cajas, setCajas] = useState<any[]>([]);
   const [selectedCaja, setSelectedCaja] = useState<any>(null);
   const [reporte, setReporte] = useState<any>(null);
@@ -52,8 +54,8 @@ export default function ReportesPage() {
 
   useEffect(() => {
     loadCajas();
-    if (user?.tienda_id) {
-      tiendasApi.get(user.tienda_id).then(({ data }) => {
+    if (tiendaId) {
+      tiendasApi.get(tiendaId).then(({ data }) => {
         const cp = data?.config_pos || {};
         setConfigPos(cp);
         const cfg = cp.reportes_tabs_config;

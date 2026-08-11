@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePOSStore } from '../../store/pos.store';
 import { useAuthStore } from '../../store/auth.store';
+import { useScope } from '../../hooks/useScope';
 import { offlineActions } from '../../store/offline.store';
 import { productosApi, categoriasApi, cajaApi, tiendasApi, pedidosApi, ticketsApi, selfOrderApi, empresasApi, basculaApi } from '../../api/endpoints';
 import { io, Socket } from 'socket.io-client';
@@ -114,22 +115,23 @@ export default function POSPage() {
   const basculaSockRef = useRef<Socket | null>(null);
 
   const { user } = useAuthStore();
+  const { tiendaId, empresaId } = useScope();
   const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, setMesaActiva, tipoServicio, clearCart, notaPedido, clienteNombre, clienteTelefono, clienteDireccion, updateItemPrice, updateItemNotes } = usePOSStore();
 
   // Conexion al socket de bascula (peso en vivo) — solo si esta habilitada para el POS.
   useEffect(() => {
-    if (!basculaEnPos || !user?.tienda_id) return;
+    if (!basculaEnPos || !tiendaId) return;
     const base = import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://posapi.iados.online';
     const sock = io(`${base}/bascula`, { transports: ['websocket'] });
     basculaSockRef.current = sock;
     sock.on('connect', () => {
       setBasculaConectada(true);
-      sock.emit('kiosk-join', { tienda_id: user.tienda_id });
+      sock.emit('kiosk-join', { tienda_id: tiendaId });
     });
     sock.on('disconnect', () => setBasculaConectada(false));
     sock.on('weight-update', (data: { peso_kg: number }) => setPesoEnVivo(data.peso_kg || 0));
     return () => { sock.disconnect(); };
-  }, [basculaEnPos, user?.tienda_id]);
+  }, [basculaEnPos, tiendaId]);
 
   // Etiqueta de bascula de autoservicio: codigo EAN-13 de peso variable (prefijo "2").
   // El lector de barras "teclea" el codigo completo casi instantaneo — se detecta apenas
@@ -223,9 +225,9 @@ export default function POSPage() {
   };
 
   const loadTiendaConfig = async () => {
-    if (!user?.tienda_id) return;
+    if (!tiendaId) return;
     try {
-      const { data } = await tiendasApi.get(user.tienda_id);
+      const { data } = await tiendasApi.get(tiendaId);
       if (data.config_pos) {
         const cp = data.config_pos;
         setModoServicio(cp.modo_servicio || 'autoservicio');
@@ -267,14 +269,14 @@ export default function POSPage() {
 
     // Bascula: si esta habilitada para usarse en el POS, conectamos el socket de peso
     try {
-      const { data } = await basculaApi.getConfig(user.tienda_id);
+      const { data } = await basculaApi.getConfig(tiendaId);
       setBasculaEnPos(data?.usar_en_pos || false);
     } catch { setBasculaEnPos(false); }
 
     // Cargar config_especial de empresa
-    if (user?.empresa_id) {
+    if (empresaId) {
       try {
-        const empR = await empresasApi.get(user.empresa_id);
+        const empR = await empresasApi.get(empresaId);
         const cfgEsp = empR.data?.config_especial || {};
         setMostrarPrecios(cfgEsp.mostrar_precios !== false);
         setPrecioManual(cfgEsp.precio_manual === true);

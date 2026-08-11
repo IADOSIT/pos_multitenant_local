@@ -1,5 +1,6 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useAuthStore } from '../../store/auth.store';
+import { useAdminContextStore } from '../../store/adminContext.store';
 import { tiendasApi } from '../../api/endpoints';
 
 // Cada layout es su propio chunk: una tienda 'restaurante' nunca descarga el
@@ -7,29 +8,38 @@ import { tiendasApi } from '../../api/endpoints';
 const POSPage = lazy(() => import('./POSPage'));
 const POSRetailPage = lazy(() => import('./POSRetailPage'));
 
-// Decide qué layout de POS mostrar según config_pos.pos_layout de la tienda.
-// Por defecto (o sin tienda) → POSPage (restaurante). Solo 'retail' explícito
+// Decide qué layout de POS mostrar según config_pos.pos_layout de la tienda ACTIVA.
+// Si el superadmin está "viendo como" una tienda, se usa esa tienda (viewAs), no la
+// de su propia cuenta. Por defecto → POSPage (restaurante). Solo 'retail' explícito
 // muestra el layout tipo tienda/supermercado.
 export default function PosSwitcher() {
   const { user } = useAuthStore();
-  // Render INSTANTÁNEO con el layout cacheado (evita bloquear con "Cargando POS…");
+  const { viewAs } = useAdminContextStore();
+  const tiendaId = viewAs?.tienda_id ?? user?.tienda_id;
+
+  // Render INSTANTÁNEO con el layout cacheado POR TIENDA (evita bloquear con
+  // "Cargando POS…" y evita mostrar el layout de otra tienda al cambiar de contexto);
   // se revalida en segundo plano y se corrige si cambió.
-  const cached = (typeof localStorage !== 'undefined' && localStorage.getItem('pos_layout')) as 'retail' | 'restaurante' | null;
-  const [layout, setLayout] = useState<'restaurante' | 'retail'>(cached === 'retail' ? 'retail' : 'restaurante');
+  const cacheKey = tiendaId ? `pos_layout_${tiendaId}` : null;
+  const leerCache = (): 'restaurante' | 'retail' =>
+    (cacheKey && typeof localStorage !== 'undefined' && localStorage.getItem(cacheKey) === 'retail')
+      ? 'retail' : 'restaurante';
+  const [layout, setLayout] = useState<'restaurante' | 'retail'>(leerCache());
 
   useEffect(() => {
     let activo = true;
-    if (!user?.tienda_id) return;
-    tiendasApi.get(user.tienda_id)
+    if (!tiendaId) return;
+    setLayout(leerCache()); // al cambiar de tienda, parte del cache de ESA tienda
+    tiendasApi.get(tiendaId)
       .then(({ data }) => {
         if (!activo) return;
         const l: 'retail' | 'restaurante' = data?.config_pos?.pos_layout === 'retail' ? 'retail' : 'restaurante';
         setLayout(l);
-        try { localStorage.setItem('pos_layout', l); } catch { /* ignore */ }
+        try { if (cacheKey) localStorage.setItem(cacheKey, l); } catch { /* ignore */ }
       })
       .catch(() => { /* mantiene el cacheado */ });
     return () => { activo = false; };
-  }, [user?.tienda_id]);
+  }, [tiendaId]);
 
   return (
     <Suspense fallback={<div className="h-full flex items-center justify-center text-slate-400">Cargando POS…</div>}>

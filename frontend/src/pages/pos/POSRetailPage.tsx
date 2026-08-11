@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { usePOSStore } from '../../store/pos.store';
 import { useAuthStore } from '../../store/auth.store';
+import { useScope } from '../../hooks/useScope';
 import { useRetailTickets } from '../../store/retailTickets.store';
 import { productosApi, cajaApi, tiendasApi, empresasApi } from '../../api/endpoints';
 import { Producto } from '../../types';
@@ -15,6 +16,7 @@ import toast from 'react-hot-toast';
 // Configuración → Modo de Servicio POS → "Tienda / Retail".
 export default function POSRetailPage() {
   const { user } = useAuthStore();
+  const { tiendaId, empresaId } = useScope();
   const {
     addToCart, cart, setCart, updateQuantity, removeFromCart, getItemCount,
     cajaActiva, setCajaActiva, tipoServicio, setTipoServicio,
@@ -94,13 +96,13 @@ export default function POSRetailPage() {
       hydratedRef.current = true; // desde aquí sí se puede persistir
     };
     productosApi.list().then(({ data }) => setProductos(data || [])).catch(() => {});
-    if (user?.empresa_id) {
-      empresasApi.get(user.empresa_id)
+    if (empresaId) {
+      empresasApi.get(empresaId)
         .then((r) => setMostrarPrecios(r.data?.config_especial?.mostrar_precios !== false))
         .catch(() => {});
     }
-    if (user?.tienda_id) {
-      tiendasApi.get(user.tienda_id).then(async ({ data }) => {
+    if (tiendaId) {
+      tiendasApi.get(tiendaId).then(async ({ data }) => {
         const cp = data?.config_pos || {};
         setModoServicio(cp.modo_servicio || 'autoservicio');
         setIvaConfig({ enabled: cp.iva_enabled || false, porcentaje: cp.iva_porcentaje ?? 16, incluido: cp.iva_incluido ?? true });
@@ -116,7 +118,7 @@ export default function POSRetailPage() {
     }
     setTimeout(() => inputRef.current?.focus(), 100);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.tienda_id, user?.empresa_id]);
+  }, [tiendaId, empresaId]);
 
   // Guardar continuamente el ticket activo (persiste en localStorage; sobrevive recarga).
   // OJO: no persistir antes de hidratar, o se pisaría el ticket guardado con un carrito vacío.
