@@ -494,6 +494,10 @@ export default function ConfiguracionPage() {
       } else {
         await tiendasApi.update(selected.id, payload);
         toast.success('Configuracion guardada');
+        // Sincroniza el cache de layout del POS de ESTA tienda para que el cambio de
+        // modalidad (restaurante/retail) se refleje al instante al abrir el POS, sin
+        // esperar la revalidación en segundo plano del PosSwitcher.
+        try { localStorage.setItem(`pos_layout_${selected.id}`, form.pos_layout === 'retail' ? 'retail' : 'restaurante'); } catch { /* ignore */ }
         await load();
         // Re-select to refresh
         const { data } = await tiendasApi.get(selected.id);
