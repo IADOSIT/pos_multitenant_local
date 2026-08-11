@@ -361,18 +361,15 @@ export default function POSRetailPage() {
             </div>
           )}
 
-          {cart.length === 0 ? (
-            <div className="text-center text-slate-500 text-sm py-10">Agrega productos para cobrar.</div>
-          ) : (
-            /* Cobro INLINE: mismo proceso que el POS actual (PayModal embebido) */
-            <PayModal
-              key={payKey}
-              inline
-              isOnline={isOnline}
-              cajaManaged={cajaManaged}
-              onClose={() => { cargarTicket(useRetailTickets.getState().ventaCompletada()); setPayKey((k) => k + 1); }}
-            />
-          )}
+          {/* Cobro INLINE siempre visible; sin productos, los controles se ven en $0 y desactivados. */}
+          <PayModal
+            key={payKey}
+            inline
+            disabled={cart.length === 0}
+            isOnline={isOnline}
+            cajaManaged={cajaManaged}
+            onClose={() => { cargarTicket(useRetailTickets.getState().ventaCompletada()); setPayKey((k) => k + 1); }}
+          />
         </div>
       </aside>
 

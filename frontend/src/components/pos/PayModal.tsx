@@ -16,6 +16,7 @@ interface Props {
   pedido?: any; // si se pasa, cobrar este pedido en lugar del carrito
   cajaManaged?: boolean; // caja_auto_enabled o caja_ocultar_ui — si no hay caja, intentar abrir
   inline?: boolean; // true = embebido en un panel (modo retail), sin overlay ni encabezado
+  disabled?: boolean; // true = sin productos: mostrar controles visibles pero inactivos, en $0
 }
 
 type MetodoPago = 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto' | 'mp_qr' | 'mp_point' | 'stripe';
@@ -48,7 +49,7 @@ function paySpatialNext(panel: HTMLElement, dir: 'up' | 'down' | 'left' | 'right
   return best;
 }
 
-export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inline }: Props) {
+export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inline, disabled }: Props) {
   const { cart, getSubtotal, getImpuestos, getTotal, clearCart, cajaActiva, setCajaActiva, tipoServicio, notaPedido, clienteNombre, clienteTelefono, clienteDireccion } = usePOSStore();
   const { user } = useAuthStore();
 
@@ -436,13 +437,13 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
       // F12 (donde el navegador lo permita) o Alt/Option+P (Mac y Windows): completar venta.
       if (e.key === 'F12' || (e.altKey && e.code === 'KeyP')) {
         e.preventDefault();
-        if (canPay() && !loading) handlePay(false);
+        if (!disabled && canPay() && !loading) handlePay(false);
       }
     };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inline, loading, metodo, pagoEfectivo, pagoTarjeta, pagoTransferencia, total, gwEstado]);
+  }, [inline, disabled, loading, metodo, pagoEfectivo, pagoTarjeta, pagoTransferencia, total, gwEstado]);
 
   // Modo inline: tras completar la venta, cerrar solo (o con Enter/Esc/F12) para
   // devolver el foco al buscador y poder reanudar la siguiente venta.
@@ -593,9 +594,10 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
             <button
               key={key}
               data-pay-section="metodo"
+              disabled={disabled}
               onClick={() => { setMetodo(key); cancelarGw(); }}
-              onFocus={inline ? () => { setMetodo(key); cancelarGw(); } : undefined}
-              className={`btn-touch flex-col outline-none focus:ring-2 focus:ring-inset focus:ring-white/60 ${
+              onFocus={inline && !disabled ? () => { setMetodo(key); cancelarGw(); } : undefined}
+              className={`btn-touch flex-col outline-none focus:ring-2 focus:ring-inset focus:ring-white/60 disabled:opacity-50 disabled:cursor-not-allowed ${
                 inline ? 'gap-0.5 text-[11px] font-medium py-2 px-1' : 'gap-1 text-sm'
               } ${metodo === key ? 'bg-iados-primary ring-2 ring-inset ring-iados-secondary' : 'bg-iados-card'}`}
             >
@@ -654,6 +656,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
                 type="text"
                 inputMode="decimal"
                 id={inline ? 'retail-pago-input' : undefined}
+                disabled={disabled}
                 value={pagoEfectivo}
                 onChange={(e) => setPagoEfectivo(e.target.value.replace(/[^0-9.]/g, ''))}
                 onFocus={e => e.target.select()}
@@ -686,6 +689,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
               <input
                 type="text"
                 inputMode="decimal"
+                disabled={disabled}
                 value={pagoTarjeta}
                 onChange={(e) => setPagoTarjeta(e.target.value.replace(/[^0-9.]/g, ''))}
                 onFocus={e => e.target.select()}
@@ -711,6 +715,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
               <input
                 type="text"
                 inputMode="decimal"
+                disabled={disabled}
                 value={pagoTransferencia}
                 onChange={(e) => setPagoTransferencia(e.target.value.replace(/[^0-9.]/g, ''))}
                 onFocus={e => e.target.select()}
@@ -739,8 +744,9 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
               {([1000, 500, 200, 100] as const).map((d) => (
                 <button
                   key={d}
+                  disabled={disabled}
                   onClick={(e) => { addDenom(d); if (inline && e.detail > 0) focarImporte(); }}
-                  className="bg-iados-card border border-slate-700 hover:bg-iados-primary/30 hover:border-iados-primary py-4 rounded-xl text-sm font-bold transition-colors active:scale-95 outline-none focus:ring-2 focus:ring-inset focus:ring-iados-primary"
+                  className="bg-iados-card border border-slate-700 hover:bg-iados-primary/30 hover:border-iados-primary py-4 rounded-xl text-sm font-bold transition-colors active:scale-95 outline-none focus:ring-2 focus:ring-inset focus:ring-iados-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   ${d >= 1000 ? `${d / 1000}k` : d}
                 </button>
@@ -750,16 +756,18 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
               {([50, 20, 10, 5] as const).map((d) => (
                 <button
                   key={d}
+                  disabled={disabled}
                   onClick={(e) => { addDenom(d); if (inline && e.detail > 0) focarImporte(); }}
-                  className="bg-iados-card border border-slate-700 hover:bg-iados-primary/30 hover:border-iados-primary py-4 rounded-xl text-sm font-bold transition-colors active:scale-95 outline-none focus:ring-2 focus:ring-inset focus:ring-iados-primary"
+                  className="bg-iados-card border border-slate-700 hover:bg-iados-primary/30 hover:border-iados-primary py-4 rounded-xl text-sm font-bold transition-colors active:scale-95 outline-none focus:ring-2 focus:ring-inset focus:ring-iados-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   ${d}
                 </button>
               ))}
             </div>
             <button
+              disabled={disabled}
               onClick={(e) => { addDenom(total - Number(pagoEfectivo || 0)); if (inline && e.detail > 0) focarImporte(); }}
-              className="btn-secondary w-full text-sm py-3 outline-none focus:ring-2 focus:ring-inset focus:ring-iados-primary"
+              className="btn-secondary w-full text-sm py-3 outline-none focus:ring-2 focus:ring-inset focus:ring-iados-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Exacto — ${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
             </button>
@@ -933,7 +941,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
           <button
             data-pay-complete
             onClick={() => handlePay(false)}
-            disabled={!canPay() || loading}
+            disabled={disabled || !canPay() || loading}
             className="btn-success w-full text-lg disabled:opacity-50 outline-none focus:ring-2 focus:ring-inset focus:ring-white/70"
           >
             {loading ? 'Procesando...' : pedido ? `Cobrar Mesa ${pedido.mesa} — $${money(total)}` : `Completar Venta $${money(total)}`}
