@@ -15,6 +15,31 @@ import StockAlertBanner from '../ui/StockAlertBanner';
 import LicenciaBanner from './LicenciaBanner';
 import ViewAsBanner from './ViewAsBanner';
 import LockScreen from '../ui/LockScreen';
+import PageHeader from './PageHeader';
+
+// Título de respaldo por ruta para el header estandarizado (cuando la pantalla no fija el suyo).
+const PAGE_TITLES: Record<string, string> = {
+  '/dashboard': 'Dashboard',
+  '/pedidos': 'Pedidos',
+  '/caja': 'Caja',
+  '/reportes': 'Reportes',
+  '/inventario': 'Inventario',
+  '/inventario-dual': 'Inventario',
+  '/catalogos': 'Catálogos',
+  '/logistica': 'Logística',
+  '/admin/mesas': 'Mesas',
+  '/admin/usuarios': 'Usuarios',
+  '/admin/tienda-en-linea': 'Tienda en Línea',
+  '/admin/configuracion': 'Configuración',
+  '/admin/tenants': 'Tenants',
+  '/admin/materia-prima': 'Materia Prima',
+  '/admin/productos': 'Productos',
+  '/admin/categorias': 'Categorías',
+  '/admin/self-order': 'Autoservicio',
+  '/admin/mantenimiento': 'Mantenimiento',
+  '/admin/licencias': 'Licencias',
+  '/admin/perfil-negocio': 'Perfil del Negocio',
+};
 
 // Connection info from env
 const apiUrl = import.meta.env.VITE_API_URL || '/api';
@@ -366,6 +391,8 @@ export default function MainLayout() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <LicenciaBanner />
         <StockAlertBanner />
+        {/* Header estandarizado (todas las pantallas menos el POS, que trae el suyo) */}
+        {!enPos && <PageHeader fallbackTitle={PAGE_TITLES[location.pathname]} />}
         <main className="flex-1 overflow-y-auto md:pt-0 pt-14">
           <Outlet />
         </main>

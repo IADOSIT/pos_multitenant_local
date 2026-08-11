@@ -429,7 +429,6 @@ export default function ReportesPage() {
   return (
     <div className="p-4 space-y-4 max-w-6xl mx-auto">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-2xl font-bold">Reportes</h1>
         <div className="flex gap-2 flex-wrap">
           {tabsConfig.filter(t => t.enabled).map(t => {
             const icons: Record<string, any> = { caja: Receipt, kpi: TrendingUp, clientes: Users };

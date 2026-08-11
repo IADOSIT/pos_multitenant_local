@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ecommerceApi, empresasApi } from '../../api/endpoints';
 import { useAuthStore } from '../../store/auth.store';
+import { usePageHeader } from '../../store/pageHeader.store';
 import toast from 'react-hot-toast';
 import {
   Globe, Store, Palette, Check, X, Copy, ExternalLink, Loader2,
@@ -182,6 +183,26 @@ export default function TiendaEnLineaPage() {
   const storeUrl = form.subdominio ? `https://${form.subdominio}.${DOMINIOBASE}` : null;
   const inputCls = 'w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500';
 
+  usePageHeader({
+    title: 'Tienda en Línea',
+    subtitle: 'Configura tu catálogo digital y cómo se ve para tus clientes',
+    icon: Store,
+    actions: (
+      <>
+        {storeUrl && (
+          <span className={`text-xs px-2 py-1 rounded-full font-medium ${form.activo ? 'bg-green-900/50 text-green-400' : 'bg-slate-700 text-slate-400'}`}>
+            {form.activo ? 'Activa' : 'Inactiva'}
+          </span>
+        )}
+        <button onClick={guardar} disabled={saving}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
+          {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+          Guardar cambios
+        </button>
+      </>
+    ),
+  });
+
   if (loading) return (
     <div className="flex items-center justify-center h-64 text-slate-400">
       <Loader2 className="animate-spin mr-2" size={20} /> Cargando...
@@ -189,30 +210,7 @@ export default function TiendaEnLineaPage() {
   );
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-900/40 rounded-lg"><Store size={20} className="text-blue-400" /></div>
-          <div>
-            <h2 className="text-lg font-semibold text-white">Tienda en Línea</h2>
-            <p className="text-xs text-slate-400">Configura tu catálogo digital y cómo se ve para tus clientes</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          {storeUrl && (
-            <span className={`text-xs px-2 py-1 rounded-full font-medium ${form.activo ? 'bg-green-900/50 text-green-400' : 'bg-slate-700 text-slate-400'}`}>
-              {form.activo ? 'Activa' : 'Inactiva'}
-            </span>
-          )}
-          <button onClick={guardar} disabled={saving}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
-            {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-            Guardar cambios
-          </button>
-        </div>
-      </div>
-
+    <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto">
       {/* Tabs */}
       <div className="flex gap-1 border-b border-slate-700 overflow-x-auto">
         {TABS.map(({ id, label, icon: Icon }) => (

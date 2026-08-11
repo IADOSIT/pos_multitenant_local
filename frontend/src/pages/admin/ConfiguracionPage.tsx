@@ -821,8 +821,7 @@ export default function ConfiguracionPage() {
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-3">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Settings size={24} /> Configuracion</h1>
+      <div className="flex items-center justify-end mb-3 empty:hidden">
         {configTab === 'tienda' && (
           <button onClick={handleNew} className="btn-primary text-sm"><Plus size={16} className="mr-1" />Nueva Tienda</button>
         )}
