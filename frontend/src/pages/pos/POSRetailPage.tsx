@@ -48,10 +48,12 @@ export default function POSRetailPage() {
   const [showHelp, setShowHelp] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [cajaManaged, setCajaManaged] = useState(false);
+  const [cajaLoaded, setCajaLoaded] = useState(false); // evita el parpadeo de "no hay caja"
   const [mostrarPrecios, setMostrarPrecios] = useState(true);
   const [enSitioVisible, setEnSitioVisible] = useState(true);
   const [paraLlevarVisible, setParaLlevarVisible] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
+  const hydratedRef = useRef(false); // no persistir hasta cargar el ticket activo (evita pisar con [])
 
   const stockDe = (productoId: number): number | null => {
     const p = productos.find((x) => x.id === productoId) as any;
@@ -88,6 +90,8 @@ export default function POSRetailPage() {
       const activo = useRetailTickets.getState().hydrate(cid);
       setCart(activo.cart);
       setTipoServicio(activo.tipoServicio);
+      setCajaLoaded(true);
+      hydratedRef.current = true; // desde aquí sí se puede persistir
     };
     productosApi.list().then(({ data }) => setProductos(data || [])).catch(() => {});
     if (user?.empresa_id) {
@@ -115,9 +119,25 @@ export default function POSRetailPage() {
   }, [user?.tienda_id, user?.empresa_id]);
 
   // Guardar continuamente el ticket activo (persiste en localStorage; sobrevive recarga).
+  // OJO: no persistir antes de hidratar, o se pisaría el ticket guardado con un carrito vacío.
   useEffect(() => {
+    if (!hydratedRef.current) return;
     useRetailTickets.getState().guardarActivo(cart, tipoServicio);
   }, [cart, tipoServicio]);
+
+  // Atajos GLOBALES con Alt (el navegador reserva las teclas F: F1/F5/F12, etc.).
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (!e.altKey) return;
+      const k = e.key.toLowerCase();
+      if (k === 'n') { e.preventDefault(); nuevoTicket(); }
+      else if (k === 'h') { e.preventDefault(); setShowHelp((v) => !v); }
+      else if (k === 'b') { e.preventDefault(); inputRef.current?.focus(); }
+    };
+    window.addEventListener('keydown', h, true);
+    return () => window.removeEventListener('keydown', h, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Mantener la fila seleccionada visible al navegar con el teclado.
   useEffect(() => {
@@ -151,8 +171,7 @@ export default function POSRetailPage() {
   // El cursor SIEMPRE vive en el buscador. Con texto, Enter agrega; vacío, las flechas
   // navegan el carrito (↓/↑ mover, →/← cantidad, Retroceso/Supr eliminar). F1 o ? = ayuda.
   const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'F1' || e.key === '?') { e.preventDefault(); setShowHelp((h) => !h); return; }
-    if (e.key === 'F2') { e.preventDefault(); nuevoTicket(); return; }
+    if (e.key === '?') { e.preventDefault(); setShowHelp((h) => !h); return; }
     if (busqueda.trim() !== '') {
       // Navegar la lista de resultados con ↑/↓
       if (resultados.length) {
@@ -232,7 +251,7 @@ export default function POSRetailPage() {
               </div>
             )}
           </div>
-          <button onClick={() => setShowHelp(true)} title="Atajos de teclado (F1)"
+          <button onClick={() => setShowHelp(true)} title="Atajos de teclado (Alt+H)"
             className="shrink-0 w-11 h-11 rounded-xl bg-iados-card border border-slate-600 text-slate-300 hover:text-white hover:border-iados-primary flex items-center justify-center">
             <HelpCircle size={20} />
           </button>
@@ -253,7 +272,7 @@ export default function POSRetailPage() {
               </div>
             );
           })}
-          <button onClick={nuevoTicket} title="Nuevo ticket (F2)"
+          <button onClick={nuevoTicket} title="Nuevo ticket (Alt+N)"
             className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-iados-card shrink-0">
             <FilePlus size={15} /> Nuevo
           </button>
@@ -333,7 +352,7 @@ export default function POSRetailPage() {
             </div>
           )}
 
-          {!cajaActiva && !cajaManaged && (
+          {cajaLoaded && !cajaActiva && !cajaManaged && (
             <div className="p-3 rounded-xl bg-amber-900/30 border border-amber-700 text-amber-300 text-sm text-center">
               No hay caja abierta. Abra una caja para vender.
             </div>
@@ -376,9 +395,10 @@ export default function POSRetailPage() {
                 ['Enter (en método)', 'Pasar al importe'],
                 ['Enter (en el importe)', 'Completar la venta'],
                 ['Esc', 'Regresar un paso (importe → método → buscador)'],
-                ['F12', 'Completar la venta (desde cualquier lugar)'],
-                ['F2', 'Abrir un ticket nuevo (varias ventas a la vez)'],
-                ['F1 o ?', 'Mostrar u ocultar esta ayuda'],
+                ['Alt + P', 'Completar la venta (desde cualquier lugar)'],
+                ['Alt + N', 'Abrir un ticket nuevo (varias ventas a la vez)'],
+                ['Alt + B', 'Volver el cursor al buscador'],
+                ['Alt + H  o  ?', 'Mostrar u ocultar esta ayuda'],
               ].map(([k, d]) => (
                 <li key={k} className="flex items-start gap-3">
                   <kbd className="shrink-0 min-w-[6.5rem] text-center px-2 py-1 rounded-lg bg-iados-surface border border-slate-600 text-xs font-mono text-white">{k}</kbd>

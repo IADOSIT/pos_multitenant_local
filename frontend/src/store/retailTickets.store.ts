@@ -48,9 +48,14 @@ export const useRetailTickets = create<State>((set, get) => ({
 
   hydrate: (cajaId) => {
     let s: Persisted = { ...load() };
-    // Nueva sesión de caja (o cierre) → descartar tickets temporales.
-    if (s.cajaId !== cajaId) s = { tickets: [], activeId: null, cajaId, seq: s.seq };
-    s.cajaId = cajaId;
+    // Descartar SOLO si se abrió una caja DISTINTA (cierre + apertura real). Si la caja
+    // aún no se conoce (null, típico al recargar) o es la primera asociación, se conservan
+    // los tickets para que sobrevivan a la recarga.
+    if (cajaId != null && s.cajaId != null && s.cajaId !== cajaId) {
+      s = { tickets: [], activeId: null, cajaId, seq: s.seq };
+    } else if (s.cajaId == null && cajaId != null) {
+      s.cajaId = cajaId;
+    }
     if (!s.tickets.length) {
       const t: RetailTicket = { id: uuidv4(), nombre: `Ticket ${s.seq + 1}`, cart: [], tipoServicio: 'en_sitio' };
       s = { ...s, tickets: [t], activeId: t.id, seq: s.seq + 1 };

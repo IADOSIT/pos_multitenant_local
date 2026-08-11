@@ -402,7 +402,11 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
   useEffect(() => {
     if (!inline) return;
     const h = (e: KeyboardEvent) => {
-      if (e.key === 'F12') { e.preventDefault(); if (canPay() && !loading) handlePay(false); }
+      // F12 (donde el navegador lo permita) o Alt+P (siempre): completar venta.
+      if (e.key === 'F12' || (e.altKey && (e.key === 'p' || e.key === 'P'))) {
+        e.preventDefault();
+        if (canPay() && !loading) handlePay(false);
+      }
     };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
