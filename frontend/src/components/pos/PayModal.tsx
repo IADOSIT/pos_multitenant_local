@@ -593,6 +593,10 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
           </div>
         )}
 
+        {/* En modo inline (retail) el orden es: método → billetes → captura de dinero.
+            En el modal normal se conserva el orden original (campos → billetes). */}
+        <div className={inline ? 'flex flex-col' : 'contents'}>
+        <div className={inline ? 'order-2' : 'contents'}>
         {/* Campos de pago según método */}
         {(metodo === 'efectivo' || metodo === 'mixto') && (
           <div className="mb-4">
@@ -674,6 +678,8 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
           </div>
         )}
 
+        </div>{/* /order-2 campos */}
+        <div className={inline ? 'order-1' : 'contents'}>
         {/* Pad de denominaciones — aplica para todos los métodos excepto mixto */}
         {metodo !== 'mixto' && (
           <div className="mb-4">
@@ -708,6 +714,8 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
             </button>
           </div>
         )}
+        </div>{/* /order-1 billetes */}
+        </div>{/* /wrapper reorden inline */}
 
         {/* Propina opcional */}
         {ticketCfg?.propina_enabled && (

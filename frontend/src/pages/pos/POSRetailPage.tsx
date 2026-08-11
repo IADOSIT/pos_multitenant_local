@@ -334,7 +334,7 @@ export default function POSRetailPage() {
       </div>
 
       {/* Panel derecho: resumen de pago */}
-      <aside className="w-96 shrink-0 border-l border-slate-700 bg-iados-surface flex flex-col">
+      <aside className="w-[28rem] shrink-0 border-l border-slate-700 bg-iados-surface flex flex-col">
         <div className="h-16 shrink-0 px-4 border-b border-slate-700 flex items-center justify-between">
           <h2 className="font-bold text-lg flex items-center gap-2"><ShoppingCart size={20} /> Resumen de Pago</h2>
           <span className="text-xs text-slate-500">{getItemCount()} art.</span>

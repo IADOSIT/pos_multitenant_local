@@ -57,7 +57,7 @@ export const useRetailTickets = create<State>((set, get) => ({
       s.cajaId = cajaId;
     }
     if (!s.tickets.length) {
-      const t: RetailTicket = { id: uuidv4(), nombre: `Ticket ${s.seq + 1}`, cart: [], tipoServicio: 'en_sitio' };
+      const t: RetailTicket = { id: uuidv4(), nombre: `Ticket ${s.seq + 1}`, cart: [], tipoServicio: 'para_llevar' };
       s = { ...s, tickets: [t], activeId: t.id, seq: s.seq + 1 };
     }
     if (!s.activeId || !s.tickets.some((t) => t.id === s.activeId)) s.activeId = s.tickets[0].id;
@@ -67,7 +67,7 @@ export const useRetailTickets = create<State>((set, get) => ({
 
   crear: () => {
     const s = get();
-    const t: RetailTicket = { id: uuidv4(), nombre: `Ticket ${s.seq + 1}`, cart: [], tipoServicio: 'en_sitio' };
+    const t: RetailTicket = { id: uuidv4(), nombre: `Ticket ${s.seq + 1}`, cart: [], tipoServicio: 'para_llevar' };
     const next = { ...s, tickets: [...s.tickets, t], activeId: t.id, seq: s.seq + 1 };
     set(next); save(next);
     return t;
@@ -87,7 +87,7 @@ export const useRetailTickets = create<State>((set, get) => ({
     let tickets = s.tickets.filter((t) => t.id !== id);
     let seq = s.seq;
     if (!tickets.length) {
-      const t: RetailTicket = { id: uuidv4(), nombre: `Ticket ${seq + 1}`, cart: [], tipoServicio: 'en_sitio' };
+      const t: RetailTicket = { id: uuidv4(), nombre: `Ticket ${seq + 1}`, cart: [], tipoServicio: 'para_llevar' };
       tickets = [t]; seq += 1;
     }
     const activeId = id === s.activeId ? tickets[0].id : s.activeId;
