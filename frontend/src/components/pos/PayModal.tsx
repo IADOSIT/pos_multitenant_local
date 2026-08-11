@@ -581,7 +581,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
         </div>
 
         {/* Métodos de pago */}
-        <div className={`grid gap-2 mb-2 ${inline ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'}`}>
+        <div className={`grid gap-2 mb-2 ${inline ? 'grid-cols-4' : 'grid-cols-2 sm:grid-cols-4'}`}>
           {([
             { key: 'efectivo', label: 'Efectivo', icon: Banknote },
             { key: 'tarjeta', label: 'Tarjeta', icon: CreditCard },
@@ -593,11 +593,11 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
               data-pay-section="metodo"
               onClick={() => { setMetodo(key); cancelarGw(); }}
               onFocus={inline ? () => { setMetodo(key); cancelarGw(); } : undefined}
-              className={`btn-touch flex-col gap-1 text-sm outline-none focus:ring-2 focus:ring-inset focus:ring-white/60 ${
-                metodo === key ? 'bg-iados-primary ring-2 ring-inset ring-iados-secondary' : 'bg-iados-card'
-              }`}
+              className={`btn-touch flex-col outline-none focus:ring-2 focus:ring-inset focus:ring-white/60 ${
+                inline ? 'gap-0.5 text-[11px] font-medium py-2 px-1' : 'gap-1 text-sm'
+              } ${metodo === key ? 'bg-iados-primary ring-2 ring-inset ring-iados-secondary' : 'bg-iados-card'}`}
             >
-              <Icon size={24} />
+              <Icon size={inline ? 18 : 24} />
               {label}
             </button>
           ))}
