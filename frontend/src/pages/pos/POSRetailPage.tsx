@@ -15,15 +15,14 @@ import toast from 'react-hot-toast';
 export default function POSRetailPage() {
   const { user } = useAuthStore();
   const {
-    addToCart, cart, updateQuantity, removeFromCart,
-    getSubtotal, getImpuestos, getTotal, getItemCount,
+    addToCart, cart, updateQuantity, removeFromCart, getItemCount,
     cajaActiva, setCajaActiva, tipoServicio, setTipoServicio,
     setIvaConfig, setModoServicio,
   } = usePOSStore();
 
   const [productos, setProductos] = useState<Producto[]>([]);
   const [busqueda, setBusqueda] = useState('');
-  const [showPay, setShowPay] = useState(false);
+  const [payKey, setPayKey] = useState(0); // remonta PayModal inline tras cada venta
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [cajaManaged, setCajaManaged] = useState(false);
   const [mostrarPrecios, setMostrarPrecios] = useState(true);
@@ -110,8 +109,6 @@ export default function POSRetailPage() {
     if (p) agregar(p);
     else toast.error('Producto no encontrado');
   };
-
-  const puedeCobrar = (!!cajaActiva || cajaManaged) && cart.length > 0;
 
   return (
     <div className="flex h-full">
@@ -204,7 +201,7 @@ export default function POSRetailPage() {
       </div>
 
       {/* Panel derecho: resumen de pago */}
-      <aside className="w-80 shrink-0 border-l border-slate-700 bg-iados-surface flex flex-col">
+      <aside className="w-96 shrink-0 border-l border-slate-700 bg-iados-surface flex flex-col">
         <div className="h-16 shrink-0 px-4 border-b border-slate-700 flex items-center justify-between">
           <h2 className="font-bold text-lg flex items-center gap-2"><ShoppingCart size={20} /> Resumen de Pago</h2>
           <span className="text-xs text-slate-500">{getItemCount()} art.</span>
@@ -231,35 +228,20 @@ export default function POSRetailPage() {
             </div>
           )}
 
-          {mostrarPrecios && (
-            <div className="rounded-xl bg-iados-card p-4 text-center">
-              <p className="text-xs uppercase tracking-wide text-slate-400">Total a cobrar</p>
-              <p className="text-4xl font-extrabold text-iados-accent tabular-nums mt-1">${money(getTotal())}</p>
-              {getImpuestos() > 0 && (
-                <p className="text-xs text-slate-500 mt-1 tabular-nums">Subtotal ${money(getSubtotal())} · IVA ${money(getImpuestos())}</p>
-              )}
-            </div>
+          {cart.length === 0 ? (
+            <div className="text-center text-slate-500 text-sm py-10">Agrega productos para cobrar.</div>
+          ) : (
+            /* Cobro INLINE: mismo proceso que el POS actual (PayModal embebido) */
+            <PayModal
+              key={payKey}
+              inline
+              isOnline={isOnline}
+              cajaManaged={cajaManaged}
+              onClose={() => setPayKey((k) => k + 1)}
+            />
           )}
         </div>
-
-        <div className="p-4 border-t border-slate-700 space-y-2">
-          <button
-            onClick={() => setShowPay(true)}
-            disabled={!puedeCobrar}
-            className="btn-accent w-full text-lg disabled:opacity-50"
-          >
-            Cobrar y Finalizar{mostrarPrecios ? ` — $${money(getTotal())}` : ''}
-          </button>
-        </div>
       </aside>
-
-      {showPay && (
-        <PayModal
-          onClose={() => setShowPay(false)}
-          isOnline={isOnline}
-          cajaManaged={cajaManaged}
-        />
-      )}
     </div>
   );
 }

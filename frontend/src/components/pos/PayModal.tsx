@@ -15,11 +15,12 @@ interface Props {
   isOnline: boolean;
   pedido?: any; // si se pasa, cobrar este pedido en lugar del carrito
   cajaManaged?: boolean; // caja_auto_enabled o caja_ocultar_ui — si no hay caja, intentar abrir
+  inline?: boolean; // true = embebido en un panel (modo retail), sin overlay ni encabezado
 }
 
 type MetodoPago = 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto' | 'mp_qr' | 'mp_point' | 'stripe';
 
-export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Props) {
+export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inline }: Props) {
   const { cart, getSubtotal, getImpuestos, getTotal, clearCart, cajaActiva, setCajaActiva, tipoServicio, notaPedido, clienteNombre, clienteTelefono, clienteDireccion } = usePOSStore();
   const { user } = useAuthStore();
 
@@ -399,8 +400,8 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
 
   if (ventaCompletada) {
     return (
-      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-        <div className="card max-w-md w-full text-center space-y-4">
+      <div className={inline ? 'h-full flex items-center justify-center p-4' : 'fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4'}>
+        <div className={inline ? 'w-full text-center space-y-4' : 'card max-w-md w-full text-center space-y-4'}>
           <div className="text-6xl">✅</div>
           <h2 className="text-2xl font-bold">Venta Completada</h2>
           <p className="text-lg text-iados-accent font-bold">
@@ -425,20 +426,22 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="card max-w-lg w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-bold">Cobrar</h2>
-            {pedido && (
-              <p className="text-sm text-slate-400">
-                Mesa {pedido.mesa} · {pedido.folio} · {pedido.detalles?.length || 0} items
-                {pedido.cuenta_abierta && <span className="ml-2 text-orange-400">· Cuenta abierta</span>}
-              </p>
-            )}
+    <div className={inline ? 'h-full overflow-y-auto' : 'fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4'}>
+      <div className={inline ? 'w-full' : 'card max-w-lg w-full max-h-[90vh] overflow-y-auto'}>
+        {!inline && (
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-bold">Cobrar</h2>
+              {pedido && (
+                <p className="text-sm text-slate-400">
+                  Mesa {pedido.mesa} · {pedido.folio} · {pedido.detalles?.length || 0} items
+                  {pedido.cuenta_abierta && <span className="ml-2 text-orange-400">· Cuenta abierta</span>}
+                </p>
+              )}
+            </div>
+            <button onClick={() => onClose()} className="p-2 hover:bg-iados-card rounded-xl"><X size={24} /></button>
           </div>
-          <button onClick={() => onClose()} className="p-2 hover:bg-iados-card rounded-xl"><X size={24} /></button>
-        </div>
+        )}
 
         {precioManualActivo && (
           <div className="mb-4">
