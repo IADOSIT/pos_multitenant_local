@@ -310,7 +310,7 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
                     />
                   </div>
                 ) : (
-                  <span className="text-xs text-slate-400 flex-1">{mostrarPrecios ? `$${Number(item.precio).toFixed(2)} c/u` : ''}</span>
+                  <span className="text-xs text-slate-400 flex-1 tabular-nums">{mostrarPrecios && item.cantidad > 1 ? `$${Number(item.precio).toFixed(2)} c/u` : ''}</span>
                 )}
 
                 {notasPorItem && (
@@ -343,11 +343,11 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
                       if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                       if (e.key === 'Escape') setEditingQtyId(null);
                     }}
-                    className="w-10 text-center font-bold bg-iados-primary/20 border border-iados-primary/50 rounded-lg text-sm px-1 py-0.5 shrink-0"
+                    className="w-16 text-center font-bold bg-iados-primary/20 border border-iados-primary/50 rounded-lg text-sm px-1 py-0.5 shrink-0"
                   />
                 ) : (
                   <button
-                    className="w-7 text-center font-bold hover:bg-iados-primary/20 rounded-lg transition-colors text-sm shrink-0"
+                    className="min-w-[2.75rem] h-7 px-1.5 text-center font-bold hover:bg-iados-primary/20 rounded-lg transition-colors text-sm shrink-0 tabular-nums"
                     title="Toca para editar cantidad"
                     onClick={() => { setEditingQtyId(item.id); setQtyTemp(String(item.cantidad)); }}
                   >{item.cantidad}</button>
@@ -357,7 +357,7 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
                 <button onClick={() => removeFromCart(item.id)} className="w-7 h-7 rounded-lg bg-red-900/50 text-red-400 flex items-center justify-center active:scale-90 shrink-0"><Trash2 size={13} /></button>
 
                 {(mostrarPrecios || precioManual) && (
-                  <span className={`font-bold text-sm text-right shrink-0 min-w-[3.5rem] ${precioManual && !item.precioManual ? 'text-slate-500' : ''}`}>
+                  <span className={`font-bold text-sm text-right shrink-0 min-w-[3.5rem] tabular-nums ${precioManual && !item.precioManual ? 'text-slate-500' : ''}`}>
                     ${((item.precioManual ?? item.precio) * item.cantidad).toFixed(2)}
                   </span>
                 )}
