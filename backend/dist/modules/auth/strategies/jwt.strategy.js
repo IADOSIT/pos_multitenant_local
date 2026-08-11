@@ -45,6 +45,7 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
             if (Number.isInteger(vTenant) && Number.isInteger(vEmpresa) && Number.isInteger(vTienda)) {
                 return { ...base, tenant_id: vTenant, empresa_id: vEmpresa, tienda_id: vTienda, viendo_como: true };
             }
+            return { ...base, tenant_id: null, empresa_id: null, tienda_id: null };
         }
         return base;
     }
