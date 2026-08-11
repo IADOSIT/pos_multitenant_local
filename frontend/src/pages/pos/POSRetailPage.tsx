@@ -340,7 +340,7 @@ export default function POSRetailPage() {
           <span className="text-xs text-slate-500">{getItemCount()} art.</span>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 min-h-0 p-4 flex flex-col gap-3">
           {/* Tipo de servicio (mismo proceso que el POS actual) */}
           {(enSitioVisible || paraLlevarVisible) && (
             <div className="flex rounded-xl overflow-hidden border border-slate-600">

@@ -485,7 +485,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
   }
 
   return (
-    <div className={inline ? 'h-full overflow-y-auto' : 'fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4'}>
+    <div className={inline ? 'flex-1 min-h-0 flex flex-col' : 'fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4'}>
       <div
         id={inline ? 'retail-pago-panel' : undefined}
         onKeyDown={inline ? (e) => {
@@ -511,7 +511,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
           const next = paySpatialNext(e.currentTarget as HTMLElement, dir);
           if (next) { e.preventDefault(); next.focus(); if (next.tagName === 'INPUT') (next as HTMLInputElement).select?.(); }
         } : undefined}
-        className={inline ? 'w-full' : 'card max-w-lg w-full max-h-[90vh] overflow-y-auto'}
+        className={inline ? 'w-full flex-1 min-h-0 flex flex-col' : 'card max-w-lg w-full max-h-[90vh] overflow-y-auto'}
       >
         {!inline && (
           <div className="flex items-center justify-between mb-4">
@@ -528,6 +528,8 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
           </div>
         )}
 
+        {/* Contenido medio: scrollea solo si no cabe; el botón queda como footer fijo abajo. */}
+        <div className={inline ? 'flex-1 min-h-0 overflow-y-auto' : 'contents'}>
         {precioManualActivo && (
           <div className="mb-4">
             <p className="text-xs text-yellow-400 uppercase tracking-wider font-medium mb-2">
@@ -729,8 +731,8 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
 
         </div>{/* /order-2 campos */}
         <div className={inline ? 'order-1' : 'contents'}>
-        {/* Pad de denominaciones — aplica para todos los métodos excepto mixto */}
-        {metodo !== 'mixto' && (
+        {/* Pad de denominaciones — solo Efectivo (tarjeta/transferencia son monto exacto). */}
+        {metodo === 'efectivo' && (
           <div className="mb-4">
             <p className="text-xs text-slate-500 mb-2 text-center">Toca cada billete / moneda que entrega el cliente</p>
             <div className="grid grid-cols-4 gap-2 mb-2">
@@ -756,7 +758,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
               ))}
             </div>
             <button
-              onClick={(e) => { addDenom(total - (metodo === 'tarjeta' ? Number(pagoTarjeta || 0) : metodo === 'transferencia' ? Number(pagoTransferencia || 0) : Number(pagoEfectivo || 0))); if (inline && e.detail > 0) focarImporte(); }}
+              onClick={(e) => { addDenom(total - Number(pagoEfectivo || 0)); if (inline && e.detail > 0) focarImporte(); }}
               className="btn-secondary w-full text-sm py-3 outline-none focus:ring-2 focus:ring-inset focus:ring-iados-primary"
             >
               Exacto — ${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
@@ -923,9 +925,11 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
           </div>
         )}
 
+        </div>{/* /scroll medio */}
+
         {/* ── Confirm / pay buttons ─────────────────────────────────────────── */}
-        {/* En inline (retail) el botón se fija al fondo del panel, siempre visible. */}
-        <div className={inline ? 'sticky bottom-0 z-10 -mx-1 px-1 pt-3 pb-1 bg-iados-surface border-t border-slate-700' : ''}>
+        {/* En inline (retail) el botón es un footer fijo abajo del panel (sin scroll). */}
+        <div className={inline ? 'shrink-0 pt-3 border-t border-slate-700' : ''}>
           <button
             data-pay-complete
             onClick={() => handlePay(false)}
