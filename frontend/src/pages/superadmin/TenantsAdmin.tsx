@@ -3,7 +3,10 @@ import { tenantsApi, tiendasApi, empresasApi } from '../../api/endpoints';
 import toast from 'react-hot-toast';
 import { Building2, Plus, ChevronRight, Edit2, Trash2, Store, X } from 'lucide-react';
 
+import { usePageHeader } from '../../store/pageHeader.store';
+
 export default function TenantsAdmin() {
+  usePageHeader({ title: 'Tenants', subtitle: 'Clientes y empresas de la plataforma' });
   const [tenants, setTenants] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
   const [showForm, setShowForm] = useState(false);

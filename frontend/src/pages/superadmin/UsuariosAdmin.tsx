@@ -29,7 +29,10 @@ const EMPTY_FORM = {
   crearEmpresa: false, empresaNombre: '',
 };
 
+import { usePageHeader } from '../../store/pageHeader.store';
+
 export default function UsuariosAdmin() {
+  usePageHeader({ title: 'Usuarios', subtitle: 'Cuentas y permisos del equipo' });
   const { user } = useAuthStore();
   const [usuarios, setUsuarios]   = useState<any[]>([]);
   const [tenants, setTenants]     = useState<any[]>([]);

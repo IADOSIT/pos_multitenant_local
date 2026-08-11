@@ -20,7 +20,10 @@ import html2canvas from 'html2canvas';
 
 const COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899'];
 
+import { usePageHeader } from '../../store/pageHeader.store';
+
 export default function ReportesPage() {
+  usePageHeader({ title: 'Reportes', subtitle: 'Ventas, caja, clientes y KPIs' });
   const { user } = useAuthStore();
   const [cajas, setCajas] = useState<any[]>([]);
   const [selectedCaja, setSelectedCaja] = useState<any>(null);

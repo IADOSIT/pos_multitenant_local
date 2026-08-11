@@ -13,7 +13,10 @@ const MESERO_COLORS = [
   'bg-yellow-600 text-white', 'bg-indigo-700 text-white',
 ];
 
+import { usePageHeader } from '../../store/pageHeader.store';
+
 export default function MesasAdmin() {
+  usePageHeader({ title: 'Mesas', subtitle: 'Administración de mesas del local' });
   const { user } = useAuthStore();
   const [mesas, setMesas] = useState<any[]>([]);
   const [asignaciones, setAsignaciones] = useState<any[]>([]);

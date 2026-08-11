@@ -42,7 +42,10 @@ const DEFAULT_CAMPOS: Record<CampoKey, CampoFormularioConfig> = {
   notas:     { activo: true,  requerido: false, selforder: true,  ecommerce: true,  label: 'Notas / Comentarios' },
 };
 
+import { usePageHeader } from '../../store/pageHeader.store';
+
 export default function ConfiguracionPage() {
+  usePageHeader({ title: 'Configuración', subtitle: 'Tienda, tickets, módulos y más', icon: Settings });
   const { user } = useAuthStore();
   const { theme, palette, setTheme, setPalette } = useThemeStore();
   const navigate = useNavigate();

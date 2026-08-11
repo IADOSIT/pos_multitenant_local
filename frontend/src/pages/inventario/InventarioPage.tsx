@@ -27,7 +27,10 @@ const TIPOS = [
   { value: 'ajuste', label: 'Ajuste', icon: RefreshCw, color: 'text-yellow-400' },
 ];
 
+import { usePageHeader } from '../../store/pageHeader.store';
+
 export default function InventarioPage() {
+  usePageHeader({ title: 'Inventario', subtitle: 'Existencias y movimientos de stock' });
   const { user } = useAuthStore();
   const isAdmin = user && ['superadmin', 'admin', 'manager'].includes(user.rol);
   const [tab, setTab] = useState<'stock' | 'movimientos'>('stock');

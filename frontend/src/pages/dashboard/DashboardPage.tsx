@@ -22,7 +22,10 @@ interface DashConfig {
   mostrar_margen: boolean;
 }
 
+import { usePageHeader } from '../../store/pageHeader.store';
+
 export default function DashboardPage() {
+  usePageHeader({ title: 'Dashboard', subtitle: 'Indicadores y métricas de tu negocio' });
   const [tab, setTab] = useState<DashTab>('ventas');
   const [kpi, setKpi] = useState<KPI | null>(null);
   const [tendencia, setTendencia] = useState<any[]>([]);

@@ -17,7 +17,10 @@ function getCDMX() {
   };
 }
 
+import { usePageHeader } from '../../store/pageHeader.store';
+
 export default function CajaPage() {
+  usePageHeader({ title: 'Caja', subtitle: 'Apertura, cortes y movimientos de caja' });
   const { cajaActiva, setCajaActiva } = usePOSStore();
   const { user } = useAuthStore();
   const [fondo, setFondo] = useState('0');
