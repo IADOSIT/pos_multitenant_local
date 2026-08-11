@@ -191,10 +191,10 @@ export default function POSRetailPage() {
       }
       return;
     }
-    // Buscador vacío (o navegando el ticket): Enter → ir a elegir método de pago
+    // Buscador vacío (o navegando el ticket): Enter → ir al panel de cobro (primer método)
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (cart.length > 0) document.getElementById('retail-metodo-group')?.focus();
+      if (cart.length > 0) (document.querySelector('#retail-pago-panel button') as HTMLElement | null)?.focus();
       return;
     }
     if (cart.length === 0) return;
@@ -393,11 +393,11 @@ export default function POSRetailPage() {
                 ['↓ / ↑ (vacío)', 'Navegar los productos del ticket'],
                 ['→ / ←', 'Aumentar / disminuir la cantidad (en 1 lo elimina)'],
                 ['Retroceso / Supr', 'Eliminar el producto seleccionado'],
-                ['Enter (vacío o en ticket)', 'Ir a elegir método de pago'],
-                ['← / → o 1–4 (en método)', 'Cambiar el método de pago'],
-                ['Enter (en método)', 'Pasar al importe'],
+                ['Enter (vacío o en ticket)', 'Ir al panel de cobro'],
+                ['↑ ↓ ← → (en el cobro)', 'Navegar por método, billetes e importe'],
+                ['Enter en un billete', 'Sumar ese billete al efectivo'],
                 ['Enter (en el importe)', 'Completar la venta'],
-                ['Esc', 'Regresar un paso (importe → método → buscador)'],
+                ['Esc', 'Del importe regresa al método / al buscador'],
                 ['Alt/⌥ + P', 'Completar la venta (desde cualquier lugar)'],
                 ['Alt/⌥ + N', 'Abrir un ticket nuevo (varias ventas a la vez)'],
                 ['Alt/⌥ + B', 'Volver el cursor al buscador'],

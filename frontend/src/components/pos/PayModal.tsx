@@ -20,6 +20,34 @@ interface Props {
 
 type MetodoPago = 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto' | 'mp_qr' | 'mp_point' | 'stripe';
 
+// Navegación por teclado ESPACIAL dentro del panel de cobro (modo retail):
+// ↑/↓ pasan a la sección de arriba/abajo, ←/→ se mueven dentro de la fila.
+function payFocusables(panel: HTMLElement): HTMLElement[] {
+  return Array.from(panel.querySelectorAll<HTMLElement>('button, input')).filter(
+    (el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null,
+  );
+}
+function paySpatialNext(panel: HTMLElement, dir: 'up' | 'down' | 'left' | 'right'): HTMLElement | null {
+  const cur = document.activeElement as HTMLElement | null;
+  if (!cur || !panel.contains(cur)) return payFocusables(panel)[0] || null;
+  const c = cur.getBoundingClientRect();
+  const cx = c.left + c.width / 2, cy = c.top + c.height / 2;
+  let best: HTMLElement | null = null, bestScore = Infinity;
+  for (const el of payFocusables(panel)) {
+    if (el === cur) continue;
+    const r = el.getBoundingClientRect();
+    const ex = r.left + r.width / 2, ey = r.top + r.height / 2;
+    const dx = ex - cx, dy = ey - cy;
+    if (dir === 'down' && dy <= 2) continue;
+    if (dir === 'up' && dy >= -2) continue;
+    if (dir === 'right' && dx <= 2) continue;
+    if (dir === 'left' && dx >= -2) continue;
+    const score = (dir === 'up' || dir === 'down') ? Math.abs(dy) + Math.abs(dx) * 3 : Math.abs(dx) + Math.abs(dy) * 3;
+    if (score < bestScore) { bestScore = score; best = el; }
+  }
+  return best;
+}
+
 export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inline }: Props) {
   const { cart, getSubtotal, getImpuestos, getTotal, clearCart, cajaActiva, setCajaActiva, tipoServicio, notaPedido, clienteNombre, clienteTelefono, clienteDireccion } = usePOSStore();
   const { user } = useAuthStore();
@@ -105,9 +133,10 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
     } else {
       setPagoEfectivo((prev) => String(Math.round((Number(prev || 0) + d) * 100) / 100));
     }
-    // En retail, tras tocar un billete el foco salta al importe para seguir tecleando/cobrar.
-    if (inline) requestAnimationFrame(() => (document.querySelector('#retail-pago-panel input[inputmode="decimal"]') as HTMLInputElement | null)?.focus());
   };
+  // Tras tocar un billete CON MOUSE, el foco salta al importe (con teclado se conserva
+  // para poder seguir navegando con flechas). e.detail === 0 ⇒ activado por teclado.
+  const focarImporte = () => (document.querySelector('#retail-pago-panel input[inputmode="decimal"]') as HTMLInputElement | null)?.focus();
 
   const canPay = () => {
     if (precioManualActivo && (!todosPreciosIngresados || total <= 0)) return false;
@@ -457,7 +486,20 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
 
   return (
     <div className={inline ? 'h-full overflow-y-auto' : 'fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4'}>
-      <div id={inline ? 'retail-pago-panel' : undefined} className={inline ? 'w-full' : 'card max-w-lg w-full max-h-[90vh] overflow-y-auto'}>
+      <div
+        id={inline ? 'retail-pago-panel' : undefined}
+        onKeyDown={inline ? (e) => {
+          const map: Record<string, 'up' | 'down' | 'left' | 'right'> = { ArrowDown: 'down', ArrowUp: 'up', ArrowLeft: 'left', ArrowRight: 'right' };
+          const dir = map[e.key];
+          if (!dir) return;
+          const active = document.activeElement as HTMLElement | null;
+          // En un input, ←/→ mueven el cursor del texto; solo ↑/↓ cambian de sección.
+          if (active && active.tagName === 'INPUT' && (dir === 'left' || dir === 'right')) return;
+          const next = paySpatialNext(e.currentTarget as HTMLElement, dir);
+          if (next) { e.preventDefault(); next.focus(); if (next.tagName === 'INPUT') (next as HTMLInputElement).select?.(); }
+        } : undefined}
+        className={inline ? 'w-full' : 'card max-w-lg w-full max-h-[90vh] overflow-y-auto'}
+      >
         {!inline && (
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -526,20 +568,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
         </div>
 
         {/* Métodos de pago */}
-        <div
-          id={inline ? 'retail-metodo-group' : undefined}
-          tabIndex={inline ? 0 : undefined}
-          onKeyDown={inline ? (e) => {
-            const orden = ['efectivo', 'tarjeta', 'transferencia', 'mixto'] as const;
-            const i = Math.max(0, orden.indexOf(metodo as any));
-            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); setMetodo(orden[(i + 1) % orden.length]); cancelarGw(); }
-            else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); setMetodo(orden[(i - 1 + orden.length) % orden.length]); cancelarGw(); }
-            else if (e.key >= '1' && e.key <= '4') { e.preventDefault(); setMetodo(orden[+e.key - 1]); cancelarGw(); }
-            else if (e.key === 'Enter') { e.preventDefault(); (document.querySelector('#retail-pago-panel input[inputmode="decimal"]') as HTMLInputElement | null)?.focus(); }
-            else if (e.key === 'Escape') { e.preventDefault(); document.getElementById('retail-buscar')?.focus(); }
-          } : undefined}
-          className={`grid gap-2 mb-2 ${inline ? 'grid-cols-2 outline-none focus:ring-2 focus:ring-inset focus:ring-iados-primary rounded-xl' : 'grid-cols-2 sm:grid-cols-4'}`}
-        >
+        <div className={`grid gap-2 mb-2 ${inline ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'}`}>
           {([
             { key: 'efectivo', label: 'Efectivo', icon: Banknote },
             { key: 'tarjeta', label: 'Tarjeta', icon: CreditCard },
@@ -549,7 +578,8 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
             <button
               key={key}
               onClick={() => { setMetodo(key); cancelarGw(); }}
-              className={`btn-touch flex-col gap-1 text-sm ${
+              onFocus={inline ? () => { setMetodo(key); cancelarGw(); } : undefined}
+              className={`btn-touch flex-col gap-1 text-sm outline-none focus:ring-2 focus:ring-inset focus:ring-white/60 ${
                 metodo === key ? 'bg-iados-primary ring-2 ring-inset ring-iados-secondary' : 'bg-iados-card'
               }`}
             >
@@ -613,7 +643,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
                 onFocus={e => e.target.select()}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && canPay() && !loading) { e.preventDefault(); handlePay(false); }
-                  else if (e.key === 'Escape') { e.preventDefault(); document.getElementById('retail-metodo-group')?.focus(); }
+                  else if (e.key === 'Escape') { e.preventDefault(); (document.querySelector('#retail-pago-panel button') as HTMLElement | null)?.focus(); }
                 }}
                 className="input-touch text-2xl text-center flex-1"
                 placeholder="0.00"
@@ -644,7 +674,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
                 onFocus={e => e.target.select()}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && canPay() && !loading) { e.preventDefault(); handlePay(false); }
-                  else if (e.key === 'Escape') { e.preventDefault(); document.getElementById('retail-metodo-group')?.focus(); }
+                  else if (e.key === 'Escape') { e.preventDefault(); (document.querySelector('#retail-pago-panel button') as HTMLElement | null)?.focus(); }
                 }}
                 className="input-touch text-xl text-center flex-1"
                 placeholder={metodo === 'tarjeta' ? total.toFixed(2) : '0.00'}
@@ -668,7 +698,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
                 onFocus={e => e.target.select()}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && canPay() && !loading) { e.preventDefault(); handlePay(false); }
-                  else if (e.key === 'Escape') { e.preventDefault(); document.getElementById('retail-metodo-group')?.focus(); }
+                  else if (e.key === 'Escape') { e.preventDefault(); (document.querySelector('#retail-pago-panel button') as HTMLElement | null)?.focus(); }
                 }}
                 className="input-touch text-xl text-center flex-1"
                 placeholder={metodo === 'transferencia' ? total.toFixed(2) : '0.00'}
@@ -690,8 +720,8 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
               {([1000, 500, 200, 100] as const).map((d) => (
                 <button
                   key={d}
-                  onClick={() => addDenom(d)}
-                  className="bg-iados-card border border-slate-700 hover:bg-iados-primary/30 hover:border-iados-primary py-4 rounded-xl text-sm font-bold transition-colors active:scale-95"
+                  onClick={(e) => { addDenom(d); if (inline && e.detail > 0) focarImporte(); }}
+                  className="bg-iados-card border border-slate-700 hover:bg-iados-primary/30 hover:border-iados-primary py-4 rounded-xl text-sm font-bold transition-colors active:scale-95 outline-none focus:ring-2 focus:ring-inset focus:ring-iados-primary"
                 >
                   ${d >= 1000 ? `${d / 1000}k` : d}
                 </button>
@@ -701,16 +731,16 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
               {([50, 20, 10, 5] as const).map((d) => (
                 <button
                   key={d}
-                  onClick={() => addDenom(d)}
-                  className="bg-iados-card border border-slate-700 hover:bg-iados-primary/30 hover:border-iados-primary py-4 rounded-xl text-sm font-bold transition-colors active:scale-95"
+                  onClick={(e) => { addDenom(d); if (inline && e.detail > 0) focarImporte(); }}
+                  className="bg-iados-card border border-slate-700 hover:bg-iados-primary/30 hover:border-iados-primary py-4 rounded-xl text-sm font-bold transition-colors active:scale-95 outline-none focus:ring-2 focus:ring-inset focus:ring-iados-primary"
                 >
                   ${d}
                 </button>
               ))}
             </div>
             <button
-              onClick={() => addDenom(total - (metodo === 'tarjeta' ? Number(pagoTarjeta || 0) : metodo === 'transferencia' ? Number(pagoTransferencia || 0) : Number(pagoEfectivo || 0)))}
-              className="btn-secondary w-full text-sm py-3"
+              onClick={(e) => { addDenom(total - (metodo === 'tarjeta' ? Number(pagoTarjeta || 0) : metodo === 'transferencia' ? Number(pagoTransferencia || 0) : Number(pagoEfectivo || 0))); if (inline && e.detail > 0) focarImporte(); }}
+              className="btn-secondary w-full text-sm py-3 outline-none focus:ring-2 focus:ring-inset focus:ring-iados-primary"
             >
               Exacto — ${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
             </button>
