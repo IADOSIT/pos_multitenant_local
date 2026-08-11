@@ -11,7 +11,7 @@ import {
   ShoppingCart, LayoutDashboard, CreditCard, Package,
   Users, Building2, Settings, LogOut, Menu, X, ClipboardList, FileBarChart, Warehouse, Database, Lock, BookOpen, Grid3X3, Truck, Scale, Store, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
-import { logisticaApi, basculaApi } from '../../api/endpoints';
+import { logisticaApi, basculaApi, empresasApi } from '../../api/endpoints';
 import StockAlertBanner from '../ui/StockAlertBanner';
 import LicenciaBanner from './LicenciaBanner';
 import ViewAsBanner from './ViewAsBanner';
@@ -83,6 +83,9 @@ export default function MainLayout() {
   const location = useLocation();
   // Superadmin sin tienda elegida: las pantallas por-tienda piden elegir una primero.
   const necesitaTienda = user?.rol === 'superadmin' && !viewAs && RUTAS_POR_TIENDA.has(location.pathname);
+  // Tienda de contexto: si el superadmin está "viendo como" una tienda, TODO (flags de
+  // config, báscula, branding) debe usar ESA tienda/empresa, no la de su propia cuenta.
+  const tiendaCtxId = viewAs?.tienda_id ?? user?.tienda_id;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Colapso del sidebar en desktop: en el POS se colapsa para dar más espacio a
   // los productos; en el resto de vistas se muestra. En el POS se recuerda la
@@ -119,18 +122,33 @@ export default function MainLayout() {
     }).catch(() => setDbHost('?'));
   }, []);
 
-  // Load config_pos flags
+  // Load config_pos flags (de la tienda de contexto: propia o la que ve el superadmin)
   useEffect(() => {
-    if (user?.tienda_id) {
+    if (tiendaCtxId) {
       import('../../api/endpoints').then(({ tiendasApi }) => {
-        tiendasApi.get(user.tienda_id!).then(({ data }) => {
+        tiendasApi.get(tiendaCtxId).then(({ data }) => {
           const cp = data?.config_pos || {};
           setCajeroDashboard(cp.cajero_dashboard_enabled || false);
           setSidebarPermisos(cp.sidebar_permisos || {});
         }).catch(() => {});
       });
     }
-  }, [user?.tienda_id]);
+  }, [tiendaCtxId]);
+
+  // Branding del sidebar: al "ver como" tienda, mostrar el nombre/logo de ESA empresa,
+  // no los de la cuenta del superadmin (era confuso ver "Cafetería Aroma" viendo otra).
+  const [ctxEmpresa, setCtxEmpresa] = useState<{ nombre: string; logo_url: string | null } | null>(null);
+  useEffect(() => {
+    if (viewAs?.empresa_id) {
+      empresasApi.get(viewAs.empresa_id)
+        .then(({ data }) => setCtxEmpresa({ nombre: data?.nombre || viewAs.nombre, logo_url: data?.logo_url || null }))
+        .catch(() => setCtxEmpresa(null));
+    } else {
+      setCtxEmpresa(null);
+    }
+  }, [viewAs?.empresa_id]);
+  const brandNombre = viewAs ? (ctxEmpresa?.nombre || viewAs.nombre) : (user?.empresa_nombre || 'POS-iaDoS');
+  const brandLogo = viewAs ? (ctxEmpresa?.logo_url || null) : (user?.empresa_logo || null);
 
   // Load logistica enabled flag
   useEffect(() => {
@@ -143,12 +161,12 @@ export default function MainLayout() {
 
   // Load bascula (autoservicio frutas/verduras) enabled flag — es por tienda, no por empresa
   useEffect(() => {
-    if (user?.tienda_id) {
-      basculaApi.getConfig(user.tienda_id).then(({ data }) => {
+    if (tiendaCtxId) {
+      basculaApi.getConfig(tiendaCtxId).then(({ data }) => {
         setBasculaEnabled(data?.activo || false);
       }).catch(() => {});
     }
-  }, [user?.tienda_id]);
+  }, [tiendaCtxId]);
 
   const isDbExterno = dbHost !== 'localhost' && dbHost !== '127.0.0.1' && dbHost !== '...';
 
@@ -234,15 +252,15 @@ export default function MainLayout() {
             </button>
           ) : (
             <>
-              {user?.empresa_logo ? (
-                <img src={resolveUploadUrl(user.empresa_logo)} alt="" className="w-10 h-10 rounded-xl object-cover" />
+              {brandLogo ? (
+                <img src={resolveUploadUrl(brandLogo)} alt="" className="w-10 h-10 rounded-xl object-cover" />
               ) : (
                 <div className="w-10 h-10 bg-iados-primary rounded-xl flex items-center justify-center font-bold text-lg">
-                  {(user?.empresa_nombre || 'P').charAt(0)}
+                  {(brandNombre || 'P').charAt(0)}
                 </div>
               )}
               <div className="hidden lg:block leading-tight flex-1 min-w-0">
-                <span className="font-bold text-sm block truncate">{user?.empresa_nombre || 'POS-iaDoS'}</span>
+                <span className="font-bold text-sm block truncate">{brandNombre}</span>
                 <span className="text-[10px] text-slate-500">POS-iaDoS</span>
               </div>
               <button
@@ -320,8 +338,8 @@ export default function MainLayout() {
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-iados-surface border-b border-slate-700 px-4 py-3 flex items-center justify-between">
         <button onClick={() => setSidebarOpen(true)} className="p-1"><Menu size={24} /></button>
         <div className="flex items-center gap-2">
-          {user?.empresa_logo && <img src={resolveUploadUrl(user.empresa_logo)} alt="" className="w-6 h-6 rounded object-cover" />}
-          <span className="font-bold text-sm">{user?.empresa_nombre || 'POS-iaDoS'}</span>
+          {brandLogo && <img src={resolveUploadUrl(brandLogo)} alt="" className="w-6 h-6 rounded object-cover" />}
+          <span className="font-bold text-sm">{brandNombre}</span>
         </div>
         <div className="flex items-center gap-1">
           <button onClick={lock} className="p-1 text-slate-400 hover:text-yellow-400"><Lock size={20} /></button>
@@ -336,9 +354,9 @@ export default function MainLayout() {
           <aside className="relative w-64 bg-iados-surface flex flex-col">
             <div className="p-4 border-b border-slate-700 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                {user?.empresa_logo && <img src={resolveUploadUrl(user.empresa_logo)} alt="" className="w-8 h-8 rounded-lg object-cover" />}
+                {brandLogo && <img src={resolveUploadUrl(brandLogo)} alt="" className="w-8 h-8 rounded-lg object-cover" />}
                 <div className="leading-tight">
-                  <span className="font-bold text-sm block">{user?.empresa_nombre || 'POS-iaDoS'}</span>
+                  <span className="font-bold text-sm block">{brandNombre}</span>
                   <span className="text-[10px] text-slate-500">POS-iaDoS</span>
                 </div>
               </div>
