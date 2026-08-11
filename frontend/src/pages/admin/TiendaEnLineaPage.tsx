@@ -7,7 +7,7 @@ import {
   ShoppingBag, TrendingUp, Package, ToggleLeft, ToggleRight, Eye
 } from 'lucide-react';
 
-const DOMINIOBASE = 'pos.iados.online';
+const DOMINIOBASE = 'iados.store';
 
 const TEMAS_PREVIEW: Record<string, { bg: string; primary: string; secondary: string; text: string; border: string; nombre: string; desc: string }> = {
   lumina:   { bg: '#f8fafc', primary: '#1e40af', secondary: '#0f172a', text: '#0f172a', border: '#e2e8f0', nombre: 'Lumina',   desc: 'Blanco · Azul corporativo' },
