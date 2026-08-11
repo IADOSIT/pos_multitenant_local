@@ -182,7 +182,7 @@ export default function MainLayout() {
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar - Desktop (colapsable a un rail delgado) */}
       <aside className={`hidden md:flex flex-col bg-iados-surface border-r border-slate-700 shrink-0 transition-all ${deskCollapsed ? 'w-16' : 'w-20 lg:w-56'}`}>
-        <div className={`p-3 border-b border-slate-700 flex items-center gap-2 ${deskCollapsed ? 'flex-col' : 'justify-center lg:justify-start'}`}>
+        <div className={`h-16 shrink-0 border-b border-slate-700 flex items-center gap-2 ${deskCollapsed ? 'justify-center px-2' : 'px-3 lg:px-4 justify-center lg:justify-start'}`}>
           {user?.empresa_logo ? (
             <img src={resolveUploadUrl(user.empresa_logo)} alt="" className="w-10 h-10 rounded-xl object-cover" />
           ) : (
@@ -196,17 +196,29 @@ export default function MainLayout() {
               <span className="text-[10px] text-slate-500">POS-iaDoS</span>
             </div>
           )}
-          <button
-            onClick={toggleDesk}
-            title={deskCollapsed ? 'Mostrar menú' : 'Ocultar menú'}
-            aria-label={deskCollapsed ? 'Mostrar menú' : 'Ocultar menú'}
-            className={`items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-iados-card shrink-0 ${deskCollapsed ? 'flex' : 'hidden lg:flex'}`}
-          >
-            {deskCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-          </button>
+          {!deskCollapsed && (
+            <button
+              onClick={toggleDesk}
+              title="Ocultar menú"
+              aria-label="Ocultar menú"
+              className="hidden lg:flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-iados-card shrink-0"
+            >
+              <PanelLeftClose size={18} />
+            </button>
+          )}
         </div>
 
         <nav className="flex-1 py-2 overflow-y-auto">
+          {deskCollapsed && (
+            <button
+              onClick={toggleDesk}
+              title="Mostrar menú"
+              aria-label="Mostrar menú"
+              className="w-auto flex items-center justify-center px-2 py-3 mx-2 rounded-xl text-slate-400 hover:text-white hover:bg-iados-card"
+            >
+              <PanelLeftOpen size={22} className="shrink-0" />
+            </button>
+          )}
           {filtered.map((item) => (
             'popup' in item && item.popup ? (
               <button
