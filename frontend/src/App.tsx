@@ -4,7 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './store/auth.store';
 import Login from './pages/auth/Login';
 import MainLayout from './components/layout/MainLayout';
-import POSPage from './pages/pos/POSPage';
+import PosSwitcher from './pages/pos/PosSwitcher';
 import CajaPage from './pages/caja/CajaPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import ProductosAdmin from './pages/admin/ProductosAdmin';
@@ -66,7 +66,7 @@ export default function App() {
 
         <Route path="/" element={<PrivateRoute><MainLayout /></PrivateRoute>}>
           <Route index element={<Navigate to="/pos" />} />
-          <Route path="pos" element={<POSPage />} />
+          <Route path="pos" element={<PosSwitcher />} />
           <Route path="pedidos" element={<PedidosPage />} />
           <Route path="caja" element={<CajaPage />} />
           <Route path="reportes" element={
