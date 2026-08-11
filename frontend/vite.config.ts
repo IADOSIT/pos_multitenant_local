@@ -29,6 +29,11 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         cleanupOutdatedCaches: true,       // limpia precache de builds viejos en el SW
         navigateFallbackDenylist: [/^\/api/], // /api nunca se sirve como la SPA
+        // Precachear también el bundle grande: así el SW sirve TODOS los assets desde su
+        // caché (no por red). Evita que, al limpiar assets viejos en un deploy, un cliente
+        // con index.html cacheado pida un .js que ya no existe y reciba index.html
+        // (error de MIME). Seguro porque el build ya no acumula (emptyOutDir:true).
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
       },
     }),
   ],
