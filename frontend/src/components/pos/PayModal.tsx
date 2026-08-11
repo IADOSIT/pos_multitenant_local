@@ -510,7 +510,15 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
           // En un input, ←/→ mueven el cursor del texto; solo ↑/↓ cambian de sección.
           if (active && active.tagName === 'INPUT' && (dir === 'left' || dir === 'right')) return;
           const next = paySpatialNext(e.currentTarget as HTMLElement, dir);
-          if (next) { e.preventDefault(); next.focus(); if (next.tagName === 'INPUT') (next as HTMLInputElement).select?.(); }
+          if (next) {
+            e.preventDefault();
+            next.focus();
+            if (next.tagName === 'INPUT') (next as HTMLInputElement).select?.();
+          } else {
+            // Borde del panel: la flecha "sale" → volver a los productos del carrito.
+            e.preventDefault();
+            document.getElementById('retail-buscar')?.focus();
+          }
         } : undefined}
         className={inline ? 'w-full flex-1 min-h-0 flex flex-col' : 'card max-w-lg w-full max-h-[90vh] overflow-y-auto'}
       >
