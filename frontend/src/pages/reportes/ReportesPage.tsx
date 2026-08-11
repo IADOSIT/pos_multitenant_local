@@ -13,10 +13,12 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from 'recharts';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
-import html2canvas from 'html2canvas';
+// jsPDF / jspdf-autotable / xlsx / html2canvas se cargan bajo demanda (solo al
+// exportar). Son ~900KB juntos y no deben pesar en la carga inicial de la página.
+async function cargarPdf() {
+  const [jspdf, autotable] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
+  return { jsPDF: jspdf.default, autoTable: autotable.default };
+}
 
 const COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -133,6 +135,7 @@ export default function ReportesPage() {
   // ---- PDF Reporte Caja ----
   const exportCajaPDF = async () => {
     if (!reporte) return;
+    const { jsPDF, autoTable } = await cargarPdf();
     const { caja, resumen, ventas, top_productos } = reporte;
     const doc = new jsPDF();
     const pw = doc.internal.pageSize.getWidth();
@@ -188,6 +191,7 @@ export default function ReportesPage() {
     // Chart image
     if (chartRef.current) {
       try {
+        const { default: html2canvas } = await import('html2canvas');
         const canvas = await html2canvas(chartRef.current, { backgroundColor: '#0f172a', scale: 2 });
         const imgData = canvas.toDataURL('image/png');
         doc.addPage();
@@ -232,8 +236,9 @@ export default function ReportesPage() {
   };
 
   // ---- Excel Reporte Caja ----
-  const exportCajaExcel = () => {
+  const exportCajaExcel = async () => {
     if (!reporte) return;
+    const XLSX = await import('xlsx');
     const { caja, resumen, ventas, top_productos } = reporte;
     const wb = XLSX.utils.book_new();
 
@@ -296,6 +301,7 @@ export default function ReportesPage() {
   // ---- PDF KPI ----
   const exportKpiPDF = async () => {
     if (!kpi) return;
+    const { jsPDF, autoTable } = await cargarPdf();
     const doc = new jsPDF();
     const pw = doc.internal.pageSize.getWidth();
     const rangoLabel = rango === 'hoy' ? 'Hoy' : rango === 'semana' ? 'Ultima Semana' : 'Ultimo Mes';
@@ -353,6 +359,7 @@ export default function ReportesPage() {
     // Chart image
     if (kpiChartRef.current) {
       try {
+        const { default: html2canvas } = await import('html2canvas');
         const canvas = await html2canvas(kpiChartRef.current, { backgroundColor: '#0f172a', scale: 2 });
         const imgData = canvas.toDataURL('image/png');
         doc.addPage();
@@ -371,8 +378,9 @@ export default function ReportesPage() {
   };
 
   // ---- Export Clientes ----
-  const exportClientesPDF = () => {
+  const exportClientesPDF = async () => {
     if (!clientes.length) return;
+    const { jsPDF, autoTable } = await cargarPdf();
     const doc = new jsPDF();
     const pw = doc.internal.pageSize.getWidth();
     doc.setFontSize(16);
@@ -398,8 +406,9 @@ export default function ReportesPage() {
     toast.success('PDF generado');
   };
 
-  const exportClientesExcel = () => {
+  const exportClientesExcel = async () => {
     if (!clientes.length) return;
+    const XLSX = await import('xlsx');
     const wb = XLSX.utils.book_new();
     const data = [
       ['#', 'Telefono', 'Nombre', 'Direccion', 'Total Compras', 'Total Gastado', 'Ultima Visita', 'Primera Visita'],

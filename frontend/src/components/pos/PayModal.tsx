@@ -7,7 +7,6 @@ import { resolveUploadUrl } from '../../api/client';
 import { printTicket } from '../../utils/printTicket';
 import { money } from '../../utils/money';
 import toast from 'react-hot-toast';
-import QRCode from 'qrcode';
 import { X, DollarSign, CreditCard, ArrowRightLeft, Banknote, Printer, ShoppingBag, Wifi, Smartphone, RotateCw, CheckCircle2, XCircle } from 'lucide-react';
 
 interface Props {
@@ -167,7 +166,8 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
       const { data } = await pagosGatewayApi.crearQrMP({ total, folio, items });
       setGwExternalId(data.external_id);
       gwTransaccionIdRef.current = data.transaccion_id;
-      // Generate QR code image from qr_data string
+      // Generate QR code image from qr_data string (qrcode se carga bajo demanda)
+      const { default: QRCode } = await import('qrcode');
       const dataUrl = await QRCode.toDataURL(data.qr_data, { width: 250, margin: 2 });
       setGwQrDataUrl(dataUrl);
       // Start polling

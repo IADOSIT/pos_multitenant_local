@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { useAuthStore } from '../../store/auth.store';
 import { tiendasApi } from '../../api/endpoints';
-import POSPage from './POSPage';
-import POSRetailPage from './POSRetailPage';
+
+// Cada layout es su propio chunk: una tienda 'restaurante' nunca descarga el
+// código del POS retail y viceversa.
+const POSPage = lazy(() => import('./POSPage'));
+const POSRetailPage = lazy(() => import('./POSRetailPage'));
 
 // Decide qué layout de POS mostrar según config_pos.pos_layout de la tienda.
 // Por defecto (o sin tienda) → POSPage (restaurante). Solo 'retail' explícito
@@ -28,5 +31,9 @@ export default function PosSwitcher() {
     return () => { activo = false; };
   }, [user?.tienda_id]);
 
-  return layout === 'retail' ? <POSRetailPage /> : <POSPage />;
+  return (
+    <Suspense fallback={<div className="h-full flex items-center justify-center text-slate-400">Cargando POS…</div>}>
+      {layout === 'retail' ? <POSRetailPage /> : <POSPage />}
+    </Suspense>
+  );
 }
