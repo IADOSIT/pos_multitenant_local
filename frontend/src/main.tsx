@@ -17,8 +17,18 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 
 // PWA: la versión nueva se descarga en segundo plano; cuando está lista, avisamos
 // con un botón "Actualizar" (no se recarga solo para no interrumpir una venta en el POS).
+// Pantallas de venta donde NO conviene recargar solo (puede haber una venta en curso).
+const esPantallaDeVenta = () => /^\/(pos|kiosco|bascula-kiosko)(\/|$)/.test(window.location.pathname);
+
 const updateSW = registerSW({
   onNeedRefresh() {
+    if (!esPantallaDeVenta()) {
+      // Fuera del POS: actualizar solo (con un aviso breve para que se note por qué recarga).
+      toast.loading('Actualizando a la nueva versión…', { id: 'pwa-update', duration: 2500 });
+      setTimeout(() => updateSW(true), 1200);
+      return;
+    }
+    // Dentro del POS/kiosko: no interrumpir; botón manual para actualizar cuando convenga.
     toast(
       (t) => (
         <span className="flex items-center gap-3">
