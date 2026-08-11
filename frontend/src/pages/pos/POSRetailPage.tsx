@@ -5,7 +5,7 @@ import { productosApi, cajaApi, tiendasApi, empresasApi } from '../../api/endpoi
 import { Producto } from '../../types';
 import { money } from '../../utils/money';
 import PayModal from '../../components/pos/PayModal';
-import { Search, Minus, Plus, Trash2, ShoppingCart, ScanLine } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingCart, ScanLine, HelpCircle, Keyboard } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 // POS estilo TIENDA / RETAIL (tipo supermercado). Componente NUEVO e independiente del
@@ -23,6 +23,8 @@ export default function POSRetailPage() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [busqueda, setBusqueda] = useState('');
   const [payKey, setPayKey] = useState(0); // remonta PayModal inline tras cada venta
+  const [selIdx, setSelIdx] = useState(-1); // fila seleccionada por teclado (-1 = buscador)
+  const [showHelp, setShowHelp] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [cajaManaged, setCajaManaged] = useState(false);
   const [mostrarPrecios, setMostrarPrecios] = useState(true);
@@ -83,6 +85,19 @@ export default function POSRetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.tienda_id, user?.empresa_id]);
 
+  // Mantener la fila seleccionada visible al navegar con el teclado.
+  useEffect(() => {
+    if (selIdx >= 0) document.querySelector(`[data-row="${selIdx}"]`)?.scrollIntoView({ block: 'nearest' });
+  }, [selIdx]);
+
+  // Esc cierra la ayuda y devuelve el foco al buscador.
+  useEffect(() => {
+    if (!showHelp) return;
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') { setShowHelp(false); inputRef.current?.focus(); } };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [showHelp]);
+
   const term = busqueda.trim().toLowerCase();
   const resultados = term
     ? productos.filter((p) =>
@@ -98,16 +113,39 @@ export default function POSRetailPage() {
     inputRef.current?.focus();
   };
 
-  const onEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key !== 'Enter' || !term) return;
-    e.preventDefault();
-    // Coincidencia exacta por código de barras o SKU (pistola lectora) → agrega directo.
-    const exacto = productos.find((p) =>
-      String((p as any).codigo_barras || '').toLowerCase() === term || String(p.sku || '').toLowerCase() === term,
-    );
-    const p = exacto || resultados[0];
-    if (p) agregar(p);
-    else toast.error('Producto no encontrado');
+  // El cursor SIEMPRE vive en el buscador. Con texto, Enter agrega; vacío, las flechas
+  // navegan el carrito (↓/↑ mover, →/← cantidad, Retroceso/Supr eliminar). F1 o ? = ayuda.
+  const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'F1' || e.key === '?') { e.preventDefault(); setShowHelp((h) => !h); return; }
+    if (busqueda.trim() !== '') {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const exacto = productos.find((p) =>
+          String((p as any).codigo_barras || '').toLowerCase() === term || String(p.sku || '').toLowerCase() === term,
+        );
+        const p = exacto || resultados[0];
+        if (p) agregar(p); else toast.error('Producto no encontrado');
+      }
+      return;
+    }
+    if (cart.length === 0) return;
+    const it = selIdx >= 0 ? cart[selIdx] : null;
+    switch (e.key) {
+      case 'ArrowDown': e.preventDefault(); setSelIdx((i) => Math.min((i < 0 ? -1 : i) + 1, cart.length - 1)); break;
+      case 'ArrowUp': e.preventDefault(); setSelIdx((i) => Math.max(i - 1, -1)); break;
+      case 'ArrowRight': if (it) { e.preventDefault(); updateQuantity(it.id, it.cantidad + 1); } break;
+      case 'ArrowLeft':
+        if (it) {
+          e.preventDefault();
+          if (it.cantidad <= 1) { removeFromCart(it.id); setSelIdx((i) => Math.min(i, cart.length - 2)); }
+          else updateQuantity(it.id, it.cantidad - 1);
+        }
+        break;
+      case 'Backspace':
+      case 'Delete':
+        if (it) { e.preventDefault(); removeFromCart(it.id); setSelIdx((i) => Math.min(i, cart.length - 2)); }
+        break;
+    }
   };
 
   return (
@@ -121,8 +159,8 @@ export default function POSRetailPage() {
             <input
               ref={inputRef}
               value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              onKeyDown={onEnter}
+              onChange={(e) => { setBusqueda(e.target.value); if (e.target.value) setSelIdx(-1); }}
+              onKeyDown={onKey}
               placeholder="Escanear o buscar producto (código o descripción)…"
               className="input-touch pl-10"
               autoComplete="off"
@@ -146,7 +184,10 @@ export default function POSRetailPage() {
               </div>
             )}
           </div>
-          <span className="text-xs text-slate-500 hidden lg:flex items-center gap-1 shrink-0"><Search size={13} /> Enter para agregar</span>
+          <button onClick={() => setShowHelp(true)} title="Atajos de teclado (F1)"
+            className="shrink-0 w-11 h-11 rounded-xl bg-iados-card border border-slate-600 text-slate-300 hover:text-white hover:border-iados-primary flex items-center justify-center">
+            <HelpCircle size={20} />
+          </button>
         </div>
 
         {/* Tabla de ticket */}
@@ -170,8 +211,9 @@ export default function POSRetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {cart.map((i) => (
-                  <tr key={i.id} className="border-b border-slate-800 hover:bg-iados-card/40">
+                {cart.map((i, idx) => (
+                  <tr key={i.id} data-row={idx}
+                    className={`border-b border-slate-800 ${idx === selIdx ? 'bg-iados-primary/25 ring-1 ring-inset ring-iados-primary' : 'hover:bg-iados-card/40'}`}>
                     <td className="px-3 py-2 text-slate-400 tabular-nums whitespace-nowrap">{i.sku}</td>
                     <td className="px-3 py-2 text-white font-medium">{i.nombre}</td>
                     {mostrarPrecios && <td className="px-3 py-2 text-right text-slate-300 tabular-nums">${money(i.precio)}</td>}
@@ -242,6 +284,35 @@ export default function POSRetailPage() {
           )}
         </div>
       </aside>
+
+      {/* Ayuda: atajos de teclado */}
+      {showHelp && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setShowHelp(false)}>
+          <div className="card max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold flex items-center gap-2"><Keyboard size={20} /> Atajos de teclado</h2>
+              <button onClick={() => setShowHelp(false)} className="text-slate-400 hover:text-white text-sm">Cerrar (Esc)</button>
+            </div>
+            <p className="text-xs text-slate-400 mb-3">Opera el POS sin mouse. El cursor siempre vive en el buscador.</p>
+            <ul className="space-y-2 text-sm">
+              {[
+                ['Escribir / escanear', 'Busca o lee el código; Enter agrega al ticket'],
+                ['↓', 'Entrar al ticket / bajar al siguiente producto'],
+                ['↑', 'Subir de producto / volver al buscador'],
+                ['→', 'Aumentar la cantidad del producto seleccionado'],
+                ['←', 'Disminuir la cantidad (en 1 lo elimina)'],
+                ['Retroceso / Supr', 'Eliminar el producto seleccionado'],
+                ['F1 o ?', 'Mostrar u ocultar esta ayuda'],
+              ].map(([k, d]) => (
+                <li key={k} className="flex items-start gap-3">
+                  <kbd className="shrink-0 min-w-[6.5rem] text-center px-2 py-1 rounded-lg bg-iados-surface border border-slate-600 text-xs font-mono text-white">{k}</kbd>
+                  <span className="text-slate-300">{d}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

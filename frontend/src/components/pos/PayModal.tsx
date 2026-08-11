@@ -496,7 +496,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
         </div>
 
         {/* Métodos de pago */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
+        <div className={`grid gap-2 mb-2 ${inline ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'}`}>
           {([
             { key: 'efectivo', label: 'Efectivo', icon: Banknote },
             { key: 'tarjeta', label: 'Tarjeta', icon: CreditCard },
