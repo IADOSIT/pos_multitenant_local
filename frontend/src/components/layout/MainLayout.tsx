@@ -181,21 +181,8 @@ export default function MainLayout() {
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar - Desktop (colapsable a un rail delgado) */}
-      <aside className={`hidden md:flex flex-col bg-iados-surface border-r border-slate-700 shrink-0 transition-all ${deskCollapsed ? 'w-12' : 'w-20 lg:w-56'}`}>
-        {deskCollapsed ? (
-          <div className="p-2 flex justify-center border-b border-slate-700">
-            <button
-              onClick={toggleDesk}
-              title="Mostrar menú"
-              aria-label="Mostrar menú"
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-300 hover:text-white hover:bg-iados-card"
-            >
-              <PanelLeftOpen size={20} />
-            </button>
-          </div>
-        ) : (
-        <>
-        <div className="p-3 lg:p-4 border-b border-slate-700 flex items-center justify-center lg:justify-start gap-2">
+      <aside className={`hidden md:flex flex-col bg-iados-surface border-r border-slate-700 shrink-0 transition-all ${deskCollapsed ? 'w-16' : 'w-20 lg:w-56'}`}>
+        <div className={`p-3 border-b border-slate-700 flex items-center gap-2 ${deskCollapsed ? 'flex-col' : 'justify-center lg:justify-start'}`}>
           {user?.empresa_logo ? (
             <img src={resolveUploadUrl(user.empresa_logo)} alt="" className="w-10 h-10 rounded-xl object-cover" />
           ) : (
@@ -203,17 +190,19 @@ export default function MainLayout() {
               {(user?.empresa_nombre || 'P').charAt(0)}
             </div>
           )}
-          <div className="hidden lg:block leading-tight flex-1 min-w-0">
-            <span className="font-bold text-sm block truncate">{user?.empresa_nombre || 'POS-iaDoS'}</span>
-            <span className="text-[10px] text-slate-500">POS-iaDoS</span>
-          </div>
+          {!deskCollapsed && (
+            <div className="hidden lg:block leading-tight flex-1 min-w-0">
+              <span className="font-bold text-sm block truncate">{user?.empresa_nombre || 'POS-iaDoS'}</span>
+              <span className="text-[10px] text-slate-500">POS-iaDoS</span>
+            </div>
+          )}
           <button
             onClick={toggleDesk}
-            title="Ocultar menú"
-            aria-label="Ocultar menú"
-            className="hidden lg:flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-white hover:bg-iados-card shrink-0"
+            title={deskCollapsed ? 'Mostrar menú' : 'Ocultar menú'}
+            aria-label={deskCollapsed ? 'Mostrar menú' : 'Ocultar menú'}
+            className={`items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-iados-card shrink-0 ${deskCollapsed ? 'flex' : 'hidden lg:flex'}`}
           >
-            <PanelLeftClose size={18} />
+            {deskCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
         </div>
 
@@ -223,25 +212,27 @@ export default function MainLayout() {
               <button
                 key={item.to}
                 onClick={abrirBasculaPopup}
-                className="w-full flex items-center gap-3 px-3 lg:px-4 py-3 mx-2 rounded-xl transition-colors text-slate-400 hover:text-white hover:bg-iados-card"
+                title={item.label}
+                className={`w-auto flex items-center gap-3 py-3 mx-2 rounded-xl transition-colors text-slate-400 hover:text-white hover:bg-iados-card ${deskCollapsed ? 'justify-center px-2' : 'px-3 lg:px-4'}`}
               >
-                <item.icon size={22} />
-                <span className="hidden lg:block text-sm font-medium">{item.label}</span>
+                <item.icon size={22} className="shrink-0" />
+                <span className={`text-sm font-medium ${deskCollapsed ? 'hidden' : 'hidden lg:block'}`}>{item.label}</span>
               </button>
             ) : (
               <NavLink
                 key={item.to}
                 to={item.to}
+                title={item.label}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 lg:px-4 py-3 mx-2 rounded-xl transition-colors relative ${
+                  `flex items-center gap-3 py-3 mx-2 rounded-xl transition-colors relative ${deskCollapsed ? 'justify-center px-2' : 'px-3 lg:px-4'} ${
                     isActive ? 'bg-iados-primary text-white' : 'text-slate-400 hover:text-white hover:bg-iados-card'
                   }`
                 }
               >
-                <item.icon size={22} />
-                <span className="hidden lg:block text-sm font-medium">{item.label}</span>
+                <item.icon size={22} className="shrink-0" />
+                <span className={`text-sm font-medium ${deskCollapsed ? 'hidden' : 'hidden lg:block'}`}>{item.label}</span>
                 {'badge' in item && item.badge && pedidosPendientes > 0 && (
-                  <span className="absolute top-1 left-8 lg:right-2 lg:left-auto bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
+                  <span className={`absolute bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center animate-pulse ${deskCollapsed ? 'top-1 right-1' : 'top-1 left-8 lg:right-2 lg:left-auto'}`}>
                     {pedidosPendientes > 9 ? '9+' : pedidosPendientes}
                   </span>
                 )}
@@ -251,27 +242,27 @@ export default function MainLayout() {
         </nav>
 
         <div className="p-3 border-t border-slate-700">
-          <div className="hidden lg:block mb-2 px-1">
-            <div className="flex items-center gap-1.5 mb-1">
-              <Database size={12} className={isExterno ? 'text-amber-400' : 'text-green-400'} />
-              <span className={`text-[10px] font-bold ${isExterno ? 'text-amber-400' : 'text-green-400'}`}>{modoConexion}</span>
+          {!deskCollapsed && (
+            <div className="hidden lg:block mb-2 px-1">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Database size={12} className={isExterno ? 'text-amber-400' : 'text-green-400'} />
+                <span className={`text-[10px] font-bold ${isExterno ? 'text-amber-400' : 'text-green-400'}`}>{modoConexion}</span>
+              </div>
+              <div className="text-[9px] text-slate-500 leading-relaxed space-y-0.5">
+                <div>BD: <span className={isDbExterno ? 'text-amber-400/70' : 'text-green-400/70'}>{dbHost}</span>{appVersion && <span className="ml-1 text-slate-600">v{appVersion}</span>}</div>
+                <div>API: {backendHost}</div>
+                <div>Front: {window.location.host}</div>
+              </div>
             </div>
-            <div className="text-[9px] text-slate-500 leading-relaxed space-y-0.5">
-              <div>BD: <span className={isDbExterno ? 'text-amber-400/70' : 'text-green-400/70'}>{dbHost}</span>{appVersion && <span className="ml-1 text-slate-600">v{appVersion}</span>}</div>
-              <div>API: {backendHost}</div>
-              <div>Front: {window.location.host}</div>
-            </div>
-          </div>
-          <div className="hidden lg:block text-xs text-slate-500 mb-2 truncate">{user?.nombre}</div>
-          <button onClick={lock} className="flex items-center gap-2 text-slate-400 hover:text-yellow-400 w-full px-3 py-2 rounded-xl hover:bg-iados-card mb-1">
-            <Lock size={18} /> <span className="hidden lg:block text-sm">Bloquear</span>
+          )}
+          {!deskCollapsed && <div className="hidden lg:block text-xs text-slate-500 mb-2 truncate">{user?.nombre}</div>}
+          <button onClick={lock} title="Bloquear" className={`flex items-center gap-2 text-slate-400 hover:text-yellow-400 w-full py-2 rounded-xl hover:bg-iados-card mb-1 ${deskCollapsed ? 'justify-center px-2' : 'px-3'}`}>
+            <Lock size={18} /> <span className={`text-sm ${deskCollapsed ? 'hidden' : 'hidden lg:block'}`}>Bloquear</span>
           </button>
-          <button onClick={handleLogout} className="flex items-center gap-2 text-slate-400 hover:text-red-400 w-full px-3 py-2 rounded-xl hover:bg-iados-card">
-            <LogOut size={18} /> <span className="hidden lg:block text-sm">Salir</span>
+          <button onClick={handleLogout} title="Salir" className={`flex items-center gap-2 text-slate-400 hover:text-red-400 w-full py-2 rounded-xl hover:bg-iados-card ${deskCollapsed ? 'justify-center px-2' : 'px-3'}`}>
+            <LogOut size={18} /> <span className={`text-sm ${deskCollapsed ? 'hidden' : 'hidden lg:block'}`}>Salir</span>
           </button>
         </div>
-        </>
-        )}
       </aside>
 
       {/* Mobile header */}
