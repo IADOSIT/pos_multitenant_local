@@ -14,6 +14,7 @@ import TenantsAdmin from './pages/superadmin/TenantsAdmin';
 import TicketsConfig from './pages/admin/TicketsConfig';
 import PedidosPage from './pages/pedidos/PedidosPage';
 import ConfiguracionPage from './pages/admin/ConfiguracionPage';
+import TiendaEnLineaPage from './pages/admin/TiendaEnLineaPage';
 import ReportesPage from './pages/reportes/ReportesPage';
 import LicenciasAdmin from './pages/admin/LicenciasAdmin';
 import KioscoPage from './pages/kiosk/KioscoPage';
@@ -91,6 +92,9 @@ export default function App() {
           } />
           <Route path="admin/configuracion" element={
             <PrivateRoute roles={['superadmin', 'admin']}><ConfiguracionPage /></PrivateRoute>
+          } />
+          <Route path="admin/tienda-en-linea" element={
+            <PrivateRoute roles={['superadmin', 'admin']}><TiendaEnLineaPage /></PrivateRoute>
           } />
           <Route path="admin/mantenimiento" element={
             <PrivateRoute roles={['superadmin', 'admin']}><MantenimientoPage /></PrivateRoute>

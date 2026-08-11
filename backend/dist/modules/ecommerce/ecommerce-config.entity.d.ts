@@ -15,6 +15,7 @@ export declare class EcommerceConfig {
     modo_mayoreo: boolean;
     qty_min_mayoreo: number;
     tema_id: string;
+    preferencias: any;
     created_at: Date;
     updated_at: Date;
 }

@@ -167,6 +167,7 @@ let EcommerceService = class EcommerceService {
             politica_envio: config.politica_envio,
             terminos: config.terminos,
             tema_id: config.tema_id,
+            preferencias: config.preferencias || null,
             empresa: empresa ? { nombre: empresa.nombre, telefono: empresa.telefono, email: empresa.email, direccion: empresa.direccion, logo_url: empresa.logo_url } : null,
             campos_formulario,
         };

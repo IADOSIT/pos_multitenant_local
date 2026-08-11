@@ -11,7 +11,6 @@ import MantenimientoPage from './MantenimientoPage';
 import LicenciasAdmin from './LicenciasAdmin';
 import PerfilNegocioPage from './PerfilNegocioPage';
 import InventarioDualPage from '../inventario/InventarioDualPage';
-import TiendaEnLineaPage from './TiendaEnLineaPage';
 import { LogisticaConfigSection } from '../logistica/LogisticaPage';
 import QRCode from 'qrcode';
 import type { CampoFormularioConfig } from '../../types';
@@ -54,7 +53,7 @@ export default function ConfiguracionPage() {
   const [editingNew, setEditingNew] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<any>(null);
   const [expandedSection, setExpandedSection] = useState<string>('pos');
-  const [configTab, setConfigTab] = useState<'tienda' | 'tickets' | 'modulos' | 'especial' | 'ecommerce' | 'mantenimiento' | 'licencias'>('tienda');
+  const [configTab, setConfigTab] = useState<'tienda' | 'tickets' | 'modulos' | 'especial' | 'mantenimiento' | 'licencias'>('tienda');
   const [empresaLogo, setEmpresaLogo] = useState<string>('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [cfgEspecial, setCfgEspecial] = useState<{
@@ -832,7 +831,6 @@ export default function ConfiguracionPage() {
           { id: 'tienda',    label: 'Tienda' },
           { id: 'tickets',   label: 'Tickets' },
           ...(['superadmin', 'admin'].includes(user?.rol || '') ? [{ id: 'modulos', label: 'Modulos' }] : []),
-          ...(['superadmin', 'admin'].includes(user?.rol || '') ? [{ id: 'ecommerce', label: '🛒 Tienda en Línea' }] : []),
           ...(['superadmin', 'admin'].includes(user?.rol || '') ? [{ id: 'mantenimiento', label: 'Mantenimiento' }] : []),
           ...(user?.rol === 'superadmin' ? [{ id: 'licencias', label: 'Licencias' }] : []),
           ...(user?.rol === 'superadmin' ? [{ id: 'especial', label: '⚙️ Conf. Especial' }] : []),
@@ -850,7 +848,6 @@ export default function ConfiguracionPage() {
       </div>
 
       {configTab === 'tickets' && <TicketsConfig />}
-      {configTab === 'ecommerce' && <TiendaEnLineaPage />}
       {configTab === 'mantenimiento' && <MantenimientoPage />}
       {configTab === 'licencias' && user?.rol === 'superadmin' && <LicenciasAdmin />}
 
