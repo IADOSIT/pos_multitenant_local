@@ -857,6 +857,20 @@ export default function ConfiguracionPage() {
           <div className="min-w-0">
             <p className="text-[10px] uppercase tracking-wide text-slate-500 leading-none mb-0.5">Configurando tienda</p>
             <p className="font-bold text-sm truncate">{selected?.nombre || 'Ninguna seleccionada'}</p>
+            {selected && (
+              <div className="flex items-center flex-wrap gap-1.5 mt-1">
+                <span className="text-xs text-slate-500 truncate">{selected.direccion || 'Sin direccion'}</span>
+                {selected.config_pos?.modo_servicio === 'mesa' ? (
+                  <span className="text-xs px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded">Mesa</span>
+                ) : (
+                  <span className="text-xs px-1.5 py-0.5 bg-green-900/50 text-green-300 rounded">Autoservicio</span>
+                )}
+                {selected.id === user?.tienda_id && (
+                  <span className="text-xs px-1.5 py-0.5 bg-amber-900/50 text-amber-300 rounded">Mi tienda</span>
+                )}
+                <span className="text-[10px] text-slate-600">ID {selected.id} · Tenant {selected.tenant_id} · Empresa {selected.empresa_id}</span>
+              </div>
+            )}
           </div>
           <select
             value={selected?.id ?? ''}
@@ -1475,44 +1489,10 @@ export default function ConfiguracionPage() {
         </div>
       )}
 
-      {configTab === 'tienda' && <div className="grid lg:grid-cols-3 gap-4">
-        {/* Lista de tiendas */}
+      {configTab === 'tienda' && <div>
+        {/* Panel de config a ancho completo. La tienda se elige en el selector superior;
+            crear/editar/eliminar tiendas se administra en el módulo Tenants. */}
         <div className="space-y-2">
-          <h3 className="text-sm font-bold text-slate-400 mb-2">Tiendas</h3>
-          {tiendas.map((t) => (
-            <div
-              key={t.id}
-              onClick={() => { selectTiendaFresh(t.id); setEditingNew(false); setShowForm(false); }}
-              className={`card flex items-center gap-3 cursor-pointer transition-all ${selected?.id === t.id ? 'ring-2 ring-iados-primary' : 'hover:ring-1 hover:ring-slate-600'}`}
-            >
-              <div className="w-10 h-10 bg-iados-primary rounded-xl flex items-center justify-center font-bold">
-                <Store size={18} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{t.nombre}</p>
-                <p className="text-xs text-slate-500 truncate">{t.direccion || 'Sin direccion'}</p>
-                <div className="flex gap-1 mt-1">
-                  {t.config_pos?.modo_servicio === 'mesa' ? (
-                    <span className="text-xs px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded">Mesa</span>
-                  ) : (
-                    <span className="text-xs px-1.5 py-0.5 bg-green-900/50 text-green-300 rounded">Autoservicio</span>
-                  )}
-                  {t.id === user?.tienda_id && (
-                    <span className="text-xs px-1.5 py-0.5 bg-amber-900/50 text-amber-300 rounded">Mi tienda</span>
-                  )}
-                </div>
-              </div>
-              <div className="flex flex-col gap-1">
-                <button onClick={(e) => { e.stopPropagation(); selectTienda(t); setEditingNew(false); setExpandedSection('general'); }} className="p-1.5 hover:bg-iados-card rounded-lg"><Edit2 size={14} /></button>
-                <button onClick={(e) => { e.stopPropagation(); setDeleteConfirm(t); }} className="p-1.5 hover:bg-red-900/50 rounded-lg text-red-400"><Trash2 size={14} /></button>
-              </div>
-            </div>
-          ))}
-          {tiendas.length === 0 && <p className="text-sm text-slate-500 text-center py-4">No hay tiendas</p>}
-        </div>
-
-        {/* Config panel */}
-        <div className="lg:col-span-2 space-y-2">
           {/* Logo empresa - siempre visible */}
           <div className="card">
             <div className="flex items-center justify-between mb-2">
