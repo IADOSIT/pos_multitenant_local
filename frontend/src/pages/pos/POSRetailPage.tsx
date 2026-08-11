@@ -125,14 +125,15 @@ export default function POSRetailPage() {
     useRetailTickets.getState().guardarActivo(cart, tipoServicio);
   }, [cart, tipoServicio]);
 
-  // Atajos GLOBALES con Alt (el navegador reserva las teclas F: F1/F5/F12, etc.).
+  // Atajos GLOBALES. El navegador reserva las teclas F (F1/F5/F12…). Usamos Alt (Windows) /
+  // Option ⌥ (Mac) + `e.code` (tecla FÍSICA) para que funcionen igual en Mac y Windows,
+  // sin importar que Option genere caracteres especiales (ñ, π…).
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if (!e.altKey) return;
-      const k = e.key.toLowerCase();
-      if (k === 'n') { e.preventDefault(); nuevoTicket(); }
-      else if (k === 'h') { e.preventDefault(); setShowHelp((v) => !v); }
-      else if (k === 'b') { e.preventDefault(); inputRef.current?.focus(); }
+      if (e.code === 'KeyN') { e.preventDefault(); nuevoTicket(); }
+      else if (e.code === 'KeyH') { e.preventDefault(); setShowHelp((v) => !v); }
+      else if (e.code === 'KeyB') { e.preventDefault(); inputRef.current?.focus(); }
     };
     window.addEventListener('keydown', h, true);
     return () => window.removeEventListener('keydown', h, true);
@@ -381,7 +382,7 @@ export default function POSRetailPage() {
               <h2 className="text-lg font-bold flex items-center gap-2"><Keyboard size={20} /> Atajos de teclado</h2>
               <button onClick={() => setShowHelp(false)} className="text-slate-400 hover:text-white text-sm">Cerrar (Esc)</button>
             </div>
-            <p className="text-xs text-slate-400 mb-3">Opera el POS sin mouse. El cursor siempre vive en el buscador.</p>
+            <p className="text-xs text-slate-400 mb-3">Opera el POS sin mouse. El cursor siempre vive en el buscador. <span className="text-slate-500">En Mac, <b>Alt</b> es la tecla <b>Option ⌥</b>.</span></p>
             <ul className="space-y-2 text-sm">
               {[
                 ['Escribir / escanear', 'Busca o lee el código de barras'],
@@ -395,10 +396,10 @@ export default function POSRetailPage() {
                 ['Enter (en método)', 'Pasar al importe'],
                 ['Enter (en el importe)', 'Completar la venta'],
                 ['Esc', 'Regresar un paso (importe → método → buscador)'],
-                ['Alt + P', 'Completar la venta (desde cualquier lugar)'],
-                ['Alt + N', 'Abrir un ticket nuevo (varias ventas a la vez)'],
-                ['Alt + B', 'Volver el cursor al buscador'],
-                ['Alt + H  o  ?', 'Mostrar u ocultar esta ayuda'],
+                ['Alt/⌥ + P', 'Completar la venta (desde cualquier lugar)'],
+                ['Alt/⌥ + N', 'Abrir un ticket nuevo (varias ventas a la vez)'],
+                ['Alt/⌥ + B', 'Volver el cursor al buscador'],
+                ['Alt/⌥ + H  o  ?', 'Mostrar u ocultar esta ayuda'],
               ].map(([k, d]) => (
                 <li key={k} className="flex items-start gap-3">
                   <kbd className="shrink-0 min-w-[6.5rem] text-center px-2 py-1 rounded-lg bg-iados-surface border border-slate-600 text-xs font-mono text-white">{k}</kbd>

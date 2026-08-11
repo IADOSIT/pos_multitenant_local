@@ -402,8 +402,8 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
   useEffect(() => {
     if (!inline) return;
     const h = (e: KeyboardEvent) => {
-      // F12 (donde el navegador lo permita) o Alt+P (siempre): completar venta.
-      if (e.key === 'F12' || (e.altKey && (e.key === 'p' || e.key === 'P'))) {
+      // F12 (donde el navegador lo permita) o Alt/Option+P (Mac y Windows): completar venta.
+      if (e.key === 'F12' || (e.altKey && e.code === 'KeyP')) {
         e.preventDefault();
         if (canPay() && !loading) handlePay(false);
       }
