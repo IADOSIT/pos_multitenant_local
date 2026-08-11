@@ -24,11 +24,17 @@ export default function POSRetailPage() {
   const activeTicketId = useRetailTickets((s) => s.activeId);
 
   // Carga un ticket en el carrito activo del POS.
+  const focarBuscador = () => {
+    const f = () => inputRef.current?.focus();
+    requestAnimationFrame(f);
+    setTimeout(f, 60);
+    setTimeout(f, 200);
+  };
   const cargarTicket = (t: { cart: any[]; tipoServicio: 'en_sitio' | 'para_llevar' }) => {
     setCart(t.cart as any);
     setTipoServicio(t.tipoServicio);
     setSelIdx(-1);
-    setTimeout(() => inputRef.current?.focus(), 0);
+    focarBuscador();
   };
   const nuevoTicket = () => cargarTicket(useRetailTickets.getState().crear());
   const cambiarTicket = (id: string) => { const t = useRetailTickets.getState().activar(id); if (t) cargarTicket(t); };

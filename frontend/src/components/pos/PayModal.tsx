@@ -409,6 +409,19 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inline, loading, metodo, pagoEfectivo, pagoTarjeta, pagoTransferencia, total, gwEstado]);
 
+  // Modo inline: tras completar la venta, cerrar solo (o con Enter/Esc/F12) para
+  // devolver el foco al buscador y poder reanudar la siguiente venta.
+  useEffect(() => {
+    if (!inline || !ventaCompletada) return;
+    const t = setTimeout(() => onClose(), 1600);
+    const h = (e: KeyboardEvent) => {
+      if (['Enter', 'Escape', 'F12', ' '].includes(e.key)) { e.preventDefault(); clearTimeout(t); onClose(); }
+    };
+    window.addEventListener('keydown', h);
+    return () => { clearTimeout(t); window.removeEventListener('keydown', h); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inline, ventaCompletada]);
+
   if (ventaCompletada) {
     return (
       <div className={inline ? 'h-full flex items-center justify-center p-4' : 'fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4'}>
