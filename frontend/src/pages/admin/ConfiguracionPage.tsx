@@ -25,11 +25,11 @@ const THEMES: { key: ThemeName; name: string; desc: string; previewStyle: React.
 ];
 
 const PALETTES: { key: PaletteName; name: string; colors: [string, string, string] }[] = [
-  { key: 'default', name: 'Azul (Default)', colors: ['#1e40af', '#3b82f6', '#f59e0b'] },
-  { key: 'esmeralda', name: 'Esmeralda', colors: ['#047857', '#10b981', '#fbbf24'] },
-  { key: 'purpura', name: 'Purpura', colors: ['#6d28d9', '#8b5cf6', '#f472b6'] },
-  { key: 'rubi', name: 'Rubi', colors: ['#b91c1c', '#ef4444', '#fb923c'] },
-  { key: 'oceano', name: 'Oceano', colors: ['#0e7490', '#06b6d4', '#a3e635'] },
+  { key: 'default', name: 'Azul (Default)', colors: ['#2563eb', '#3b82f6', '#d97706'] },
+  { key: 'esmeralda', name: 'Esmeralda', colors: ['#047857', '#10b981', '#d97706'] },
+  { key: 'purpura', name: 'Purpura', colors: ['#4f46e5', '#6366f1', '#d97706'] },
+  { key: 'rubi', name: 'Rubi', colors: ['#be123c', '#e11d48', '#d97706'] },
+  { key: 'oceano', name: 'Oceano', colors: ['#0e7490', '#06b6d4', '#d97706'] },
 ];
 
 type CampoKey = 'nombre' | 'telefono' | 'email' | 'direccion' | 'empresa' | 'notas';
@@ -1586,7 +1586,7 @@ export default function ConfiguracionPage() {
                         ))}
                       </div>
                       {/* Mini dark bg preview */}
-                      <div className="w-full h-6 rounded-lg mb-2 flex items-center gap-1 px-2" style={{ backgroundColor: p.key === 'default' ? '#0f172a' : p.key === 'esmeralda' ? '#022c22' : p.key === 'purpura' ? '#1a0a2e' : p.key === 'rubi' ? '#1a0505' : '#042f2e' }}>
+                      <div className="w-full h-6 rounded-lg mb-2 flex items-center gap-1 px-2" style={{ backgroundColor: '#0f172a' }}>
                         <div className="w-4 h-2 rounded" style={{ backgroundColor: p.colors[0] }} />
                         <div className="flex-1 h-1 rounded-full" style={{ backgroundColor: p.colors[1], opacity: 0.5 }} />
                         <div className="w-3 h-2 rounded" style={{ backgroundColor: p.colors[2] }} />
