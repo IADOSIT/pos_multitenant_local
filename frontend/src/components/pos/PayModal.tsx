@@ -398,6 +398,17 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
     }
   };
 
+  // Modo inline (retail): F12 completa la venta desde cualquier lado del POS.
+  useEffect(() => {
+    if (!inline) return;
+    const h = (e: KeyboardEvent) => {
+      if (e.key === 'F12') { e.preventDefault(); if (canPay() && !loading) handlePay(false); }
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inline, loading, metodo, pagoEfectivo, pagoTarjeta, pagoTransferencia, total, gwEstado]);
+
   if (ventaCompletada) {
     return (
       <div className={inline ? 'h-full flex items-center justify-center p-4' : 'fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4'}>
@@ -560,12 +571,14 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
               <input
                 type="text"
                 inputMode="decimal"
+                id={inline ? 'retail-pago-input' : undefined}
                 value={pagoEfectivo}
                 onChange={(e) => setPagoEfectivo(e.target.value.replace(/[^0-9.]/g, ''))}
                 onFocus={e => e.target.select()}
+                onKeyDown={(e) => { if (e.key === 'Enter' && canPay() && !loading) { e.preventDefault(); handlePay(false); } }}
                 className="input-touch text-2xl text-center flex-1"
                 placeholder="0.00"
-                autoFocus
+                autoFocus={!inline}
               />
               {Number(pagoEfectivo) > 0 && (
                 <button
@@ -590,6 +603,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
                 value={pagoTarjeta}
                 onChange={(e) => setPagoTarjeta(e.target.value.replace(/[^0-9.]/g, ''))}
                 onFocus={e => e.target.select()}
+                onKeyDown={(e) => { if (e.key === 'Enter' && canPay() && !loading) { e.preventDefault(); handlePay(false); } }}
                 className="input-touch text-xl text-center flex-1"
                 placeholder={metodo === 'tarjeta' ? total.toFixed(2) : '0.00'}
               />
@@ -610,6 +624,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
                 value={pagoTransferencia}
                 onChange={(e) => setPagoTransferencia(e.target.value.replace(/[^0-9.]/g, ''))}
                 onFocus={e => e.target.select()}
+                onKeyDown={(e) => { if (e.key === 'Enter' && canPay() && !loading) { e.preventDefault(); handlePay(false); } }}
                 className="input-touch text-xl text-center flex-1"
                 placeholder={metodo === 'transferencia' ? total.toFixed(2) : '0.00'}
               />

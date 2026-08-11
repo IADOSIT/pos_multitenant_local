@@ -23,7 +23,8 @@ export default function POSRetailPage() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [busqueda, setBusqueda] = useState('');
   const [payKey, setPayKey] = useState(0); // remonta PayModal inline tras cada venta
-  const [selIdx, setSelIdx] = useState(-1); // fila seleccionada por teclado (-1 = buscador)
+  const [selIdx, setSelIdx] = useState(-1); // fila del ticket seleccionada por teclado (-1 = buscador)
+  const [resIdx, setResIdx] = useState(0); // resultado resaltado en la lista de búsqueda
   const [showHelp, setShowHelp] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [cajaManaged, setCajaManaged] = useState(false);
@@ -110,6 +111,7 @@ export default function POSRetailPage() {
   const agregar = (p: Producto) => {
     addToCart(p, 1);
     setBusqueda('');
+    setResIdx(0);
     inputRef.current?.focus();
   };
 
@@ -118,14 +120,25 @@ export default function POSRetailPage() {
   const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'F1' || e.key === '?') { e.preventDefault(); setShowHelp((h) => !h); return; }
     if (busqueda.trim() !== '') {
+      // Navegar la lista de resultados con ↑/↓
+      if (resultados.length) {
+        if (e.key === 'ArrowDown') { e.preventDefault(); setResIdx((i) => Math.min(i + 1, resultados.length - 1)); return; }
+        if (e.key === 'ArrowUp') { e.preventDefault(); setResIdx((i) => Math.max(i - 1, 0)); return; }
+      }
       if (e.key === 'Enter') {
         e.preventDefault();
         const exacto = productos.find((p) =>
           String((p as any).codigo_barras || '').toLowerCase() === term || String(p.sku || '').toLowerCase() === term,
         );
-        const p = exacto || resultados[0];
+        const p = exacto || resultados[resIdx] || resultados[0];
         if (p) agregar(p); else toast.error('Producto no encontrado');
       }
+      return;
+    }
+    // Buscador vacío
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (cart.length > 0) document.getElementById('retail-pago-input')?.focus(); // → poner el dinero
       return;
     }
     if (cart.length === 0) return;
@@ -159,7 +172,7 @@ export default function POSRetailPage() {
             <input
               ref={inputRef}
               value={busqueda}
-              onChange={(e) => { setBusqueda(e.target.value); if (e.target.value) setSelIdx(-1); }}
+              onChange={(e) => { setBusqueda(e.target.value); setResIdx(0); if (e.target.value) setSelIdx(-1); }}
               onKeyDown={onKey}
               placeholder="Escanear o buscar producto (código o descripción)…"
               className="input-touch pl-10"
@@ -168,9 +181,9 @@ export default function POSRetailPage() {
             {/* Resultados en vivo */}
             {resultados.length > 0 && (
               <div className="absolute z-30 left-0 right-0 mt-1 bg-iados-surface border border-slate-600 rounded-xl shadow-2xl overflow-hidden max-h-80 overflow-y-auto">
-                {resultados.map((p) => (
-                  <button key={p.id} onClick={() => agregar(p)}
-                    className="w-full flex items-center gap-3 px-3 py-2 hover:bg-iados-card text-left border-b border-slate-700/50 last:border-0">
+                {resultados.map((p, ri) => (
+                  <button key={p.id} onClick={() => agregar(p)} onMouseEnter={() => setResIdx(ri)}
+                    className={`w-full flex items-center gap-3 px-3 py-2 text-left border-b border-slate-700/50 last:border-0 ${ri === resIdx ? 'bg-iados-primary/25' : 'hover:bg-iados-card'}`}>
                     <span className="w-9 h-9 rounded-lg bg-iados-card overflow-hidden shrink-0 flex items-center justify-center text-slate-500">
                       {p.imagen_url ? <img src={p.imagen_url} alt="" className="w-full h-full object-cover" /> : '🛒'}
                     </span>
@@ -296,12 +309,16 @@ export default function POSRetailPage() {
             <p className="text-xs text-slate-400 mb-3">Opera el POS sin mouse. El cursor siempre vive en el buscador.</p>
             <ul className="space-y-2 text-sm">
               {[
-                ['Escribir / escanear', 'Busca o lee el código; Enter agrega al ticket'],
-                ['↓', 'Entrar al ticket / bajar al siguiente producto'],
-                ['↑', 'Subir de producto / volver al buscador'],
+                ['Escribir / escanear', 'Busca o lee el código de barras'],
+                ['↓ / ↑ (con texto)', 'Navegar la lista de resultados de búsqueda'],
+                ['Enter (con texto)', 'Agregar el producto resaltado al ticket'],
+                ['Enter (buscador vacío)', 'Ir a cobrar (enfoca el importe "Pagó con")'],
+                ['↓ / ↑ (vacío)', 'Navegar los productos del ticket'],
                 ['→', 'Aumentar la cantidad del producto seleccionado'],
                 ['←', 'Disminuir la cantidad (en 1 lo elimina)'],
                 ['Retroceso / Supr', 'Eliminar el producto seleccionado'],
+                ['Enter (en el importe)', 'Completar la venta'],
+                ['F12', 'Completar la venta (desde cualquier lugar)'],
                 ['F1 o ?', 'Mostrar u ocultar esta ayuda'],
               ].map(([k, d]) => (
                 <li key={k} className="flex items-start gap-3">
