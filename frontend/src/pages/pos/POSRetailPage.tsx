@@ -263,13 +263,15 @@ export default function POSRetailPage() {
         {/* Pestañas de tickets (ventas temporales, persistentes) */}
         <div className="flex items-center gap-1 px-2 py-1.5 bg-iados-dark/40 border-b border-slate-700 overflow-x-auto shrink-0">
           {ticketsList.map((t) => {
-            const n = t.cart.reduce((s, i) => s + i.cantidad, 0);
             const activo = t.id === activeTicketId;
+            // El ticket activo muestra el conteo EN VIVO del carrito (reactivo);
+            // los demás, el conteo guardado del ticket.
+            const n = activo ? getItemCount() : t.cart.reduce((s, i) => s + i.cantidad, 0);
             return (
               <div key={t.id} onClick={() => cambiarTicket(t.id)}
                 className={`flex items-center gap-1.5 pl-3 pr-1 py-1.5 rounded-lg text-sm cursor-pointer shrink-0 ${activo ? 'bg-iados-primary text-white' : 'bg-iados-card text-slate-300 hover:text-white'}`}>
                 <span className="font-medium">{t.nombre}</span>
-                {n > 0 && <span className={`text-[11px] rounded-full px-1.5 tabular-nums ${activo ? 'bg-white/20' : 'bg-slate-700'}`}>{n}</span>}
+                {n > 0 && <span className="text-[11px] font-extrabold rounded-full px-1.5 tabular-nums bg-amber-400 text-slate-900">{n}</span>}
                 <button onClick={(e) => { e.stopPropagation(); cerrarTicket(t.id); }} title="Cerrar ticket"
                   className="w-5 h-5 rounded flex items-center justify-center opacity-60 hover:opacity-100 hover:text-red-300"><X size={12} /></button>
               </div>
