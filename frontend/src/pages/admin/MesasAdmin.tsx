@@ -214,8 +214,7 @@ export default function MesasAdmin() {
     <div className="p-4 max-w-5xl mx-auto">
       <style>{`@media print { body > * { display: none; } #qr-print-area { display: block !important; position: fixed; top: 0; left: 0; width: 100%; background: white; } .fixed { background: transparent !important; } }`}</style>
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Grid3X3 size={24} /> Gestión de Mesas</h1>
+      <div className="flex items-center justify-end flex-wrap gap-2 mb-4">
         <div className="flex gap-2 flex-wrap">
           <button onClick={handlePrintReporte} className="btn-secondary text-sm">
             <Printer size={15} className="mr-1" />Reporte

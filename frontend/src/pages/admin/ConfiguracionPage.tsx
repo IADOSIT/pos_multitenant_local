@@ -45,7 +45,6 @@ const DEFAULT_CAMPOS: Record<CampoKey, CampoFormularioConfig> = {
 import { usePageHeader } from '../../store/pageHeader.store';
 
 export default function ConfiguracionPage() {
-  usePageHeader({ title: 'Configuración', subtitle: 'Tienda, tickets, módulos y más', icon: Settings });
   const { user } = useAuthStore();
   const { theme, palette, setTheme, setPalette } = useThemeStore();
   const navigate = useNavigate();
@@ -822,13 +821,17 @@ export default function ConfiguracionPage() {
     </button>
   );
 
+  usePageHeader({
+    title: 'Configuración',
+    subtitle: 'Tienda, tickets, módulos y más',
+    icon: Settings,
+    actions: configTab === 'tienda'
+      ? <button onClick={() => handleNew()} className="btn-primary text-sm"><Plus size={16} className="mr-1" />Nueva Tienda</button>
+      : undefined,
+  });
+
   return (
     <div className="p-4 max-w-6xl mx-auto">
-      <div className="flex items-center justify-end mb-3 empty:hidden">
-        {configTab === 'tienda' && (
-          <button onClick={handleNew} className="btn-primary text-sm"><Plus size={16} className="mr-1" />Nueva Tienda</button>
-        )}
-      </div>
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-slate-700 mb-4">

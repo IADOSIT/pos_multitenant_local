@@ -32,7 +32,6 @@ const EMPTY_FORM = {
 import { usePageHeader } from '../../store/pageHeader.store';
 
 export default function UsuariosAdmin() {
-  usePageHeader({ title: 'Usuarios', subtitle: 'Cuentas y permisos del equipo' });
   const { user } = useAuthStore();
   const [usuarios, setUsuarios]   = useState<any[]>([]);
   const [tenants, setTenants]     = useState<any[]>([]);
@@ -327,6 +326,15 @@ export default function UsuariosAdmin() {
   const isSA      = user?.rol === 'superadmin';
   const isAdmin   = user?.rol === 'admin';
 
+  usePageHeader({
+    title: 'Usuarios',
+    subtitle: 'Cuentas y permisos del equipo',
+    icon: Users,
+    actions: activeTab === 'usuarios'
+      ? <button onClick={() => openWizard()} className="btn-primary text-sm"><Plus size={16} className="mr-1" />Nuevo Usuario</button>
+      : undefined,
+  });
+
   return (
     <div className="p-4 max-w-6xl mx-auto">
       <div className="flex gap-1 mb-6 border-b border-slate-700">
@@ -344,11 +352,6 @@ export default function UsuariosAdmin() {
 
       {activeTab === 'usuarios' && (
       <>
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Users size={24} /> Usuarios</h1>
-        <button onClick={openWizard} className="btn-primary text-sm"><Plus size={16} className="mr-1" />Nuevo Usuario</button>
-      </div>
-
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>

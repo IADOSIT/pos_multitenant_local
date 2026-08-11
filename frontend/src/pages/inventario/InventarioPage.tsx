@@ -206,11 +206,7 @@ export default function InventarioPage() {
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <Warehouse className="text-iados-primary" size={28} />
-          <h1 className="text-2xl font-bold">Inventario</h1>
-        </div>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-end gap-4 mb-6">
         <div className="flex flex-wrap gap-2">
           {isAdmin && (
             <>
