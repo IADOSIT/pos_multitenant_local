@@ -619,7 +619,7 @@ export default function POSPage() {
       {/* Panel izquierdo: categorias + productos */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header POS */}
-        <div className="flex items-center gap-2 p-3 bg-iados-surface border-b border-slate-700">
+        <div className="h-16 shrink-0 flex items-center gap-2 px-3 bg-iados-surface border-b border-slate-700">
           {user?.empresa_logo && (
             <img src={resolveUploadUrl(user.empresa_logo)} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" />
           )}

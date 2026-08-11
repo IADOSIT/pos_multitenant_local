@@ -120,7 +120,7 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 border-b border-slate-700 flex items-center justify-between">
+      <div className="h-16 shrink-0 px-4 border-b border-slate-700 flex items-center justify-between">
         <h2 className="font-bold text-lg flex items-center gap-2">
           <ShoppingCart size={20} /> Orden
         </h2>
