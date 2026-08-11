@@ -18,5 +18,6 @@ export declare class TicketsService {
     };
     private center;
     private right;
+    private money;
     private formatLine;
 }

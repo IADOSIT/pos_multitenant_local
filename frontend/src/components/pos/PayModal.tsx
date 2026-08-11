@@ -5,6 +5,7 @@ import { offlineActions } from '../../store/offline.store';
 import { ventasApi, ticketsApi, pedidosApi, pagosGatewayApi, cajaApi, empresasApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
 import { printTicket } from '../../utils/printTicket';
+import { money } from '../../utils/money';
 import toast from 'react-hot-toast';
 import QRCode from 'qrcode';
 import { X, DollarSign, CreditCard, ArrowRightLeft, Banknote, Printer, ShoppingBag, Wifi, Smartphone, RotateCw, CheckCircle2, XCircle } from 'lucide-react';
@@ -405,9 +406,9 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
           <p className="text-lg text-iados-accent font-bold">
             {ventaCompletada.folio || ventaCompletada.folio_offline}
           </p>
-          <p className="text-3xl font-bold">${Number(ventaCompletada.total).toFixed(2)}</p>
+          <p className="text-3xl font-bold">${money(ventaCompletada.total)}</p>
           {cambio > 0 && (
-            <p className="text-xl text-green-400">Cambio: ${cambio.toFixed(2)}</p>
+            <p className="text-xl text-green-400">Cambio: ${money(cambio)}</p>
           )}
           {ticketRawRef.current && (
             <button onClick={handleReprint} className="btn-secondary w-full text-lg flex items-center justify-center gap-2">
@@ -466,7 +467,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
                       className="w-24 bg-iados-bg border border-slate-600 rounded-lg px-2 py-1.5 text-sm text-right focus:outline-none focus:border-iados-primary"
                     />
                     <span className="text-xs text-slate-500 w-16 text-right">
-                      = ${((parseFloat(preciosManual[it.id] || '0') || 0) * it.cantidad).toFixed(2)}
+                      = ${money((parseFloat(preciosManual[it.id] || '0') || 0) * it.cantidad)}
                     </span>
                   </div>
                 </div>
@@ -485,9 +486,9 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
             </div>
           )}
           <p className="text-sm text-slate-400">Total a cobrar</p>
-          <p className="text-4xl font-bold text-iados-accent">${total.toFixed(2)}</p>
+          <p className="text-4xl font-bold text-iados-accent">${money(total)}</p>
           {propina > 0 && (
-            <p className="text-sm text-green-400 mt-1">Propina incluida: ${propina.toFixed(2)} · Base: ${totalBase.toFixed(2)}</p>
+            <p className="text-sm text-green-400 mt-1">Propina incluida: ${money(propina)} · Base: ${money(totalBase)}</p>
           )}
         </div>
 
@@ -671,7 +672,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
                     onClick={() => { setPropina(monto); setPropinaCustom(''); }}
                     className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${propina === monto && !propinaCustom ? 'bg-green-700 border-green-500 text-white' : 'bg-iados-card border-slate-600 text-slate-300 hover:border-green-500'}`}
                   >
-                    {pct}% · ${monto.toFixed(2)}
+                    {pct}% · ${money(monto)}
                   </button>
                 );
               })}
@@ -695,7 +696,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
         {metodo === 'efectivo' && Number(pagoEfectivo) > 0 && (
           <div className="text-center mb-4 p-3 bg-green-900/30 rounded-xl">
             <span className="text-sm text-green-300">Cambio: </span>
-            <span className="text-2xl font-bold text-green-400">${cambio.toFixed(2)}</span>
+            <span className="text-2xl font-bold text-green-400">${money(cambio)}</span>
           </div>
         )}
 
@@ -814,7 +815,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
           disabled={!canPay() || loading}
           className="btn-success w-full text-lg disabled:opacity-50"
         >
-          {loading ? 'Procesando...' : pedido ? `Cobrar Mesa ${pedido.mesa} — $${total.toFixed(2)}` : `Completar Venta $${total.toFixed(2)}`}
+          {loading ? 'Procesando...' : pedido ? `Cobrar Mesa ${pedido.mesa} — $${money(total)}` : `Completar Venta $${money(total)}`}
         </button>
 
       </div>

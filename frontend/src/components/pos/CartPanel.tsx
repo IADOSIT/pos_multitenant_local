@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { usePOSStore } from '../../store/pos.store';
 import { pedidosApi } from '../../api/endpoints';
 import { Minus, Plus, Trash2, ShoppingCart, Send, BookOpen, MessageSquare, Phone, FileText } from 'lucide-react';
+import { money } from '../../utils/money';
 
 interface Props {
   onPay: () => void;
@@ -448,17 +449,17 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
             <>
               <div className="flex justify-between text-sm text-slate-400">
                 <span>Subtotal</span>
-                <span>${getSubtotal().toFixed(2)}</span>
+                <span className="tabular-nums">${money(getSubtotal())}</span>
               </div>
               {getImpuestos() > 0 && (
                 <div className="flex justify-between text-sm text-slate-400">
                   <span>Impuestos</span>
-                  <span>${getImpuestos().toFixed(2)}</span>
+                  <span className="tabular-nums">${money(getImpuestos())}</span>
                 </div>
               )}
               <div className="flex justify-between text-xl font-bold pt-2 border-t border-slate-600">
                 <span>Total</span>
-                <span className="text-iados-accent">${getTotal().toFixed(2)}</span>
+                <span className="text-iados-accent tabular-nums">${money(getTotal())}</span>
               </div>
             </>
           )}
@@ -489,7 +490,7 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
                 <BookOpen size={18} /> Actualizar Mesa {pedidoActivo.mesa}
               </button>
               <button onClick={onPay} disabled={(!cajaActiva && !cajaManaged) || cart.length === 0 || precioManualIncompleto} className="btn-accent w-full text-lg disabled:opacity-50">
-                Cobrar Mesa {pedidoActivo.mesa}{mostrarPrecios ? ` — $${getTotal().toFixed(2)}` : ''}
+                Cobrar Mesa {pedidoActivo.mesa}{mostrarPrecios ? ` — $${money(getTotal())}` : ''}
               </button>
             </div>
           ) : (
@@ -506,7 +507,7 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
                 </button>
               )}
               <button onClick={onPay} disabled={(!cajaActiva && !cajaManaged) || (isMesa && !mesaActiva && !mesaNumeroOculto) || precioManualIncompleto} className="btn-accent flex-1 text-lg disabled:opacity-50">
-                Cobrar{mostrarPrecios ? ` $${getTotal().toFixed(2)}` : ''}
+                Cobrar{mostrarPrecios ? ` $${money(getTotal())}` : ''}
               </button>
             </div>
           )}
