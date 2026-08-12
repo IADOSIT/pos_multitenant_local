@@ -32,27 +32,8 @@
       - 8.8.8.8
       - 1.1.1.1
 
-  # ---- Shop E-commerce (Next.js 14) ----
-  shop:
-    build:
-      context: ./shop
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: https://posapi.iados.online/api
-    container_name: pos-iados-shop
-    restart: unless-stopped
-    ports:
-      - "3010:3000"
-    environment:
-      NODE_ENV: production
-      BACKEND_URL: http://pos-iados-api:3000
-      NEXT_PUBLIC_API_URL: https://posapi.iados.online/api
-    networks:
-      - web_network
-      - internet_out
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
+  # Nota: el e-commerce (Next.js) se despliega en un stack aparte (POS_STORE_DEPLOY),
+  # no en este stack. Por eso aquí ya no existe el servicio "shop"/pos-iados-shop.
 
   # ---- Frontend CMS (React + Vite + Nginx) ----
   frontend:

@@ -40,6 +40,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       if (Number.isInteger(vTenant) && Number.isInteger(vEmpresa) && Number.isInteger(vTienda)) {
         return { ...base, tenant_id: vTenant, empresa_id: vEmpresa, tienda_id: vTienda, viendo_como: true };
       }
+      // Superadmin SIN "ver como" tienda: scope realmente nulo (no cae al tenant/empresa
+      // propios de la cuenta superadmin). Así los endpoints por-tienda (productos POS,
+      // dashboard, caja, etc.) devuelven vacío en vez de datos de la tienda del superadmin.
+      // Los endpoints globales (tenants, empresas, usuarios, licencias, listar tiendas)
+      // ramifican por rol === 'superadmin', no por estos ids, así que no se ven afectados.
+      return { ...base, tenant_id: null, empresa_id: null, tienda_id: null };
     }
 
     return base;

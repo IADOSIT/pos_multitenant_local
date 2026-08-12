@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
+import { useAdminContextStore } from '../../store/adminContext.store';
+import { useDeployStore } from '../../store/deploy.store';
 import { useNotificaciones } from '../../hooks/useNotificaciones';
 import { pedidosApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
@@ -8,13 +10,49 @@ import apiClient from '../../api/client';
 import toast from 'react-hot-toast';
 import {
   ShoppingCart, LayoutDashboard, CreditCard, Package,
-  Users, Building2, Settings, LogOut, Menu, X, ClipboardList, FileBarChart, Warehouse, Database, Lock, BookOpen, Grid3X3, Truck, Scale
+  Users, Building2, Settings, LogOut, Menu, X, ClipboardList, FileBarChart, Warehouse, Database, Lock, BookOpen, Grid3X3, Truck, Scale, Store, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
-import { logisticaApi, basculaApi } from '../../api/endpoints';
+import { logisticaApi, basculaApi, empresasApi } from '../../api/endpoints';
 import StockAlertBanner from '../ui/StockAlertBanner';
 import LicenciaBanner from './LicenciaBanner';
 import ViewAsBanner from './ViewAsBanner';
 import LockScreen from '../ui/LockScreen';
+import PageHeader from './PageHeader';
+
+// Título de respaldo por ruta para el header estandarizado (cuando la pantalla no fija el suyo).
+const PAGE_TITLES: Record<string, string> = {
+  '/dashboard': 'Dashboard',
+  '/pedidos': 'Pedidos',
+  '/caja': 'Caja',
+  '/reportes': 'Reportes',
+  '/inventario': 'Inventario',
+  '/inventario-dual': 'Inventario',
+  '/catalogos': 'Catálogos',
+  '/logistica': 'Logística',
+  '/admin/mesas': 'Mesas',
+  '/admin/usuarios': 'Usuarios',
+  '/admin/tienda-en-linea': 'Tienda en Línea',
+  '/admin/configuracion': 'Configuración',
+  '/admin/tenants': 'Tenants',
+  '/admin/materia-prima': 'Materia Prima',
+  '/admin/productos': 'Productos',
+  '/admin/categorias': 'Categorías',
+  '/admin/self-order': 'Autoservicio',
+  '/admin/mantenimiento': 'Mantenimiento',
+  '/admin/licencias': 'Licencias',
+  '/admin/perfil-negocio': 'Perfil del Negocio',
+};
+
+// Rutas cuyo contenido depende de UNA tienda concreta. Para un superadmin que NO ha
+// elegido tienda (selector inferior "ver como"), estas pantallas no deben mostrar datos
+// de la cuenta del superadmin (era un bug: caían al tenant propio, p.ej. Cafe Aroma).
+// Config/Usuarios/Tenants/Licencias/Mantenimiento son globales y sí quedan accesibles
+// (Config es justo donde se administran/eligen las tiendas).
+const RUTAS_POR_TIENDA = new Set([
+  '/pos', '/dashboard', '/pedidos', '/caja', '/reportes', '/inventario', '/inventario-dual',
+  '/catalogos', '/logistica', '/admin/mesas', '/admin/tienda-en-linea', '/admin/materia-prima',
+  '/admin/productos', '/admin/categorias', '/admin/self-order', '/admin/perfil-negocio',
+]);
 
 // Connection info from env
 const apiUrl = import.meta.env.VITE_API_URL || '/api';
@@ -34,14 +72,45 @@ const navItems = [
   { to: '/catalogos',           icon: BookOpen,        label: 'Catalogos',  roles: ['superadmin', 'admin'] },
   { to: '/admin/mesas',         icon: Grid3X3,         label: 'Mesas',      roles: ['superadmin', 'admin'] },
   { to: '/admin/usuarios',      icon: Users,           label: 'Usuarios',   roles: ['superadmin', 'admin'] },
+  { to: '/admin/tienda-en-linea', icon: Store,         label: 'Tienda en Línea', roles: ['superadmin', 'admin'] },
   { to: '/admin/configuracion', icon: Settings,        label: 'Config',     roles: ['superadmin', 'admin'] },
   { to: '/admin/tenants',       icon: Building2,       label: 'Tenants',    roles: ['superadmin'] },
 ];
 
 export default function MainLayout() {
   const { user, logout, lock, isLocked } = useAuthStore();
+  const { viewAs } = useAdminContextStore();
+  const deployVersion = useDeployStore((s) => s.version);
+  const deployEstado = useDeployStore((s) => s.estado);
+  const buildId = useDeployStore((s) => s.buildId);
   const navigate = useNavigate();
+  const location = useLocation();
+  // Superadmin sin tienda elegida: las pantallas por-tienda piden elegir una primero.
+  const necesitaTienda = user?.rol === 'superadmin' && !viewAs && RUTAS_POR_TIENDA.has(location.pathname);
+  // Tienda de contexto: si el superadmin está "viendo como" una tienda, TODO (flags de
+  // config, báscula, branding) debe usar ESA tienda/empresa, no la de su propia cuenta.
+  const tiendaCtxId = viewAs?.tienda_id ?? user?.tienda_id;
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Colapso del sidebar en desktop: en el POS se colapsa para dar más espacio a
+  // los productos; en el resto de vistas se muestra. En el POS se recuerda la
+  // preferencia manual del usuario (localStorage).
+  const enPos = location.pathname === '/pos';
+  const [deskCollapsed, setDeskCollapsed] = useState(false);
+  useEffect(() => {
+    if (enPos) {
+      const saved = localStorage.getItem('pos_sidebar_collapsed');
+      setDeskCollapsed(saved === null ? true : saved === '1'); // default colapsado
+    } else {
+      setDeskCollapsed(false); // otras vistas: siempre visible
+    }
+  }, [enPos]);
+  function toggleDesk() {
+    setDeskCollapsed((v) => {
+      const next = !v;
+      if (enPos) localStorage.setItem('pos_sidebar_collapsed', next ? '1' : '0');
+      return next;
+    });
+  }
   const [dbHost, setDbHost] = useState('...');
   const [appVersion, setAppVersion] = useState('');
   const [cajeroDashboard, setCajeroDashboard] = useState(false);
@@ -57,18 +126,33 @@ export default function MainLayout() {
     }).catch(() => setDbHost('?'));
   }, []);
 
-  // Load config_pos flags
+  // Load config_pos flags (de la tienda de contexto: propia o la que ve el superadmin)
   useEffect(() => {
-    if (user?.tienda_id) {
+    if (tiendaCtxId) {
       import('../../api/endpoints').then(({ tiendasApi }) => {
-        tiendasApi.get(user.tienda_id!).then(({ data }) => {
+        tiendasApi.get(tiendaCtxId).then(({ data }) => {
           const cp = data?.config_pos || {};
           setCajeroDashboard(cp.cajero_dashboard_enabled || false);
           setSidebarPermisos(cp.sidebar_permisos || {});
         }).catch(() => {});
       });
     }
-  }, [user?.tienda_id]);
+  }, [tiendaCtxId]);
+
+  // Branding del sidebar: al "ver como" tienda, mostrar el nombre/logo de ESA empresa,
+  // no los de la cuenta del superadmin (era confuso ver "Cafetería Aroma" viendo otra).
+  const [ctxEmpresa, setCtxEmpresa] = useState<{ nombre: string; logo_url: string | null } | null>(null);
+  useEffect(() => {
+    if (viewAs?.empresa_id) {
+      empresasApi.get(viewAs.empresa_id)
+        .then(({ data }) => setCtxEmpresa({ nombre: data?.nombre || viewAs.nombre, logo_url: data?.logo_url || null }))
+        .catch(() => setCtxEmpresa(null));
+    } else {
+      setCtxEmpresa(null);
+    }
+  }, [viewAs?.empresa_id]);
+  const brandNombre = viewAs ? (ctxEmpresa?.nombre || viewAs.nombre) : (user?.empresa_nombre || 'POS-iaDoS');
+  const brandLogo = viewAs ? (ctxEmpresa?.logo_url || null) : (user?.empresa_logo || null);
 
   // Load logistica enabled flag
   useEffect(() => {
@@ -81,12 +165,12 @@ export default function MainLayout() {
 
   // Load bascula (autoservicio frutas/verduras) enabled flag — es por tienda, no por empresa
   useEffect(() => {
-    if (user?.tienda_id) {
-      basculaApi.getConfig(user.tienda_id).then(({ data }) => {
+    if (tiendaCtxId) {
+      basculaApi.getConfig(tiendaCtxId).then(({ data }) => {
         setBasculaEnabled(data?.activo || false);
       }).catch(() => {});
     }
-  }, [user?.tienda_id]);
+  }, [tiendaCtxId]);
 
   const isDbExterno = dbHost !== 'localhost' && dbHost !== '127.0.0.1' && dbHost !== '...';
 
@@ -158,20 +242,41 @@ export default function MainLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex flex-col w-20 lg:w-56 bg-iados-surface border-r border-slate-700 shrink-0">
-        <div className="p-3 lg:p-4 border-b border-slate-700 flex items-center justify-center lg:justify-start gap-2">
-          {user?.empresa_logo ? (
-            <img src={resolveUploadUrl(user.empresa_logo)} alt="" className="w-10 h-10 rounded-xl object-cover" />
+      {/* Sidebar - Desktop (colapsable a un rail delgado) */}
+      <aside className={`hidden md:flex flex-col bg-iados-surface border-r border-slate-700 shrink-0 transition-all ${deskCollapsed ? 'w-16' : 'w-20 lg:w-56'}`}>
+        <div className={`h-16 shrink-0 border-b border-slate-700 flex items-center ${deskCollapsed ? 'justify-center px-2' : 'gap-2 px-3 lg:px-4 justify-center lg:justify-start'}`}>
+          {deskCollapsed ? (
+            <button
+              onClick={toggleDesk}
+              title="Mostrar menú"
+              aria-label="Mostrar menú"
+              className="flex items-center justify-center w-10 h-10 rounded-xl text-slate-300 hover:text-white hover:bg-iados-card"
+            >
+              <PanelLeftOpen size={22} />
+            </button>
           ) : (
-            <div className="w-10 h-10 bg-iados-primary rounded-xl flex items-center justify-center font-bold text-lg">
-              {(user?.empresa_nombre || 'P').charAt(0)}
-            </div>
+            <>
+              {brandLogo ? (
+                <img src={resolveUploadUrl(brandLogo)} alt="" className="w-10 h-10 rounded-xl object-cover" />
+              ) : (
+                <div className="w-10 h-10 bg-iados-primary rounded-xl flex items-center justify-center font-bold text-lg">
+                  {(brandNombre || 'P').charAt(0)}
+                </div>
+              )}
+              <div className="hidden lg:block leading-tight flex-1 min-w-0">
+                <span className="font-bold text-sm block truncate">{brandNombre}</span>
+                <span className="text-[10px] text-slate-500">POS-iaDoS</span>
+              </div>
+              <button
+                onClick={toggleDesk}
+                title="Ocultar menú"
+                aria-label="Ocultar menú"
+                className="hidden lg:flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-iados-card shrink-0"
+              >
+                <PanelLeftClose size={18} />
+              </button>
+            </>
           )}
-          <div className="hidden lg:block leading-tight">
-            <span className="font-bold text-sm block truncate">{user?.empresa_nombre || 'POS-iaDoS'}</span>
-            <span className="text-[10px] text-slate-500">POS-iaDoS</span>
-          </div>
         </div>
 
         <nav className="flex-1 py-2 overflow-y-auto">
@@ -180,25 +285,27 @@ export default function MainLayout() {
               <button
                 key={item.to}
                 onClick={abrirBasculaPopup}
-                className="w-full flex items-center gap-3 px-3 lg:px-4 py-3 mx-2 rounded-xl transition-colors text-slate-400 hover:text-white hover:bg-iados-card"
+                title={item.label}
+                className={`w-auto flex items-center gap-3 py-3 mx-2 rounded-xl transition-colors text-slate-400 hover:text-white hover:bg-iados-card ${deskCollapsed ? 'justify-center px-2' : 'px-3 lg:px-4'}`}
               >
-                <item.icon size={22} />
-                <span className="hidden lg:block text-sm font-medium">{item.label}</span>
+                <item.icon size={22} className="shrink-0" />
+                <span className={`text-sm font-medium ${deskCollapsed ? 'hidden' : 'hidden lg:block'}`}>{item.label}</span>
               </button>
             ) : (
               <NavLink
                 key={item.to}
                 to={item.to}
+                title={item.label}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 lg:px-4 py-3 mx-2 rounded-xl transition-colors relative ${
+                  `flex items-center gap-3 py-3 mx-2 rounded-xl transition-colors relative ${deskCollapsed ? 'justify-center px-2' : 'px-3 lg:px-4'} ${
                     isActive ? 'bg-iados-primary text-white' : 'text-slate-400 hover:text-white hover:bg-iados-card'
                   }`
                 }
               >
-                <item.icon size={22} />
-                <span className="hidden lg:block text-sm font-medium">{item.label}</span>
+                <item.icon size={22} className="shrink-0" />
+                <span className={`text-sm font-medium ${deskCollapsed ? 'hidden' : 'hidden lg:block'}`}>{item.label}</span>
                 {'badge' in item && item.badge && pedidosPendientes > 0 && (
-                  <span className="absolute top-1 left-8 lg:right-2 lg:left-auto bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
+                  <span className={`absolute bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center animate-pulse ${deskCollapsed ? 'top-1 right-1' : 'top-1 left-8 lg:right-2 lg:left-auto'}`}>
                     {pedidosPendientes > 9 ? '9+' : pedidosPendientes}
                   </span>
                 )}
@@ -208,23 +315,33 @@ export default function MainLayout() {
         </nav>
 
         <div className="p-3 border-t border-slate-700">
-          <div className="hidden lg:block mb-2 px-1">
-            <div className="flex items-center gap-1.5 mb-1">
-              <Database size={12} className={isExterno ? 'text-amber-400' : 'text-green-400'} />
-              <span className={`text-[10px] font-bold ${isExterno ? 'text-amber-400' : 'text-green-400'}`}>{modoConexion}</span>
+          {!deskCollapsed && (
+            <div className="hidden lg:block mb-2 px-1">
+              {/* Control de versión: versión autoritativa (BD) + sello del build local */}
+              <div className="mb-1.5 font-mono text-[9px] leading-tight text-slate-500">
+                {deployVersion && <span className="text-slate-400">v{deployVersion}</span>}
+                {deployVersion && ' · '}build {buildId}
+                {deployEstado === 'en_progreso' && (
+                  <span className="ml-1 text-amber-400 animate-pulse">· actualizando…</span>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <Database size={12} className={isExterno ? 'text-amber-400' : 'text-green-400'} />
+                <span className={`text-[10px] font-bold ${isExterno ? 'text-amber-400' : 'text-green-400'}`}>{modoConexion}</span>
+              </div>
+              <div className="text-[9px] text-slate-500 leading-relaxed space-y-0.5">
+                <div>BD: <span className={isDbExterno ? 'text-amber-400/70' : 'text-green-400/70'}>{dbHost}</span>{appVersion && <span className="ml-1 text-slate-600">v{appVersion}</span>}</div>
+                <div>API: {backendHost}</div>
+                <div>Front: {window.location.host}</div>
+              </div>
             </div>
-            <div className="text-[9px] text-slate-500 leading-relaxed space-y-0.5">
-              <div>BD: <span className={isDbExterno ? 'text-amber-400/70' : 'text-green-400/70'}>{dbHost}</span>{appVersion && <span className="ml-1 text-slate-600">v{appVersion}</span>}</div>
-              <div>API: {backendHost}</div>
-              <div>Front: {window.location.host}</div>
-            </div>
-          </div>
-          <div className="hidden lg:block text-xs text-slate-500 mb-2 truncate">{user?.nombre}</div>
-          <button onClick={lock} className="flex items-center gap-2 text-slate-400 hover:text-yellow-400 w-full px-3 py-2 rounded-xl hover:bg-iados-card mb-1">
-            <Lock size={18} /> <span className="hidden lg:block text-sm">Bloquear</span>
+          )}
+          {!deskCollapsed && <div className="hidden lg:block text-xs text-slate-500 mb-2 truncate">{user?.nombre}</div>}
+          <button onClick={lock} title="Bloquear" className={`flex items-center gap-2 text-slate-400 hover:text-yellow-400 w-full py-2 rounded-xl hover:bg-iados-card mb-1 ${deskCollapsed ? 'justify-center px-2' : 'px-3'}`}>
+            <Lock size={18} /> <span className={`text-sm ${deskCollapsed ? 'hidden' : 'hidden lg:block'}`}>Bloquear</span>
           </button>
-          <button onClick={handleLogout} className="flex items-center gap-2 text-slate-400 hover:text-red-400 w-full px-3 py-2 rounded-xl hover:bg-iados-card">
-            <LogOut size={18} /> <span className="hidden lg:block text-sm">Salir</span>
+          <button onClick={handleLogout} title="Salir" className={`flex items-center gap-2 text-slate-400 hover:text-red-400 w-full py-2 rounded-xl hover:bg-iados-card ${deskCollapsed ? 'justify-center px-2' : 'px-3'}`}>
+            <LogOut size={18} /> <span className={`text-sm ${deskCollapsed ? 'hidden' : 'hidden lg:block'}`}>Salir</span>
           </button>
         </div>
       </aside>
@@ -233,8 +350,8 @@ export default function MainLayout() {
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-iados-surface border-b border-slate-700 px-4 py-3 flex items-center justify-between">
         <button onClick={() => setSidebarOpen(true)} className="p-1"><Menu size={24} /></button>
         <div className="flex items-center gap-2">
-          {user?.empresa_logo && <img src={resolveUploadUrl(user.empresa_logo)} alt="" className="w-6 h-6 rounded object-cover" />}
-          <span className="font-bold text-sm">{user?.empresa_nombre || 'POS-iaDoS'}</span>
+          {brandLogo && <img src={resolveUploadUrl(brandLogo)} alt="" className="w-6 h-6 rounded object-cover" />}
+          <span className="font-bold text-sm">{brandNombre}</span>
         </div>
         <div className="flex items-center gap-1">
           <button onClick={lock} className="p-1 text-slate-400 hover:text-yellow-400"><Lock size={20} /></button>
@@ -249,9 +366,9 @@ export default function MainLayout() {
           <aside className="relative w-64 bg-iados-surface flex flex-col">
             <div className="p-4 border-b border-slate-700 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                {user?.empresa_logo && <img src={resolveUploadUrl(user.empresa_logo)} alt="" className="w-8 h-8 rounded-lg object-cover" />}
+                {brandLogo && <img src={resolveUploadUrl(brandLogo)} alt="" className="w-8 h-8 rounded-lg object-cover" />}
                 <div className="leading-tight">
-                  <span className="font-bold text-sm block">{user?.empresa_nombre || 'POS-iaDoS'}</span>
+                  <span className="font-bold text-sm block">{brandNombre}</span>
                   <span className="text-[10px] text-slate-500">POS-iaDoS</span>
                 </div>
               </div>
@@ -317,12 +434,31 @@ export default function MainLayout() {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <ViewAsBanner />
         <LicenciaBanner />
         <StockAlertBanner />
+        {/* Header estandarizado (todas las pantallas menos el POS, que trae el suyo) */}
+        {!enPos && !necesitaTienda && <PageHeader fallbackTitle={PAGE_TITLES[location.pathname]} />}
         <main className="flex-1 overflow-y-auto md:pt-0 pt-14">
-          <Outlet />
+          {necesitaTienda ? (
+            <div className="h-full flex flex-col items-center justify-center text-center px-6 gap-4">
+              <div className="w-16 h-16 rounded-2xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-center">
+                <Store size={30} className="text-amber-400" />
+              </div>
+              <div className="max-w-md">
+                <h2 className="text-xl font-bold text-slate-100 mb-1">Selecciona una tienda</h2>
+                <p className="text-sm text-slate-400">
+                  Como superadministrador estás sin tienda activa. Esta pantalla muestra datos de
+                  una tienda específica: elige una en el selector <strong>“Elegir tienda…”</strong> de
+                  la barra inferior para empezar a operar de forma segura.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <Outlet />
+          )}
         </main>
+        {/* Barra de "ver como tienda" (superadmin) al pie, para no robar espacio arriba */}
+        <ViewAsBanner />
       </div>
 
       {/* Lock screen overlay */}

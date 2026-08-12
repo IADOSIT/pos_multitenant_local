@@ -34,6 +34,7 @@ interface POSState {
   setClienteTelefono: (v: string) => void;
   setClienteDireccion: (v: string) => void;
 
+  setCart: (cart: CartItem[]) => void;
   addToCart: (producto: Producto, cantidad?: number) => void;
   removeFromCart: (itemId: string) => void;
   updateQuantity: (itemId: string, cantidad: number) => void;
@@ -72,6 +73,8 @@ export const usePOSStore = create<POSState>((set, get) => ({
   setClienteNombre: (v) => set({ clienteNombre: v }),
   setClienteTelefono: (v) => set({ clienteTelefono: v }),
   setClienteDireccion: (v) => set({ clienteDireccion: v }),
+
+  setCart: (cart) => set({ cart }),
 
   addToCart: (producto, cantidad = 1) => {
     const cart = get().cart;

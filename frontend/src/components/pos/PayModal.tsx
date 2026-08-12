@@ -5,8 +5,8 @@ import { offlineActions } from '../../store/offline.store';
 import { ventasApi, ticketsApi, pedidosApi, pagosGatewayApi, cajaApi, empresasApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
 import { printTicket } from '../../utils/printTicket';
+import { money } from '../../utils/money';
 import toast from 'react-hot-toast';
-import QRCode from 'qrcode';
 import { X, DollarSign, CreditCard, ArrowRightLeft, Banknote, Printer, ShoppingBag, Wifi, Smartphone, RotateCw, CheckCircle2, XCircle } from 'lucide-react';
 
 interface Props {
@@ -14,11 +14,41 @@ interface Props {
   isOnline: boolean;
   pedido?: any; // si se pasa, cobrar este pedido en lugar del carrito
   cajaManaged?: boolean; // caja_auto_enabled o caja_ocultar_ui — si no hay caja, intentar abrir
+  inline?: boolean; // true = embebido en un panel (modo retail), sin overlay ni encabezado
+  disabled?: boolean; // true = sin productos: mostrar controles visibles pero inactivos, en $0
 }
 
 type MetodoPago = 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto' | 'mp_qr' | 'mp_point' | 'stripe';
 
-export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Props) {
+// Navegación por teclado ESPACIAL dentro del panel de cobro (modo retail):
+// ↑/↓ pasan a la sección de arriba/abajo, ←/→ se mueven dentro de la fila.
+function payFocusables(panel: HTMLElement): HTMLElement[] {
+  return Array.from(panel.querySelectorAll<HTMLElement>('button, input')).filter(
+    (el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null,
+  );
+}
+function paySpatialNext(panel: HTMLElement, dir: 'up' | 'down' | 'left' | 'right'): HTMLElement | null {
+  const cur = document.activeElement as HTMLElement | null;
+  if (!cur || !panel.contains(cur)) return payFocusables(panel)[0] || null;
+  const c = cur.getBoundingClientRect();
+  const cx = c.left + c.width / 2, cy = c.top + c.height / 2;
+  let best: HTMLElement | null = null, bestScore = Infinity;
+  for (const el of payFocusables(panel)) {
+    if (el === cur) continue;
+    const r = el.getBoundingClientRect();
+    const ex = r.left + r.width / 2, ey = r.top + r.height / 2;
+    const dx = ex - cx, dy = ey - cy;
+    if (dir === 'down' && dy <= 2) continue;
+    if (dir === 'up' && dy >= -2) continue;
+    if (dir === 'right' && dx <= 2) continue;
+    if (dir === 'left' && dx >= -2) continue;
+    const score = (dir === 'up' || dir === 'down') ? Math.abs(dy) + Math.abs(dx) * 3 : Math.abs(dx) + Math.abs(dy) * 3;
+    if (score < bestScore) { bestScore = score; best = el; }
+  }
+  return best;
+}
+
+export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inline, disabled }: Props) {
   const { cart, getSubtotal, getImpuestos, getTotal, clearCart, cajaActiva, setCajaActiva, tipoServicio, notaPedido, clienteNombre, clienteTelefono, clienteDireccion } = usePOSStore();
   const { user } = useAuthStore();
 
@@ -104,6 +134,9 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
       setPagoEfectivo((prev) => String(Math.round((Number(prev || 0) + d) * 100) / 100));
     }
   };
+  // Tras tocar un billete CON MOUSE, el foco salta al importe (con teclado se conserva
+  // para poder seguir navegando con flechas). e.detail === 0 ⇒ activado por teclado.
+  const focarImporte = () => (document.querySelector('#retail-pago-panel input[inputmode="decimal"]') as HTMLInputElement | null)?.focus();
 
   const canPay = () => {
     if (precioManualActivo && (!todosPreciosIngresados || total <= 0)) return false;
@@ -133,7 +166,8 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
       const { data } = await pagosGatewayApi.crearQrMP({ total, folio, items });
       setGwExternalId(data.external_id);
       gwTransaccionIdRef.current = data.transaccion_id;
-      // Generate QR code image from qr_data string
+      // Generate QR code image from qr_data string (qrcode se carga bajo demanda)
+      const { default: QRCode } = await import('qrcode');
       const dataUrl = await QRCode.toDataURL(data.qr_data, { width: 250, margin: 2 });
       setGwQrDataUrl(dataUrl);
       // Start polling
@@ -396,18 +430,46 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
     }
   };
 
+  // Modo inline (retail): F12 completa la venta desde cualquier lado del POS.
+  useEffect(() => {
+    if (!inline) return;
+    const h = (e: KeyboardEvent) => {
+      // F12 (donde el navegador lo permita) o Alt/Option+P (Mac y Windows): completar venta.
+      if (e.key === 'F12' || (e.altKey && e.code === 'KeyP')) {
+        e.preventDefault();
+        if (!disabled && canPay() && !loading) handlePay(false);
+      }
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inline, disabled, loading, metodo, pagoEfectivo, pagoTarjeta, pagoTransferencia, total, gwEstado]);
+
+  // Modo inline: tras completar la venta, cerrar solo (o con Enter/Esc/F12) para
+  // devolver el foco al buscador y poder reanudar la siguiente venta.
+  useEffect(() => {
+    if (!inline || !ventaCompletada) return;
+    const t = setTimeout(() => onClose(), 1600);
+    const h = (e: KeyboardEvent) => {
+      if (['Enter', 'Escape', 'F12', ' '].includes(e.key)) { e.preventDefault(); clearTimeout(t); onClose(); }
+    };
+    window.addEventListener('keydown', h);
+    return () => { clearTimeout(t); window.removeEventListener('keydown', h); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inline, ventaCompletada]);
+
   if (ventaCompletada) {
     return (
-      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-        <div className="card max-w-md w-full text-center space-y-4">
+      <div className={inline ? 'h-full flex items-center justify-center p-4' : 'fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4'}>
+        <div className={inline ? 'w-full text-center space-y-4' : 'card max-w-md w-full text-center space-y-4'}>
           <div className="text-6xl">✅</div>
           <h2 className="text-2xl font-bold">Venta Completada</h2>
           <p className="text-lg text-iados-accent font-bold">
             {ventaCompletada.folio || ventaCompletada.folio_offline}
           </p>
-          <p className="text-3xl font-bold">${Number(ventaCompletada.total).toFixed(2)}</p>
+          <p className="text-3xl font-bold">${money(ventaCompletada.total)}</p>
           {cambio > 0 && (
-            <p className="text-xl text-green-400">Cambio: ${cambio.toFixed(2)}</p>
+            <p className="text-xl text-green-400">Cambio: ${money(cambio)}</p>
           )}
           {ticketRawRef.current && (
             <button onClick={handleReprint} className="btn-secondary w-full text-lg flex items-center justify-center gap-2">
@@ -424,21 +486,59 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="card max-w-lg w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-bold">Cobrar</h2>
-            {pedido && (
-              <p className="text-sm text-slate-400">
-                Mesa {pedido.mesa} · {pedido.folio} · {pedido.detalles?.length || 0} items
-                {pedido.cuenta_abierta && <span className="ml-2 text-orange-400">· Cuenta abierta</span>}
-              </p>
-            )}
+    <div className={inline ? 'flex-1 min-h-0 flex flex-col' : 'fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4'}>
+      <div
+        id={inline ? 'retail-pago-panel' : undefined}
+        onKeyDown={inline ? (e) => {
+          // Enter avanza a la SIGUIENTE sección: método → importe → Completar → (cobrar).
+          if (e.key === 'Enter') {
+            const active = document.activeElement as HTMLElement | null;
+            if (active?.dataset.paySection === 'metodo') {
+              e.preventDefault();
+              (document.querySelector('#retail-pago-panel input[inputmode="decimal"]') as HTMLElement | null)?.focus();
+            } else if (active?.tagName === 'INPUT') {
+              e.preventDefault();
+              (document.querySelector('#retail-pago-panel [data-pay-complete]') as HTMLElement | null)?.focus();
+            }
+            // billetes / Exacto / Completar: se deja su acción nativa (sumar / cobrar).
+            return;
+          }
+          const map: Record<string, 'up' | 'down' | 'left' | 'right'> = { ArrowDown: 'down', ArrowUp: 'up', ArrowLeft: 'left', ArrowRight: 'right' };
+          const dir = map[e.key];
+          if (!dir) return;
+          const active = document.activeElement as HTMLElement | null;
+          // En un input, ←/→ mueven el cursor del texto; solo ↑/↓ cambian de sección.
+          if (active && active.tagName === 'INPUT' && (dir === 'left' || dir === 'right')) return;
+          const next = paySpatialNext(e.currentTarget as HTMLElement, dir);
+          if (next) {
+            e.preventDefault();
+            next.focus();
+            if (next.tagName === 'INPUT') (next as HTMLInputElement).select?.();
+          } else {
+            // Borde del panel: la flecha "sale" → volver a los productos del carrito.
+            e.preventDefault();
+            document.getElementById('retail-buscar')?.focus();
+          }
+        } : undefined}
+        className={inline ? 'w-full flex-1 min-h-0 flex flex-col' : 'card max-w-lg w-full max-h-[90vh] overflow-y-auto'}
+      >
+        {!inline && (
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-bold">Cobrar</h2>
+              {pedido && (
+                <p className="text-sm text-slate-400">
+                  Mesa {pedido.mesa} · {pedido.folio} · {pedido.detalles?.length || 0} items
+                  {pedido.cuenta_abierta && <span className="ml-2 text-orange-400">· Cuenta abierta</span>}
+                </p>
+              )}
+            </div>
+            <button onClick={() => onClose()} className="p-2 hover:bg-iados-card rounded-xl"><X size={24} /></button>
           </div>
-          <button onClick={() => onClose()} className="p-2 hover:bg-iados-card rounded-xl"><X size={24} /></button>
-        </div>
+        )}
 
+        {/* Contenido medio: scrollea solo si no cabe; el botón queda como footer fijo abajo. */}
+        <div className={inline ? 'flex-1 min-h-0 overflow-y-auto' : 'contents'}>
         {precioManualActivo && (
           <div className="mb-4">
             <p className="text-xs text-yellow-400 uppercase tracking-wider font-medium mb-2">
@@ -466,7 +566,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
                       className="w-24 bg-iados-bg border border-slate-600 rounded-lg px-2 py-1.5 text-sm text-right focus:outline-none focus:border-iados-primary"
                     />
                     <span className="text-xs text-slate-500 w-16 text-right">
-                      = ${((parseFloat(preciosManual[it.id] || '0') || 0) * it.cantidad).toFixed(2)}
+                      = ${money((parseFloat(preciosManual[it.id] || '0') || 0) * it.cantidad)}
                     </span>
                   </div>
                 </div>
@@ -485,14 +585,14 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
             </div>
           )}
           <p className="text-sm text-slate-400">Total a cobrar</p>
-          <p className="text-4xl font-bold text-iados-accent">${total.toFixed(2)}</p>
+          <p className="text-4xl font-bold text-iados-accent">${money(total)}</p>
           {propina > 0 && (
-            <p className="text-sm text-green-400 mt-1">Propina incluida: ${propina.toFixed(2)} · Base: ${totalBase.toFixed(2)}</p>
+            <p className="text-sm text-green-400 mt-1">Propina incluida: ${money(propina)} · Base: ${money(totalBase)}</p>
           )}
         </div>
 
         {/* Métodos de pago */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
+        <div className={`grid gap-2 mb-2 ${inline ? 'grid-cols-4' : 'grid-cols-2 sm:grid-cols-4'}`}>
           {([
             { key: 'efectivo', label: 'Efectivo', icon: Banknote },
             { key: 'tarjeta', label: 'Tarjeta', icon: CreditCard },
@@ -501,12 +601,15 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
           ] as const).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
+              data-pay-section="metodo"
+              disabled={disabled}
               onClick={() => { setMetodo(key); cancelarGw(); }}
-              className={`btn-touch flex-col gap-1 text-sm ${
-                metodo === key ? 'bg-iados-primary ring-2 ring-iados-secondary' : 'bg-iados-card'
-              }`}
+              onFocus={inline && !disabled ? () => { setMetodo(key); cancelarGw(); } : undefined}
+              className={`btn-touch flex-col outline-none focus:ring-2 focus:ring-inset focus:ring-white/60 disabled:opacity-50 disabled:cursor-not-allowed ${
+                inline ? 'gap-0.5 text-[11px] font-medium py-2 px-1' : 'gap-1 text-sm'
+              } ${metodo === key ? 'bg-iados-primary ring-2 ring-inset ring-iados-secondary' : 'bg-iados-card'}`}
             >
-              <Icon size={24} />
+              <Icon size={inline ? 18 : 24} />
               {label}
             </button>
           ))}
@@ -548,6 +651,10 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
           </div>
         )}
 
+        {/* En modo inline (retail) el orden es: método → billetes → captura de dinero.
+            En el modal normal se conserva el orden original (campos → billetes). */}
+        <div className={inline ? 'flex flex-col' : 'contents'}>
+        <div className={inline ? 'order-2' : 'contents'}>
         {/* Campos de pago según método */}
         {(metodo === 'efectivo' || metodo === 'mixto') && (
           <div className="mb-4">
@@ -556,12 +663,19 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
               <input
                 type="text"
                 inputMode="decimal"
+                id={inline ? 'retail-pago-input' : undefined}
+                disabled={disabled}
                 value={pagoEfectivo}
                 onChange={(e) => setPagoEfectivo(e.target.value.replace(/[^0-9.]/g, ''))}
                 onFocus={e => e.target.select()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') { e.preventDefault(); if (inline) (document.querySelector('#retail-pago-panel button') as HTMLElement | null)?.focus(); return; }
+                  // En inline el panel avanza a Completar; en el modal, Enter cobra directo.
+                  if (e.key === 'Enter' && !inline && canPay() && !loading) { e.preventDefault(); handlePay(false); }
+                }}
                 className="input-touch text-2xl text-center flex-1"
                 placeholder="0.00"
-                autoFocus
+                autoFocus={!inline}
               />
               {Number(pagoEfectivo) > 0 && (
                 <button
@@ -583,9 +697,15 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
               <input
                 type="text"
                 inputMode="decimal"
+                disabled={disabled}
                 value={pagoTarjeta}
                 onChange={(e) => setPagoTarjeta(e.target.value.replace(/[^0-9.]/g, ''))}
                 onFocus={e => e.target.select()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') { e.preventDefault(); if (inline) (document.querySelector('#retail-pago-panel button') as HTMLElement | null)?.focus(); return; }
+                  // En inline el panel avanza a Completar; en el modal, Enter cobra directo.
+                  if (e.key === 'Enter' && !inline && canPay() && !loading) { e.preventDefault(); handlePay(false); }
+                }}
                 className="input-touch text-xl text-center flex-1"
                 placeholder={metodo === 'tarjeta' ? total.toFixed(2) : '0.00'}
               />
@@ -603,9 +723,15 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
               <input
                 type="text"
                 inputMode="decimal"
+                disabled={disabled}
                 value={pagoTransferencia}
                 onChange={(e) => setPagoTransferencia(e.target.value.replace(/[^0-9.]/g, ''))}
                 onFocus={e => e.target.select()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') { e.preventDefault(); if (inline) (document.querySelector('#retail-pago-panel button') as HTMLElement | null)?.focus(); return; }
+                  // En inline el panel avanza a Completar; en el modal, Enter cobra directo.
+                  if (e.key === 'Enter' && !inline && canPay() && !loading) { e.preventDefault(); handlePay(false); }
+                }}
                 className="input-touch text-xl text-center flex-1"
                 placeholder={metodo === 'transferencia' ? total.toFixed(2) : '0.00'}
               />
@@ -616,16 +742,19 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
           </div>
         )}
 
-        {/* Pad de denominaciones — aplica para todos los métodos excepto mixto */}
-        {metodo !== 'mixto' && (
+        </div>{/* /order-2 campos */}
+        <div className={inline ? 'order-1' : 'contents'}>
+        {/* Pad de denominaciones — solo Efectivo (tarjeta/transferencia son monto exacto). */}
+        {metodo === 'efectivo' && (
           <div className="mb-4">
             <p className="text-xs text-slate-500 mb-2 text-center">Toca cada billete / moneda que entrega el cliente</p>
             <div className="grid grid-cols-4 gap-2 mb-2">
               {([1000, 500, 200, 100] as const).map((d) => (
                 <button
                   key={d}
-                  onClick={() => addDenom(d)}
-                  className="bg-iados-card border border-slate-700 hover:bg-iados-primary/30 hover:border-iados-primary py-4 rounded-xl text-sm font-bold transition-colors active:scale-95"
+                  disabled={disabled}
+                  onClick={(e) => { addDenom(d); if (inline && e.detail > 0) focarImporte(); }}
+                  className="bg-iados-card border border-slate-700 hover:bg-iados-primary/30 hover:border-iados-primary py-4 rounded-xl text-sm font-bold transition-colors active:scale-95 outline-none focus:ring-2 focus:ring-inset focus:ring-iados-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   ${d >= 1000 ? `${d / 1000}k` : d}
                 </button>
@@ -635,21 +764,25 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
               {([50, 20, 10, 5] as const).map((d) => (
                 <button
                   key={d}
-                  onClick={() => addDenom(d)}
-                  className="bg-iados-card border border-slate-700 hover:bg-iados-primary/30 hover:border-iados-primary py-4 rounded-xl text-sm font-bold transition-colors active:scale-95"
+                  disabled={disabled}
+                  onClick={(e) => { addDenom(d); if (inline && e.detail > 0) focarImporte(); }}
+                  className="bg-iados-card border border-slate-700 hover:bg-iados-primary/30 hover:border-iados-primary py-4 rounded-xl text-sm font-bold transition-colors active:scale-95 outline-none focus:ring-2 focus:ring-inset focus:ring-iados-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   ${d}
                 </button>
               ))}
             </div>
             <button
-              onClick={() => addDenom(total - (metodo === 'tarjeta' ? Number(pagoTarjeta || 0) : metodo === 'transferencia' ? Number(pagoTransferencia || 0) : Number(pagoEfectivo || 0)))}
-              className="btn-secondary w-full text-sm py-3"
+              disabled={disabled}
+              onClick={(e) => { addDenom(total - Number(pagoEfectivo || 0)); if (inline && e.detail > 0) focarImporte(); }}
+              className="btn-secondary w-full text-sm py-3 outline-none focus:ring-2 focus:ring-inset focus:ring-iados-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Exacto — ${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
             </button>
           </div>
         )}
+        </div>{/* /order-1 billetes */}
+        </div>{/* /wrapper reorden inline */}
 
         {/* Propina opcional */}
         {ticketCfg?.propina_enabled && (
@@ -671,7 +804,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
                     onClick={() => { setPropina(monto); setPropinaCustom(''); }}
                     className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${propina === monto && !propinaCustom ? 'bg-green-700 border-green-500 text-white' : 'bg-iados-card border-slate-600 text-slate-300 hover:border-green-500'}`}
                   >
-                    {pct}% · ${monto.toFixed(2)}
+                    {pct}% · ${money(monto)}
                   </button>
                 );
               })}
@@ -695,7 +828,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
         {metodo === 'efectivo' && Number(pagoEfectivo) > 0 && (
           <div className="text-center mb-4 p-3 bg-green-900/30 rounded-xl">
             <span className="text-sm text-green-300">Cambio: </span>
-            <span className="text-2xl font-bold text-green-400">${cambio.toFixed(2)}</span>
+            <span className="text-2xl font-bold text-green-400">${money(cambio)}</span>
           </div>
         )}
 
@@ -808,14 +941,20 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged }: Pro
           </div>
         )}
 
+        </div>{/* /scroll medio */}
+
         {/* ── Confirm / pay buttons ─────────────────────────────────────────── */}
-        <button
-          onClick={() => handlePay(false)}
-          disabled={!canPay() || loading}
-          className="btn-success w-full text-lg disabled:opacity-50"
-        >
-          {loading ? 'Procesando...' : pedido ? `Cobrar Mesa ${pedido.mesa} — $${total.toFixed(2)}` : `Completar Venta $${total.toFixed(2)}`}
-        </button>
+        {/* En inline (retail) el botón es un footer fijo abajo del panel (sin scroll). */}
+        <div className={inline ? 'shrink-0 pt-3 border-t border-slate-700' : ''}>
+          <button
+            data-pay-complete
+            onClick={() => handlePay(false)}
+            disabled={disabled || !canPay() || loading}
+            className="btn-success w-full text-lg disabled:opacity-50 outline-none focus:ring-2 focus:ring-inset focus:ring-white/70"
+          >
+            {loading ? 'Procesando...' : pedido ? `Cobrar Mesa ${pedido.mesa} — $${money(total)}` : `Completar Venta $${money(total)}`}
+          </button>
+        </div>
 
       </div>
     </div>

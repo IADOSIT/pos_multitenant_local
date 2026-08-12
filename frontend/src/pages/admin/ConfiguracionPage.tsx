@@ -11,7 +11,6 @@ import MantenimientoPage from './MantenimientoPage';
 import LicenciasAdmin from './LicenciasAdmin';
 import PerfilNegocioPage from './PerfilNegocioPage';
 import InventarioDualPage from '../inventario/InventarioDualPage';
-import TiendaEnLineaPage from './TiendaEnLineaPage';
 import { LogisticaConfigSection } from '../logistica/LogisticaPage';
 import QRCode from 'qrcode';
 import type { CampoFormularioConfig } from '../../types';
@@ -26,11 +25,11 @@ const THEMES: { key: ThemeName; name: string; desc: string; previewStyle: React.
 ];
 
 const PALETTES: { key: PaletteName; name: string; colors: [string, string, string] }[] = [
-  { key: 'default', name: 'Azul (Default)', colors: ['#1e40af', '#3b82f6', '#f59e0b'] },
-  { key: 'esmeralda', name: 'Esmeralda', colors: ['#047857', '#10b981', '#fbbf24'] },
-  { key: 'purpura', name: 'Purpura', colors: ['#6d28d9', '#8b5cf6', '#f472b6'] },
-  { key: 'rubi', name: 'Rubi', colors: ['#b91c1c', '#ef4444', '#fb923c'] },
-  { key: 'oceano', name: 'Oceano', colors: ['#0e7490', '#06b6d4', '#a3e635'] },
+  { key: 'default', name: 'Azul (Default)', colors: ['#2563eb', '#3b82f6', '#d97706'] },
+  { key: 'esmeralda', name: 'Esmeralda', colors: ['#047857', '#10b981', '#d97706'] },
+  { key: 'purpura', name: 'Purpura', colors: ['#4f46e5', '#6366f1', '#d97706'] },
+  { key: 'rubi', name: 'Rubi', colors: ['#be123c', '#e11d48', '#d97706'] },
+  { key: 'oceano', name: 'Oceano', colors: ['#0e7490', '#06b6d4', '#d97706'] },
 ];
 
 type CampoKey = 'nombre' | 'telefono' | 'email' | 'direccion' | 'empresa' | 'notas';
@@ -43,6 +42,8 @@ const DEFAULT_CAMPOS: Record<CampoKey, CampoFormularioConfig> = {
   notas:     { activo: true,  requerido: false, selforder: true,  ecommerce: true,  label: 'Notas / Comentarios' },
 };
 
+import { usePageHeader } from '../../store/pageHeader.store';
+
 export default function ConfiguracionPage() {
   const { user } = useAuthStore();
   const { theme, palette, setTheme, setPalette } = useThemeStore();
@@ -54,7 +55,7 @@ export default function ConfiguracionPage() {
   const [editingNew, setEditingNew] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<any>(null);
   const [expandedSection, setExpandedSection] = useState<string>('pos');
-  const [configTab, setConfigTab] = useState<'tienda' | 'tickets' | 'modulos' | 'especial' | 'ecommerce' | 'mantenimiento' | 'licencias'>('tienda');
+  const [configTab, setConfigTab] = useState<'tienda' | 'tickets' | 'modulos' | 'especial' | 'mantenimiento' | 'licencias'>('tienda');
   const [empresaLogo, setEmpresaLogo] = useState<string>('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [cfgEspecial, setCfgEspecial] = useState<{
@@ -131,6 +132,7 @@ export default function ConfiguracionPage() {
     iva_incluido: true, // true = precio incluye IVA, false = IVA se suma
     // POS config
     modo_servicio: 'autoservicio' as 'autoservicio' | 'mesa',
+    pos_layout: 'restaurante' as 'restaurante' | 'retail',
     tipo_cobro_mesa: 'post_pago' as 'pago_inmediato' | 'post_pago',
     num_mesas: 20,
     self_order_enabled: false,
@@ -358,6 +360,7 @@ export default function ConfiguracionPage() {
       iva_porcentaje: cp.iva_porcentaje ?? 16,
       iva_incluido: cp.iva_incluido ?? true,
       modo_servicio: cp.modo_servicio || 'autoservicio',
+      pos_layout: cp.pos_layout || 'restaurante',
       tipo_cobro_mesa: cp.tipo_cobro_mesa || 'post_pago',
       num_mesas: cp.num_mesas || 20,
       self_order_enabled: cp.self_order_enabled || false,
@@ -405,6 +408,19 @@ export default function ConfiguracionPage() {
     });
   };
 
+  // Al cambiar de tienda, siempre traemos su config FRESCA del backend (el objeto de la
+  // lista puede quedar viejo tras editar otra tienda) — así nunca se ven datos de la
+  // tienda anterior.
+  const selectTiendaFresh = async (id: number) => {
+    try {
+      const { data } = await tiendasApi.get(id);
+      selectTienda(data);
+    } catch {
+      const local = tiendas.find((x) => x.id === id);
+      if (local) selectTienda(local);
+    }
+  };
+
   const handleSave = async () => {
     if (!selected && !editingNew) return;
     setLoading(true);
@@ -417,6 +433,7 @@ export default function ConfiguracionPage() {
         zona_horaria: form.zona_horaria,
         config_pos: {
           modo_servicio: form.modo_servicio,
+          pos_layout: form.pos_layout,
           tipo_cobro_mesa: form.tipo_cobro_mesa,
           num_mesas: form.num_mesas,
           self_order_enabled: form.self_order_enabled,
@@ -477,6 +494,10 @@ export default function ConfiguracionPage() {
       } else {
         await tiendasApi.update(selected.id, payload);
         toast.success('Configuracion guardada');
+        // Sincroniza el cache de layout del POS de ESTA tienda para que el cambio de
+        // modalidad (restaurante/retail) se refleje al instante al abrir el POS, sin
+        // esperar la revalidación en segundo plano del PosSwitcher.
+        try { localStorage.setItem(`pos_layout_${selected.id}`, form.pos_layout === 'retail' ? 'retail' : 'restaurante'); } catch { /* ignore */ }
         await load();
         // Re-select to refresh
         const { data } = await tiendasApi.get(selected.id);
@@ -505,7 +526,7 @@ export default function ConfiguracionPage() {
       nombre: '', direccion: '', telefono: '', email: '',
       zona_horaria: 'America/Mexico_City',
       iva_enabled: false, iva_porcentaje: 16, iva_incluido: true,
-      modo_servicio: 'autoservicio', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false, mostrar_so_pendiente_en_pos: false, devoluciones_enabled: false, devoluciones_rol: 'admin', notas_por_item: false, notas_rapidas: '', notas_pedido_enabled: false, datos_envio_enabled: false, en_sitio_visible: true, para_llevar_visible: true, pos_stock_badge_enabled: false, escaner_habilitado: false, cajero_dashboard_enabled: false, precuenta_enabled: false, cantidades_rapidas: '10,25,50,100', whatsapp_enabled: false, whatsapp_phone: '', whatsapp_token: '',
+      modo_servicio: 'autoservicio', pos_layout: 'restaurante', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false, mostrar_so_pendiente_en_pos: false, devoluciones_enabled: false, devoluciones_rol: 'admin', notas_por_item: false, notas_rapidas: '', notas_pedido_enabled: false, datos_envio_enabled: false, en_sitio_visible: true, para_llevar_visible: true, pos_stock_badge_enabled: false, escaner_habilitado: false, cajero_dashboard_enabled: false, precuenta_enabled: false, cantidades_rapidas: '10,25,50,100', whatsapp_enabled: false, whatsapp_phone: '', whatsapp_token: '',
       impresora_modelo: '', impresora_ancho: 80, impresora_auto_print: false, impresora_copias: 1,
       caja_auto_enabled: false, caja_ocultar_ui: false,
       dashboard_ventas_enabled: true, dashboard_selforder_enabled: true,
@@ -817,14 +838,54 @@ export default function ConfiguracionPage() {
     </button>
   );
 
+  usePageHeader({
+    title: 'Configuración',
+    subtitle: 'Tienda, tickets, módulos y más',
+    icon: Settings,
+    actions: configTab === 'tienda'
+      ? <button onClick={() => handleNew()} className="btn-primary text-sm"><Plus size={16} className="mr-1" />Nueva Tienda</button>
+      : undefined,
+  });
+
   return (
     <div className="p-4 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-3">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Settings size={24} /> Configuracion</h1>
-        {configTab === 'tienda' && (
-          <button onClick={handleNew} className="btn-primary text-sm"><Plus size={16} className="mr-1" />Nueva Tienda</button>
-        )}
-      </div>
+
+      {/* Indicador + selector de la tienda activa: visible en todas las pestañas para
+          saber siempre sobre qué tienda se está trabajando y poder cambiarla rápido
+          (recargando sus datos frescos). */}
+      {['superadmin', 'admin'].includes(user?.rol || '') && tiendas.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 bg-iados-surface/60 border border-slate-700 rounded-xl px-4 py-2.5">
+          <div className="w-9 h-9 rounded-lg bg-iados-primary/20 border border-iados-primary/40 flex items-center justify-center shrink-0">
+            <Store size={18} className="text-iados-primary" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-wide text-slate-500 leading-none mb-0.5">Configurando tienda</p>
+            <p className="font-bold text-sm truncate">{selected?.nombre || 'Ninguna seleccionada'}</p>
+            {selected && (
+              <div className="flex items-center flex-wrap gap-1.5 mt-1">
+                <span className="text-xs text-slate-500 truncate">{selected.direccion || 'Sin direccion'}</span>
+                {selected.config_pos?.modo_servicio === 'mesa' ? (
+                  <span className="text-xs px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded">Mesa</span>
+                ) : (
+                  <span className="text-xs px-1.5 py-0.5 bg-green-900/50 text-green-300 rounded">Autoservicio</span>
+                )}
+                {selected.id === user?.tienda_id && (
+                  <span className="text-xs px-1.5 py-0.5 bg-amber-900/50 text-amber-300 rounded">Mi tienda</span>
+                )}
+                <span className="text-[10px] text-slate-600">ID {selected.id} · Tenant {selected.tenant_id} · Empresa {selected.empresa_id}</span>
+              </div>
+            )}
+          </div>
+          <select
+            value={selected?.id ?? ''}
+            onChange={(e) => { if (e.target.value) { selectTiendaFresh(Number(e.target.value)); setEditingNew(false); setShowForm(false); } }}
+            className="ml-auto bg-iados-card border border-slate-600 rounded-lg px-3 py-2 text-sm max-w-[60%]"
+          >
+            <option value="" disabled>Elegir tienda…</option>
+            {tiendas.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+          </select>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-slate-700 mb-4">
@@ -832,7 +893,6 @@ export default function ConfiguracionPage() {
           { id: 'tienda',    label: 'Tienda' },
           { id: 'tickets',   label: 'Tickets' },
           ...(['superadmin', 'admin'].includes(user?.rol || '') ? [{ id: 'modulos', label: 'Modulos' }] : []),
-          ...(['superadmin', 'admin'].includes(user?.rol || '') ? [{ id: 'ecommerce', label: '🛒 Tienda en Línea' }] : []),
           ...(['superadmin', 'admin'].includes(user?.rol || '') ? [{ id: 'mantenimiento', label: 'Mantenimiento' }] : []),
           ...(user?.rol === 'superadmin' ? [{ id: 'licencias', label: 'Licencias' }] : []),
           ...(user?.rol === 'superadmin' ? [{ id: 'especial', label: '⚙️ Conf. Especial' }] : []),
@@ -850,7 +910,6 @@ export default function ConfiguracionPage() {
       </div>
 
       {configTab === 'tickets' && <TicketsConfig />}
-      {configTab === 'ecommerce' && <TiendaEnLineaPage />}
       {configTab === 'mantenimiento' && <MantenimientoPage />}
       {configTab === 'licencias' && user?.rol === 'superadmin' && <LicenciasAdmin />}
 
@@ -1434,44 +1493,10 @@ export default function ConfiguracionPage() {
         </div>
       )}
 
-      {configTab === 'tienda' && <div className="grid lg:grid-cols-3 gap-4">
-        {/* Lista de tiendas */}
+      {configTab === 'tienda' && <div>
+        {/* Panel de config a ancho completo. La tienda se elige en el selector superior;
+            crear/editar/eliminar tiendas se administra en el módulo Tenants. */}
         <div className="space-y-2">
-          <h3 className="text-sm font-bold text-slate-400 mb-2">Tiendas</h3>
-          {tiendas.map((t) => (
-            <div
-              key={t.id}
-              onClick={() => { selectTienda(t); setEditingNew(false); setShowForm(false); }}
-              className={`card flex items-center gap-3 cursor-pointer transition-all ${selected?.id === t.id ? 'ring-2 ring-iados-primary' : 'hover:ring-1 hover:ring-slate-600'}`}
-            >
-              <div className="w-10 h-10 bg-iados-primary rounded-xl flex items-center justify-center font-bold">
-                <Store size={18} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{t.nombre}</p>
-                <p className="text-xs text-slate-500 truncate">{t.direccion || 'Sin direccion'}</p>
-                <div className="flex gap-1 mt-1">
-                  {t.config_pos?.modo_servicio === 'mesa' ? (
-                    <span className="text-xs px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded">Mesa</span>
-                  ) : (
-                    <span className="text-xs px-1.5 py-0.5 bg-green-900/50 text-green-300 rounded">Autoservicio</span>
-                  )}
-                  {t.id === user?.tienda_id && (
-                    <span className="text-xs px-1.5 py-0.5 bg-amber-900/50 text-amber-300 rounded">Mi tienda</span>
-                  )}
-                </div>
-              </div>
-              <div className="flex flex-col gap-1">
-                <button onClick={(e) => { e.stopPropagation(); selectTienda(t); setEditingNew(false); setExpandedSection('general'); }} className="p-1.5 hover:bg-iados-card rounded-lg"><Edit2 size={14} /></button>
-                <button onClick={(e) => { e.stopPropagation(); setDeleteConfirm(t); }} className="p-1.5 hover:bg-red-900/50 rounded-lg text-red-400"><Trash2 size={14} /></button>
-              </div>
-            </div>
-          ))}
-          {tiendas.length === 0 && <p className="text-sm text-slate-500 text-center py-4">No hay tiendas</p>}
-        </div>
-
-        {/* Config panel */}
-        <div className="lg:col-span-2 space-y-2">
           {/* Logo empresa - siempre visible */}
           <div className="card">
             <div className="flex items-center justify-between mb-2">
@@ -1565,7 +1590,7 @@ export default function ConfiguracionPage() {
                         ))}
                       </div>
                       {/* Mini dark bg preview */}
-                      <div className="w-full h-6 rounded-lg mb-2 flex items-center gap-1 px-2" style={{ backgroundColor: p.key === 'default' ? '#0f172a' : p.key === 'esmeralda' ? '#022c22' : p.key === 'purpura' ? '#1a0a2e' : p.key === 'rubi' ? '#1a0505' : '#042f2e' }}>
+                      <div className="w-full h-6 rounded-lg mb-2 flex items-center gap-1 px-2" style={{ backgroundColor: '#0f172a' }}>
                         <div className="w-4 h-2 rounded" style={{ backgroundColor: p.colors[0] }} />
                         <div className="flex-1 h-1 rounded-full" style={{ backgroundColor: p.colors[1], opacity: 0.5 }} />
                         <div className="w-3 h-2 rounded" style={{ backgroundColor: p.colors[2] }} />
@@ -2631,6 +2656,29 @@ export default function ConfiguracionPage() {
                       </button>
                     </div>
                   </div>
+
+                  {/* Forma de operar (layout del POS) — solo en Autoservicio */}
+                  {form.modo_servicio === 'autoservicio' && (
+                    <div className="border-t border-slate-700 pt-4">
+                      <label className="text-sm text-slate-400 mb-2 block">¿Cómo quieres operar el POS?</label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          onClick={() => setForm({ ...form, pos_layout: 'restaurante' })}
+                          className={`p-4 rounded-xl border-2 text-left transition-all ${(form.pos_layout || 'restaurante') === 'restaurante' ? 'border-green-500 bg-green-900/20' : 'border-slate-700 bg-iados-card'}`}
+                        >
+                          <p className="font-bold text-sm">🍽️ Restaurante / Cafetería</p>
+                          <p className="text-xs text-slate-400 mt-1">Cuadrícula de productos con imágenes. Es el layout actual (por defecto).</p>
+                        </button>
+                        <button
+                          onClick={() => setForm({ ...form, pos_layout: 'retail' })}
+                          className={`p-4 rounded-xl border-2 text-left transition-all ${form.pos_layout === 'retail' ? 'border-green-500 bg-green-900/20' : 'border-slate-700 bg-iados-card'}`}
+                        >
+                          <p className="font-bold text-sm">🛒 Tienda / Retail</p>
+                          <p className="text-xs text-slate-400 mt-1">Escáner + tabla tipo supermercado (Soriana/HEB). Ideal para venta por código de barras. Mismo cobro (en sitio/para llevar).</p>
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Escaner de codigo de barras */}
                   <div className="border-t border-slate-700 pt-4">

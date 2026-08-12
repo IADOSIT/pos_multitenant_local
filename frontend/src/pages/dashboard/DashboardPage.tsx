@@ -5,6 +5,7 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { TrendingUp, ShoppingBag, Receipt, DollarSign, Ban, ClipboardList, QrCode, Users, Tag, ChevronDown, ChevronRight, Layers, Package, Briefcase, Clock, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
+import { useScope } from '../../hooks/useScope';
 import SelfOrderDashboard from '../admin/SelfOrderDashboard';
 
 const COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#a855f7', '#84cc16'];
@@ -22,7 +23,10 @@ interface DashConfig {
   mostrar_margen: boolean;
 }
 
+import { usePageHeader } from '../../store/pageHeader.store';
+
 export default function DashboardPage() {
+  usePageHeader({ title: 'Dashboard', subtitle: 'Indicadores y métricas de tu negocio' });
   const [tab, setTab] = useState<DashTab>('ventas');
   const [kpi, setKpi] = useState<KPI | null>(null);
   const [tendencia, setTendencia] = useState<any[]>([]);
@@ -54,11 +58,12 @@ export default function DashboardPage() {
 
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const { tiendaId, empresaId } = useScope();
 
   // Cargar config de la tienda
   useEffect(() => {
-    if (user?.tienda_id) {
-      tiendasApi.get(user.tienda_id).then(({ data }) => {
+    if (tiendaId) {
+      tiendasApi.get(tiendaId).then(({ data }) => {
         const cp = data?.config_pos || {};
         setCfg({
           ventas_enabled: cp.dashboard_ventas_enabled !== false,
@@ -72,16 +77,16 @@ export default function DashboardPage() {
         });
       }).catch(() => {});
     }
-  }, [user?.tienda_id]);
+  }, [tiendaId]);
 
   // Cargar empEnabled (config_especial.empleados_enabled)
   useEffect(() => {
-    if (user?.empresa_id) {
-      empresasApi.get(user.empresa_id)
+    if (empresaId) {
+      empresasApi.get(empresaId)
         .then(({ data }) => setEmpEnabled(data?.config_especial?.empleados_enabled === true))
         .catch(() => {});
     }
-  }, [user?.empresa_id]);
+  }, [empresaId]);
 
   // Si el tab activo queda oculto por config, saltar al primer tab visible
   useEffect(() => {

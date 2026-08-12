@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { usePOSStore } from '../../store/pos.store';
 import { pedidosApi } from '../../api/endpoints';
 import { Minus, Plus, Trash2, ShoppingCart, Send, BookOpen, MessageSquare, Phone, FileText } from 'lucide-react';
+import { money } from '../../utils/money';
 
 interface Props {
   onPay: () => void;
@@ -120,7 +121,7 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 border-b border-slate-700 flex items-center justify-between">
+      <div className="h-16 shrink-0 px-4 border-b border-slate-700 flex items-center justify-between">
         <h2 className="font-bold text-lg flex items-center gap-2">
           <ShoppingCart size={20} /> Orden
         </h2>
@@ -310,7 +311,7 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
                     />
                   </div>
                 ) : (
-                  <span className="text-xs text-slate-400 flex-1">{mostrarPrecios ? `$${Number(item.precio).toFixed(2)} c/u` : ''}</span>
+                  <span className="text-xs text-slate-400 flex-1 tabular-nums">{mostrarPrecios && item.cantidad > 1 ? `$${Number(item.precio).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} c/u` : ''}</span>
                 )}
 
                 {notasPorItem && (
@@ -343,11 +344,11 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
                       if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                       if (e.key === 'Escape') setEditingQtyId(null);
                     }}
-                    className="w-10 text-center font-bold bg-iados-primary/20 border border-iados-primary/50 rounded-lg text-sm px-1 py-0.5 shrink-0"
+                    className="w-24 text-center font-bold bg-iados-primary/20 border border-iados-primary/50 rounded-lg text-sm px-1 py-0.5 shrink-0 tabular-nums"
                   />
                 ) : (
                   <button
-                    className="w-7 text-center font-bold hover:bg-iados-primary/20 rounded-lg transition-colors text-sm shrink-0"
+                    className="min-w-[4rem] h-7 px-1.5 text-center font-bold hover:bg-iados-primary/20 rounded-lg transition-colors text-sm shrink-0 tabular-nums"
                     title="Toca para editar cantidad"
                     onClick={() => { setEditingQtyId(item.id); setQtyTemp(String(item.cantidad)); }}
                   >{item.cantidad}</button>
@@ -357,8 +358,8 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
                 <button onClick={() => removeFromCart(item.id)} className="w-7 h-7 rounded-lg bg-red-900/50 text-red-400 flex items-center justify-center active:scale-90 shrink-0"><Trash2 size={13} /></button>
 
                 {(mostrarPrecios || precioManual) && (
-                  <span className={`font-bold text-sm text-right shrink-0 min-w-[3.5rem] ${precioManual && !item.precioManual ? 'text-slate-500' : ''}`}>
-                    ${((item.precioManual ?? item.precio) * item.cantidad).toFixed(2)}
+                  <span className={`font-bold text-sm text-right shrink-0 min-w-[3.5rem] tabular-nums ${precioManual && !item.precioManual ? 'text-slate-500' : ''}`}>
+                    ${((item.precioManual ?? item.precio) * item.cantidad).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 )}
               </div>
@@ -448,17 +449,17 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
             <>
               <div className="flex justify-between text-sm text-slate-400">
                 <span>Subtotal</span>
-                <span>${getSubtotal().toFixed(2)}</span>
+                <span className="tabular-nums">${money(getSubtotal())}</span>
               </div>
               {getImpuestos() > 0 && (
                 <div className="flex justify-between text-sm text-slate-400">
                   <span>Impuestos</span>
-                  <span>${getImpuestos().toFixed(2)}</span>
+                  <span className="tabular-nums">${money(getImpuestos())}</span>
                 </div>
               )}
               <div className="flex justify-between text-xl font-bold pt-2 border-t border-slate-600">
                 <span>Total</span>
-                <span className="text-iados-accent">${getTotal().toFixed(2)}</span>
+                <span className="text-iados-accent tabular-nums">${money(getTotal())}</span>
               </div>
             </>
           )}
@@ -489,7 +490,7 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
                 <BookOpen size={18} /> Actualizar Mesa {pedidoActivo.mesa}
               </button>
               <button onClick={onPay} disabled={(!cajaActiva && !cajaManaged) || cart.length === 0 || precioManualIncompleto} className="btn-accent w-full text-lg disabled:opacity-50">
-                Cobrar Mesa {pedidoActivo.mesa}{mostrarPrecios ? ` — $${getTotal().toFixed(2)}` : ''}
+                Cobrar Mesa {pedidoActivo.mesa}{mostrarPrecios ? ` — $${money(getTotal())}` : ''}
               </button>
             </div>
           ) : (
@@ -506,7 +507,7 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
                 </button>
               )}
               <button onClick={onPay} disabled={(!cajaActiva && !cajaManaged) || (isMesa && !mesaActiva && !mesaNumeroOculto) || precioManualIncompleto} className="btn-accent flex-1 text-lg disabled:opacity-50">
-                Cobrar{mostrarPrecios ? ` $${getTotal().toFixed(2)}` : ''}
+                Cobrar{mostrarPrecios ? ` $${money(getTotal())}` : ''}
               </button>
             </div>
           )}

@@ -13,12 +13,14 @@
      texto blanco sobre fondo blanco en inputs con el tema por default. */
   color-scheme: dark;
 
-  /* Default - Blue & Amber */
-  --c-primary: 30 64 175;
+  /* Corporativo — Azul. Todas las paletas comparten el MISMO fondo neutro (slate);
+     solo cambia el color de acción (primary/secondary). El acento es un ámbar sobrio,
+     común a todas. Nada de fondos teñidos ni saturación tipo neón. */
+  --c-primary: 37 99 235;
   --c-primary-hover: 29 78 216;
   --c-secondary: 59 130 246;
-  --c-accent: 245 158 11;
-  --c-accent-hover: 217 119 6;
+  --c-accent: 217 119 6;
+  --c-accent-hover: 180 83 9;
   --c-accent-text: 0 0 0;
   --c-dark: 15 23 42;
   --c-surface: 30 41 59;
@@ -28,64 +30,66 @@
   --c-text-sub: 148 163 184;
 }
 
+/* Fondo neutro (slate) compartido por todas las paletas → look corporativo.
+   Solo primary/secondary cambian el color de acción; el acento ámbar es común. */
 [data-palette="esmeralda"] {
   --c-primary: 4 120 87;
   --c-primary-hover: 5 150 105;
   --c-secondary: 16 185 129;
-  --c-accent: 251 191 36;
-  --c-accent-hover: 245 158 11;
+  --c-accent: 217 119 6;
+  --c-accent-hover: 180 83 9;
   --c-accent-text: 0 0 0;
-  --c-dark: 2 44 34;
-  --c-surface: 6 78 59;
-  --c-card: 6 95 70;
-  --c-border: 16 185 129;
+  --c-dark: 15 23 42;
+  --c-surface: 30 41 59;
+  --c-card: 51 65 85;
+  --c-border: 71 85 105;
   --c-text: 255 255 255;
-  --c-text-sub: 167 243 208;
+  --c-text-sub: 148 163 184;
 }
 
 [data-palette="purpura"] {
-  --c-primary: 109 40 217;
-  --c-primary-hover: 124 58 237;
-  --c-secondary: 139 92 246;
-  --c-accent: 244 114 182;
-  --c-accent-hover: 236 72 153;
+  --c-primary: 79 70 229;
+  --c-primary-hover: 67 56 202;
+  --c-secondary: 99 102 241;
+  --c-accent: 217 119 6;
+  --c-accent-hover: 180 83 9;
   --c-accent-text: 0 0 0;
-  --c-dark: 26 10 46;
-  --c-surface: 46 16 101;
-  --c-card: 76 29 149;
-  --c-border: 139 92 246;
+  --c-dark: 15 23 42;
+  --c-surface: 30 41 59;
+  --c-card: 51 65 85;
+  --c-border: 71 85 105;
   --c-text: 255 255 255;
-  --c-text-sub: 196 181 253;
+  --c-text-sub: 148 163 184;
 }
 
 [data-palette="rubi"] {
-  --c-primary: 185 28 28;
-  --c-primary-hover: 220 38 38;
-  --c-secondary: 239 68 68;
-  --c-accent: 251 146 60;
-  --c-accent-hover: 249 115 22;
+  --c-primary: 190 18 60;
+  --c-primary-hover: 159 18 57;
+  --c-secondary: 225 29 72;
+  --c-accent: 217 119 6;
+  --c-accent-hover: 180 83 9;
   --c-accent-text: 0 0 0;
-  --c-dark: 26 5 5;
-  --c-surface: 69 10 10;
-  --c-card: 127 29 29;
-  --c-border: 239 68 68;
+  --c-dark: 15 23 42;
+  --c-surface: 30 41 59;
+  --c-card: 51 65 85;
+  --c-border: 71 85 105;
   --c-text: 255 255 255;
-  --c-text-sub: 252 165 165;
+  --c-text-sub: 148 163 184;
 }
 
 [data-palette="oceano"] {
   --c-primary: 14 116 144;
   --c-primary-hover: 8 145 178;
   --c-secondary: 6 182 212;
-  --c-accent: 163 230 53;
-  --c-accent-hover: 132 204 22;
+  --c-accent: 217 119 6;
+  --c-accent-hover: 180 83 9;
   --c-accent-text: 0 0 0;
-  --c-dark: 4 47 46;
-  --c-surface: 19 78 74;
-  --c-card: 22 78 99;
-  --c-border: 6 182 212;
+  --c-dark: 15 23 42;
+  --c-surface: 30 41 59;
+  --c-card: 51 65 85;
+  --c-border: 71 85 105;
   --c-text: 255 255 255;
-  --c-text-sub: 153 246 228;
+  --c-text-sub: 148 163 184;
 }
 
 /* ========================================

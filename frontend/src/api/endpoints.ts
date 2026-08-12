@@ -1,5 +1,12 @@
 import api from './client';
 
+// Control de versión / despliegue (versión autoritativa en BD)
+export const deployApi = {
+  version: () => api.get('/deploy/version'),
+  enProgreso: (data: { mensaje?: string; version?: string } = {}) => api.post('/deploy/en-progreso', data),
+  completada: (data: { mensaje?: string; version?: string } = {}) => api.post('/deploy/completada', data),
+};
+
 // Auth
 export const authApi = {
   login:          (email: string, password: string) => api.post('/auth/login', { email, password }),
@@ -40,7 +47,7 @@ export const empresasApi = {
     form.append('logo', file);
     return api.post(`/empresas/${id}/upload-logo`, form);
   },
-  setConfigEspecial: (id: number, data: Partial<{ mostrar_precios: boolean; precio_manual: boolean; notif_cliente_estados: boolean; empleados_enabled: boolean; campos_formulario: any }>) =>
+  setConfigEspecial: (id: number, data: Partial<{ mostrar_precios: boolean; precio_manual: boolean; notif_cliente_estados: boolean; empleados_enabled: boolean; campos_formulario: any; auto_cancel_horas: number }>) =>
     api.patch(`/empresas/${id}/config-especial`, data),
 };
 

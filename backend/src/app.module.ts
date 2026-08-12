@@ -21,6 +21,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { TicketsModule } from './modules/tickets/tickets.module';
 import { PrintModule } from './modules/print/print.module';
 import { HealthModule } from './modules/health/health.module';
+import { DeployModule } from './modules/deploy/deploy.module';
 import { PedidosModule } from './modules/pedidos/pedidos.module';
 import { NotificacionesModule } from './modules/notificaciones/notificaciones.module';
 import { LicenciasModule } from './modules/licencias/licencias.module';
@@ -63,6 +64,7 @@ const _serveStatic = existsSync(_staticRoot);
       exclude: ['/api/(.*)'],  // path-to-regexp v0.2.5 (usado por @nestjs/serve-static@4)
     })] : []),
     HealthModule,
+    DeployModule,
     AuthModule,
     UsersModule,
     TenantsModule,

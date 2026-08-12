@@ -23,6 +23,15 @@ export declare class JwtStrategy extends JwtStrategy_base {
         nombre: string;
         rol: import("../../users/user.entity").UserRole;
         modulo: any;
+    } | {
+        tenant_id: null;
+        empresa_id: null;
+        tienda_id: null;
+        id: number;
+        email: string;
+        nombre: string;
+        rol: import("../../users/user.entity").UserRole;
+        modulo: any;
     }>;
 }
 export {};

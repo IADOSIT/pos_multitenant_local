@@ -113,26 +113,26 @@ export class TicketsService {
       lines.push(this.formatLine(
         this.s(d.producto_nombre).substring(0, 20),
         d.cantidad.toString(),
-        `$${Number(d.precio_unitario).toFixed(2)}`,
-        `$${Number(d.subtotal).toFixed(2)}`,
+        `$${this.money(d.precio_unitario)}`,
+        `$${this.money(d.subtotal)}`,
         w,
       ));
       if (d.notas) lines.push(`  > ${this.s(d.notas).substring(0, w - 4)}`);
     });
 
     lines.push('-'.repeat(w));
-    lines.push(this.right(`Subtotal: $${Number(venta.subtotal).toFixed(2)}`, w));
-    if (venta.descuento > 0) lines.push(this.right(`Descuento: -$${Number(venta.descuento).toFixed(2)}`, w));
-    if (venta.impuestos > 0) lines.push(this.right(`Impuestos: $${Number(venta.impuestos).toFixed(2)}`, w));
+    lines.push(this.right(`Subtotal: $${this.money(venta.subtotal)}`, w));
+    if (venta.descuento > 0) lines.push(this.right(`Descuento: -$${this.money(venta.descuento)}`, w));
+    if (venta.impuestos > 0) lines.push(this.right(`Impuestos: $${this.money(venta.impuestos)}`, w));
     if (venta.propina > 0 && config.propina_en_ticket !== false) {
-      lines.push(this.right(`Propina: $${Number(venta.propina).toFixed(2)}`, w));
+      lines.push(this.right(`Propina: $${this.money(venta.propina)}`, w));
     }
-    lines.push(this.right(`TOTAL: $${Number(venta.total).toFixed(2)}`, w));
+    lines.push(this.right(`TOTAL: $${this.money(venta.total)}`, w));
     lines.push('='.repeat(w));
 
-    if (venta.pago_efectivo) lines.push(`Efectivo: $${Number(venta.pago_efectivo).toFixed(2)}`);
-    if (venta.pago_tarjeta) lines.push(`Tarjeta: $${Number(venta.pago_tarjeta).toFixed(2)}`);
-    if (venta.cambio > 0) lines.push(`Cambio: $${Number(venta.cambio).toFixed(2)}`);
+    if (venta.pago_efectivo) lines.push(`Efectivo: $${this.money(venta.pago_efectivo)}`);
+    if (venta.pago_tarjeta) lines.push(`Tarjeta: $${this.money(venta.pago_tarjeta)}`);
+    if (venta.cambio > 0) lines.push(`Cambio: $${this.money(venta.cambio)}`);
 
     lines.push('');
     if (config.pie_linea1) lines.push(this.center(this.s(config.pie_linea1), w));
@@ -165,18 +165,18 @@ export class TicketsService {
       lines.push(this.formatLine(
         this.s(d.nombre || d.producto_nombre || '').substring(0, 20),
         String(d.cantidad),
-        `$${Number(d.precio || d.precio_unitario || 0).toFixed(2)}`,
-        `$${(Number(d.cantidad) * Number(d.precio || d.precio_unitario || 0) - Number(d.descuento || 0)).toFixed(2)}`,
+        `$${this.money(d.precio || d.precio_unitario || 0)}`,
+        `$${this.money(Number(d.cantidad) * Number(d.precio || d.precio_unitario || 0) - Number(d.descuento || 0))}`,
         w,
       ));
       if (d.notas) lines.push(`  > ${this.s(d.notas).substring(0, w - 4)}`);
     });
 
     lines.push('-'.repeat(w));
-    lines.push(this.right(`Subtotal: $${Number(data.subtotal || 0).toFixed(2)}`, w));
-    if (Number(data.descuento) > 0) lines.push(this.right(`Descuento: -$${Number(data.descuento).toFixed(2)}`, w));
-    if (Number(data.impuestos) > 0) lines.push(this.right(`Impuestos: $${Number(data.impuestos).toFixed(2)}`, w));
-    lines.push(this.right(`TOTAL: $${Number(data.total || 0).toFixed(2)}`, w));
+    lines.push(this.right(`Subtotal: $${this.money(data.subtotal || 0)}`, w));
+    if (Number(data.descuento) > 0) lines.push(this.right(`Descuento: -$${this.money(data.descuento)}`, w));
+    if (Number(data.impuestos) > 0) lines.push(this.right(`Impuestos: $${this.money(data.impuestos)}`, w));
+    lines.push(this.right(`TOTAL: $${this.money(data.total || 0)}`, w));
     lines.push('='.repeat(w));
     lines.push('');
     lines.push(this.center('** Precio sujeto a cambio **', w));
@@ -194,6 +194,11 @@ export class TicketsService {
 
   private right(text: string, w: number): string {
     return text.padStart(w);
+  }
+
+  // Formato de dinero con separador de miles (es-MX): 60000 -> "60,000.00"
+  private money(n: any): string {
+    return Number(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   private formatLine(col1: string, col2: string, col3: string, col4: string, w: number): string {

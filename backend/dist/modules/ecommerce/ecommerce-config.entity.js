@@ -79,6 +79,10 @@ __decorate([
     __metadata("design:type", String)
 ], EcommerceConfig.prototype, "tema_id", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'json', nullable: true }),
+    __metadata("design:type", Object)
+], EcommerceConfig.prototype, "preferencias", void 0);
+__decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)
 ], EcommerceConfig.prototype, "created_at", void 0);

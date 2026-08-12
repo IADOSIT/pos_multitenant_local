@@ -25,7 +25,10 @@ const nextEstado: Record<string, string> = {
   listo_para_entrega: 'entregado',
 };
 
+import { usePageHeader } from '../../store/pageHeader.store';
+
 export default function PedidosPage() {
+  usePageHeader({ title: 'Pedidos', subtitle: 'Pedidos web y de mostrador' });
   const { user } = useAuthStore();
   const { cajaActiva, setCajaActiva } = usePOSStore();
   const [checkingCaja, setCheckingCaja] = useState(true);

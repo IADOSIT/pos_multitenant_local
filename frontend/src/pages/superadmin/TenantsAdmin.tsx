@@ -3,6 +3,8 @@ import { tenantsApi, tiendasApi, empresasApi } from '../../api/endpoints';
 import toast from 'react-hot-toast';
 import { Building2, Plus, ChevronRight, Edit2, Trash2, Store, X } from 'lucide-react';
 
+import { usePageHeader } from '../../store/pageHeader.store';
+
 export default function TenantsAdmin() {
   const [tenants, setTenants] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
@@ -124,18 +126,20 @@ export default function TenantsAdmin() {
     } catch (e: any) { toast.error(e.response?.data?.message || 'Error al eliminar'); }
   };
 
+  usePageHeader({
+    title: 'Tenants',
+    subtitle: 'Clientes y empresas de la plataforma',
+    icon: Building2,
+    actions: (
+      <button
+        onClick={() => { setShowForm(true); setEditingTenant(false); setForm({ nombre: '', razon_social: '', rfc: '', email: '', telefono: '' }); }}
+        className="btn-primary text-sm"><Plus size={16} className="mr-1" />Nuevo
+      </button>
+    ),
+  });
+
   return (
     <div className="p-4 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Building2 size={24} /> Tenants</h1>
-        <button onClick={() => {
-          setShowForm(true);
-          setEditingTenant(false);
-          setForm({ nombre: '', razon_social: '', rfc: '', email: '', telefono: '' });
-        }} className="btn-primary text-sm">
-          <Plus size={16} className="mr-1" />Nuevo
-        </button>
-      </div>
 
       <div className="grid lg:grid-cols-2 gap-4">
         {/* Lista tenants */}

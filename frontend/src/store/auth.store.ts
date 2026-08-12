@@ -14,10 +14,19 @@ interface AuthState {
   loadFromStorage: () => void;
 }
 
+// Hidratación SÍNCRONA desde localStorage: corre ANTES del primer render para que
+// PrivateRoute no redirija a /login al recargar (y no pierdas la ruta actual).
+function estadoInicial(): { user: User | null; token: string | null; isAuthenticated: boolean } {
+  try {
+    const token = localStorage.getItem('pos_token');
+    const userStr = localStorage.getItem('pos_user');
+    if (token && userStr) return { user: JSON.parse(userStr), token, isAuthenticated: true };
+  } catch { /* localStorage inaccesible o JSON inválido */ }
+  return { user: null, token: null, isAuthenticated: false };
+}
+
 export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  token: null,
-  isAuthenticated: false,
+  ...estadoInicial(),
   isLocked: false,
 
   login: (user, token) => {

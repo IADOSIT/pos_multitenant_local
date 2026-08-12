@@ -27,7 +27,10 @@ const TIPOS = [
   { value: 'ajuste', label: 'Ajuste', icon: RefreshCw, color: 'text-yellow-400' },
 ];
 
+import { usePageHeader } from '../../store/pageHeader.store';
+
 export default function InventarioPage() {
+  usePageHeader({ title: 'Inventario', subtitle: 'Existencias y movimientos de stock' });
   const { user } = useAuthStore();
   const isAdmin = user && ['superadmin', 'admin', 'manager'].includes(user.rol);
   const [tab, setTab] = useState<'stock' | 'movimientos'>('stock');
@@ -203,11 +206,7 @@ export default function InventarioPage() {
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <Warehouse className="text-iados-primary" size={28} />
-          <h1 className="text-2xl font-bold">Inventario</h1>
-        </div>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-end gap-4 mb-6">
         <div className="flex flex-wrap gap-2">
           {isAdmin && (
             <>

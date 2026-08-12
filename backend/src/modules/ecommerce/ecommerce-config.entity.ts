@@ -52,6 +52,11 @@ export class EcommerceConfig {
   @Column({ length: 20, default: 'lumina' })
   tema_id: string;
 
+  // Preferencias configurables de la tienda (JSON flexible, sin más columnas):
+  // { promociones: { activo, texto }, envio_gratis: { activo, umbral } }
+  @Column({ type: 'json', nullable: true })
+  preferencias: any;
+
   @CreateDateColumn()
   created_at: Date;
 

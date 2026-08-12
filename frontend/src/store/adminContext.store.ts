@@ -19,8 +19,15 @@ interface AdminContextState {
 
 const STORAGE_KEY = 'pos_view_as_tienda';
 
+// Hidratación SÍNCRONA desde localStorage: así el guard "elige una tienda" no
+// parpadea en el primer render cuando el superadmin sí tiene una tienda elegida.
+const viewAsInicial: ViewAsTienda | null = (() => {
+  try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : null; }
+  catch { return null; }
+})();
+
 export const useAdminContextStore = create<AdminContextState>((set) => ({
-  viewAs: null,
+  viewAs: viewAsInicial,
 
   setViewAs: (t) => {
     if (t) localStorage.setItem(STORAGE_KEY, JSON.stringify(t));

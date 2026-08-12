@@ -17,6 +17,7 @@ export declare class EcommercePublicController {
         politica_envio: string;
         terminos: string;
         tema_id: string;
+        preferencias: any;
         empresa: {
             nombre: any;
             telefono: any;

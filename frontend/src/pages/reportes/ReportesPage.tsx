@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { cajaApi, dashboardApi, ventasApi, ticketsApi, tiendasApi } from '../../api/endpoints';
 import DevolucionModal from '../../components/pos/DevolucionModal';
 import { useAuthStore } from '../../store/auth.store';
+import { useScope } from '../../hooks/useScope';
 import { printTicket } from '../../utils/printTicket';
 import toast from 'react-hot-toast';
 import {
@@ -13,15 +14,21 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from 'recharts';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
-import html2canvas from 'html2canvas';
+// jsPDF / jspdf-autotable / xlsx / html2canvas se cargan bajo demanda (solo al
+// exportar). Son ~900KB juntos y no deben pesar en la carga inicial de la página.
+async function cargarPdf() {
+  const [jspdf, autotable] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
+  return { jsPDF: jspdf.default, autoTable: autotable.default };
+}
 
 const COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899'];
 
+import { usePageHeader } from '../../store/pageHeader.store';
+
 export default function ReportesPage() {
+  usePageHeader({ title: 'Reportes', subtitle: 'Ventas, caja, clientes y KPIs' });
   const { user } = useAuthStore();
+  const { tiendaId } = useScope();
   const [cajas, setCajas] = useState<any[]>([]);
   const [selectedCaja, setSelectedCaja] = useState<any>(null);
   const [reporte, setReporte] = useState<any>(null);
@@ -47,8 +54,8 @@ export default function ReportesPage() {
 
   useEffect(() => {
     loadCajas();
-    if (user?.tienda_id) {
-      tiendasApi.get(user.tienda_id).then(({ data }) => {
+    if (tiendaId) {
+      tiendasApi.get(tiendaId).then(({ data }) => {
         const cp = data?.config_pos || {};
         setConfigPos(cp);
         const cfg = cp.reportes_tabs_config;
@@ -130,6 +137,7 @@ export default function ReportesPage() {
   // ---- PDF Reporte Caja ----
   const exportCajaPDF = async () => {
     if (!reporte) return;
+    const { jsPDF, autoTable } = await cargarPdf();
     const { caja, resumen, ventas, top_productos } = reporte;
     const doc = new jsPDF();
     const pw = doc.internal.pageSize.getWidth();
@@ -185,6 +193,7 @@ export default function ReportesPage() {
     // Chart image
     if (chartRef.current) {
       try {
+        const { default: html2canvas } = await import('html2canvas');
         const canvas = await html2canvas(chartRef.current, { backgroundColor: '#0f172a', scale: 2 });
         const imgData = canvas.toDataURL('image/png');
         doc.addPage();
@@ -229,8 +238,9 @@ export default function ReportesPage() {
   };
 
   // ---- Excel Reporte Caja ----
-  const exportCajaExcel = () => {
+  const exportCajaExcel = async () => {
     if (!reporte) return;
+    const XLSX = await import('xlsx');
     const { caja, resumen, ventas, top_productos } = reporte;
     const wb = XLSX.utils.book_new();
 
@@ -293,6 +303,7 @@ export default function ReportesPage() {
   // ---- PDF KPI ----
   const exportKpiPDF = async () => {
     if (!kpi) return;
+    const { jsPDF, autoTable } = await cargarPdf();
     const doc = new jsPDF();
     const pw = doc.internal.pageSize.getWidth();
     const rangoLabel = rango === 'hoy' ? 'Hoy' : rango === 'semana' ? 'Ultima Semana' : 'Ultimo Mes';
@@ -350,6 +361,7 @@ export default function ReportesPage() {
     // Chart image
     if (kpiChartRef.current) {
       try {
+        const { default: html2canvas } = await import('html2canvas');
         const canvas = await html2canvas(kpiChartRef.current, { backgroundColor: '#0f172a', scale: 2 });
         const imgData = canvas.toDataURL('image/png');
         doc.addPage();
@@ -368,8 +380,9 @@ export default function ReportesPage() {
   };
 
   // ---- Export Clientes ----
-  const exportClientesPDF = () => {
+  const exportClientesPDF = async () => {
     if (!clientes.length) return;
+    const { jsPDF, autoTable } = await cargarPdf();
     const doc = new jsPDF();
     const pw = doc.internal.pageSize.getWidth();
     doc.setFontSize(16);
@@ -395,8 +408,9 @@ export default function ReportesPage() {
     toast.success('PDF generado');
   };
 
-  const exportClientesExcel = () => {
+  const exportClientesExcel = async () => {
     if (!clientes.length) return;
+    const XLSX = await import('xlsx');
     const wb = XLSX.utils.book_new();
     const data = [
       ['#', 'Telefono', 'Nombre', 'Direccion', 'Total Compras', 'Total Gastado', 'Ultima Visita', 'Primera Visita'],
@@ -429,7 +443,6 @@ export default function ReportesPage() {
   return (
     <div className="p-4 space-y-4 max-w-6xl mx-auto">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-2xl font-bold">Reportes</h1>
         <div className="flex gap-2 flex-wrap">
           {tabsConfig.filter(t => t.enabled).map(t => {
             const icons: Record<string, any> = { caja: Receipt, kpi: TrendingUp, clientes: Users };

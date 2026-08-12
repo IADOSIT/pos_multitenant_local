@@ -82,6 +82,8 @@ export class EcommerceService {
       { id: 'lumina', nombre: 'Lumina', descripcion: 'Diseño limpio y corporativo en blanco y azul', modo: 'light', colorPrimary: '#1e40af', colorBg: '#f8fafc' },
       { id: 'obsidian', nombre: 'Obsidian', descripcion: 'Diseño oscuro y premium con acento dorado', modo: 'dark', colorPrimary: '#f59e0b', colorBg: '#0a0a0a' },
       { id: 'zest', nombre: 'Zest', descripcion: 'Diseño vibrante y accesible en naranja cálido', modo: 'light', colorPrimary: '#f97316', colorBg: '#fffbf5' },
+      { id: 'iados-electronica', nombre: 'iaDoS Electrónica', descripcion: 'Estilo electrónica/tech: naranja intenso, tipografía Dosis y tarjetas nítidas', modo: 'light', colorPrimary: '#ff8717', colorBg: '#ffffff' },
+      { id: 'iados-market', nombre: 'iaDoS Market', descripcion: 'Estilo super/grocery: verde fresco, tipografía Barlow, look limpio y amable', modo: 'light', colorPrimary: '#629d23', colorBg: '#ffffff' },
     ];
   }
 
@@ -177,6 +179,7 @@ export class EcommerceService {
       politica_envio: config.politica_envio,
       terminos: config.terminos,
       tema_id: config.tema_id,
+      preferencias: config.preferencias || null,
       empresa: empresa ? { nombre: empresa.nombre, telefono: empresa.telefono, email: empresa.email, direccion: empresa.direccion, logo_url: empresa.logo_url } : null,
       campos_formulario,
     };

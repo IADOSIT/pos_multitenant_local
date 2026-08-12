@@ -12,7 +12,10 @@ const TABS = [
 
 type TabId = typeof TABS[number]['id'];
 
+import { usePageHeader } from '../../store/pageHeader.store';
+
 export default function CatalogosPage() {
+  usePageHeader({ title: 'Catálogos', subtitle: 'Productos, categorías y materia prima' });
   const [tab, setTab] = useState<TabId>('productos');
 
   return (
