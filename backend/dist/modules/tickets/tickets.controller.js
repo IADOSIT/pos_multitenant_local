@@ -50,6 +50,7 @@ let TicketsController = class TicketsController {
             logo_url: config.mostrar_logo ? config.logo_url : null,
             copias: config.copias ?? 1,
             impresion_enabled: config.impresion_enabled !== false,
+            modo_impresion: config.modo_impresion ?? 'navegador',
         };
     }
     async precuenta(data, scope) {
@@ -64,6 +65,7 @@ let TicketsController = class TicketsController {
             logo_url: config.mostrar_logo ? config.logo_url : null,
             copias: 1,
             impresion_enabled: true,
+            modo_impresion: config.modo_impresion ?? 'navegador',
         };
     }
 };

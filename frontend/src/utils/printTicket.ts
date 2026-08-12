@@ -1,3 +1,5 @@
+import { printViaRawBT } from './escpos';
+
 export function printTicket(
   rawText: string,
   paperWidth: number = 80,
@@ -6,7 +8,13 @@ export function printTicket(
   logoUrl?: string | null,
   logoPosition: string = 'centro',
   copias: number = 1,
+  modoImpresion: string = 'navegador',
 ): void {
+  if (modoImpresion === 'rawbt') {
+    printViaRawBT(rawText, { copias });
+    return;
+  }
+
   const iframe = document.createElement('iframe');
   iframe.style.cssText = 'position:fixed;top:-10000px;left:-10000px;width:0;height:0;';
   document.body.appendChild(iframe);
@@ -107,6 +115,7 @@ export function printComanda(
     fuente_tamano?: number;
     comanda_mostrar_precio?: boolean;
     comanda_copias?: number;
+    modo_impresion?: string;
   },
 ): void {
   const ancho = config.comanda_ancho || 80;
@@ -161,5 +170,6 @@ export function printComanda(
     null,
     'centro',
     config.comanda_copias || 1,
+    config.modo_impresion || 'navegador',
   );
 }

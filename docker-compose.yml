@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260809-herramienta-reasignar-productos-por-sku"
+        CACHE_BUST: "20260812-impresora-tablet-rawbt"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
@@ -41,7 +41,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260809-fix-413-nginx-csv-import-timeout"
+        CACHE_BUST: "20260812-impresora-tablet-rawbt"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

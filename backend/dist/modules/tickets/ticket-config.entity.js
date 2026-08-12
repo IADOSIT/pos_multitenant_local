@@ -103,6 +103,10 @@ __decorate([
     __metadata("design:type", Boolean)
 ], TicketConfig.prototype, "impresion_enabled", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ length: 20, default: 'navegador' }),
+    __metadata("design:type", String)
+], TicketConfig.prototype, "modo_impresion", void 0);
+__decorate([
     (0, typeorm_1.Column)({ default: false }),
     __metadata("design:type", Boolean)
 ], TicketConfig.prototype, "comanda_enabled", void 0);

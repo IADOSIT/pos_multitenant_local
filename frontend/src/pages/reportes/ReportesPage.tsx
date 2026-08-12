@@ -91,7 +91,7 @@ export default function ReportesPage() {
       const { data: venta } = await ventasApi.get(ventaId);
       const { data } = await ticketsApi.preview(venta);
       // preview devuelve { raw, lines, ancho_papel, fuente_familia, fuente_tamano, logo_url, logo_posicion }
-      printTicket(data.raw, data.ancho_papel, data.fuente_familia, data.fuente_tamano, data.logo_url, data.logo_posicion, 1);
+      printTicket(data.raw, data.ancho_papel, data.fuente_familia, data.fuente_tamano, data.logo_url, data.logo_posicion, 1, data.modo_impresion);
     } catch {
       toast.error('Error al reimprimir ticket');
     }

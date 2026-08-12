@@ -573,7 +573,7 @@ export default function POSPage() {
         cliente_nombre: pedido?.cliente_nombre || clienteNombre || undefined,
         notas: pedido?.notas || notaPedido || undefined,
       });
-      printTicket(ticket.raw, ticket.ancho_papel, ticket.fuente_familia, ticket.fuente_tamano, null, ticket.logo_posicion, 1);
+      printTicket(ticket.raw, ticket.ancho_papel, ticket.fuente_familia, ticket.fuente_tamano, null, ticket.logo_posicion, 1, ticket.modo_impresion);
       toast.success('Pre-cuenta impresa');
     } catch (e: any) {
       toast.error('Error al generar pre-cuenta');

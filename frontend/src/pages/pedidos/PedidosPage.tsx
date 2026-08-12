@@ -166,7 +166,7 @@ export default function PedidosPage() {
       // Print ticket
       try {
         const { data: ticketData } = await ticketsApi.preview(data.venta);
-        if (ticketData.raw) printTicket(ticketData.raw, ticketData.ancho_papel, ticketData.fuente_familia, ticketData.fuente_tamano, resolveUploadUrl(ticketData.logo_url), ticketData.logo_posicion, ticketData.copias || 1);
+        if (ticketData.raw) printTicket(ticketData.raw, ticketData.ancho_papel, ticketData.fuente_familia, ticketData.fuente_tamano, resolveUploadUrl(ticketData.logo_url), ticketData.logo_posicion, ticketData.copias || 1, ticketData.modo_impresion);
       } catch {}
 
       setShowCobrar(false);
@@ -248,7 +248,7 @@ export default function PedidosPage() {
         cliente_nombre: pedido.cliente_nombre || undefined,
         notas: pedido.notas || undefined,
       });
-      printTicket(ticket.raw, ticket.ancho_papel, ticket.fuente_familia, ticket.fuente_tamano, null, ticket.logo_posicion, 1);
+      printTicket(ticket.raw, ticket.ancho_papel, ticket.fuente_familia, ticket.fuente_tamano, null, ticket.logo_posicion, 1, ticket.modo_impresion);
       toast.success('Pre-cuenta impresa');
     } catch { toast.error('Error al generar pre-cuenta'); }
   };

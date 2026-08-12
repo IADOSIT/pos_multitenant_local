@@ -33,6 +33,7 @@ export class TicketsService {
     config.logo_posicion = 'centro';
     config.copias = 1;
     config.impresion_enabled = true;
+    config.modo_impresion = 'navegador';
     config.comanda_enabled = false;
     config.comanda_header = 'ORDEN';
     config.comanda_ancho = 80;

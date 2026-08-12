@@ -73,6 +73,13 @@ export class TicketConfig {
   @Column({ default: true })
   impresion_enabled: boolean;
 
+  // Como se envia el ticket a la impresora:
+  // 'navegador' = dialogo de impresion del SO (requiere PC con driver instalado)
+  // 'rawbt'     = bytes ESC/POS directo via la app RawBT (Android), sin PC ni driver —
+  //               usado para operar desde tablet/celular con impresora WiFi/BT/USB.
+  @Column({ length: 20, default: 'navegador' })
+  modo_impresion: string;
+
   // Comandera (ticket de orden para cocina/caja/mesero)
   @Column({ default: false })
   comanda_enabled: boolean;

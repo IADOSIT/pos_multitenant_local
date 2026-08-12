@@ -275,7 +275,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
       ticketRawRef.current = ticket.raw;
       ticketConfigRef.current = ticket;
       if (ticket.impresion_enabled !== false) {
-        printTicket(ticket.raw, ticket.ancho_papel, ticket.fuente_familia, ticket.fuente_tamano, resolveUploadUrl(ticket.logo_url), ticket.logo_posicion, ticket.copias || 1);
+        printTicket(ticket.raw, ticket.ancho_papel, ticket.fuente_familia, ticket.fuente_tamano, resolveUploadUrl(ticket.logo_url), ticket.logo_posicion, ticket.copias || 1, ticket.modo_impresion);
       }
     } catch {
       toast.error('No se pudo generar el ticket');
@@ -285,7 +285,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
   const handleReprint = () => {
     if (ticketRawRef.current) {
       const t = ticketConfigRef.current;
-      printTicket(ticketRawRef.current, t?.ancho_papel, t?.fuente_familia, t?.fuente_tamano, resolveUploadUrl(t?.logo_url), t?.logo_posicion, t?.copias || 1);
+      printTicket(ticketRawRef.current, t?.ancho_papel, t?.fuente_familia, t?.fuente_tamano, resolveUploadUrl(t?.logo_url), t?.logo_posicion, t?.copias || 1, t?.modo_impresion);
     }
   };
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { ticketsApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
 import toast from 'react-hot-toast';
-import { Receipt, Upload, Image, X } from 'lucide-react';
+import { Receipt, Upload, Image, X, Printer, Smartphone, Monitor } from 'lucide-react';
 
 const FUENTES = [
   'Courier New',
@@ -169,6 +169,54 @@ export default function TicketsConfig() {
               <input type="number" value={config.columnas} onChange={(e) => update('columnas', Number(e.target.value))} className="input-touch" />
             </div>
           </div>
+
+          {/* Conexion de la impresora */}
+          <h3 className="font-bold pt-2 border-t border-slate-700 mt-2 flex items-center gap-1.5"><Printer size={16} /> Conexión de la impresora</h3>
+          <p className="text-xs text-slate-400">
+            Cómo se manda el ticket a la impresora térmica. Elige "Tablet/Celular por WiFi" si operas
+            sin una PC — solo se necesita la tablet/celular y la impresora, sin equipo intermedio.
+          </p>
+          <div className="space-y-2">
+            <label className={`flex items-start gap-2 cursor-pointer p-2 rounded-xl border ${(config.modo_impresion || 'navegador') === 'navegador' ? 'border-iados-primary bg-iados-primary/10' : 'border-slate-700'}`}>
+              <input
+                type="radio"
+                name="modo_impresion"
+                className="mt-1 accent-iados-accent"
+                checked={(config.modo_impresion || 'navegador') === 'navegador'}
+                onChange={() => update('modo_impresion', 'navegador')}
+              />
+              <span>
+                <span className="flex items-center gap-1.5 text-sm font-medium"><Monitor size={14} /> Navegador (PC con impresora instalada)</span>
+                <span className="text-xs text-slate-400 block">Usa el diálogo de impresión de Windows. Requiere que la PC tenga el driver/USB de la impresora configurado.</span>
+              </span>
+            </label>
+            <label className={`flex items-start gap-2 cursor-pointer p-2 rounded-xl border ${config.modo_impresion === 'rawbt' ? 'border-iados-primary bg-iados-primary/10' : 'border-slate-700'}`}>
+              <input
+                type="radio"
+                name="modo_impresion"
+                className="mt-1 accent-iados-accent"
+                checked={config.modo_impresion === 'rawbt'}
+                onChange={() => update('modo_impresion', 'rawbt')}
+              />
+              <span>
+                <span className="flex items-center gap-1.5 text-sm font-medium"><Smartphone size={14} /> Tablet / Celular por WiFi (sin PC)</span>
+                <span className="text-xs text-slate-400 block">Manda el ticket directo a la impresora WiFi desde Android, sin diálogo ni PC de por medio. Cualquier celular/tablet en la misma red puede imprimir.</span>
+              </span>
+            </label>
+          </div>
+
+          {config.modo_impresion === 'rawbt' && (
+            <div className="text-xs text-slate-400 bg-iados-card border border-slate-700 rounded-xl p-3 space-y-1.5">
+              <p className="text-slate-300 font-medium">Configuración única por dispositivo (tablet o cada celular que vaya a imprimir):</p>
+              <ol className="list-decimal list-inside space-y-1">
+                <li>Conecta el dispositivo a la misma red WiFi que la impresora.</li>
+                <li>Instala la app gratuita <strong>RawBT ESC/POS</strong> desde Play Store (una sola vez).</li>
+                <li>Abre RawBT → Impresora → Agregar impresora → <strong>Red / WiFi</strong> → ingresa la IP y puerto de la impresora (ver etiqueta/config de la impresora, típicamente puerto 9100) → guardar como predeterminada.</li>
+                <li>Ya está. Desde este POS, el botón de imprimir manda el ticket directo a RawBT — sin ventana ni confirmación.</li>
+              </ol>
+              <p className="text-slate-500 pt-1">No depende de ninguna PC ni servicio adicional: solo el dispositivo con RawBT y la impresora en la misma red.</p>
+            </div>
+          )}
 
           {/* Opciones */}
           <h3 className="font-bold pt-2">Opciones</h3>

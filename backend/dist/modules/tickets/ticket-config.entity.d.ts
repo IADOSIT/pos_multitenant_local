@@ -21,6 +21,7 @@ export declare class TicketConfig {
     logo_posicion: string;
     copias: number;
     impresion_enabled: boolean;
+    modo_impresion: string;
     comanda_enabled: boolean;
     comanda_header: string;
     comanda_ancho: number;

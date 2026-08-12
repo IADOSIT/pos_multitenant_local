@@ -16,6 +16,7 @@ export declare class TicketsController {
         logo_url: string | null;
         copias: number;
         impresion_enabled: boolean;
+        modo_impresion: string;
         lines: string[];
         raw: string;
     }>;
@@ -27,6 +28,7 @@ export declare class TicketsController {
         logo_url: string | null;
         copias: number;
         impresion_enabled: boolean;
+        modo_impresion: string;
         lines: string[];
         raw: string;
     }>;
