@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { pedidosApi, ventasApi, ticketsApi, selfOrderApi, logisticaApi, empresasApi, cajaApi } from '../../api/endpoints';
 import { usePOSStore } from '../../store/pos.store';
 import { useAuthStore } from '../../store/auth.store';
@@ -6,18 +6,20 @@ import { useNotificaciones } from '../../hooks/useNotificaciones';
 import { printTicket, printComanda } from '../../utils/printTicket';
 import { resolveUploadUrl } from '../../api/client';
 import toast from 'react-hot-toast';
-import { ClipboardList, Clock, ChefHat, PackageCheck, CreditCard, XCircle, RefreshCw, Smartphone, Check, Ban, Receipt, FileText, ShoppingBag, Truck, AlertTriangle } from 'lucide-react';
-import { tiendasApi } from '../../api/endpoints';
+import { ClipboardList, CreditCard, XCircle, RefreshCw, Check, Ban, Receipt, FileText, Truck, AlertTriangle } from 'lucide-react';
+import { ecommerceApi, tiendasApi } from '../../api/endpoints';
 import PinConfirmModal from '../../components/ui/PinConfirmModal';
-import PedidosWebPage from '../admin/PedidosWebPage';
+import TablaPedidos from './TablaPedidos';
+import DetallePedidoWeb from './DetallePedidoWeb';
+import {
+  PedidoUnificado, ESTADOS_UNIFICADOS, estadoUnificadoDe, siguienteEstadoRaw,
+  normalizarPedidoPOS, normalizarPedidoWeb, ordenarPorFecha, esCerrado,
+} from './pedidosUnificados';
 
-const estadoConfig: Record<string, { label: string; color: string; bg: string; icon: any }> = {
-  recibido: { label: 'Recibido', color: 'text-yellow-300', bg: 'bg-yellow-900/50', icon: Clock },
-  en_elaboracion: { label: 'En Elaboracion', color: 'text-blue-300', bg: 'bg-blue-900/50', icon: ChefHat },
-  listo_para_entrega: { label: 'Listo', color: 'text-green-300', bg: 'bg-green-900/50', icon: PackageCheck },
-  entregado: { label: 'Entregado', color: 'text-slate-400', bg: 'bg-slate-700/50', icon: PackageCheck },
-  cancelado: { label: 'Cancelado', color: 'text-red-400', bg: 'bg-red-900/50', icon: XCircle },
-};
+// Los pedidos web se paginan en servidor, pero aqui hay que mezclarlos con los de
+// mostrador antes de paginar, asi que se traen los mas recientes de un jalon.
+// Si una tienda supera este numero de pedidos web habria que volver a paginar en servidor.
+const LIMITE_WEB = 100;
 
 const nextEstado: Record<string, string> = {
   recibido: 'en_elaboracion',
@@ -33,8 +35,11 @@ export default function PedidosPage() {
   const { cajaActiva, setCajaActiva } = usePOSStore();
   const [checkingCaja, setCheckingCaja] = useState(true);
   const [pedidos, setPedidos] = useState<any[]>([]);
-  const [tab, setTab] = useState<'pendientes' | 'completados' | 'web'>('pendientes');
+  const [pedidosWeb, setPedidosWeb] = useState<any[]>([]);
+  const [tab, setTab] = useState<'pendientes' | 'completados'>('pendientes');
   const [selected, setSelected] = useState<any>(null);
+  const [selectedWeb, setSelectedWeb] = useState<PedidoUnificado | null>(null);
+  const [avanzandoKey, setAvanzandoKey] = useState<string | null>(null);
   const [showCobrar, setShowCobrar] = useState(false);
   const [showCancelar, setShowCancelar] = useState(false);
   const [cancelMotivo, setCancelMotivo] = useState('');
@@ -55,18 +60,40 @@ export default function PedidosPage() {
   const [metodo, setMetodo] = useState<'efectivo' | 'tarjeta' | 'transferencia'>('efectivo');
   const [pagado, setPagado] = useState('');
 
+  // Los pedidos web solo los ve quien ya tenia acceso a la tienda en linea; al cajero
+  // ni siquiera se le pide el endpoint.
+  const puedeVerWeb = ['superadmin', 'admin', 'manager'].includes(user?.rol || '');
+
   const load = useCallback(async () => {
     try {
       if (tab === 'pendientes') {
         const { data } = await pedidosApi.pendientes();
         setPedidos(data);
       } else {
-        const { data } = await pedidosApi.list('entregado');
-        const { data: data2 } = await pedidosApi.list('cancelado');
-        setPedidos([...data, ...data2].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+        const [{ data: entregados }, { data: cancelados }] = await Promise.all([
+          pedidosApi.list('entregado'),
+          pedidosApi.list('cancelado'),
+        ]);
+        setPedidos([...entregados, ...cancelados]);
       }
     } catch {}
-  }, [tab]);
+
+    if (!puedeVerWeb) { setPedidosWeb([]); return; }
+    try {
+      const { data } = await ecommerceApi.listPedidos({ page: 1, limit: LIMITE_WEB });
+      setPedidosWeb(data.data || []);
+    } catch {}
+  }, [tab, puedeVerWeb]);
+
+  // Un solo listado: mostrador, QR y web mezclados y ordenados por fecha. Los de
+  // mostrador ya vienen filtrados por pestaña desde el backend; los web se reparten aqui.
+  const listado = useMemo(() => {
+    const dePOS = pedidos.map(normalizarPedidoPOS);
+    const deWeb = pedidosWeb
+      .map(normalizarPedidoWeb)
+      .filter(p => esCerrado(p.estado) === (tab === 'completados'));
+    return ordenarPorFecha([...dePOS, ...deWeb]);
+  }, [pedidos, pedidosWeb, tab]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -124,10 +151,43 @@ export default function PedidosPage() {
     if (!next) return;
     try {
       await pedidosApi.updateEstado(pedido.id, next);
-      toast.success(`Pedido ${pedido.folio} → ${estadoConfig[next]?.label}`);
+      toast.success(`Pedido ${pedido.folio} → ${ESTADOS_UNIFICADOS[estadoUnificadoDe('mostrador', next)].label}`);
       load();
       setSelected(null);
     } catch (e: any) { toast.error(e.response?.data?.message || 'Error'); }
+  };
+
+  const handleAvanzarWeb = async (pedido: PedidoUnificado, estadoRaw: string) => {
+    setAvanzandoKey(pedido.key);
+    try {
+      const { data } = await ecommerceApi.updateEstado(pedido.id, estadoRaw);
+      setPedidosWeb(ps => ps.map(x => (x.id === pedido.id ? { ...x, estado: data.estado } : x)));
+      toast.success(`Pedido ${pedido.numero} → ${ESTADOS_UNIFICADOS[estadoUnificadoDe('web', data.estado)].label}`);
+    } catch { toast.error('Error al actualizar estado'); }
+    finally { setAvanzandoKey(null); }
+  };
+
+  // Al cambiar de pestaña se suelta lo seleccionado: si no, al volver reaparece el
+  // panel de acciones de un pedido que ya no esta en el listado visible.
+  const cambiarTab = (nuevo: 'pendientes' | 'completados') => {
+    setTab(nuevo);
+    setSelected(null);
+    setSelectedWeb(null);
+  };
+
+  // La tabla es la misma para los dos flujos; aqui se decide a cual pertenece la fila.
+  const handleSelect = (p: PedidoUnificado) => {
+    if (p.origen === 'web') { setSelectedWeb(p); setSelected(null); }
+    else { setSelected(p.raw); setSelectedWeb(null); }
+  };
+
+  const handleAvanzarFila = async (p: PedidoUnificado) => {
+    const siguiente = siguienteEstadoRaw(p);
+    if (!siguiente) return;
+    if (p.origen === 'web') { await handleAvanzarWeb(p, siguiente); return; }
+    setAvanzandoKey(p.key);
+    try { await handleAvanzarEstado(p.raw); }
+    finally { setAvanzandoKey(null); }
   };
 
   const handleCobrar = async () => {
@@ -302,13 +362,6 @@ export default function PedidosPage() {
     } catch { toast.error('Error al imprimir comanda'); }
   };
 
-  const timeAgo = (date: string) => {
-    const diff = Math.floor((Date.now() - new Date(date).getTime()) / 60000);
-    if (diff < 1) return 'Ahora';
-    if (diff < 60) return `${diff}m`;
-    return `${Math.floor(diff / 60)}h ${diff % 60}m`;
-  };
-
   return (
     <div className="p-4 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-4">
@@ -316,106 +369,36 @@ export default function PedidosPage() {
         <button onClick={load} className="btn-secondary text-sm"><RefreshCw size={16} className="mr-1" />Actualizar</button>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — el origen ya no separa listados, solo la etapa del pedido */}
       <div className="flex gap-2 mb-4">
-        <button onClick={() => setTab('pendientes')} className={`px-4 py-2 rounded-xl text-sm font-medium ${tab === 'pendientes' ? 'bg-iados-primary text-white' : 'bg-iados-card text-slate-400'}`}>
-          Pendientes ({tab === 'pendientes' ? pedidos.length : '...'})
+        <button onClick={() => cambiarTab('pendientes')} className={`px-4 py-2 rounded-xl text-sm font-medium ${tab === 'pendientes' ? 'bg-iados-primary text-white' : 'bg-iados-card text-slate-400'}`}>
+          Pendientes {tab === 'pendientes' ? `(${listado.length})` : ''}
         </button>
-        <button onClick={() => setTab('completados')} className={`px-4 py-2 rounded-xl text-sm font-medium ${tab === 'completados' ? 'bg-iados-primary text-white' : 'bg-iados-card text-slate-400'}`}>
-          Completados
+        <button onClick={() => cambiarTab('completados')} className={`px-4 py-2 rounded-xl text-sm font-medium ${tab === 'completados' ? 'bg-iados-primary text-white' : 'bg-iados-card text-slate-400'}`}>
+          Completados {tab === 'completados' ? `(${listado.length})` : ''}
         </button>
-        {['superadmin', 'admin', 'manager'].includes(user?.rol || '') && (
-          <button onClick={() => setTab('web')} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium ${tab === 'web' ? 'bg-purple-600 text-white' : 'bg-iados-card text-slate-400'}`}>
-            <ShoppingBag size={14} /> Pedidos Web
-          </button>
-        )}
       </div>
 
-      {/* Pedidos Grid (solo para tabs pendientes/completados) */}
-      {tab !== 'web' && (pedidos.length === 0 ? (
-        <div className="text-center text-slate-500 py-16">
-          <ClipboardList size={48} className="mx-auto mb-3 opacity-50" />
-          <p>{tab === 'pendientes' ? 'No hay pedidos pendientes' : 'No hay pedidos completados'}</p>
-        </div>
-      ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {pedidos.map((p) => {
-            const cfg = estadoConfig[p.estado] || estadoConfig.recibido;
-            const Icon = cfg.icon;
-            return (
-              <div
-                key={p.id}
-                onClick={() => setSelected(p)}
-                className={`card cursor-pointer hover:ring-2 hover:ring-iados-secondary transition-all ${selected?.id === p.id ? 'ring-2 ring-iados-primary' : ''} ${p.self_order && !p.mesero_confirmado && p.estado === 'recibido' ? 'ring-2 ring-orange-500' : ''}`}
-              >
-                {/* Banner self-order pendiente de confirmar */}
-                {p.self_order && !p.mesero_confirmado && p.estado === 'recibido' && (
-                  <div className="flex items-center justify-center gap-2 bg-orange-500 text-white text-sm font-bold py-2 px-3 rounded-t-xl -mx-4 -mt-4 mb-3 animate-pulse">
-                    <Smartphone size={15} />
-                    ⚠️ PENDIENTE CONFIRMAR AL CLIENTE
-                  </div>
-                )}
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-xl ${p.self_order && !p.mesero_confirmado && p.estado === 'recibido' ? 'bg-orange-500' : 'bg-iados-primary'}`}>
-                      {p.mesa}
-                    </div>
-                    <div>
-                      <p className="font-mono text-xs text-slate-400 flex items-center gap-1">
-                        {p.folio}
-                      </p>
-                      <div className="flex items-center gap-1 flex-wrap mt-0.5">
-                        {p.self_order && (
-                          <span className="inline-flex items-center gap-1 bg-violet-700/40 border border-violet-500/40 text-violet-300 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                            <Smartphone size={9} /> QR Mesa
-                          </span>
-                        )}
-                        <p className="text-xs text-slate-500">{p.usuario_nombre || (p.self_order ? p.cliente_nombre || 'Cliente' : 'Mesero')}</p>
-                      </div>
-                      {p.tipo_servicio === 'para_llevar' && (
-                        <span className="text-xs bg-amber-900/40 text-amber-300 px-2 py-0.5 rounded-full">🏃 Para llevar</span>
-                      )}
-                      {p.tipo_servicio === 'en_sitio' && (
-                        <span className="text-xs bg-blue-900/40 text-blue-300 px-2 py-0.5 rounded-full">🍽️ En sitio</span>
-                      )}
-                    </div>
-                  </div>
-                  <span className={`px-2 py-1 rounded-lg text-xs flex items-center gap-1 ${cfg.bg} ${cfg.color}`}>
-                    <Icon size={12} /> {cfg.label}
-                  </span>
-                </div>
+      <TablaPedidos
+        pedidos={listado}
+        mostrarPrecios={cfgEspecial.mostrar_precios}
+        mostrarFiltroOrigen={puedeVerWeb}
+        seleccionadoKey={selectedWeb?.key || (selected ? `pos-${selected.id}` : null)}
+        avanzandoKey={avanzandoKey}
+        vacioTexto={tab === 'pendientes' ? 'No hay pedidos pendientes' : 'No hay pedidos completados'}
+        tieneDetalle={p => p.origen === 'web' || (tab === 'pendientes' && canManage)}
+        onSelect={handleSelect}
+        onAvanzar={handleAvanzarFila}
+      />
 
-                <div className="text-xs text-slate-400 space-y-0.5 mb-2">
-                  {p.detalles?.slice(0, 3).map((d: any, i: number) => (
-                    <p key={i}>{d.cantidad}x {d.producto_nombre}</p>
-                  ))}
-                  {p.detalles?.length > 3 && <p className="text-slate-500">+{p.detalles.length - 3} mas...</p>}
-                </div>
-                {p.notas?.trim() && (
-                  <p className="text-xs text-amber-300/80 italic mt-1 truncate" title={p.notas}>
-                    💬 {p.notas}
-                  </p>
-                )}
-                {(p.cliente_nombre || p.cliente_telefono) && (
-                  <p className="text-xs text-slate-500 truncate mt-0.5">
-                    👤 {[p.cliente_nombre, p.cliente_telefono].filter(Boolean).join(' · ')}
-                  </p>
-                )}
-
-                <div className={`flex items-center ${cfgEspecial.mostrar_precios ? 'justify-between' : 'justify-end'}`}>
-                  {cfgEspecial.mostrar_precios && (
-                    <span className="text-green-400 font-bold">${Number(p.total).toFixed(2)}</span>
-                  )}
-                  <span className="text-xs text-slate-500">{timeAgo(p.created_at)}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ))}
-
-      {/* Pedidos Web tab */}
-      {tab === 'web' && <PedidosWebPage mostrarPrecios={cfgEspecial.mostrar_precios} />}
+      {selectedWeb && (
+        <DetallePedidoWeb
+          pedido={selectedWeb}
+          mostrarPrecios={cfgEspecial.mostrar_precios}
+          onClose={() => setSelectedWeb(null)}
+          onAvanzar={handleAvanzarWeb}
+        />
+      )}
 
       {/* Detail + Actions Panel */}
       {selected && tab === 'pendientes' && canManage && (
@@ -452,7 +435,7 @@ export default function PedidosPage() {
               )}
               {nextEstado[selected.estado] && selected.estado !== 'listo_para_entrega' && (
                 <button onClick={() => handleAvanzarEstado(selected)} className="btn-secondary text-sm">
-                  {selected.estado === 'recibido' ? 'Iniciar Elaboracion' : 'Marcar Listo'}
+                  {selected.estado === 'recibido' ? 'Iniciar Preparacion' : 'Marcar Listo'}
                 </button>
               )}
               {(selected.estado === 'listo_para_entrega' || selected.estado === 'recibido' || selected.estado === 'en_elaboracion') && (
