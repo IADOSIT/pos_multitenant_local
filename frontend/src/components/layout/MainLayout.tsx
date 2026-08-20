@@ -10,7 +10,7 @@ import apiClient from '../../api/client';
 import toast from 'react-hot-toast';
 import {
   ShoppingCart, LayoutDashboard, CreditCard, Package,
-  Users, Building2, Settings, LogOut, Menu, X, ClipboardList, FileBarChart, Warehouse, Database, Lock, BookOpen, Grid3X3, Truck, Scale, Store, PanelLeftClose, PanelLeftOpen
+  Users, Building2, Settings, LogOut, Menu, X, ClipboardList, FileBarChart, Warehouse, Database, Lock, BookOpen, Grid3X3, Truck, Scale, Store, PanelLeftClose, PanelLeftOpen, HelpCircle
 } from 'lucide-react';
 import { logisticaApi, basculaApi, empresasApi } from '../../api/endpoints';
 import StockAlertBanner from '../ui/StockAlertBanner';
@@ -41,6 +41,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/admin/mantenimiento': 'Mantenimiento',
   '/admin/licencias': 'Licencias',
   '/admin/perfil-negocio': 'Perfil del Negocio',
+  '/ayuda': 'Ayuda',
 };
 
 // Rutas cuyo contenido depende de UNA tienda concreta. Para un superadmin que NO ha
@@ -75,6 +76,7 @@ const navItems = [
   { to: '/admin/tienda-en-linea', icon: Store,         label: 'Tienda en Línea', roles: ['superadmin', 'admin'] },
   { to: '/admin/configuracion', icon: Settings,        label: 'Config',     roles: ['superadmin', 'admin'] },
   { to: '/admin/tenants',       icon: Building2,       label: 'Tenants',    roles: ['superadmin'] },
+  { to: '/ayuda',                icon: HelpCircle,      label: 'Ayuda',      roles: ['superadmin', 'admin', 'manager', 'cajero', 'mesero'] },
 ];
 
 export default function MainLayout() {

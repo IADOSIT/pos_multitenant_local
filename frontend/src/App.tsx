@@ -38,6 +38,7 @@ const ActivarLicenciaPage = lazy(() => import('./pages/ActivarLicenciaPage'));
 const LogisticaPage = lazy(() => import('./pages/logistica/LogisticaPage'));
 const RepartidorPage = lazy(() => import('./pages/public/RepartidorPage'));
 const BiometricoLivePage = lazy(() => import('./pages/public/BiometricoLivePage'));
+const AyudaPage = lazy(() => import('./pages/ayuda/AyudaPage'));
 
 function PrivateRoute({ children, roles }: { children: JSX.Element; roles?: string[] }) {
   const { isAuthenticated, user } = useAuthStore();
@@ -140,6 +141,7 @@ export default function App() {
               <LogisticaPage />
             </PrivateRoute>
           } />
+          <Route path="ayuda" element={<AyudaPage />} />
         </Route>
       </Routes>
       </Suspense>
