@@ -84,6 +84,8 @@ export class EcommerceService {
       { id: 'zest', nombre: 'Zest', descripcion: 'Diseño vibrante y accesible en naranja cálido', modo: 'light', colorPrimary: '#f97316', colorBg: '#fffbf5' },
       { id: 'iados-electronica', nombre: 'iaDoS Electrónica', descripcion: 'Estilo electrónica/tech: naranja intenso, tipografía Dosis y tarjetas nítidas', modo: 'light', colorPrimary: '#ff8717', colorBg: '#ffffff' },
       { id: 'iados-market', nombre: 'iaDoS Market', descripcion: 'Estilo super/grocery: verde fresco, tipografía Barlow, look limpio y amable', modo: 'light', colorPrimary: '#629d23', colorBg: '#ffffff' },
+      { id: 'iados-herramientas', nombre: 'iaDoS Herramientas', descripcion: 'Estilo ferretería/industrial: azul corporativo, tipografía Oswald y menú de categorías', modo: 'light', colorPrimary: '#2559c7', colorBg: '#f4f6f9' },
+      { id: 'iados-albercas', nombre: 'iaDoS Albercas', descripcion: 'Químicos para alberca: teal de azulejo, tipografía Archivo y comparador de pH que lleva al producto', modo: 'light', colorPrimary: '#017a86', colorBg: '#f2f8f9' },
     ];
   }
 

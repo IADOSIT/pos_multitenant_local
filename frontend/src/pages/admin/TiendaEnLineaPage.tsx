@@ -18,6 +18,7 @@ const TEMAS_PREVIEW: Record<string, { bg: string; primary: string; secondary: st
   'iados-electronica': { bg: '#ffffff', primary: '#ff8717', secondary: '#121416', text: '#121416', border: '#e5e5e5', nombre: 'iaDoS Electrónica', desc: 'Tech · Naranja + Dosis' },
   'iados-market':      { bg: '#ffffff', primary: '#629d23', secondary: '#2c3c28', text: '#1f1f25', border: '#e2e2e2', nombre: 'iaDoS Market',      desc: 'Grocery · Verde + Barlow' },
   'iados-herramientas': { bg: '#f4f6f9', primary: '#2559c7', secondary: '#16233b', text: '#16233b', border: '#e2e6ec', nombre: 'iaDoS Herramientas', desc: 'Ferretería · Azul + Oswald' },
+  'iados-albercas':     { bg: '#f2f8f9', primary: '#017a86', secondary: '#0a2a33', text: '#0a2a33', border: '#d3e3e6', nombre: 'iaDoS Albercas',     desc: 'Albercas · Teal + Archivo' },
 };
 
 type CampoKey = 'nombre' | 'telefono' | 'email' | 'direccion' | 'empresa' | 'notas';
