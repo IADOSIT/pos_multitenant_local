@@ -26,11 +26,19 @@ let InventarioService = class InventarioService {
         this.prodRepo = prodRepo;
         this.ptRepo = ptRepo;
         this.empresasService = empresasService;
+        this.adminRoles = ['superadmin', 'admin', 'manager'];
     }
-    async listStock(scope) {
-        const adminRoles = ['superadmin', 'admin', 'manager'];
+    async resolveTiendaId(scope, tiendaIdOverride) {
+        if (tiendaIdOverride && this.adminRoles.includes(scope.rol)) {
+            const tienda = await this.ptRepo.manager.query('SELECT id FROM tiendas WHERE id = ? AND empresa_id = ?', [tiendaIdOverride, scope.empresa_id]);
+            if (tienda.length > 0)
+                return tiendaIdOverride;
+        }
+        return scope.tienda_id;
+    }
+    async listStock(scope, tiendaIdOverride) {
         const where = { tenant_id: scope.tenant_id, empresa_id: scope.empresa_id, activo: true };
-        if (scope.modulo && !adminRoles.includes(scope.rol)) {
+        if (scope.modulo && !this.adminRoles.includes(scope.rol)) {
             where.modulo = scope.modulo;
         }
         const productos = await this.prodRepo.find({
@@ -39,9 +47,10 @@ let InventarioService = class InventarioService {
             order: { nombre: 'ASC' },
         });
         const { inventario_compartido } = await this.empresasService.getConfigEspecial(scope.empresa_id);
-        if (!inventario_compartido || !scope.tienda_id || productos.length === 0)
+        const tiendaId = await this.resolveTiendaId(scope, tiendaIdOverride);
+        if (!inventario_compartido || !tiendaId || productos.length === 0)
             return productos;
-        const ptRows = await this.ptRepo.find({ where: { tienda_id: scope.tienda_id, producto_id: (0, typeorm_2.In)(productos.map((p) => p.id)) } });
+        const ptRows = await this.ptRepo.find({ where: { tienda_id: tiendaId, producto_id: (0, typeorm_2.In)(productos.map((p) => p.id)) } });
         const ptMap = new Map(ptRows.map((pt) => [pt.producto_id, Number(pt.stock)]));
         return productos.map((p) => (p.controla_stock ? { ...p, stock_actual: ptMap.get(p.id) ?? 0 } : p));
     }
@@ -64,11 +73,12 @@ let InventarioService = class InventarioService {
         if (!prod)
             throw new common_1.BadRequestException('Producto no encontrado');
         const { inventario_compartido } = await this.empresasService.getConfigEspecial(scope.empresa_id);
-        const usaPorTienda = inventario_compartido && !!scope.tienda_id;
+        const tiendaId = await this.resolveTiendaId(scope, data.tienda_id);
+        const usaPorTienda = inventario_compartido && !!tiendaId;
         let pt = null;
         let stockAnterior;
         if (usaPorTienda) {
-            pt = await this.ptRepo.findOne({ where: { producto_id: prod.id, tienda_id: scope.tienda_id } });
+            pt = await this.ptRepo.findOne({ where: { producto_id: prod.id, tienda_id: tiendaId } });
             stockAnterior = Number(pt?.stock || 0);
         }
         else {
@@ -92,7 +102,7 @@ let InventarioService = class InventarioService {
         const mov = await this.movRepo.save(this.movRepo.create({
             tenant_id: scope.tenant_id,
             empresa_id: scope.empresa_id,
-            tienda_id: scope.tienda_id,
+            tienda_id: tiendaId,
             producto_id: prod.id,
             producto_nombre: prod.nombre,
             producto_sku: prod.sku,
@@ -106,7 +116,7 @@ let InventarioService = class InventarioService {
         }));
         if (usaPorTienda) {
             if (!pt)
-                pt = this.ptRepo.create({ tenant_id: scope.tenant_id, tienda_id: scope.tienda_id, producto_id: prod.id, disponible: true });
+                pt = this.ptRepo.create({ tenant_id: scope.tenant_id, tienda_id: tiendaId, producto_id: prod.id, disponible: true });
             pt.stock = stockNuevo;
             await this.ptRepo.save(pt);
         }
@@ -149,13 +159,14 @@ let InventarioService = class InventarioService {
             return '\t';
         return ',';
     }
-    async importCSV(buffer, scope) {
+    async importCSV(buffer, scope, tiendaIdOverride) {
         const csvStr = this.decodeCSV(buffer);
         const delimiter = this.detectDelimiter(csvStr);
         const records = (0, sync_1.parse)(csvStr, { columns: true, skip_empty_lines: true, trim: true, delimiter });
         const results = { success: 0, errors: [], total: records.length };
         const { inventario_compartido } = await this.empresasService.getConfigEspecial(scope.empresa_id);
-        const usaPorTienda = inventario_compartido && !!scope.tienda_id;
+        const tiendaId = await this.resolveTiendaId(scope, tiendaIdOverride);
+        const usaPorTienda = inventario_compartido && !!tiendaId;
         for (let i = 0; i < records.length; i++) {
             const row = records[i];
             try {
@@ -172,14 +183,14 @@ let InventarioService = class InventarioService {
                 }
                 let pt = null;
                 const stockAnterior = usaPorTienda
-                    ? Number((pt = await this.ptRepo.findOne({ where: { producto_id: prod.id, tienda_id: scope.tienda_id } }))?.stock || 0)
+                    ? Number((pt = await this.ptRepo.findOne({ where: { producto_id: prod.id, tienda_id: tiendaId } }))?.stock || 0)
                     : Number(prod.stock_actual || 0);
                 const stockNuevo = row.stock_actual !== undefined && row.stock_actual !== '' ? parseFloat(row.stock_actual) : stockAnterior;
                 if (stockNuevo !== stockAnterior) {
                     await this.movRepo.save(this.movRepo.create({
                         tenant_id: scope.tenant_id,
                         empresa_id: scope.empresa_id,
-                        tienda_id: scope.tienda_id,
+                        tienda_id: tiendaId,
                         producto_id: prod.id,
                         producto_nombre: prod.nombre,
                         producto_sku: prod.sku,
@@ -194,7 +205,7 @@ let InventarioService = class InventarioService {
                 }
                 if (usaPorTienda) {
                     if (!pt)
-                        pt = this.ptRepo.create({ tenant_id: scope.tenant_id, tienda_id: scope.tienda_id, producto_id: prod.id, disponible: true });
+                        pt = this.ptRepo.create({ tenant_id: scope.tenant_id, tienda_id: tiendaId, producto_id: prod.id, disponible: true });
                     pt.stock = stockNuevo;
                     await this.ptRepo.save(pt);
                 }
@@ -284,20 +295,21 @@ let InventarioService = class InventarioService {
             order: { nombre: 'ASC' },
         });
     }
-    async exportCSV(scope) {
+    async exportCSV(scope, tiendaIdOverride) {
         const productos = await this.prodRepo.find({
             where: { tenant_id: scope.tenant_id, empresa_id: scope.empresa_id, activo: true },
             order: { nombre: 'ASC' },
         });
         const { inventario_compartido } = await this.empresasService.getConfigEspecial(scope.empresa_id);
+        const tiendaId = await this.resolveTiendaId(scope, tiendaIdOverride);
         let ptMap = new Map();
-        if (inventario_compartido && scope.tienda_id && productos.length > 0) {
-            const ptRows = await this.ptRepo.find({ where: { tienda_id: scope.tienda_id, producto_id: (0, typeorm_2.In)(productos.map((p) => p.id)) } });
+        if (inventario_compartido && tiendaId && productos.length > 0) {
+            const ptRows = await this.ptRepo.find({ where: { tienda_id: tiendaId, producto_id: (0, typeorm_2.In)(productos.map((p) => p.id)) } });
             ptMap = new Map(ptRows.map((pt) => [pt.producto_id, Number(pt.stock)]));
         }
         let csv = 'sku,nombre,stock_actual,stock_minimo,controla_stock,costo,precio,unidad\n';
         for (const p of productos) {
-            const stock = inventario_compartido && scope.tienda_id ? (ptMap.get(p.id) ?? 0) : (p.stock_actual || 0);
+            const stock = inventario_compartido && tiendaId ? (ptMap.get(p.id) ?? 0) : (p.stock_actual || 0);
             csv += `${p.sku},"${p.nombre}",${stock},${p.stock_minimo || 0},${p.controla_stock},${p.costo || 0},${p.precio},${p.unidad || 'pza'}\n`;
         }
         return csv;

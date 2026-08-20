@@ -15,12 +15,31 @@ export class InventarioService {
     private empresasService: EmpresasService,
   ) {}
 
+  // Roles que pueden operar/ver el stock de cualquier tienda de su empresa, no solo la
+  // tienda fija de su usuario.
+  private adminRoles = ['superadmin', 'admin', 'manager'];
+
+  // Resuelve la tienda efectiva para una operacion: por defecto la tienda fija del usuario
+  // (scope.tienda_id), pero si el rol es admin/manager/superadmin y manda una tienda de su
+  // misma empresa, se respeta esa en su lugar. Asi el admin puede ver/operar cualquier
+  // sucursal desde su misma cuenta sin tener que loguearse como otro usuario; un cajero
+  // nunca puede salirse de su propia tienda (el override se ignora silenciosamente).
+  private async resolveTiendaId(scope: any, tiendaIdOverride?: number): Promise<number> {
+    if (tiendaIdOverride && this.adminRoles.includes(scope.rol)) {
+      const tienda = await this.ptRepo.manager.query(
+        'SELECT id FROM tiendas WHERE id = ? AND empresa_id = ?',
+        [tiendaIdOverride, scope.empresa_id],
+      );
+      if (tienda.length > 0) return tiendaIdOverride;
+    }
+    return scope.tienda_id;
+  }
+
   // List products with stock info. Con "inventario compartido" activo, el stock mostrado
-  // es el de la tienda del usuario (producto_tienda), no el acumulado de la empresa.
-  async listStock(scope: any) {
-    const adminRoles = ['superadmin', 'admin', 'manager'];
+  // es el de una tienda especifica (producto_tienda), no el acumulado de la empresa.
+  async listStock(scope: any, tiendaIdOverride?: number) {
     const where: any = { tenant_id: scope.tenant_id, empresa_id: scope.empresa_id, activo: true };
-    if (scope.modulo && !adminRoles.includes(scope.rol)) {
+    if (scope.modulo && !this.adminRoles.includes(scope.rol)) {
       where.modulo = scope.modulo;
     }
     const productos = await this.prodRepo.find({
@@ -29,8 +48,10 @@ export class InventarioService {
       order: { nombre: 'ASC' },
     });
     const { inventario_compartido } = await this.empresasService.getConfigEspecial(scope.empresa_id);
-    if (!inventario_compartido || !scope.tienda_id || productos.length === 0) return productos;
-    const ptRows = await this.ptRepo.find({ where: { tienda_id: scope.tienda_id, producto_id: In(productos.map((p) => p.id)) } });
+    const tiendaId = await this.resolveTiendaId(scope, tiendaIdOverride);
+
+    if (!inventario_compartido || !tiendaId || productos.length === 0) return productos;
+    const ptRows = await this.ptRepo.find({ where: { tienda_id: tiendaId, producto_id: In(productos.map((p) => p.id)) } });
     const ptMap = new Map(ptRows.map((pt) => [pt.producto_id, Number(pt.stock)]));
     return productos.map((p) => (p.controla_stock ? { ...p, stock_actual: ptMap.get(p.id) ?? 0 } : p));
   }
@@ -59,17 +80,19 @@ export class InventarioService {
     tipo: MovimientoTipo;
     cantidad: number;
     concepto?: string;
+    tienda_id?: number;
   }, scope: any) {
     const prod = await this.prodRepo.findOne({ where: { id: data.producto_id, tenant_id: scope.tenant_id } });
     if (!prod) throw new BadRequestException('Producto no encontrado');
 
     const { inventario_compartido } = await this.empresasService.getConfigEspecial(scope.empresa_id);
-    const usaPorTienda = inventario_compartido && !!scope.tienda_id;
+    const tiendaId = await this.resolveTiendaId(scope, data.tienda_id);
+    const usaPorTienda = inventario_compartido && !!tiendaId;
 
     let pt: ProductoTienda | null = null;
     let stockAnterior: number;
     if (usaPorTienda) {
-      pt = await this.ptRepo.findOne({ where: { producto_id: prod.id, tienda_id: scope.tienda_id } });
+      pt = await this.ptRepo.findOne({ where: { producto_id: prod.id, tienda_id: tiendaId } });
       stockAnterior = Number(pt?.stock || 0);
     } else {
       stockAnterior = Number(prod.stock_actual || 0);
@@ -94,7 +117,7 @@ export class InventarioService {
     const mov = await this.movRepo.save(this.movRepo.create({
       tenant_id: scope.tenant_id,
       empresa_id: scope.empresa_id,
-      tienda_id: scope.tienda_id,
+      tienda_id: tiendaId,
       producto_id: prod.id,
       producto_nombre: prod.nombre,
       producto_sku: prod.sku,
@@ -108,7 +131,7 @@ export class InventarioService {
     }));
 
     if (usaPorTienda) {
-      if (!pt) pt = this.ptRepo.create({ tenant_id: scope.tenant_id, tienda_id: scope.tienda_id, producto_id: prod.id, disponible: true });
+      if (!pt) pt = this.ptRepo.create({ tenant_id: scope.tenant_id, tienda_id: tiendaId, producto_id: prod.id, disponible: true });
       pt.stock = stockNuevo;
       await this.ptRepo.save(pt);
     } else {
@@ -152,14 +175,15 @@ export class InventarioService {
     return ',';
   }
 
-  async importCSV(buffer: Buffer, scope: any) {
+  async importCSV(buffer: Buffer, scope: any, tiendaIdOverride?: number) {
     const csvStr = this.decodeCSV(buffer);
     const delimiter = this.detectDelimiter(csvStr);
     const records = parse(csvStr, { columns: true, skip_empty_lines: true, trim: true, delimiter });
     const results = { success: 0, errors: [] as any[], total: records.length };
 
     const { inventario_compartido } = await this.empresasService.getConfigEspecial(scope.empresa_id);
-    const usaPorTienda = inventario_compartido && !!scope.tienda_id;
+    const tiendaId = await this.resolveTiendaId(scope, tiendaIdOverride);
+    const usaPorTienda = inventario_compartido && !!tiendaId;
 
     for (let i = 0; i < records.length; i++) {
       const row = records[i];
@@ -178,7 +202,7 @@ export class InventarioService {
 
         let pt: ProductoTienda | null = null;
         const stockAnterior = usaPorTienda
-          ? Number((pt = await this.ptRepo.findOne({ where: { producto_id: prod.id, tienda_id: scope.tienda_id } }))?.stock || 0)
+          ? Number((pt = await this.ptRepo.findOne({ where: { producto_id: prod.id, tienda_id: tiendaId } }))?.stock || 0)
           : Number(prod.stock_actual || 0);
         const stockNuevo = row.stock_actual !== undefined && row.stock_actual !== '' ? parseFloat(row.stock_actual) : stockAnterior;
 
@@ -186,7 +210,7 @@ export class InventarioService {
           await this.movRepo.save(this.movRepo.create({
             tenant_id: scope.tenant_id,
             empresa_id: scope.empresa_id,
-            tienda_id: scope.tienda_id,
+            tienda_id: tiendaId,
             producto_id: prod.id,
             producto_nombre: prod.nombre,
             producto_sku: prod.sku,
@@ -201,7 +225,7 @@ export class InventarioService {
         }
 
         if (usaPorTienda) {
-          if (!pt) pt = this.ptRepo.create({ tenant_id: scope.tenant_id, tienda_id: scope.tienda_id, producto_id: prod.id, disponible: true });
+          if (!pt) pt = this.ptRepo.create({ tenant_id: scope.tenant_id, tienda_id: tiendaId, producto_id: prod.id, disponible: true });
           pt.stock = stockNuevo;
           await this.ptRepo.save(pt);
         } else {
@@ -309,20 +333,21 @@ export class InventarioService {
   }
 
   // CSV Export current stock
-  async exportCSV(scope: any): Promise<string> {
+  async exportCSV(scope: any, tiendaIdOverride?: number): Promise<string> {
     const productos = await this.prodRepo.find({
       where: { tenant_id: scope.tenant_id, empresa_id: scope.empresa_id, activo: true },
       order: { nombre: 'ASC' },
     });
     const { inventario_compartido } = await this.empresasService.getConfigEspecial(scope.empresa_id);
+    const tiendaId = await this.resolveTiendaId(scope, tiendaIdOverride);
     let ptMap = new Map<number, number>();
-    if (inventario_compartido && scope.tienda_id && productos.length > 0) {
-      const ptRows = await this.ptRepo.find({ where: { tienda_id: scope.tienda_id, producto_id: In(productos.map((p) => p.id)) } });
+    if (inventario_compartido && tiendaId && productos.length > 0) {
+      const ptRows = await this.ptRepo.find({ where: { tienda_id: tiendaId, producto_id: In(productos.map((p) => p.id)) } });
       ptMap = new Map(ptRows.map((pt) => [pt.producto_id, Number(pt.stock)]));
     }
     let csv = 'sku,nombre,stock_actual,stock_minimo,controla_stock,costo,precio,unidad\n';
     for (const p of productos) {
-      const stock = inventario_compartido && scope.tienda_id ? (ptMap.get(p.id) ?? 0) : (p.stock_actual || 0);
+      const stock = inventario_compartido && tiendaId ? (ptMap.get(p.id) ?? 0) : (p.stock_actual || 0);
       csv += `${p.sku},"${p.nombre}",${stock},${p.stock_minimo || 0},${p.controla_stock},${p.costo || 0},${p.precio},${p.unidad || 'pza'}\n`;
     }
     return csv;

@@ -233,17 +233,17 @@ export const materiaPrimaApi = {
 
 // Inventario
 export const inventarioApi = {
-  listStock: () => api.get('/inventario/stock'),
+  listStock: (tiendaId?: number) => api.get('/inventario/stock', { params: tiendaId ? { tienda_id: tiendaId } : undefined }),
   listMovimientos: () => api.get('/inventario/movimientos'),
   getMovimientos: (productoId: number) => api.get(`/inventario/movimientos/${productoId}`),
   registrarMovimiento: (data: any) => api.post('/inventario/movimiento', data),
   updateProducto: (id: number, data: any) => api.put(`/inventario/producto/${id}`, data),
   csvTemplate: () => api.get('/inventario/csv/template', { responseType: 'blob' }),
-  csvExport: () => api.get('/inventario/csv/export', { responseType: 'blob' }),
-  csvImport: (file: File) => {
+  csvExport: (tiendaId?: number) => api.get('/inventario/csv/export', { responseType: 'blob', params: tiendaId ? { tienda_id: tiendaId } : undefined }),
+  csvImport: (file: File, tiendaId?: number) => {
     const form = new FormData();
     form.append('file', file);
-    return api.post('/inventario/csv/import', form);
+    return api.post('/inventario/csv/import', form, { params: tiendaId ? { tienda_id: tiendaId } : undefined });
   },
   vistaGeneral: () => api.get('/inventario/vista-general'),
 };

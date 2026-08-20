@@ -76,6 +76,11 @@ export default function InventarioPage() {
   const [transferenciasActivo, setTransferenciasActivo] = useState(false);
   const [moneda, setMoneda] = useState<MonedaConfig | undefined>(undefined);
   const [tiendasEmpresa, setTiendasEmpresa] = useState<{ id: number; nombre: string }[]>([]);
+  // Todas las tiendas de la empresa (incluye la propia) para el selector de la pestana Stock:
+  // admin/manager/superadmin pueden ver/operar el stock de cualquier sucursal de su empresa
+  // desde la misma cuenta, ya que su tienda_id de usuario es fija.
+  const [tiendasEmpresaTodas, setTiendasEmpresaTodas] = useState<{ id: number; nombre: string }[]>([]);
+  const [tiendaStockId, setTiendaStockId] = useState<number | undefined>(undefined);
 
   // Transferencias directas entre tiendas
   const [pendientesRecibir, setPendientesRecibir] = useState<Transferencia[]>([]);
@@ -115,11 +120,19 @@ export default function InventarioPage() {
       setMoneda(cfg.moneda?.activa ? cfg.moneda : undefined);
     }).catch(() => {});
     tiendasApi.list().then(({ data }) => {
-      setTiendasEmpresa((data || []).filter((t: any) => t.empresa_id === user.empresa_id && t.id !== user.tienda_id));
+      const propias = (data || []).filter((t: any) => t.empresa_id === user.empresa_id);
+      setTiendasEmpresa(propias.filter((t: any) => t.id !== user.tienda_id));
+      setTiendasEmpresaTodas(propias);
     }).catch(() => {});
+    setTiendaStockId(user.tienda_id);
   }, [user?.empresa_id]);
 
   useEffect(() => { load(); }, [tab]);
+
+  // Recargar el stock cuando el admin cambia la tienda seleccionada en el selector.
+  useEffect(() => {
+    if (tab === 'stock') load();
+  }, [tiendaStockId]);
 
   // Precargar el conteo de pendientes por recibir para el badge de la pestaña, sin esperar a que se abra.
   useEffect(() => {
@@ -220,7 +233,7 @@ export default function InventarioPage() {
     setLoading(true);
     try {
       if (tab === 'stock') {
-        const { data } = await inventarioApi.listStock();
+        const { data } = await inventarioApi.listStock(isAdmin ? tiendaStockId : undefined);
         setProductos(data);
       } else {
         const { data } = await inventarioApi.listMovimientos();
@@ -242,6 +255,7 @@ export default function InventarioPage() {
         tipo: movForm.tipo,
         cantidad: parseFloat(movForm.cantidad),
         concepto: movForm.concepto || undefined,
+        tienda_id: isAdmin ? tiendaStockId : undefined,
       });
       toast.success(`Stock actualizado: ${data.stock_actual}`);
       setShowModal(false);
@@ -272,7 +286,7 @@ export default function InventarioPage() {
 
   const handleCSVExport = async () => {
     try {
-      const { data } = await inventarioApi.csvExport();
+      const { data } = await inventarioApi.csvExport(isAdmin ? tiendaStockId : undefined);
       const url = window.URL.createObjectURL(new Blob([data]));
       const a = document.createElement('a'); a.href = url; a.download = 'inventario_export.csv'; a.click();
       toast.success('Exportado');
@@ -283,7 +297,7 @@ export default function InventarioPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const { data } = await inventarioApi.csvImport(file);
+      const { data } = await inventarioApi.csvImport(file, isAdmin ? tiendaStockId : undefined);
       setImportResult(data);
       toast.success(`${data.success} de ${data.total} productos actualizados`);
       load();
@@ -458,6 +472,16 @@ export default function InventarioPage() {
             </button>
           )}
         </div>
+        {tab === 'stock' && isAdmin && inventarioCompartido && tiendasEmpresaTodas.length > 1 && (
+          <select
+            value={tiendaStockId ?? ''} onChange={e => setTiendaStockId(parseInt(e.target.value, 10))}
+            className="px-3 py-2 bg-iados-card rounded-xl border border-slate-700 focus:border-iados-primary outline-none text-sm text-slate-300"
+          >
+            {tiendasEmpresaTodas.map(t => (
+              <option key={t.id} value={t.id}>{t.nombre}{t.id === user?.tienda_id ? ' (tu tienda)' : ''}</option>
+            ))}
+          </select>
+        )}
         {(tab === 'stock' || tab === 'movimientos') && (
           <div className="relative flex-1 w-full sm:w-auto">
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -496,6 +520,14 @@ export default function InventarioPage() {
         <div className="text-center py-20 text-slate-400">Cargando...</div>
       ) : tab === 'stock' ? (
         <div className="overflow-x-auto">
+          {inventarioCompartido && (
+            <div className="mb-3 inline-flex items-center gap-1.5 text-xs text-slate-400 bg-iados-card px-3 py-1.5 rounded-lg border border-slate-700">
+              <Layers size={12} />
+              Mostrando stock de: <span className="text-white font-semibold">
+                {tiendasEmpresaTodas.find(t => t.id === (isAdmin ? tiendaStockId : user?.tienda_id))?.nombre || 'tu tienda'}
+              </span>
+            </div>
+          )}
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-400 border-b border-slate-700">

@@ -15,8 +15,8 @@ export class InventarioController {
 
   @Get('stock')
   @Roles('superadmin', 'admin', 'manager', 'cajero')
-  listStock(@TenantScope() scope) {
-    return this.service.listStock(scope);
+  listStock(@TenantScope() scope, @Query('tienda_id') tiendaId?: string) {
+    return this.service.listStock(scope, tiendaId ? parseInt(tiendaId, 10) : undefined);
   }
 
   @Get('movimientos')
@@ -51,8 +51,8 @@ export class InventarioController {
   }
 
   @Get('csv/export')
-  async csvExport(@TenantScope() scope, @Res() res: Response) {
-    const csv = await this.service.exportCSV(scope);
+  async csvExport(@TenantScope() scope, @Res() res: Response, @Query('tienda_id') tiendaId?: string) {
+    const csv = await this.service.exportCSV(scope, tiendaId ? parseInt(tiendaId, 10) : undefined);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename=inventario_export.csv');
     res.send('\uFEFF' + csv);
@@ -60,8 +60,8 @@ export class InventarioController {
 
   @Post('csv/import')
   @UseInterceptors(FileInterceptor('file'))
-  csvImport(@UploadedFile() file: Express.Multer.File, @TenantScope() scope) {
-    return this.service.importCSV(file.buffer, scope);
+  csvImport(@UploadedFile() file: Express.Multer.File, @TenantScope() scope, @Query('tienda_id') tiendaId?: string) {
+    return this.service.importCSV(file.buffer, scope, tiendaId ? parseInt(tiendaId, 10) : undefined);
   }
 
   @Get('vista-general')

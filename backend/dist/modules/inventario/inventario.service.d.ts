@@ -8,7 +8,9 @@ export declare class InventarioService {
     private ptRepo;
     private empresasService;
     constructor(movRepo: Repository<MovimientoInventario>, prodRepo: Repository<Producto>, ptRepo: Repository<ProductoTienda>, empresasService: EmpresasService);
-    listStock(scope: any): Promise<Producto[]>;
+    private adminRoles;
+    private resolveTiendaId;
+    listStock(scope: any, tiendaIdOverride?: number): Promise<Producto[]>;
     getMovimientos(productoId: number, scope: any): Promise<MovimientoInventario[]>;
     listMovimientos(scope: any): Promise<MovimientoInventario[]>;
     registrarMovimiento(data: {
@@ -16,6 +18,7 @@ export declare class InventarioService {
         tipo: MovimientoTipo;
         cantidad: number;
         concepto?: string;
+        tienda_id?: number;
     }, scope: any): Promise<{
         movimiento: MovimientoInventario;
         stock_actual: number;
@@ -27,7 +30,7 @@ export declare class InventarioService {
     getCSVTemplate(): string;
     private decodeCSV;
     private detectDelimiter;
-    importCSV(buffer: Buffer, scope: any): Promise<{
+    importCSV(buffer: Buffer, scope: any, tiendaIdOverride?: number): Promise<{
         success: number;
         errors: any[];
         total: any;
@@ -56,5 +59,5 @@ export declare class InventarioService {
         }[];
     }>;
     listStockPorModulo(scope: any, modulo?: string): Promise<Producto[]>;
-    exportCSV(scope: any): Promise<string>;
+    exportCSV(scope: any, tiendaIdOverride?: number): Promise<string>;
 }

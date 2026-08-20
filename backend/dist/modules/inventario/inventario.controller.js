@@ -24,8 +24,8 @@ let InventarioController = class InventarioController {
     constructor(service) {
         this.service = service;
     }
-    listStock(scope) {
-        return this.service.listStock(scope);
+    listStock(scope, tiendaId) {
+        return this.service.listStock(scope, tiendaId ? parseInt(tiendaId, 10) : undefined);
     }
     listMovimientos(scope) {
         return this.service.listMovimientos(scope);
@@ -44,14 +44,14 @@ let InventarioController = class InventarioController {
         res.setHeader('Content-Disposition', 'attachment; filename=inventario_template.csv');
         res.send('\uFEFF' + this.service.getCSVTemplate());
     }
-    async csvExport(scope, res) {
-        const csv = await this.service.exportCSV(scope);
+    async csvExport(scope, res, tiendaId) {
+        const csv = await this.service.exportCSV(scope, tiendaId ? parseInt(tiendaId, 10) : undefined);
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader('Content-Disposition', 'attachment; filename=inventario_export.csv');
         res.send('\uFEFF' + csv);
     }
-    csvImport(file, scope) {
-        return this.service.importCSV(file.buffer, scope);
+    csvImport(file, scope, tiendaId) {
+        return this.service.importCSV(file.buffer, scope, tiendaId ? parseInt(tiendaId, 10) : undefined);
     }
     getVistaGeneral(scope) {
         return this.service.getVistaGeneral(scope);
@@ -65,8 +65,9 @@ __decorate([
     (0, common_1.Get)('stock'),
     (0, roles_decorator_1.Roles)('superadmin', 'admin', 'manager', 'cajero'),
     __param(0, (0, tenant_decorator_1.TenantScope)()),
+    __param(1, (0, common_1.Query)('tienda_id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], InventarioController.prototype, "listStock", null);
 __decorate([
@@ -116,8 +117,9 @@ __decorate([
     (0, common_1.Get)('csv/export'),
     __param(0, (0, tenant_decorator_1.TenantScope)()),
     __param(1, (0, common_1.Res)()),
+    __param(2, (0, common_1.Query)('tienda_id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:paramtypes", [Object, Object, String]),
     __metadata("design:returntype", Promise)
 ], InventarioController.prototype, "csvExport", null);
 __decorate([
@@ -125,8 +127,9 @@ __decorate([
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
     __param(0, (0, common_1.UploadedFile)()),
     __param(1, (0, tenant_decorator_1.TenantScope)()),
+    __param(2, (0, common_1.Query)('tienda_id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:paramtypes", [Object, Object, String]),
     __metadata("design:returntype", void 0)
 ], InventarioController.prototype, "csvImport", null);
 __decorate([
