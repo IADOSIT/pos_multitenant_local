@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { createColumnHelper, ColumnDef } from '@tanstack/react-table';
 import { materiaPrimaApi } from '../../api/endpoints';
 import toast from 'react-hot-toast';
 import { Beef, Download, Upload, Trash2, Search, RefreshCw, X, AlertTriangle, CheckCircle2, Plus, Edit2, Save } from 'lucide-react';
+import DataGrid from '../../components/ui/DataGrid';
 
 type Item = {
   id: number; sku: string; nombre: string; descripcion?: string; categoria?: string;
@@ -131,6 +133,73 @@ export default function MateriaPrimaPage() {
     bajoStock: items.filter(i => i.stock_minimo > 0 && i.stock_actual <= i.stock_minimo).length,
   };
 
+  const columnHelper = createColumnHelper<Item>();
+  const columns = useMemo<ColumnDef<Item, any>[]>(() => [
+    columnHelper.accessor('nombre', {
+      header: 'Nombre',
+      cell: ({ row }) => {
+        const p = row.original;
+        const low = p.stock_minimo > 0 && p.stock_actual <= p.stock_minimo;
+        return (
+          <div>
+            <div className="flex items-center gap-1.5 font-medium">
+              {p.nombre}
+              {low && <AlertTriangle size={14} className="text-red-400" />}
+            </div>
+            {p.descripcion && <div className="text-xs text-slate-500 truncate max-w-[200px]">{p.descripcion}</div>}
+          </div>
+        );
+      },
+    }),
+    columnHelper.accessor('sku', {
+      header: 'SKU',
+      cell: (info) => <span className="text-slate-400 font-mono text-xs">{info.getValue()}</span>,
+    }),
+    columnHelper.accessor('categoria', {
+      header: 'Categoria',
+      cell: (info) => <span className="text-xs px-2 py-0.5 bg-iados-card rounded-full text-slate-300">{info.getValue() || '-'}</span>,
+    }),
+    columnHelper.accessor('costo', {
+      header: 'Costo',
+      cell: (info) => <span>${Number(info.getValue() || 0).toFixed(2)}</span>,
+    }),
+    columnHelper.accessor('stock_actual', {
+      header: 'Stock',
+      cell: ({ row }) => {
+        const p = row.original;
+        const low = p.stock_minimo > 0 && p.stock_actual <= p.stock_minimo;
+        return <span className={`font-bold ${low ? 'text-red-400' : ''}`}>{p.stock_actual ?? 0}</span>;
+      },
+    }),
+    columnHelper.accessor('stock_minimo', {
+      header: 'Min',
+      cell: (info) => <span className="text-slate-500">{info.getValue() ?? 0}</span>,
+    }),
+    columnHelper.accessor('unidad', {
+      header: 'Unidad',
+      cell: (info) => <span className="text-slate-400">{info.getValue()}</span>,
+    }),
+    columnHelper.accessor('proveedor', {
+      header: 'Proveedor',
+      cell: (info) => <span className="text-slate-400 text-xs truncate max-w-[120px] block">{info.getValue() || '-'}</span>,
+    }),
+    columnHelper.display({
+      id: 'acciones',
+      header: '',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const p = row.original;
+        return (
+          <div className="flex items-center justify-center gap-1">
+            <button onClick={() => openEdit(p)} className="p-1 hover:bg-iados-card rounded text-slate-400 hover:text-white"><Edit2 size={14} /></button>
+            <button onClick={() => setDeleteConfirm(p)} className="p-1 hover:bg-red-900/30 rounded text-slate-500 hover:text-red-400"><Trash2 size={14} /></button>
+          </div>
+        );
+      },
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], []);
+
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
       {/* Acciones */}
@@ -225,57 +294,12 @@ export default function MateriaPrimaPage() {
       {loading ? (
         <div className="text-center py-16 text-slate-400">Cargando...</div>
       ) : items.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-slate-400 border-b border-slate-700">
-                <th className="pb-3 pl-2">Nombre</th>
-                <th className="pb-3">SKU</th>
-                <th className="pb-3">Categoria</th>
-                <th className="pb-3 text-right">Costo</th>
-                <th className="pb-3 text-right">Stock</th>
-                <th className="pb-3 text-right">Min</th>
-                <th className="pb-3">Unidad</th>
-                <th className="pb-3">Proveedor</th>
-                <th className="pb-3 text-center w-20"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(p => {
-                const low = p.stock_minimo > 0 && p.stock_actual <= p.stock_minimo;
-                return (
-                  <tr key={p.id} className={`border-b border-slate-800 hover:bg-iados-card/50 ${low ? 'bg-red-900/10' : ''}`}>
-                    <td className="py-2.5 pl-2 font-medium">
-                      <div className="flex items-center gap-1.5">
-                        {p.nombre}
-                        {low && <AlertTriangle size={14} className="text-red-400" />}
-                      </div>
-                      {p.descripcion && <div className="text-xs text-slate-500 truncate max-w-[200px]">{p.descripcion}</div>}
-                    </td>
-                    <td className="py-2.5 text-slate-400 font-mono text-xs">{p.sku}</td>
-                    <td className="py-2.5">
-                      <span className="text-xs px-2 py-0.5 bg-iados-card rounded-full text-slate-300">{p.categoria || '-'}</span>
-                    </td>
-                    <td className="py-2.5 text-right">${Number(p.costo || 0).toFixed(2)}</td>
-                    <td className={`py-2.5 text-right font-bold ${low ? 'text-red-400' : ''}`}>{p.stock_actual ?? 0}</td>
-                    <td className="py-2.5 text-right text-slate-500">{p.stock_minimo ?? 0}</td>
-                    <td className="py-2.5 text-slate-400">{p.unidad}</td>
-                    <td className="py-2.5 text-slate-400 text-xs truncate max-w-[120px]">{p.proveedor || '-'}</td>
-                    <td className="py-2.5 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <button onClick={() => openEdit(p)} className="p-1 hover:bg-iados-card rounded text-slate-400 hover:text-white"><Edit2 size={14} /></button>
-                        <button onClick={() => setDeleteConfirm(p)} className="p-1 hover:bg-red-900/30 rounded text-slate-500 hover:text-red-400"><Trash2 size={14} /></button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {filtered.length === 0 && search && (
-            <div className="text-center py-8 text-slate-500 text-sm">Sin resultados para "{search}"</div>
-          )}
-        </div>
+        <DataGrid
+          data={filtered}
+          columns={columns}
+          emptyMessage={search ? `Sin resultados para "${search}"` : 'Sin resultados'}
+          rowClassName={(p) => (p.stock_minimo > 0 && p.stock_actual <= p.stock_minimo ? 'bg-red-900/10' : '')}
+        />
       )}
 
       {/* Modal: Crear/Editar */}

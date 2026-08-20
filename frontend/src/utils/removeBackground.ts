@@ -10,7 +10,28 @@
 // no en el build) la primera vez que alguien de verdad usa el boton "Quitar fondo".
 const CDN_URL = 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/index.mjs';
 
+// El bundle ESM de @imgly/background-removal ya no incluye onnxruntime-web
+// (es un peerDependency): hace `import("onnxruntime-web")` con un specifier
+// "bare" que el navegador no puede resolver sin un import map — sin esto,
+// falla con "Failed to resolve module specifier 'onnxruntime-web'" pese a
+// que la URL del CDN cargue bien. Se inyecta una sola vez, antes del import
+// dinamico de la libreria, mapeando el specifier a su build ESM en jsdelivr
+// (version fija a la peerDependency que pide @imgly/background-removal@1.7.0).
+function ensureOnnxImportMap() {
+  if (document.querySelector('script[type="importmap"]')) return;
+  const im = document.createElement('script');
+  im.type = 'importmap';
+  im.textContent = JSON.stringify({
+    imports: {
+      'onnxruntime-web': 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/ort.bundle.min.mjs',
+      'onnxruntime-web/webgpu': 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/ort.webgpu.bundle.min.mjs',
+    },
+  });
+  document.head.prepend(im);
+}
+
 export async function removeBackgroundToWhite(source: string | File | Blob): Promise<File> {
+  ensureOnnxImportMap();
   const mod: any = await import(/* @vite-ignore */ CDN_URL);
   const cutout: Blob = await mod.removeBackground(source);
 

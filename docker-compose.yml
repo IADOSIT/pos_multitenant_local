@@ -41,7 +41,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260820-fix-cdn-remove-bg"
+        CACHE_BUST: "20260820-fix-onnx-importmap-datagrid"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

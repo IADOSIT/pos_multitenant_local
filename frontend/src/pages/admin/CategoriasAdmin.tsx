@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { createColumnHelper, ColumnDef } from '@tanstack/react-table';
 import { categoriasApi, productosApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
 import toast from 'react-hot-toast';
 import { Plus, Edit2, Trash2, Search, X, Image, ImagePlus } from 'lucide-react';
+import DataGrid from '../../components/ui/DataGrid';
 
 export default function CategoriasAdmin() {
   const [categorias, setCategorias] = useState<any[]>([]);
@@ -74,6 +76,46 @@ export default function CategoriasAdmin() {
     finally { setUploadingImage(false); if (imageFileRef.current) imageFileRef.current.value = ''; }
   };
 
+  const columnHelper = createColumnHelper<any>();
+  const columns = useMemo<ColumnDef<any, any>[]>(() => [
+    columnHelper.display({
+      id: 'img',
+      header: 'Img',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const c = row.original;
+        return c.imagen_url ? (
+          <img src={resolveUploadUrl(c.imagen_url)} alt={c.nombre} className="w-10 h-10 rounded-xl object-cover" />
+        ) : (
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm" style={{ backgroundColor: c.color || '#3b82f6' }}>
+            {c.nombre.charAt(0)}
+          </div>
+        );
+      },
+    }),
+    columnHelper.accessor('nombre', { header: 'Nombre' }),
+    columnHelper.accessor('orden', { header: 'Orden' }),
+    columnHelper.accessor((row) => (row.es_seccion_especial ? row.tipo_seccion : '-'), {
+      id: 'tipo_seccion',
+      header: 'Seccion especial',
+    }),
+    columnHelper.display({
+      id: 'acciones',
+      header: '',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const c = row.original;
+        return (
+          <div className="flex gap-1">
+            <button onClick={() => handleEdit(c)} className="p-2 hover:bg-iados-card rounded-lg"><Edit2 size={16} className="text-slate-500" /></button>
+            <button onClick={() => setDeleteConfirm(c)} className="p-2 hover:bg-red-900/50 rounded-lg text-red-400"><Trash2 size={16} /></button>
+          </div>
+        );
+      },
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], []);
+
   return (
     <div className="p-4 max-w-4xl mx-auto">
       <div className="flex items-center justify-end mb-4">
@@ -82,25 +124,7 @@ export default function CategoriasAdmin() {
         </button>
       </div>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {categorias.map((c) => (
-          <div key={c.id} className="card flex items-center gap-3">
-            {c.imagen_url ? (
-              <img src={resolveUploadUrl(c.imagen_url)} alt={c.nombre} className="w-12 h-12 rounded-xl object-cover" />
-            ) : (
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold" style={{ backgroundColor: c.color || '#3b82f6' }}>
-                {c.nombre.charAt(0)}
-              </div>
-            )}
-            <div className="flex-1 cursor-pointer" onClick={() => handleEdit(c)}>
-              <p className="font-medium">{c.nombre}</p>
-              <p className="text-xs text-slate-400">Orden: {c.orden} {c.es_seccion_especial && `| ${c.tipo_seccion}`}</p>
-            </div>
-            <button onClick={() => handleEdit(c)} className="p-2 hover:bg-iados-card rounded-lg"><Edit2 size={16} className="text-slate-500" /></button>
-            <button onClick={() => setDeleteConfirm(c)} className="p-2 hover:bg-red-900/50 rounded-lg text-red-400"><Trash2 size={16} /></button>
-          </div>
-        ))}
-      </div>
+      <DataGrid data={categorias} columns={columns} emptyMessage="No hay categorias" />
 
       {/* Modal Formulario */}
       {showForm && (
