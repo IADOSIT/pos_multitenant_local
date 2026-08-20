@@ -41,7 +41,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260820-ayuda-pos-por-rubro"
+        CACHE_BUST: "20260820-inventario-precios-multimoneda"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

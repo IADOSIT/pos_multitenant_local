@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { inventarioApi, transferenciasApi, tiendasApi, empresasApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
 import { useAuthStore } from '../../store/auth.store';
+import { formatMonto, MonedaConfig } from '../../utils/moneda';
 import toast from 'react-hot-toast';
 import {
   Warehouse, Search, Plus, ArrowDownToLine, ArrowUpFromLine, RefreshCw,
@@ -69,6 +70,7 @@ export default function InventarioPage() {
   // Inventario compartido / transferencias — config de la empresa
   const [inventarioCompartido, setInventarioCompartido] = useState(false);
   const [transferenciasActivo, setTransferenciasActivo] = useState(false);
+  const [moneda, setMoneda] = useState<MonedaConfig | undefined>(undefined);
   const [tiendasEmpresa, setTiendasEmpresa] = useState<{ id: number; nombre: string }[]>([]);
 
   // Transferencias directas entre tiendas
@@ -87,6 +89,7 @@ export default function InventarioPage() {
       const cfg = data?.config_especial || {};
       setInventarioCompartido(cfg.inventario_compartido === true);
       setTransferenciasActivo(cfg.transferencias_activo === true);
+      setMoneda(cfg.moneda?.activa ? cfg.moneda : undefined);
     }).catch(() => {});
     tiendasApi.list().then(({ data }) => {
       setTiendasEmpresa((data || []).filter((t: any) => t.empresa_id === user.empresa_id && t.id !== user.tienda_id));
@@ -464,8 +467,8 @@ export default function InventarioPage() {
                         {p.controla_stock ? 'Si' : 'No'}
                       </span>
                     </td>
-                    <td className="py-3 text-right text-slate-400">${Number(p.costo || 0).toFixed(2)}</td>
-                    <td className="py-3 text-right">${Number(p.precio).toFixed(2)}</td>
+                    <td className="py-3 text-right text-slate-400 whitespace-nowrap">{formatMonto(Number(p.costo || 0), moneda)}</td>
+                    <td className="py-3 text-right whitespace-nowrap">{formatMonto(Number(p.precio || 0), moneda)}</td>
                     <td className="py-3 text-center">
                       <div className="flex items-center justify-center gap-1">
                         <button onClick={() => openMovModal(p)} className="p-1.5 hover:bg-iados-primary/20 rounded-lg text-iados-primary" title="Registrar movimiento">
