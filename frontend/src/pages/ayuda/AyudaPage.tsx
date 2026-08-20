@@ -6,6 +6,7 @@ import {
   Scale, Barcode, MessageCircle, Truck, Layers, ClipboardList, Warehouse,
   FileBarChart, CreditCard, ShoppingCart, Settings, LucideIcon,
 } from 'lucide-react';
+import { usePageHeader } from '../../store/pageHeader.store';
 
 type RubroId = 'general' | 'restaurante' | 'abarrotes' | 'albercas' | 'ferreteria' | 'frutas';
 
@@ -226,19 +227,12 @@ function ConfigGrid({ items }: { items: ConfigHighlight[] }) {
 }
 
 export default function AyudaPage() {
+  usePageHeader({ title: 'Ayuda', subtitle: 'Cómo usar el sistema y qué configurar según tu tipo de negocio', icon: HelpCircle });
   const [activo, setActivo] = useState<RubroId>('general');
   const rubro = RUBROS.find(r => r.id === activo)!;
 
   return (
     <div className="p-4 space-y-6 max-w-5xl">
-      <div className="flex items-center gap-3">
-        <HelpCircle size={22} className="text-iados-primary" />
-        <div>
-          <h1 className="text-xl font-bold">Ayuda</h1>
-          <p className="text-sm text-slate-400">Cómo usar el sistema y qué configurar según tu tipo de negocio.</p>
-        </div>
-      </div>
-
       <div className="flex flex-wrap gap-1 border-b border-slate-700">
         {RUBROS.map(r => {
           const Icon = r.icon;

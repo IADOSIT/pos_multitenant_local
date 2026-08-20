@@ -30,7 +30,7 @@ const nextEstado: Record<string, string> = {
 import { usePageHeader } from '../../store/pageHeader.store';
 
 export default function PedidosPage() {
-  usePageHeader({ title: 'Pedidos', subtitle: 'Pedidos web y de mostrador' });
+  usePageHeader({ title: 'Pedidos', subtitle: 'Pedidos web y de mostrador', icon: ClipboardList });
   const { user } = useAuthStore();
   const { cajaActiva, setCajaActiva } = usePOSStore();
   const [checkingCaja, setCheckingCaja] = useState(true);
@@ -364,8 +364,7 @@ export default function PedidosPage() {
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><ClipboardList size={24} /> Pedidos</h1>
+      <div className="flex items-center justify-end mb-4">
         <button onClick={load} className="btn-secondary text-sm"><RefreshCw size={16} className="mr-1" />Actualizar</button>
       </div>
 

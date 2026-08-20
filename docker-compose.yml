@@ -41,7 +41,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260820-quitar-titulos-redundantes"
+        CACHE_BUST: "20260820-titulos-redundantes-pedidos-ayuda"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:
