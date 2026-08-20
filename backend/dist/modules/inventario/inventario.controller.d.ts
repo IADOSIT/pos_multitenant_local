@@ -19,17 +19,27 @@ export declare class InventarioController {
         total: any;
     }>;
     getVistaGeneral(scope: any): Promise<{
-        id: number;
-        sku: string;
-        nombre: string;
-        stock_minimo: number;
-        unidad: string;
-        stock_total: number;
-        por_tienda: {
-            tienda_id: number;
-            tienda_nombre: string;
-            stock: number;
+        tiendas: {
+            id: number;
+            nombre: string;
         }[];
-    }[]>;
+        productos: {
+            id: number;
+            sku: string;
+            nombre: string;
+            stock_minimo: number;
+            unidad: string;
+            precio: number;
+            stock_total: number;
+            por_tienda: {
+                tienda_id: number;
+                tienda_nombre: string;
+                stock: number;
+                precio: number;
+            }[];
+            categoria_id: number;
+            categoria_nombre: string;
+        }[];
+    }>;
     listStockPorModulo(scope: any, modulo?: string): Promise<import("../productos/producto.entity").Producto[]>;
 }

@@ -219,35 +219,56 @@ let InventarioService = class InventarioService {
         if (!inventario_compartido) {
             throw new common_1.BadRequestException('El inventario compartido no esta habilitado para esta empresa');
         }
+        const tiendas = await this.ptRepo.manager.query('SELECT id, nombre FROM tiendas WHERE empresa_id = ? AND activo = 1 ORDER BY id ASC', [scope.empresa_id]);
         const productos = await this.prodRepo.find({
-            where: { tenant_id: scope.tenant_id, empresa_id: scope.empresa_id, activo: true, controla_stock: true },
-            select: ['id', 'sku', 'nombre', 'stock_minimo', 'unidad'],
-            order: { nombre: 'ASC' },
+            where: { tenant_id: scope.tenant_id, empresa_id: scope.empresa_id, activo: true },
+            select: ['id', 'sku', 'nombre', 'stock_minimo', 'unidad', 'precio', 'categoria_id'],
+            order: { orden: 'ASC', nombre: 'ASC' },
         });
-        if (productos.length === 0)
-            return [];
-        const rows = await this.ptRepo.createQueryBuilder('pt')
-            .innerJoin('tiendas', 't', 't.id = pt.tienda_id')
-            .where('pt.producto_id IN (:...ids)', { ids: productos.map((p) => p.id) })
-            .andWhere('t.empresa_id = :eid', { eid: scope.empresa_id })
-            .andWhere('t.activo = 1')
-            .select(['pt.producto_id AS producto_id', 'pt.tienda_id AS tienda_id', 't.nombre AS tienda_nombre', 'pt.stock AS stock'])
-            .getRawMany();
-        const porProducto = new Map();
-        for (const r of rows) {
-            const list = porProducto.get(Number(r.producto_id)) || [];
-            list.push({ tienda_id: Number(r.tienda_id), tienda_nombre: r.tienda_nombre, stock: Number(r.stock) });
-            porProducto.set(Number(r.producto_id), list);
+        if (productos.length === 0 || tiendas.length === 0)
+            return { tiendas, productos: [] };
+        const categoriaIds = [...new Set(productos.map((p) => p.categoria_id).filter(Boolean))];
+        const categorias = categoriaIds.length
+            ? await this.ptRepo.manager.query(`SELECT id, nombre, orden FROM categorias WHERE id IN (${categoriaIds.map(() => '?').join(',')}) ORDER BY orden ASC, nombre ASC`, categoriaIds)
+            : [];
+        const catMap = new Map(categorias.map((c) => [c.id, c.nombre]));
+        const catOrdenMap = new Map(categorias.map((c, idx) => [c.id, idx]));
+        const tiendaIds = tiendas.map((t) => t.id);
+        const ptRows = await this.ptRepo.find({
+            where: { producto_id: (0, typeorm_2.In)(productos.map((p) => p.id)), tienda_id: (0, typeorm_2.In)(tiendaIds) },
+        });
+        const ptMap = new Map();
+        for (const pt of ptRows) {
+            ptMap.set(`${pt.producto_id}:${pt.tienda_id}`, {
+                stock: Number(pt.stock),
+                precio_local: pt.precio_local != null ? Number(pt.precio_local) : null,
+            });
         }
-        return productos.map((p) => {
-            const porTienda = porProducto.get(p.id) || [];
+        const result = productos.map((p) => {
+            const precioBase = Number(p.precio);
+            const porTienda = tiendas.map((t) => {
+                const row = ptMap.get(`${p.id}:${t.id}`);
+                return {
+                    tienda_id: t.id,
+                    tienda_nombre: t.nombre,
+                    stock: row?.stock ?? 0,
+                    precio: row?.precio_local ?? precioBase,
+                };
+            });
             const stockTotal = porTienda.reduce((sum, t) => sum + t.stock, 0);
             return {
-                id: p.id, sku: p.sku, nombre: p.nombre, stock_minimo: p.stock_minimo, unidad: p.unidad,
-                stock_total: stockTotal,
-                por_tienda: porTienda,
+                id: p.id, sku: p.sku, nombre: p.nombre, stock_minimo: Number(p.stock_minimo || 0), unidad: p.unidad,
+                precio: precioBase, stock_total: stockTotal, por_tienda: porTienda,
+                categoria_id: p.categoria_id || 0,
+                categoria_nombre: p.categoria_id ? (catMap.get(p.categoria_id) || 'Sin categoria') : 'Sin categoria',
             };
         });
+        result.sort((a, b) => {
+            const oa = catOrdenMap.get(a.categoria_id) ?? 9999;
+            const ob = catOrdenMap.get(b.categoria_id) ?? 9999;
+            return oa - ob;
+        });
+        return { tiendas, productos: result };
     }
     async listStockPorModulo(scope, modulo) {
         const where = {

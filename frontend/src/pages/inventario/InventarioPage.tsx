@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { inventarioApi, transferenciasApi, tiendasApi, empresasApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
 import { useAuthStore } from '../../store/auth.store';
@@ -34,10 +34,13 @@ type Transferencia = {
   created_at: string; recibido_at: string;
 };
 
+type VistaGeneralTienda = { id: number; nombre: string };
 type VistaGeneralItem = {
-  id: number; sku: string; nombre: string; stock_minimo: number; unidad: string;
-  stock_total: number; por_tienda: { tienda_id: number; tienda_nombre: string; stock: number }[];
+  id: number; sku: string; nombre: string; stock_minimo: number; unidad: string; precio: number;
+  stock_total: number; por_tienda: { tienda_id: number; tienda_nombre: string; stock: number; precio: number }[];
+  categoria_id: number; categoria_nombre: string;
 };
+type VistaGeneralOrden = 'nombre' | 'stock_desc' | 'stock_asc';
 
 const TRANSF_ESTADO_LABEL: Record<string, { label: string; color: string }> = {
   pendiente: { label: 'Pendiente', color: 'text-yellow-400' },
@@ -83,6 +86,9 @@ export default function InventarioPage() {
 
   // Vista general (total empresa + desglose por tienda)
   const [vistaGeneral, setVistaGeneral] = useState<VistaGeneralItem[]>([]);
+  const [vistaGeneralTiendas, setVistaGeneralTiendas] = useState<VistaGeneralTienda[]>([]);
+  const [searchGeneral, setSearchGeneral] = useState('');
+  const [ordenGeneral, setOrdenGeneral] = useState<VistaGeneralOrden>('nombre');
 
   // Agregado por tienda para la pestaña Grafica: cuantos SKUs distintos tienen
   // stock > 0 y cuantas unidades totales suma cada tienda, a partir de la misma
@@ -136,10 +142,32 @@ export default function InventarioPage() {
     setLoading(true);
     try {
       const { data } = await inventarioApi.vistaGeneral();
-      setVistaGeneral(data || []);
+      setVistaGeneral(data?.productos || []);
+      setVistaGeneralTiendas(data?.tiendas || []);
     } catch (e: any) { toast.error(e.response?.data?.message || 'Error al cargar vista general'); }
     setLoading(false);
   };
+
+  const filteredGeneral = vistaGeneral
+    .filter(item => item.nombre.toLowerCase().includes(searchGeneral.toLowerCase()) || item.sku?.toLowerCase().includes(searchGeneral.toLowerCase()))
+    .sort((a, b) => {
+      if (ordenGeneral === 'stock_desc') return b.stock_total - a.stock_total;
+      if (ordenGeneral === 'stock_asc') return a.stock_total - b.stock_total;
+      return 0; // 'nombre': ya viene ordenado del backend (orden de catalogo + nombre)
+    });
+
+  // Agrupa por categoria conservando el orden en que ya vienen (backend ordena por
+  // categorias.orden). Al ordenar por stock, cada grupo se reordena internamente pero
+  // las categorias en si mantienen su posicion relativa de aparicion.
+  const gruposGeneral = (() => {
+    const map = new Map<number, { categoria_id: number; categoria_nombre: string; items: VistaGeneralItem[] }>();
+    for (const item of filteredGeneral) {
+      const g = map.get(item.categoria_id) || { categoria_id: item.categoria_id, categoria_nombre: item.categoria_nombre, items: [] };
+      g.items.push(item);
+      map.set(item.categoria_id, g);
+    }
+    return Array.from(map.values());
+  })();
 
   const abrirTransferModal = (producto_id?: number) => {
     setTransferForm({ tienda_destino_id: tiendasEmpresa[0]?.id || 0, producto_id: producto_id || 0, cantidad: '', notas: '' });
@@ -419,12 +447,12 @@ export default function InventarioPage() {
               )}
             </button>
           )}
-          {inventarioCompartido && (
+          {inventarioCompartido && isAdmin && (
             <button onClick={() => setTab('general')} className={`px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1.5 ${tab === 'general' ? 'bg-iados-primary text-white' : 'text-slate-400 hover:text-white'}`}>
               <Layers size={14} /> General
             </button>
           )}
-          {inventarioCompartido && (
+          {inventarioCompartido && isAdmin && (
             <button onClick={() => setTab('grafica')} className={`px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1.5 ${tab === 'grafica' ? 'bg-iados-primary text-white' : 'text-slate-400 hover:text-white'}`}>
               <BarChart3 size={14} /> Grafica
             </button>
@@ -439,6 +467,26 @@ export default function InventarioPage() {
               className="w-full pl-10 pr-4 py-2 bg-iados-card rounded-xl border border-slate-700 focus:border-iados-primary outline-none text-sm"
             />
           </div>
+        )}
+        {tab === 'general' && (
+          <>
+            <div className="relative flex-1 w-full sm:w-auto">
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={searchGeneral} onChange={e => setSearchGeneral(e.target.value)}
+                placeholder="Buscar producto o SKU..."
+                className="w-full pl-10 pr-4 py-2 bg-iados-card rounded-xl border border-slate-700 focus:border-iados-primary outline-none text-sm"
+              />
+            </div>
+            <select
+              value={ordenGeneral} onChange={e => setOrdenGeneral(e.target.value as VistaGeneralOrden)}
+              className="px-3 py-2 bg-iados-card rounded-xl border border-slate-700 focus:border-iados-primary outline-none text-sm text-slate-300"
+            >
+              <option value="nombre">Ordenar: catalogo</option>
+              <option value="stock_desc">Ordenar: stock total (mayor a menor)</option>
+              <option value="stock_asc">Ordenar: stock total (menor a mayor)</option>
+            </select>
+          </>
         )}
         <button onClick={load} className="p-2 text-slate-400 hover:text-white"><RefreshCw size={18} /></button>
       </div>
@@ -609,35 +657,51 @@ export default function InventarioPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-400 border-b border-slate-700">
-                <th className="pb-3 pl-2">Producto</th>
-                <th className="pb-3">SKU</th>
-                <th className="pb-3 text-right">Stock total</th>
-                <th className="pb-3">Por tienda</th>
+                <th className="pb-2 pl-2">Producto</th>
+                <th className="pb-2">SKU</th>
+                <th className="pb-2 text-right">Total</th>
+                {vistaGeneralTiendas.map(t => (
+                  <th key={t.id} className="pb-2 text-right whitespace-nowrap">
+                    <div>{t.nombre}</div>
+                    <div className="text-[10px] font-normal text-slate-500 normal-case">stock · precio</div>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {vistaGeneral.map(item => (
-                <tr key={item.id} className="border-b border-slate-800">
-                  <td className="py-3 pl-2">{item.nombre}</td>
-                  <td className="py-3 text-slate-400">{item.sku}</td>
-                  <td className={`py-3 text-right font-bold ${item.stock_total <= item.stock_minimo ? 'text-red-400' : ''}`}>
-                    {item.stock_total} {item.unidad}
-                  </td>
-                  <td className="py-3">
-                    <div className="flex flex-wrap gap-1.5">
-                      {item.por_tienda.map(pt => (
-                        <span key={pt.tienda_id} className="text-xs bg-slate-700/50 rounded-full px-2 py-0.5 whitespace-nowrap">
-                          {pt.tienda_nombre}: <span className="font-semibold">{pt.stock}</span>
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                </tr>
+              {gruposGeneral.map(grupo => (
+                <React.Fragment key={grupo.categoria_id}>
+                  <tr className="bg-iados-card/60">
+                    <td colSpan={3 + vistaGeneralTiendas.length} className="py-1.5 pl-2 text-xs font-semibold text-slate-300 uppercase tracking-wide">
+                      {grupo.categoria_nombre} <span className="text-slate-500 font-normal normal-case">({grupo.items.length})</span>
+                    </td>
+                  </tr>
+                  {grupo.items.map(item => (
+                    <tr key={item.id} className="border-b border-slate-800">
+                      <td className="py-2 pl-2">{item.nombre}</td>
+                      <td className="py-2 text-slate-400">{item.sku}</td>
+                      <td className={`py-2 text-right font-bold whitespace-nowrap ${item.stock_total <= item.stock_minimo ? 'text-red-400' : ''}`}>
+                        {item.stock_total} {item.unidad}
+                      </td>
+                      {vistaGeneralTiendas.map(t => {
+                        const pt = item.por_tienda.find(x => x.tienda_id === t.id);
+                        return (
+                          <td key={t.id} className="py-2 text-right whitespace-nowrap">
+                            <span className="font-semibold">{pt?.stock ?? 0}</span>
+                            <span className="text-xs text-slate-400 ml-1.5">{formatMonto(pt?.precio ?? 0, moneda)}</span>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </React.Fragment>
               ))}
             </tbody>
           </table>
-          {vistaGeneral.length === 0 && (
-            <div className="text-center py-12 text-slate-500">No hay productos con inventario compartido</div>
+          {filteredGeneral.length === 0 && (
+            <div className="text-center py-12 text-slate-500">
+              {vistaGeneral.length === 0 ? 'No hay productos con inventario compartido' : 'Sin resultados para tu busqueda'}
+            </div>
           )}
         </div>
       ) : (
