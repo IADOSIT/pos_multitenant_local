@@ -19,6 +19,7 @@ const typeorm_2 = require("typeorm");
 const ecommerce_config_entity_1 = require("./ecommerce-config.entity");
 const ecommerce_pedido_entity_1 = require("./ecommerce-pedido.entity");
 const ecommerce_producto_config_entity_1 = require("./ecommerce-producto-config.entity");
+const cliente_entity_1 = require("./cliente.entity");
 const campos_formulario_helper_1 = require("../empresas/campos-formulario.helper");
 const MAX_REINTENTOS_NUMERO = 4;
 function esDuplicado(e) {
@@ -38,10 +39,11 @@ function slugify(text) {
         .slice(0, 63);
 }
 let EcommerceService = class EcommerceService {
-    constructor(configRepo, pedidoRepo, productoConfigRepo) {
+    constructor(configRepo, pedidoRepo, productoConfigRepo, clienteRepo) {
         this.configRepo = configRepo;
         this.pedidoRepo = pedidoRepo;
         this.productoConfigRepo = productoConfigRepo;
+        this.clienteRepo = clienteRepo;
     }
     async getConfig(scope) {
         return this.configRepo.findOne({ where: { empresa_id: scope.empresa_id } });
@@ -345,10 +347,14 @@ let EcommerceService = class EcommerceService {
                 subtotal: itemSubtotal,
             });
         }
+        const cliente = cliente_email?.trim()
+            ? await this.upsertCliente(config.empresa_id, config.tenant_id, cliente_email, cliente_nombre, cliente_tel)
+            : null;
         const yy = new Date().getFullYear().toString().slice(-2);
         const nuevoPedido = (numero_pedido) => this.pedidoRepo.create({
             empresa_id: config.empresa_id,
             tenant_id: config.tenant_id,
+            cliente_id: cliente?.id ?? null,
             numero_pedido,
             tipo_venta: esMayoreo ? 'mayoreo' : 'menudeo',
             cliente_nombre,
@@ -389,6 +395,53 @@ let EcommerceService = class EcommerceService {
             estado: 'pendiente',
         };
     }
+    async upsertCliente(empresa_id, tenant_id, email, nombre, telefono) {
+        const emailNorm = email.trim().toLowerCase();
+        let cliente = await this.clienteRepo.findOne({ where: { empresa_id, email: emailNorm } });
+        if (cliente) {
+            if (nombre?.trim())
+                cliente.nombre = nombre.trim();
+            if (telefono?.trim())
+                cliente.telefono = telefono.trim();
+            return this.clienteRepo.save(cliente);
+        }
+        try {
+            cliente = this.clienteRepo.create({
+                empresa_id,
+                tenant_id,
+                email: emailNorm,
+                nombre: nombre?.trim() || emailNorm,
+                telefono: telefono?.trim() || undefined,
+            });
+            return await this.clienteRepo.save(cliente);
+        }
+        catch (e) {
+            if (!esDuplicado(e))
+                throw e;
+            return this.clienteRepo.findOneOrFail({ where: { empresa_id, email: emailNorm } });
+        }
+    }
+    async getHistorialPedidos(subdominio, email, tel, dataSource) {
+        const emailNorm = email?.trim().toLowerCase();
+        if (!emailNorm)
+            throw new common_1.BadRequestException('Ingresa tu correo para consultar tus pedidos');
+        const config = await this.getConfigBySubdominio(subdominio);
+        const qb = this.pedidoRepo.createQueryBuilder('p')
+            .where('p.empresa_id = :eid', { eid: config.empresa_id })
+            .andWhere('LOWER(p.cliente_email) = :email', { email: emailNorm })
+            .orderBy('p.created_at', 'DESC');
+        if (tel?.trim())
+            qb.andWhere('p.cliente_tel = :tel', { tel: tel.trim() });
+        const pedidos = await qb.getMany();
+        return pedidos.map((p) => ({
+            numero_pedido: p.numero_pedido,
+            estado: p.estado,
+            tipo_venta: p.tipo_venta,
+            total: p.total,
+            items_count: (p.items || []).reduce((s, it) => s + (it.qty || 0), 0),
+            created_at: p.created_at,
+        }));
+    }
     async getPublicPedido(subdominio, numero_pedido, dataSource) {
         const config = await this.getConfigBySubdominio(subdominio);
         const pedido = await this.pedidoRepo.findOne({ where: { numero_pedido, empresa_id: config.empresa_id } });
@@ -418,7 +471,9 @@ exports.EcommerceService = EcommerceService = __decorate([
     __param(0, (0, typeorm_1.InjectRepository)(ecommerce_config_entity_1.EcommerceConfig)),
     __param(1, (0, typeorm_1.InjectRepository)(ecommerce_pedido_entity_1.EcommercePedido)),
     __param(2, (0, typeorm_1.InjectRepository)(ecommerce_producto_config_entity_1.EcommerceProductoConfig)),
+    __param(3, (0, typeorm_1.InjectRepository)(cliente_entity_1.Cliente)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository])
 ], EcommerceService);

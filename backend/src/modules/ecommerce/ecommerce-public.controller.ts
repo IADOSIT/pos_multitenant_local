@@ -39,4 +39,9 @@ export class EcommercePublicController {
   trackPedido(@Param('subdominio') sub: string, @Param('numero') numero: string) {
     return this.service.getPublicPedido(sub, numero, this.dataSource);
   }
+
+  @Post(':subdominio/mis-pedidos')
+  historialPedidos(@Param('subdominio') sub: string, @Body() body: { email: string; tel?: string }) {
+    return this.service.getHistorialPedidos(sub, body.email, body.tel, this.dataSource);
+  }
 }

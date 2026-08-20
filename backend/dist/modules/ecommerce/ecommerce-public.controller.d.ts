@@ -60,4 +60,15 @@ export declare class EcommercePublicController {
         notas_cliente: string;
         created_at: Date;
     }>;
+    historialPedidos(sub: string, body: {
+        email: string;
+        tel?: string;
+    }): Promise<{
+        numero_pedido: string;
+        estado: string;
+        tipo_venta: "menudeo" | "mayoreo";
+        total: number;
+        items_count: any;
+        created_at: Date;
+    }[]>;
 }

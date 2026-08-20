@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { EcommerceConfig } from './ecommerce-config.entity';
 import { EcommercePedido } from './ecommerce-pedido.entity';
 import { EcommerceProductoConfig } from './ecommerce-producto-config.entity';
+import { Cliente } from './cliente.entity';
 import { resolveCamposFormulario } from '../empresas/campos-formulario.helper';
 
 // Reintentos al generar el consecutivo del pedido cuando otro pedido concurrente
@@ -39,6 +40,8 @@ export class EcommerceService {
     private pedidoRepo: Repository<EcommercePedido>,
     @InjectRepository(EcommerceProductoConfig)
     private productoConfigRepo: Repository<EcommerceProductoConfig>,
+    @InjectRepository(Cliente)
+    private clienteRepo: Repository<Cliente>,
   ) {}
 
   // ─── CONFIG ADMIN ────────────────────────────────────────────────────────────
@@ -390,6 +393,10 @@ export class EcommerceService {
       });
     }
 
+    const cliente = cliente_email?.trim()
+      ? await this.upsertCliente(config.empresa_id, config.tenant_id, cliente_email, cliente_nombre, cliente_tel)
+      : null;
+
     // Generar número de pedido EP-YY-NNNN. El consecutivo es POR EMPRESA y la
     // unicidad en BD tambien lo es (UNIQUE empresa_id + numero_pedido); si dos
     // pedidos concurrentes de la misma tienda calculan el mismo numero, se
@@ -400,6 +407,7 @@ export class EcommerceService {
       this.pedidoRepo.create({
         empresa_id: config.empresa_id,
         tenant_id: config.tenant_id,
+        cliente_id: cliente?.id ?? null,
         numero_pedido,
         tipo_venta: esMayoreo ? 'mayoreo' : 'menudeo',
         cliente_nombre,
@@ -442,6 +450,65 @@ export class EcommerceService {
       tipo_venta: pedido.tipo_venta,
       estado: 'pendiente',
     };
+  }
+
+  // Alta/actualizacion silenciosa del cliente al hacer un pedido, para poder
+  // luego listar su historial por correo. email unico por empresa; si dos
+  // pedidos concurrentes del mismo correo chocan al crear, se reintenta como
+  // update (el otro ya gano la insercion).
+  private async upsertCliente(
+    empresa_id: number,
+    tenant_id: number,
+    email: string,
+    nombre: string,
+    telefono?: string,
+  ): Promise<Cliente> {
+    const emailNorm = email.trim().toLowerCase();
+    let cliente = await this.clienteRepo.findOne({ where: { empresa_id, email: emailNorm } });
+    if (cliente) {
+      if (nombre?.trim()) cliente.nombre = nombre.trim();
+      if (telefono?.trim()) cliente.telefono = telefono.trim();
+      return this.clienteRepo.save(cliente);
+    }
+    try {
+      cliente = this.clienteRepo.create({
+        empresa_id,
+        tenant_id,
+        email: emailNorm,
+        nombre: nombre?.trim() || emailNorm,
+        telefono: telefono?.trim() || undefined,
+      });
+      return await this.clienteRepo.save(cliente);
+    } catch (e: any) {
+      if (!esDuplicado(e)) throw e;
+      return this.clienteRepo.findOneOrFail({ where: { empresa_id, email: emailNorm } });
+    }
+  }
+
+  // Historial de pedidos del cliente en la tienda, sin cuenta/password: se
+  // identifica con el correo (obligatorio) que uso al comprar, y opcionalmente
+  // el telefono para acotar mas. No expone pedidos de otros clientes porque
+  // siempre filtra por empresa_id + cliente_email exacto.
+  async getHistorialPedidos(subdominio: string, email: string, tel: string | undefined, dataSource: any) {
+    const emailNorm = email?.trim().toLowerCase();
+    if (!emailNorm) throw new BadRequestException('Ingresa tu correo para consultar tus pedidos');
+    const config = await this.getConfigBySubdominio(subdominio);
+
+    const qb = this.pedidoRepo.createQueryBuilder('p')
+      .where('p.empresa_id = :eid', { eid: config.empresa_id })
+      .andWhere('LOWER(p.cliente_email) = :email', { email: emailNorm })
+      .orderBy('p.created_at', 'DESC');
+    if (tel?.trim()) qb.andWhere('p.cliente_tel = :tel', { tel: tel.trim() });
+
+    const pedidos = await qb.getMany();
+    return pedidos.map((p) => ({
+      numero_pedido: p.numero_pedido,
+      estado: p.estado,
+      tipo_venta: p.tipo_venta,
+      total: p.total,
+      items_count: (p.items || []).reduce((s: number, it: any) => s + (it.qty || 0), 0),
+      created_at: p.created_at,
+    }));
   }
 
   async getPublicPedido(subdominio: string, numero_pedido: string, dataSource: any) {

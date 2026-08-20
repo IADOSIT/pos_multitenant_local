@@ -2,6 +2,7 @@ export declare class EcommercePedido {
     id: number;
     empresa_id: number;
     tenant_id: number;
+    cliente_id: number | null;
     numero_pedido: string;
     tipo_venta: 'menudeo' | 'mayoreo';
     cliente_nombre: string;

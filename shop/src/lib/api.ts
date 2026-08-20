@@ -43,3 +43,16 @@ export async function fetchPedido(subdominio: string, numero: string) {
   if (!res.ok) return null
   return res.json()
 }
+
+export async function fetchMisPedidos(subdominio: string, email: string, tel?: string) {
+  const res = await fetch(`${BACKEND}/public/tienda/${subdominio}/mis-pedidos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, tel }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.message || 'Error al consultar tus pedidos')
+  }
+  return res.json()
+}

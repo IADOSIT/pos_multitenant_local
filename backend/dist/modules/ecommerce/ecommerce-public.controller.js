@@ -40,6 +40,9 @@ let EcommercePublicController = class EcommercePublicController {
     trackPedido(sub, numero) {
         return this.service.getPublicPedido(sub, numero, this.dataSource);
     }
+    historialPedidos(sub, body) {
+        return this.service.getHistorialPedidos(sub, body.email, body.tel, this.dataSource);
+    }
 };
 exports.EcommercePublicController = EcommercePublicController;
 __decorate([
@@ -88,6 +91,14 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", void 0)
 ], EcommercePublicController.prototype, "trackPedido", null);
+__decorate([
+    (0, common_1.Post)(':subdominio/mis-pedidos'),
+    __param(0, (0, common_1.Param)('subdominio')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], EcommercePublicController.prototype, "historialPedidos", null);
 exports.EcommercePublicController = EcommercePublicController = __decorate([
     (0, common_1.Controller)('public/tienda'),
     __param(1, (0, typeorm_1.InjectDataSource)()),

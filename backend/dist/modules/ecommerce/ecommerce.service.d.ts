@@ -2,11 +2,13 @@ import { Repository } from 'typeorm';
 import { EcommerceConfig } from './ecommerce-config.entity';
 import { EcommercePedido } from './ecommerce-pedido.entity';
 import { EcommerceProductoConfig } from './ecommerce-producto-config.entity';
+import { Cliente } from './cliente.entity';
 export declare class EcommerceService {
     private configRepo;
     private pedidoRepo;
     private productoConfigRepo;
-    constructor(configRepo: Repository<EcommerceConfig>, pedidoRepo: Repository<EcommercePedido>, productoConfigRepo: Repository<EcommerceProductoConfig>);
+    private clienteRepo;
+    constructor(configRepo: Repository<EcommerceConfig>, pedidoRepo: Repository<EcommercePedido>, productoConfigRepo: Repository<EcommerceProductoConfig>, clienteRepo: Repository<Cliente>);
     getConfig(scope: any): Promise<EcommerceConfig | null>;
     upsertConfig(scope: any, data: Partial<EcommerceConfig>): Promise<EcommerceConfig>;
     verificarSubdominio(subdominio: string, empresaId: number): Promise<{
@@ -80,6 +82,15 @@ export declare class EcommerceService {
         tipo_venta: "menudeo" | "mayoreo";
         estado: string;
     }>;
+    private upsertCliente;
+    getHistorialPedidos(subdominio: string, email: string, tel: string | undefined, dataSource: any): Promise<{
+        numero_pedido: string;
+        estado: string;
+        tipo_venta: "menudeo" | "mayoreo";
+        total: number;
+        items_count: any;
+        created_at: Date;
+    }[]>;
     getPublicPedido(subdominio: string, numero_pedido: string, dataSource: any): Promise<{
         numero_pedido: string;
         estado: string;

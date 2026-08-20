@@ -23,6 +23,7 @@ function NavbarLumina({ tiendaInfo, subdominio, categorias, totalItems }: any) {
           </Link>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <Link href={`/${subdominio}/productos`} style={{ fontSize: 14, color: 'var(--color-text-muted)', textDecoration: 'none' }}>Productos</Link>
+            <Link href={`/${subdominio}/pedidos`} style={{ fontSize: 14, color: 'var(--color-text-muted)', textDecoration: 'none' }}>Mis pedidos</Link>
             <Link href={`/${subdominio}/carrito`} style={{ position: 'relative', color: 'var(--color-primary)', textDecoration: 'none', fontSize: 14, fontWeight: 600 }}>
               🛒 {totalItems > 0 && <span style={{ background: 'var(--color-primary)', color: '#fff', borderRadius: '999px', fontSize: 10, padding: '1px 5px', position: 'absolute', top: -8, right: -10 }}>{totalItems}</span>}
             </Link>
@@ -52,6 +53,7 @@ function NavbarObsidian({ tiendaInfo, subdominio, categorias, totalItems }: any)
           {categorias.slice(0, 4).map((c: any) => (
             <Link key={c.id} href={`/${subdominio}/productos?categoria_id=${c.id}`} style={{ fontSize: 11, color: 'var(--color-text-muted)', textDecoration: 'none', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{c.nombre}</Link>
           ))}
+          <Link href={`/${subdominio}/pedidos`} style={{ fontSize: 11, color: 'var(--color-text-muted)', textDecoration: 'none', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Mis pedidos</Link>
           <Link href={`/${subdominio}/carrito`} style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', padding: '6px 14px', fontSize: 11, fontWeight: 700, textDecoration: 'none', textTransform: 'uppercase' }}>
             [{totalItems}]
           </Link>
@@ -73,9 +75,12 @@ function NavbarZest({ tiendaInfo, subdominio, categorias, totalItems }: any) {
             <Link href={`/${subdominio}`} style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 18, color: 'var(--color-primary)', textDecoration: 'none' }}>
               {tiendaInfo?.nombre_tienda || tiendaInfo?.empresa?.nombre}
             </Link>
-            <Link href={`/${subdominio}/carrito`} style={{ background: 'var(--color-primary)', color: '#fff', padding: '8px 18px', borderRadius: 'var(--radius-pill)', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
-              🛒 {totalItems}
-            </Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <Link href={`/${subdominio}/pedidos`} style={{ fontSize: 13, color: 'var(--color-text-muted)', textDecoration: 'none', fontWeight: 600 }}>Mis pedidos</Link>
+              <Link href={`/${subdominio}/carrito`} style={{ background: 'var(--color-primary)', color: '#fff', padding: '8px 18px', borderRadius: 'var(--radius-pill)', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+                🛒 {totalItems}
+              </Link>
+            </div>
           </div>
           {categorias.length > 0 && (
             <div style={{ display: 'flex', gap: 8, paddingBottom: 10, overflowX: 'auto' }}>

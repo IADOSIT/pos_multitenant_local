@@ -8,6 +8,7 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 @Index(['empresa_id'])
 @Index(['estado'])
 @Index(['created_at'])
+@Index(['cliente_id'])
 export class EcommercePedido {
   @PrimaryGeneratedColumn()
   id: number;
@@ -17,6 +18,9 @@ export class EcommercePedido {
 
   @Column()
   tenant_id: number;
+
+  @Column({ nullable: true })
+  cliente_id: number | null;
 
   @Column({ length: 20 })
   numero_pedido: string;
