@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260812-impresora-tablet-rawbt"
+        CACHE_BUST: "20260820-cliente-telefono-moneda-historial"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
@@ -41,7 +41,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260812-impresora-tablet-rawbt"
+        CACHE_BUST: "20260820-cliente-telefono-moneda-historial"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

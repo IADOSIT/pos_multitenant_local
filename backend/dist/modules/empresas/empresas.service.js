@@ -19,10 +19,12 @@ const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const schedule_1 = require("@nestjs/schedule");
 const empresa_entity_1 = require("./empresa.entity");
+const tipo_cambio_historial_entity_1 = require("./tipo-cambio-historial.entity");
 const user_entity_1 = require("../users/user.entity");
 let EmpresasService = EmpresasService_1 = class EmpresasService {
-    constructor(repo, dataSource) {
+    constructor(repo, historialRepo, dataSource) {
         this.repo = repo;
+        this.historialRepo = historialRepo;
         this.dataSource = dataSource;
         this.logger = new common_1.Logger(EmpresasService_1.name);
     }
@@ -101,10 +103,15 @@ let EmpresasService = EmpresasService_1 = class EmpresasService {
         const { empleados_enabled, ...rest } = data;
         const safeData = scope.rol === user_entity_1.UserRole.SUPERADMIN ? data : rest;
         const activandoInventarioCompartido = safeData.inventario_compartido === true && empresa.config_especial?.inventario_compartido !== true;
+        const tipoCambioAnterior = empresa.config_especial?.moneda?.tipo_cambio_actual;
+        let registrarHistorialManual = null;
         if (safeData.moneda) {
             const m = safeData.moneda;
             if (m.modo_tipo_cambio === 'manual' && typeof m.tipo_cambio_manual === 'number') {
                 m.tipo_cambio_actual = m.tipo_cambio_manual;
+                if (m.tipo_cambio_manual !== tipoCambioAnterior) {
+                    registrarHistorialManual = { codigo: m.codigo || empresa.config_especial?.moneda?.codigo || 'USD', tipo_cambio: m.tipo_cambio_manual };
+                }
             }
         }
         empresa.config_especial = {
@@ -116,12 +123,21 @@ let EmpresasService = EmpresasService_1 = class EmpresasService {
         if (activandoInventarioCompartido) {
             await this.migrarStockPorTienda(id);
         }
+        if (registrarHistorialManual) {
+            await this.historialRepo.save(this.historialRepo.create({
+                empresa_id: id,
+                codigo: registrarHistorialManual.codigo,
+                tipo_cambio: registrarHistorialManual.tipo_cambio,
+                origen: 'manual',
+            }));
+        }
         return { config_especial: saved.config_especial };
     }
     async actualizarTipoCambioAutomatico(empresa_id, tipo_cambio) {
         const empresa = await this.repo.findOne({ where: { id: empresa_id } });
         if (!empresa)
             return;
+        const codigo = empresa.config_especial?.moneda?.codigo || 'USD';
         empresa.config_especial = {
             ...(empresa.config_especial || {}),
             moneda: {
@@ -131,6 +147,36 @@ let EmpresasService = EmpresasService_1 = class EmpresasService {
             },
         };
         await this.repo.save(empresa);
+        await this.historialRepo.save(this.historialRepo.create({ empresa_id, codigo, tipo_cambio, origen: 'automatico' }));
+    }
+    async getHistorialTipoCambio(empresa_id, periodo) {
+        let periodoExpr;
+        let dias;
+        switch (periodo) {
+            case 'semana':
+                periodoExpr = "DATE_FORMAT(created_at, '%x-W%v')";
+                dias = 7 * 26;
+                break;
+            case 'mes':
+                periodoExpr = "DATE_FORMAT(created_at, '%Y-%m')";
+                dias = 366 * 2;
+                break;
+            case 'anio':
+                periodoExpr = "DATE_FORMAT(created_at, '%Y')";
+                dias = 366 * 6;
+                break;
+            case 'dia':
+            default:
+                periodoExpr = "DATE_FORMAT(created_at, '%Y-%m-%d')";
+                dias = 60;
+                break;
+        }
+        const rows = await this.dataSource.query(`SELECT ${periodoExpr} AS periodo, AVG(tipo_cambio) AS tipo_cambio, MAX(created_at) AS fecha
+       FROM tipo_cambio_historial
+       WHERE empresa_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+       GROUP BY periodo
+       ORDER BY fecha ASC`, [empresa_id, dias]);
+        return rows.map((r) => ({ periodo: r.periodo, tipo_cambio: parseFloat(r.tipo_cambio), fecha: r.fecha }));
     }
     async findEmpresasConTipoCambioAutomatico() {
         const todas = await this.repo.find();
@@ -164,8 +210,10 @@ __decorate([
 exports.EmpresasService = EmpresasService = EmpresasService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(empresa_entity_1.Empresa)),
-    __param(1, (0, typeorm_1.InjectDataSource)()),
+    __param(1, (0, typeorm_1.InjectRepository)(tipo_cambio_historial_entity_1.TipoCambioHistorial)),
+    __param(2, (0, typeorm_1.InjectDataSource)()),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.DataSource])
 ], EmpresasService);
 //# sourceMappingURL=empresas.service.js.map

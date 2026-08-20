@@ -26,6 +26,9 @@ let EmpresasController = class EmpresasController {
     }
     findAll(scope) { return this.service.findAll(scope); }
     findOne(id) { return this.service.findOne(id); }
+    getMonedaHistorial(id, periodo = 'dia') {
+        return this.service.getHistorialTipoCambio(id, periodo);
+    }
     create(data) { return this.service.create(data); }
     update(id, data) { return this.service.update(id, data); }
     async uploadLogo(id, file) {
@@ -54,6 +57,15 @@ __decorate([
     __metadata("design:paramtypes", [Number]),
     __metadata("design:returntype", void 0)
 ], EmpresasController.prototype, "findOne", null);
+__decorate([
+    (0, common_1.Get)(':id/moneda-historial'),
+    (0, roles_decorator_1.Roles)('superadmin', 'admin', 'manager', 'cajero'),
+    __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __param(1, (0, common_1.Query)('periodo')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Number, String]),
+    __metadata("design:returntype", void 0)
+], EmpresasController.prototype, "getMonedaHistorial", null);
 __decorate([
     (0, common_1.Post)(),
     __param(0, (0, common_1.Body)()),

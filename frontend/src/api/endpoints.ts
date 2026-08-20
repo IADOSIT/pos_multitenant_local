@@ -49,6 +49,8 @@ export const empresasApi = {
   },
   setConfigEspecial: (id: number, data: Partial<{ mostrar_precios: boolean; precio_manual: boolean; notif_cliente_estados: boolean; empleados_enabled: boolean; campos_formulario: any; auto_cancel_horas: number; inventario_compartido: boolean; transferencias_activo: boolean; moneda: any }>) =>
     api.patch(`/empresas/${id}/config-especial`, data),
+  monedaHistorial: (id: number, periodo: 'dia' | 'semana' | 'mes' | 'anio') =>
+    api.get(`/empresas/${id}/moneda-historial`, { params: { periodo } }),
 };
 
 // Tiendas

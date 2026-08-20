@@ -4,6 +4,7 @@ export declare class EmpresasController {
     constructor(service: EmpresasService);
     findAll(scope: any): Promise<import("./empresa.entity").Empresa[]>;
     findOne(id: number): Promise<import("./empresa.entity").Empresa | null>;
+    getMonedaHistorial(id: number, periodo?: 'dia' | 'semana' | 'mes' | 'anio'): Promise<any>;
     create(data: any): Promise<import("./empresa.entity").Empresa>;
     update(id: number, data: any): Promise<import("./empresa.entity").Empresa | null>;
     uploadLogo(id: number, file: Express.Multer.File): Promise<{

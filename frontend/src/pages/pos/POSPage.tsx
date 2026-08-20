@@ -93,6 +93,7 @@ export default function POSPage() {
   const [notasRapidas, setNotasRapidas] = useState<string[]>([]);
   const [notasPedidoEnabled, setNotasPedidoEnabled] = useState(false);
   const [datosEnvioEnabled, setDatosEnvioEnabled] = useState(false);
+  const [clienteVentaEnabled, setClienteVentaEnabled] = useState(false);
   const [cantidadesRapidas, setCantidadesRapidas] = useState<number[]>([10, 25, 50, 100]);
   const [qtyModal, setQtyModal] = useState<{ producto: any; qty: number } | null>(null);
   const [mesaNumeroOculto, setMesaNumeroOculto] = useState(false);
@@ -251,6 +252,7 @@ export default function POSPage() {
         );
         setNotasPedidoEnabled(cp.notas_pedido_enabled || false);
         setDatosEnvioEnabled(cp.datos_envio_enabled || false);
+        setClienteVentaEnabled(cp.cliente_venta_enabled || false);
         setMesaNumeroOculto(cp.mesa_numero_oculto || false);
         setEnSitioVisible(cp.en_sitio_visible !== false);
         setParaLlevarVisible(cp.para_llevar_visible !== false);
@@ -785,6 +787,7 @@ export default function POSPage() {
           cantidadesRapidas={cantidadesRapidas}
           notasPedidoEnabled={notasPedidoEnabled}
           datosEnvioEnabled={datosEnvioEnabled}
+          clienteVentaEnabled={clienteVentaEnabled}
           pedidoActivo={pedidoActivo}
           onActualizarCuenta={handleActualizarCuenta}
           onCancelarEdicion={() => { setPedidoActivo(null); clearCart(); }}

@@ -1,10 +1,12 @@
 import { Repository, DataSource } from 'typeorm';
 import { Empresa } from './empresa.entity';
+import { TipoCambioHistorial } from './tipo-cambio-historial.entity';
 export declare class EmpresasService {
     private repo;
+    private historialRepo;
     private dataSource;
     private readonly logger;
-    constructor(repo: Repository<Empresa>, dataSource: DataSource);
+    constructor(repo: Repository<Empresa>, historialRepo: Repository<TipoCambioHistorial>, dataSource: DataSource);
     private migrarStockPorTienda;
     actualizarTiposCambioAutomaticos(): Promise<void>;
     findAll(scope: any): Promise<Empresa[]>;
@@ -50,6 +52,7 @@ export declare class EmpresasService {
         } | null;
     }>;
     actualizarTipoCambioAutomatico(empresa_id: number, tipo_cambio: number): Promise<void>;
+    getHistorialTipoCambio(empresa_id: number, periodo: 'dia' | 'semana' | 'mes' | 'anio'): Promise<any>;
     findEmpresasConTipoCambioAutomatico(): Promise<Empresa[]>;
     getConfigEspecial(empresa_id: number): Promise<{
         mostrar_precios: boolean;

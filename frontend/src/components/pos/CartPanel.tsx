@@ -18,6 +18,7 @@ interface Props {
   cantidadesRapidas?: number[];
   notasPedidoEnabled?: boolean;
   datosEnvioEnabled?: boolean;
+  clienteVentaEnabled?: boolean;
   pedidoActivo?: any;
   onActualizarCuenta?: () => void;
   onCancelarEdicion?: () => void;
@@ -31,7 +32,7 @@ interface Props {
   inventarioCompartido?: boolean;
 }
 
-export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreCuenta, precuentaEnabled, cuentaAbiertaEnabled, notasPorItem, notasRapidas = [], cantidadesRapidas, notasPedidoEnabled, datosEnvioEnabled, pedidoActivo, onActualizarCuenta, onCancelarEdicion, mesaNumeroOculto, cajaManaged, enSitioVisible = true, paraLlevarVisible = true, mostrarPrecios = true, precioManual = false, moneda, inventarioCompartido = false }: Props) {
+export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreCuenta, precuentaEnabled, cuentaAbiertaEnabled, notasPorItem, notasRapidas = [], cantidadesRapidas, notasPedidoEnabled, datosEnvioEnabled, clienteVentaEnabled, pedidoActivo, onActualizarCuenta, onCancelarEdicion, mesaNumeroOculto, cajaManaged, enSitioVisible = true, paraLlevarVisible = true, mostrarPrecios = true, precioManual = false, moneda, inventarioCompartido = false }: Props) {
   const { cart, updateQuantity, removeFromCart, clearCart, updateItemNotes, getSubtotal, getImpuestos, getTotal, cajaActiva, modoServicio, tipoCobro, mesaActiva, setMesaActiva, tipoServicio, setTipoServicio, notaPedido, setNotaPedido, clienteNombre, setClienteNombre, clienteTelefono, setClienteTelefono, clienteDireccion, setClienteDireccion, updateItemPrice, setItemApartado } = usePOSStore();
 
   // Apartar en otra tienda — selector de tienda destino cuando el stock local no alcanza
@@ -223,11 +224,11 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
         </div>
       )}
 
-      {/* Datos para llevar — detección automática nombre/teléfono */}
-      {datosEnvioEnabled && tipoServicio === 'para_llevar' && (
+      {/* Datos para llevar / cliente de la venta — detección automática nombre/teléfono */}
+      {((datosEnvioEnabled && tipoServicio === 'para_llevar') || clienteVentaEnabled) && (
         <div className="px-3 pt-2 pb-1 border-b border-orange-500/30 bg-orange-950/20">
           <p className="text-xs text-orange-400 font-medium mb-2 flex items-center gap-1">
-            <Phone size={11} /> Datos de entrega
+            <Phone size={11} /> {tipoServicio === 'para_llevar' ? 'Datos de entrega' : 'Cliente (opcional)'}
             <span className="ml-auto text-orange-300/50 font-normal">
               {modoCliente === 'telefono' ? '📞 por teléfono' : '👤 por nombre'}
             </span>
@@ -297,16 +298,18 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
             />
           )}
 
-          <input
-            ref={dirRef}
-            type="text"
-            value={clienteDireccion}
-            onChange={(e) => setClienteDireccion(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-            placeholder="Dirección (opcional)"
-            className="input-touch text-sm py-1.5 w-full"
-            maxLength={200}
-          />
+          {tipoServicio === 'para_llevar' && (
+            <input
+              ref={dirRef}
+              type="text"
+              value={clienteDireccion}
+              onChange={(e) => setClienteDireccion(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+              placeholder="Dirección (opcional)"
+              className="input-touch text-sm py-1.5 w-full"
+              maxLength={200}
+            />
+          )}
         </div>
       )}
 

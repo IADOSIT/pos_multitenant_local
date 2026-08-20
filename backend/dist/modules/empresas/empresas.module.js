@@ -10,6 +10,7 @@ exports.EmpresasModule = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const empresa_entity_1 = require("./empresa.entity");
+const tipo_cambio_historial_entity_1 = require("./tipo-cambio-historial.entity");
 const empresas_controller_1 = require("./empresas.controller");
 const empresas_service_1 = require("./empresas.service");
 let EmpresasModule = class EmpresasModule {
@@ -17,7 +18,7 @@ let EmpresasModule = class EmpresasModule {
 exports.EmpresasModule = EmpresasModule;
 exports.EmpresasModule = EmpresasModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([empresa_entity_1.Empresa])],
+        imports: [typeorm_1.TypeOrmModule.forFeature([empresa_entity_1.Empresa, tipo_cambio_historial_entity_1.TipoCambioHistorial])],
         controllers: [empresas_controller_1.EmpresasController],
         providers: [empresas_service_1.EmpresasService],
         exports: [empresas_service_1.EmpresasService],

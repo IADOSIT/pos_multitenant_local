@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Patch, Delete, Param, Body, UseGuards, ParseIntPipe, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Param, Body, Query, UseGuards, ParseIntPipe, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -17,6 +17,15 @@ export class EmpresasController {
 
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) { return this.service.findOne(id); }
+
+  @Get(':id/moneda-historial')
+  @Roles('superadmin', 'admin', 'manager', 'cajero')
+  getMonedaHistorial(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('periodo') periodo: 'dia' | 'semana' | 'mes' | 'anio' = 'dia',
+  ) {
+    return this.service.getHistorialTipoCambio(id, periodo);
+  }
 
   @Post()
   create(@Body() data: any) { return this.service.create(data); }

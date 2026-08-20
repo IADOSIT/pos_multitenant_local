@@ -3,6 +3,7 @@ import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Cron } from '@nestjs/schedule';
 import { Empresa } from './empresa.entity';
+import { TipoCambioHistorial } from './tipo-cambio-historial.entity';
 import { UserRole } from '../users/user.entity';
 
 @Injectable()
@@ -11,6 +12,7 @@ export class EmpresasService {
 
   constructor(
     @InjectRepository(Empresa) private repo: Repository<Empresa>,
+    @InjectRepository(TipoCambioHistorial) private historialRepo: Repository<TipoCambioHistorial>,
     @InjectDataSource() private dataSource: DataSource,
   ) {}
 
@@ -132,10 +134,15 @@ export class EmpresasService {
     const activandoInventarioCompartido = safeData.inventario_compartido === true && empresa.config_especial?.inventario_compartido !== true;
     // El modo manual de tipo_cambio usa tipo_cambio_manual como tipo_cambio_actual de una vez,
     // asi el resto del sistema (POS, tickets) solo necesita leer tipo_cambio_actual.
+    const tipoCambioAnterior = empresa.config_especial?.moneda?.tipo_cambio_actual;
+    let registrarHistorialManual: { codigo: string; tipo_cambio: number } | null = null;
     if (safeData.moneda) {
       const m = safeData.moneda;
       if (m.modo_tipo_cambio === 'manual' && typeof m.tipo_cambio_manual === 'number') {
         m.tipo_cambio_actual = m.tipo_cambio_manual;
+        if (m.tipo_cambio_manual !== tipoCambioAnterior) {
+          registrarHistorialManual = { codigo: m.codigo || empresa.config_especial?.moneda?.codigo || 'USD', tipo_cambio: m.tipo_cambio_manual };
+        }
       }
     }
     empresa.config_especial = {
@@ -147,6 +154,14 @@ export class EmpresasService {
     if (activandoInventarioCompartido) {
       await this.migrarStockPorTienda(id);
     }
+    if (registrarHistorialManual) {
+      await this.historialRepo.save(this.historialRepo.create({
+        empresa_id: id,
+        codigo: registrarHistorialManual.codigo,
+        tipo_cambio: registrarHistorialManual.tipo_cambio,
+        origen: 'manual',
+      }));
+    }
     return { config_especial: saved.config_especial };
   }
 
@@ -155,6 +170,7 @@ export class EmpresasService {
   async actualizarTipoCambioAutomatico(empresa_id: number, tipo_cambio: number) {
     const empresa = await this.repo.findOne({ where: { id: empresa_id } });
     if (!empresa) return;
+    const codigo = empresa.config_especial?.moneda?.codigo || 'USD';
     empresa.config_especial = {
       ...(empresa.config_especial || {}),
       moneda: {
@@ -164,6 +180,42 @@ export class EmpresasService {
       },
     };
     await this.repo.save(empresa);
+    await this.historialRepo.save(this.historialRepo.create({ empresa_id, codigo, tipo_cambio, origen: 'automatico' }));
+  }
+
+  // Historico del tipo de cambio para graficar en Reportes (solo con moneda.activa=true).
+  // Se agrupa en SQL por el periodo pedido para no traer miles de filas al frontend.
+  async getHistorialTipoCambio(empresa_id: number, periodo: 'dia' | 'semana' | 'mes' | 'anio') {
+    let periodoExpr: string;
+    let dias: number;
+    switch (periodo) {
+      case 'semana':
+        periodoExpr = "DATE_FORMAT(created_at, '%x-W%v')";
+        dias = 7 * 26; // ~26 semanas
+        break;
+      case 'mes':
+        periodoExpr = "DATE_FORMAT(created_at, '%Y-%m')";
+        dias = 366 * 2;
+        break;
+      case 'anio':
+        periodoExpr = "DATE_FORMAT(created_at, '%Y')";
+        dias = 366 * 6;
+        break;
+      case 'dia':
+      default:
+        periodoExpr = "DATE_FORMAT(created_at, '%Y-%m-%d')";
+        dias = 60;
+        break;
+    }
+    const rows = await this.dataSource.query(
+      `SELECT ${periodoExpr} AS periodo, AVG(tipo_cambio) AS tipo_cambio, MAX(created_at) AS fecha
+       FROM tipo_cambio_historial
+       WHERE empresa_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+       GROUP BY periodo
+       ORDER BY fecha ASC`,
+      [empresa_id, dias],
+    );
+    return rows.map((r: any) => ({ periodo: r.periodo, tipo_cambio: parseFloat(r.tipo_cambio), fecha: r.fecha }));
   }
 
   // Empresas con moneda secundaria activa en modo automatico (para el cron)

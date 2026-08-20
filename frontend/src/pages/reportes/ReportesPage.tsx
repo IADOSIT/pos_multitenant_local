@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { cajaApi, dashboardApi, ventasApi, ticketsApi, tiendasApi } from '../../api/endpoints';
+import { cajaApi, dashboardApi, ventasApi, ticketsApi, tiendasApi, empresasApi } from '../../api/endpoints';
 import DevolucionModal from '../../components/pos/DevolucionModal';
 import { useAuthStore } from '../../store/auth.store';
 import { useScope } from '../../hooks/useScope';
@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell,
+  PieChart, Pie, Cell, LineChart, Line,
 } from 'recharts';
 // jsPDF / jspdf-autotable / xlsx / html2canvas se cargan bajo demanda (solo al
 // exportar). Son ~900KB juntos y no deben pesar en la carga inicial de la página.
@@ -52,6 +52,13 @@ export default function ReportesPage() {
   const chartRef = useRef<HTMLDivElement>(null);
   const kpiChartRef = useRef<HTMLDivElement>(null);
 
+  // Historico de tipo de cambio — solo visible si la empresa tiene moneda.activa
+  const [monedaActiva, setMonedaActiva] = useState(false);
+  const [monedaCodigo, setMonedaCodigo] = useState('USD');
+  const [periodoMoneda, setPeriodoMoneda] = useState<'dia' | 'semana' | 'mes' | 'anio'>('dia');
+  const [historialMoneda, setHistorialMoneda] = useState<any[]>([]);
+  const [historialMonedaLoading, setHistorialMonedaLoading] = useState(false);
+
   useEffect(() => {
     loadCajas();
     if (tiendaId) {
@@ -66,9 +73,24 @@ export default function ReportesPage() {
         }
       }).catch(() => {});
     }
+    if (user?.empresa_id) {
+      empresasApi.get(user.empresa_id).then(({ data }) => {
+        const moneda = data?.config_especial?.moneda || {};
+        setMonedaActiva(moneda.activa === true);
+        setMonedaCodigo(moneda.codigo || 'USD');
+      }).catch(() => {});
+    }
   }, []);
   useEffect(() => { if (tab === 'kpi') loadKPI(); }, [tab, rango]);
   useEffect(() => { if (tab === 'clientes') loadClientes(); }, [tab]);
+  useEffect(() => {
+    if (tab !== 'moneda' || !user?.empresa_id) return;
+    setHistorialMonedaLoading(true);
+    empresasApi.monedaHistorial(user.empresa_id, periodoMoneda)
+      .then(({ data }) => setHistorialMoneda(data || []))
+      .catch(() => toast.error('Error al cargar el historico de tipo de cambio'))
+      .finally(() => setHistorialMonedaLoading(false));
+  }, [tab, periodoMoneda]);
 
   const loadClientes = async () => {
     setClientesLoading(true);
@@ -453,6 +475,11 @@ export default function ReportesPage() {
               </button>
             );
           })}
+          {monedaActiva && (
+            <button onClick={() => setTab('moneda')} className={`btn-touch text-sm px-4 py-2 ${tab === 'moneda' ? 'bg-iados-primary' : 'bg-iados-card'}`}>
+              <DollarSign size={16} className="inline mr-1" />Moneda
+            </button>
+          )}
         </div>
       </div>
 
@@ -811,6 +838,52 @@ export default function ReportesPage() {
           )}
         </div>
       )}
+
+      {/* ============ TAB: MONEDA (historico tipo de cambio) ============ */}
+      {tab === 'moneda' && monedaActiva && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-2 items-center">
+            {([
+              { key: 'dia', label: 'Dia' },
+              { key: 'semana', label: 'Semana' },
+              { key: 'mes', label: 'Mes' },
+              { key: 'anio', label: 'Año' },
+            ] as const).map(p => (
+              <button
+                key={p.key}
+                onClick={() => setPeriodoMoneda(p.key)}
+                className={`btn-touch text-sm px-4 py-2 ${periodoMoneda === p.key ? 'bg-iados-primary' : 'bg-iados-card'}`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          {historialMonedaLoading ? (
+            <div className="flex items-center justify-center py-12"><Loader2 className="animate-spin text-iados-primary" size={36} /></div>
+          ) : historialMoneda.length === 0 ? (
+            <div className="card text-center py-12 text-slate-500">
+              Sin historico de tipo de cambio registrado todavia para este periodo
+            </div>
+          ) : (
+            <div className="card">
+              <h3 className="font-bold mb-3 flex items-center gap-2">
+                <DollarSign size={18} className="text-iados-primary" /> Tipo de cambio {monedaCodigo} — historico
+              </h3>
+              <ResponsiveContainer width="100%" height={320}>
+                <LineChart data={historialMoneda}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <XAxis dataKey="periodo" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} domain={['auto', 'auto']} />
+                  <Tooltip formatter={(v: any) => [`$${Number(v).toFixed(4)}`, monedaCodigo]} />
+                  <Line type="monotone" dataKey="tipo_cambio" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      )}
+
       {devolucionVentaId && (
         <DevolucionModal
           ventaId={devolucionVentaId}
