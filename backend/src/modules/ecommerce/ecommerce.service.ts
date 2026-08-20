@@ -6,6 +6,18 @@ import { EcommercePedido } from './ecommerce-pedido.entity';
 import { EcommerceProductoConfig } from './ecommerce-producto-config.entity';
 import { resolveCamposFormulario } from '../empresas/campos-formulario.helper';
 
+// Reintentos al generar el consecutivo del pedido cuando otro pedido concurrente
+// de la misma tienda se adelanto y tomo el mismo numero.
+const MAX_REINTENTOS_NUMERO = 4;
+
+// mysql2 reporta el choque contra un indice UNIQUE como ER_DUP_ENTRY (errno 1062);
+// TypeORM lo envuelve en QueryFailedError, que conserva el error del driver.
+function esDuplicado(e: any): boolean {
+  const code = e?.code ?? e?.driverError?.code;
+  const errno = e?.errno ?? e?.driverError?.errno;
+  return code === 'ER_DUP_ENTRY' || errno === 1062;
+}
+
 function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -378,40 +390,58 @@ export class EcommerceService {
       });
     }
 
-    // Generar número de pedido EP-YY-NNNN
+    // Generar número de pedido EP-YY-NNNN. El consecutivo es POR EMPRESA y la
+    // unicidad en BD tambien lo es (UNIQUE empresa_id + numero_pedido); si dos
+    // pedidos concurrentes de la misma tienda calculan el mismo numero, se
+    // reintenta con el siguiente en vez de reventar con 500.
     const yy = new Date().getFullYear().toString().slice(-2);
-    const [lastRow] = await dataSource.query(
-      `SELECT numero_pedido FROM ecommerce_pedidos WHERE empresa_id = ? ORDER BY id DESC LIMIT 1`,
-      [config.empresa_id],
-    );
-    let seq = 1;
-    if (lastRow?.numero_pedido) {
-      const parts = lastRow.numero_pedido.split('-');
-      seq = (parseInt(parts[parts.length - 1]) || 0) + 1;
+
+    const nuevoPedido = (numero_pedido: string) =>
+      this.pedidoRepo.create({
+        empresa_id: config.empresa_id,
+        tenant_id: config.tenant_id,
+        numero_pedido,
+        tipo_venta: esMayoreo ? 'mayoreo' : 'menudeo',
+        cliente_nombre,
+        cliente_email,
+        cliente_tel: cliente_tel || null,
+        cliente_empresa: cliente_empresa?.trim() || null,
+        direccion_envio: direccion_envio || null,
+        items,
+        subtotal,
+        descuento: 0,
+        iva: 0,
+        total: subtotal,
+        estado: 'pendiente',
+        notas_cliente: notas_cliente || null,
+      });
+
+    let pedido!: EcommercePedido;
+    for (let intento = 0; ; intento++) {
+      const [lastRow] = await dataSource.query(
+        `SELECT numero_pedido FROM ecommerce_pedidos WHERE empresa_id = ? ORDER BY id DESC LIMIT 1`,
+        [config.empresa_id],
+      );
+      let seq = 1;
+      if (lastRow?.numero_pedido) {
+        const parts = lastRow.numero_pedido.split('-');
+        seq = (parseInt(parts[parts.length - 1]) || 0) + 1;
+      }
+      pedido = nuevoPedido(`EP-${yy}-${String(seq + intento).padStart(4, '0')}`);
+      try {
+        await this.pedidoRepo.save(pedido);
+        break;
+      } catch (e: any) {
+        if (!esDuplicado(e) || intento >= MAX_REINTENTOS_NUMERO) throw e;
+      }
     }
-    const numero_pedido = `EP-${yy}-${String(seq).padStart(4, '0')}`;
 
-    const pedido = this.pedidoRepo.create({
-      empresa_id: config.empresa_id,
-      tenant_id: config.tenant_id,
-      numero_pedido,
-      tipo_venta: esMayoreo ? 'mayoreo' : 'menudeo',
-      cliente_nombre,
-      cliente_email,
-      cliente_tel: cliente_tel || null,
-      cliente_empresa: cliente_empresa?.trim() || null,
-      direccion_envio: direccion_envio || null,
-      items,
-      subtotal,
-      descuento: 0,
-      iva: 0,
+    return {
+      numero_pedido: pedido.numero_pedido,
       total: subtotal,
+      tipo_venta: pedido.tipo_venta,
       estado: 'pendiente',
-      notas_cliente: notas_cliente || null,
-    });
-
-    await this.pedidoRepo.save(pedido);
-    return { numero_pedido, total: subtotal, tipo_venta: pedido.tipo_venta, estado: 'pendiente' };
+    };
   }
 
   async getPublicPedido(subdominio: string, numero_pedido: string, dataSource: any) {
