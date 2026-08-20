@@ -8,7 +8,7 @@
 // que este repo commitea a git en cada build (ver CLAUDE.md) — 24MB de binario en cada commit
 // de frontend es inaceptable. Cargarla via CDN hace que solo se descargue (en el navegador,
 // no en el build) la primera vez que alguien de verdad usa el boton "Quitar fondo".
-const CDN_URL = 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/index.js';
+const CDN_URL = 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/index.mjs';
 
 export async function removeBackgroundToWhite(source: string | File | Blob): Promise<File> {
   const mod: any = await import(/* @vite-ignore */ CDN_URL);
