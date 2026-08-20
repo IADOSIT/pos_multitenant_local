@@ -27,7 +27,7 @@ __decorate([
     __metadata("design:type", Number)
 ], EcommercePedido.prototype, "tenant_id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ length: 20, unique: true }),
+    (0, typeorm_1.Column)({ length: 20 }),
     __metadata("design:type", String)
 ], EcommercePedido.prototype, "numero_pedido", void 0);
 __decorate([
@@ -100,6 +100,7 @@ __decorate([
 ], EcommercePedido.prototype, "updated_at", void 0);
 exports.EcommercePedido = EcommercePedido = __decorate([
     (0, typeorm_1.Entity)('ecommerce_pedidos'),
+    (0, typeorm_1.Index)(['empresa_id', 'numero_pedido'], { unique: true }),
     (0, typeorm_1.Index)(['empresa_id']),
     (0, typeorm_1.Index)(['estado']),
     (0, typeorm_1.Index)(['created_at'])

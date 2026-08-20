@@ -1,6 +1,10 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 
 @Entity('ecommerce_pedidos')
+// El consecutivo EP-YY-NNNN se genera POR EMPRESA, asi que la unicidad debe ser
+// por (empresa_id, numero_pedido). Con un UNIQUE global sobre numero_pedido, la
+// primera venta de cada tienda nueva chocaba con el EP-26-0001 de otra tienda.
+@Index(['empresa_id', 'numero_pedido'], { unique: true })
 @Index(['empresa_id'])
 @Index(['estado'])
 @Index(['created_at'])
@@ -14,7 +18,7 @@ export class EcommercePedido {
   @Column()
   tenant_id: number;
 
-  @Column({ length: 20, unique: true })
+  @Column({ length: 20 })
   numero_pedido: string;
 
   @Column({ type: 'enum', enum: ['menudeo', 'mayoreo'], default: 'menudeo' })

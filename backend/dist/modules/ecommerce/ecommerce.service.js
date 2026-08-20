@@ -20,6 +20,12 @@ const ecommerce_config_entity_1 = require("./ecommerce-config.entity");
 const ecommerce_pedido_entity_1 = require("./ecommerce-pedido.entity");
 const ecommerce_producto_config_entity_1 = require("./ecommerce-producto-config.entity");
 const campos_formulario_helper_1 = require("../empresas/campos-formulario.helper");
+const MAX_REINTENTOS_NUMERO = 4;
+function esDuplicado(e) {
+    const code = e?.code ?? e?.driverError?.code;
+    const errno = e?.errno ?? e?.driverError?.errno;
+    return code === 'ER_DUP_ENTRY' || errno === 1062;
+}
 function slugify(text) {
     return text
         .toLowerCase()
@@ -340,14 +346,7 @@ let EcommerceService = class EcommerceService {
             });
         }
         const yy = new Date().getFullYear().toString().slice(-2);
-        const [lastRow] = await dataSource.query(`SELECT numero_pedido FROM ecommerce_pedidos WHERE empresa_id = ? ORDER BY id DESC LIMIT 1`, [config.empresa_id]);
-        let seq = 1;
-        if (lastRow?.numero_pedido) {
-            const parts = lastRow.numero_pedido.split('-');
-            seq = (parseInt(parts[parts.length - 1]) || 0) + 1;
-        }
-        const numero_pedido = `EP-${yy}-${String(seq).padStart(4, '0')}`;
-        const pedido = this.pedidoRepo.create({
+        const nuevoPedido = (numero_pedido) => this.pedidoRepo.create({
             empresa_id: config.empresa_id,
             tenant_id: config.tenant_id,
             numero_pedido,
@@ -365,8 +364,30 @@ let EcommerceService = class EcommerceService {
             estado: 'pendiente',
             notas_cliente: notas_cliente || null,
         });
-        await this.pedidoRepo.save(pedido);
-        return { numero_pedido, total: subtotal, tipo_venta: pedido.tipo_venta, estado: 'pendiente' };
+        let pedido;
+        for (let intento = 0;; intento++) {
+            const [lastRow] = await dataSource.query(`SELECT numero_pedido FROM ecommerce_pedidos WHERE empresa_id = ? ORDER BY id DESC LIMIT 1`, [config.empresa_id]);
+            let seq = 1;
+            if (lastRow?.numero_pedido) {
+                const parts = lastRow.numero_pedido.split('-');
+                seq = (parseInt(parts[parts.length - 1]) || 0) + 1;
+            }
+            pedido = nuevoPedido(`EP-${yy}-${String(seq + intento).padStart(4, '0')}`);
+            try {
+                await this.pedidoRepo.save(pedido);
+                break;
+            }
+            catch (e) {
+                if (!esDuplicado(e) || intento >= MAX_REINTENTOS_NUMERO)
+                    throw e;
+            }
+        }
+        return {
+            numero_pedido: pedido.numero_pedido,
+            total: subtotal,
+            tipo_venta: pedido.tipo_venta,
+            estado: 'pendiente',
+        };
     }
     async getPublicPedido(subdominio, numero_pedido, dataSource) {
         const config = await this.getConfigBySubdominio(subdominio);

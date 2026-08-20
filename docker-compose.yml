@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260820-inventario-stock-selector-tienda"
+        CACHE_BUST: "20260820-inventario-stock-selector-y-numero-pedido-tienda"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
