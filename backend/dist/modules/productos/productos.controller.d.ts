@@ -25,7 +25,12 @@ export declare class ProductosController {
         image_base64: string;
     }>;
     findOne(id: number): Promise<import("./producto.entity").Producto | null>;
-    create(data: any, scope: any): Promise<import("./producto.entity").Producto[]>;
+    stockOtrasTiendas(id: number, scope: any): Promise<{
+        tienda_id: number;
+        tienda_nombre: string;
+        stock: number;
+    }[]>;
+    create(data: any, scope: any): Promise<import("./producto.entity").Producto>;
     importCSV(file: Express.Multer.File, scope: any, update?: string): Promise<{
         success: number;
         errors: any[];

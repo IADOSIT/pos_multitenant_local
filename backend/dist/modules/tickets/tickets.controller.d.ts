@@ -1,7 +1,9 @@
 import { TicketsService } from './tickets.service';
+import { EmpresasService } from '../empresas/empresas.service';
 export declare class TicketsController {
     private service;
-    constructor(service: TicketsService);
+    private empresasService;
+    constructor(service: TicketsService, empresasService: EmpresasService);
     getConfig(scope: any): Promise<import("./ticket-config.entity").TicketConfig>;
     saveConfig(data: any): Promise<import("./ticket-config.entity").TicketConfig>;
     updateConfig(id: number, data: any): Promise<import("./ticket-config.entity").TicketConfig | null>;

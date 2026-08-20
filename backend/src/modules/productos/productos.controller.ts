@@ -62,6 +62,11 @@ export class ProductosController {
     return this.service.findOne(id);
   }
 
+  @Get(':id/stock-otras-tiendas')
+  stockOtrasTiendas(@Param('id', ParseIntPipe) id: number, @TenantScope() scope) {
+    return this.service.stockEnOtrasTiendas(scope, id);
+  }
+
   @Post()
   @Roles('superadmin', 'admin')
   create(@Body() data: any, @TenantScope() scope) {

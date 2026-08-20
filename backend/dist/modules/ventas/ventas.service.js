@@ -19,12 +19,16 @@ const typeorm_2 = require("typeorm");
 const venta_entity_1 = require("./venta.entity");
 const auditoria_entity_1 = require("./auditoria.entity");
 const caja_entity_1 = require("../caja/caja.entity");
+const empresas_service_1 = require("../empresas/empresas.service");
+const apartados_service_1 = require("../apartados/apartados.service");
 let VentasService = class VentasService {
-    constructor(ventasRepo, auditoriaRepo, cajaRepo, dataSource) {
+    constructor(ventasRepo, auditoriaRepo, cajaRepo, dataSource, empresasService, apartadosService) {
         this.ventasRepo = ventasRepo;
         this.auditoriaRepo = auditoriaRepo;
         this.cajaRepo = cajaRepo;
         this.dataSource = dataSource;
+        this.empresasService = empresasService;
+        this.apartadosService = apartadosService;
         this.logger = new common_1.Logger('VentasService');
     }
     async generateFolio(tienda_id) {
@@ -44,12 +48,27 @@ let VentasService = class VentasService {
         });
         if (!caja)
             throw new common_1.BadRequestException('La caja no está abierta');
+        const { inventario_compartido } = await this.empresasService.getConfigEspecial(scope.empresa_id);
         for (const item of data.items || []) {
             if (!item.producto_id || !item.cantidad)
                 continue;
-            const [prod] = await this.dataSource.query('SELECT controla_stock, stock_actual, nombre FROM productos WHERE id = ? AND tenant_id = ?', [item.producto_id, scope.tenant_id]);
-            if (prod?.controla_stock && Number(prod.stock_actual) < Number(item.cantidad)) {
-                throw new common_1.BadRequestException(`Stock insuficiente para "${prod.nombre}": disponible ${Number(prod.stock_actual)}, solicitado ${item.cantidad}`);
+            if (inventario_compartido) {
+                const tiendaAValidar = item.apartado_tienda_id || scope.tienda_id;
+                const [prod] = await this.dataSource.query(`SELECT p.controla_stock, p.nombre, COALESCE(pt.stock, 0) AS stock_actual
+             FROM productos p
+             LEFT JOIN producto_tienda pt ON pt.producto_id = p.id AND pt.tienda_id = ?
+            WHERE p.id = ? AND p.tenant_id = ?`, [tiendaAValidar, item.producto_id, scope.tenant_id]);
+                if (prod?.controla_stock && Number(prod.stock_actual) < Number(item.cantidad)) {
+                    throw new common_1.BadRequestException(item.apartado_tienda_id
+                        ? `Stock insuficiente en la tienda seleccionada para apartar "${prod.nombre}": disponible ${Number(prod.stock_actual)}, solicitado ${item.cantidad}`
+                        : `Stock insuficiente en esta tienda para "${prod.nombre}": disponible ${Number(prod.stock_actual)}, solicitado ${item.cantidad}`);
+                }
+            }
+            else {
+                const [prod] = await this.dataSource.query('SELECT controla_stock, stock_actual, nombre FROM productos WHERE id = ? AND tenant_id = ?', [item.producto_id, scope.tenant_id]);
+                if (prod?.controla_stock && Number(prod.stock_actual) < Number(item.cantidad)) {
+                    throw new common_1.BadRequestException(`Stock insuficiente para "${prod.nombre}": disponible ${Number(prod.stock_actual)}, solicitado ${item.cantidad}`);
+                }
             }
         }
         const folio = await this.generateFolio(scope.tienda_id);
@@ -94,6 +113,7 @@ let VentasService = class VentasService {
         const saved = await this.ventasRepo.save(venta);
         caja.total_ventas = Number(caja.total_ventas) + Number(data.total);
         await this.cajaRepo.save(caja);
+        let apartadoIndex = 0;
         for (const item of data.items || []) {
             if (!item.producto_id || !item.cantidad)
                 continue;
@@ -102,8 +122,53 @@ let VentasService = class VentasService {
                     const [prod] = await manager.query('SELECT id, controla_stock, stock_actual, nombre, sku FROM productos WHERE id = ? AND tenant_id = ? FOR UPDATE', [item.producto_id, scope.tenant_id]);
                     if (!prod?.controla_stock)
                         return;
-                    const stockAnterior = Number(prod.stock_actual || 0);
-                    const stockNuevo = stockAnterior - Number(item.cantidad);
+                    let stockAnterior;
+                    let stockNuevo;
+                    if (inventario_compartido) {
+                        const tiendaStock = item.apartado_tienda_id || scope.tienda_id;
+                        const [pt] = await manager.query('SELECT id, stock FROM producto_tienda WHERE producto_id = ? AND tienda_id = ? FOR UPDATE', [prod.id, tiendaStock]);
+                        stockAnterior = Number(pt?.stock || 0);
+                        stockNuevo = stockAnterior - Number(item.cantidad);
+                        if (pt) {
+                            await manager.query('UPDATE producto_tienda SET stock = ? WHERE id = ?', [stockNuevo, pt.id]);
+                        }
+                        else {
+                            await manager.query('INSERT INTO producto_tienda (tenant_id, tienda_id, producto_id, stock, disponible) VALUES (?, ?, ?, ?, 1)', [scope.tenant_id, tiendaStock, prod.id, stockNuevo]);
+                        }
+                        await manager.query(`INSERT INTO movimientos_inventario
+                (tenant_id, empresa_id, tienda_id, producto_id, producto_nombre, producto_sku,
+                 tipo, cantidad, stock_anterior, stock_nuevo, concepto, usuario_id, usuario_nombre)
+               VALUES (?, ?, ?, ?, ?, ?, 'salida', ?, ?, ?, ?, ?, ?)`, [
+                            scope.tenant_id, scope.empresa_id, tiendaStock,
+                            prod.id, prod.nombre, prod.sku,
+                            Number(item.cantidad), stockAnterior, stockNuevo,
+                            item.apartado_tienda_id ? `Apartado de venta ${folio}` : `Venta ${folio}`,
+                            scope.id || scope.sub,
+                            scope.nombre || 'Sistema',
+                        ]);
+                        if (item.apartado_tienda_id) {
+                            apartadoIndex++;
+                            const folioApartado = apartadoIndex === 1 ? folio : `${folio}-${apartadoIndex}`;
+                            await this.apartadosService.crearDentroDeTransaccion(manager, {
+                                tenant_id: scope.tenant_id,
+                                empresa_id: scope.empresa_id,
+                                tienda_origen_id: scope.tienda_id,
+                                tienda_destino_id: item.apartado_tienda_id,
+                                venta_id: saved.id,
+                                folio: folioApartado,
+                                producto_id: prod.id,
+                                producto_nombre: prod.nombre,
+                                cantidad: Number(item.cantidad),
+                                cliente_nombre: data.cliente_nombre,
+                                cliente_telefono: data.cliente_telefono,
+                                usuario_creo_id: scope.id || scope.sub,
+                                usuario_creo_nombre: scope.nombre || 'Sistema',
+                            });
+                        }
+                        return;
+                    }
+                    stockAnterior = Number(prod.stock_actual || 0);
+                    stockNuevo = stockAnterior - Number(item.cantidad);
                     await manager.query('UPDATE productos SET stock_actual = ? WHERE id = ?', [stockNuevo, prod.id]);
                     await manager.query(`INSERT INTO movimientos_inventario
               (tenant_id, empresa_id, tienda_id, producto_id, producto_nombre, producto_sku,
@@ -299,6 +364,8 @@ exports.VentasService = VentasService = __decorate([
     __metadata("design:paramtypes", [typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
-        typeorm_2.DataSource])
+        typeorm_2.DataSource,
+        empresas_service_1.EmpresasService,
+        apartados_service_1.ApartadosService])
 ], VentasService);
 //# sourceMappingURL=ventas.service.js.map

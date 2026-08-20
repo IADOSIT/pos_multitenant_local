@@ -64,6 +64,11 @@ export class InventarioController {
     return this.service.importCSV(file.buffer, scope);
   }
 
+  @Get('vista-general')
+  getVistaGeneral(@TenantScope() scope) {
+    return this.service.getVistaGeneral(scope);
+  }
+
   @Get('stock-modulo')
   @Roles('superadmin', 'admin', 'manager', 'cajero', 'mesero')
   listStockPorModulo(@TenantScope() scope, @Query('modulo') modulo?: string) {

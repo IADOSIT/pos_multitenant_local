@@ -78,7 +78,26 @@ export class TicketsService {
       .replace(/[^\x00-\x7F]/g, '?');         // cualquier otro no-ASCII → ?
   }
 
-  generateTicketData(venta: any, config: TicketConfig) {
+  // Linea(s) de TOTAL con conversion opcional a la moneda secundaria (referencia; el cobro
+  // real siempre queda registrado en pesos). `moneda` viene de Empresa.config_especial.moneda.
+  private renderTotal(totalMXN: number, w: number, moneda?: { activa?: boolean; codigo?: string; tipo_cambio_actual?: number; modo_visualizacion?: string }): string[] {
+    const activa = moneda?.activa && (moneda?.tipo_cambio_actual || 0) > 0;
+    if (!activa) return [this.right(`TOTAL: $${this.money(totalMXN)}`, w)];
+    const codigo = moneda?.codigo || 'USD';
+    const totalConvertido = totalMXN / (moneda!.tipo_cambio_actual as number);
+    if (moneda?.modo_visualizacion === 'solo_secundaria') {
+      return [this.right(`TOTAL: $${this.money(totalConvertido)} ${codigo}`, w)];
+    }
+    if (moneda?.modo_visualizacion === 'solo_base') {
+      return [this.right(`TOTAL: $${this.money(totalMXN)}`, w)];
+    }
+    return [
+      this.right(`TOTAL: $${this.money(totalMXN)} MXN`, w),
+      this.right(`~ $${this.money(totalConvertido)} ${codigo}`, w),
+    ];
+  }
+
+  generateTicketData(venta: any, config: TicketConfig, moneda?: { activa?: boolean; codigo?: string; tipo_cambio_actual?: number; modo_visualizacion?: string }) {
     const lines: string[] = [];
     const w = config.columnas || 42;
 
@@ -128,7 +147,7 @@ export class TicketsService {
     if (venta.propina > 0 && config.propina_en_ticket !== false) {
       lines.push(this.right(`Propina: $${this.money(venta.propina)}`, w));
     }
-    lines.push(this.right(`TOTAL: $${this.money(venta.total)}`, w));
+    lines.push(...this.renderTotal(venta.total, w, moneda));
     lines.push('='.repeat(w));
 
     if (venta.pago_efectivo) lines.push(`Efectivo: $${this.money(venta.pago_efectivo)}`);
@@ -143,7 +162,7 @@ export class TicketsService {
     return { lines, raw: lines.join('\n') };
   }
 
-  generatePreCuentaData(data: any, config: TicketConfig) {
+  generatePreCuentaData(data: any, config: TicketConfig, moneda?: { activa?: boolean; codigo?: string; tipo_cambio_actual?: number; modo_visualizacion?: string }) {
     const lines: string[] = [];
     const w = config.columnas || 42;
 
@@ -177,7 +196,7 @@ export class TicketsService {
     lines.push(this.right(`Subtotal: $${this.money(data.subtotal || 0)}`, w));
     if (Number(data.descuento) > 0) lines.push(this.right(`Descuento: -$${this.money(data.descuento)}`, w));
     if (Number(data.impuestos) > 0) lines.push(this.right(`Impuestos: $${this.money(data.impuestos)}`, w));
-    lines.push(this.right(`TOTAL: $${this.money(data.total || 0)}`, w));
+    lines.push(...this.renderTotal(data.total || 0, w, moneda));
     lines.push('='.repeat(w));
     lines.push('');
     lines.push(this.center('** Precio sujeto a cambio **', w));

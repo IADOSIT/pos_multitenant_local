@@ -5,9 +5,10 @@ import { Categoria } from '../categorias/categoria.entity';
 import { ConfigIaImagenes } from './config-ia-imagenes.entity';
 import { ProductosController } from './productos.controller';
 import { ProductosService } from './productos.service';
+import { EmpresasModule } from '../empresas/empresas.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Producto, ProductoTienda, Categoria, ConfigIaImagenes])],
+  imports: [TypeOrmModule.forFeature([Producto, ProductoTienda, Categoria, ConfigIaImagenes]), EmpresasModule],
   controllers: [ProductosController],
   providers: [ProductosService],
   exports: [ProductosService],

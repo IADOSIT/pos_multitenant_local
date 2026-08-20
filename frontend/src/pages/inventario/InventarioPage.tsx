@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { inventarioApi } from '../../api/endpoints';
+import { inventarioApi, transferenciasApi, tiendasApi, empresasApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
 import { useAuthStore } from '../../store/auth.store';
 import toast from 'react-hot-toast';
 import {
   Warehouse, Search, Plus, ArrowDownToLine, ArrowUpFromLine, RefreshCw,
-  Download, Upload, FileSpreadsheet, AlertTriangle, X, ChevronDown, Printer
+  Download, Upload, FileSpreadsheet, AlertTriangle, X, ChevronDown, Printer,
+  Send, Inbox, CheckCircle2, XCircle, Building2, Clock, Layers
 } from 'lucide-react';
 
 type Producto = {
@@ -21,6 +22,27 @@ type Movimiento = {
   created_at: string;
 };
 
+type Transferencia = {
+  id: number; folio: string;
+  tienda_origen_id: number; tienda_origen_nombre: string;
+  tienda_destino_id: number; tienda_destino_nombre: string;
+  producto_id: number; producto_nombre: string; producto_sku: string;
+  cantidad: number; notas: string; estado: 'pendiente' | 'recibido' | 'cancelado';
+  usuario_envio_nombre: string; usuario_recibio_nombre: string;
+  created_at: string; recibido_at: string;
+};
+
+type VistaGeneralItem = {
+  id: number; sku: string; nombre: string; stock_minimo: number; unidad: string;
+  stock_total: number; por_tienda: { tienda_id: number; tienda_nombre: string; stock: number }[];
+};
+
+const TRANSF_ESTADO_LABEL: Record<string, { label: string; color: string }> = {
+  pendiente: { label: 'Pendiente', color: 'text-yellow-400' },
+  recibido: { label: 'Recibido', color: 'text-green-400' },
+  cancelado: { label: 'Cancelado', color: 'text-red-400' },
+};
+
 const TIPOS = [
   { value: 'entrada', label: 'Entrada', icon: ArrowDownToLine, color: 'text-green-400' },
   { value: 'salida', label: 'Salida', icon: ArrowUpFromLine, color: 'text-red-400' },
@@ -33,7 +55,7 @@ export default function InventarioPage() {
   usePageHeader({ title: 'Inventario', subtitle: 'Existencias y movimientos de stock' });
   const { user } = useAuthStore();
   const isAdmin = user && ['superadmin', 'admin', 'manager'].includes(user.rol);
-  const [tab, setTab] = useState<'stock' | 'movimientos'>('stock');
+  const [tab, setTab] = useState<'stock' | 'movimientos' | 'transferencias' | 'general'>('stock');
   const [productos, setProductos] = useState<Producto[]>([]);
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [search, setSearch] = useState('');
@@ -44,9 +66,109 @@ export default function InventarioPage() {
   const [importResult, setImportResult] = useState<any>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Inventario compartido / transferencias — config de la empresa
+  const [inventarioCompartido, setInventarioCompartido] = useState(false);
+  const [transferenciasActivo, setTransferenciasActivo] = useState(false);
+  const [tiendasEmpresa, setTiendasEmpresa] = useState<{ id: number; nombre: string }[]>([]);
+
+  // Transferencias directas entre tiendas
+  const [pendientesRecibir, setPendientesRecibir] = useState<Transferencia[]>([]);
+  const [enviadas, setEnviadas] = useState<Transferencia[]>([]);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferForm, setTransferForm] = useState({ tienda_destino_id: 0, producto_id: 0, cantidad: '', notas: '' });
+  const [transferSaving, setTransferSaving] = useState(false);
+
+  // Vista general (total empresa + desglose por tienda)
+  const [vistaGeneral, setVistaGeneral] = useState<VistaGeneralItem[]>([]);
+
+  useEffect(() => {
+    if (!user?.empresa_id) return;
+    empresasApi.get(user.empresa_id).then(({ data }) => {
+      const cfg = data?.config_especial || {};
+      setInventarioCompartido(cfg.inventario_compartido === true);
+      setTransferenciasActivo(cfg.transferencias_activo === true);
+    }).catch(() => {});
+    tiendasApi.list().then(({ data }) => {
+      setTiendasEmpresa((data || []).filter((t: any) => t.empresa_id === user.empresa_id && t.id !== user.tienda_id));
+    }).catch(() => {});
+  }, [user?.empresa_id]);
+
   useEffect(() => { load(); }, [tab]);
 
+  // Precargar el conteo de pendientes por recibir para el badge de la pestaña, sin esperar a que se abra.
+  useEffect(() => {
+    if (transferenciasActivo && tab !== 'transferencias') {
+      transferenciasApi.pendientesRecibir().then(({ data }) => setPendientesRecibir(data || [])).catch(() => {});
+    }
+  }, [transferenciasActivo]);
+
+  const loadTransferencias = async () => {
+    setLoading(true);
+    try {
+      const [pend, env] = await Promise.all([transferenciasApi.pendientesRecibir(), transferenciasApi.enviadas()]);
+      setPendientesRecibir(pend.data || []);
+      setEnviadas(env.data || []);
+    } catch { toast.error('Error al cargar transferencias'); }
+    setLoading(false);
+  };
+
+  const loadVistaGeneral = async () => {
+    setLoading(true);
+    try {
+      const { data } = await inventarioApi.vistaGeneral();
+      setVistaGeneral(data || []);
+    } catch (e: any) { toast.error(e.response?.data?.message || 'Error al cargar vista general'); }
+    setLoading(false);
+  };
+
+  const abrirTransferModal = (producto_id?: number) => {
+    setTransferForm({ tienda_destino_id: tiendasEmpresa[0]?.id || 0, producto_id: producto_id || 0, cantidad: '', notas: '' });
+    setShowTransferModal(true);
+  };
+
+  const handleCrearTransferencia = async () => {
+    if (!transferForm.tienda_destino_id || !transferForm.producto_id || !transferForm.cantidad) {
+      toast.error('Completa los campos'); return;
+    }
+    setTransferSaving(true);
+    try {
+      const { data } = await transferenciasApi.crear({
+        tienda_destino_id: transferForm.tienda_destino_id,
+        producto_id: transferForm.producto_id,
+        cantidad: parseFloat(transferForm.cantidad),
+        notas: transferForm.notas || undefined,
+      });
+      toast.success(`Transferencia ${data.folio} creada`);
+      setShowTransferModal(false);
+      loadTransferencias();
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Error al crear transferencia');
+    } finally {
+      setTransferSaving(false);
+    }
+  };
+
+  const handleRecibirTransferencia = async (id: number) => {
+    try {
+      await transferenciasApi.recibir(id);
+      toast.success('Transferencia recibida — stock actualizado');
+      loadTransferencias();
+    } catch (e: any) { toast.error(e.response?.data?.message || 'Error al recibir'); }
+  };
+
+  const handleCancelarTransferencia = async (id: number) => {
+    const motivo = prompt('Motivo de la cancelacion:');
+    if (!motivo) return;
+    try {
+      await transferenciasApi.cancelar(id, motivo);
+      toast.success('Transferencia cancelada — stock devuelto');
+      loadTransferencias();
+    } catch (e: any) { toast.error(e.response?.data?.message || 'Error al cancelar'); }
+  };
+
   const load = async () => {
+    if (tab === 'transferencias') { loadTransferencias(); return; }
+    if (tab === 'general') { loadVistaGeneral(); return; }
     setLoading(true);
     try {
       if (tab === 'stock') {
@@ -208,26 +330,35 @@ export default function InventarioPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-end gap-4 mb-6">
         <div className="flex flex-wrap gap-2">
-          {isAdmin && (
+          {(tab === 'stock' || tab === 'movimientos') && (
             <>
-              <button onClick={handleCSVTemplate} className="btn-secondary text-sm flex items-center gap-1">
-                <FileSpreadsheet size={16} /> Plantilla CSV
+              {isAdmin && (
+                <>
+                  <button onClick={handleCSVTemplate} className="btn-secondary text-sm flex items-center gap-1">
+                    <FileSpreadsheet size={16} /> Plantilla CSV
+                  </button>
+                  <button onClick={handleCSVExport} className="btn-secondary text-sm flex items-center gap-1">
+                    <Download size={16} /> Exportar
+                  </button>
+                  <label className="btn-secondary text-sm flex items-center gap-1 cursor-pointer">
+                    <Upload size={16} /> Importar
+                    <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleCSVImport} />
+                  </label>
+                </>
+              )}
+              <button onClick={handlePrintReport} className="btn-secondary text-sm flex items-center gap-1">
+                <Printer size={16} /> Imprimir
               </button>
-              <button onClick={handleCSVExport} className="btn-secondary text-sm flex items-center gap-1">
-                <Download size={16} /> Exportar
+              <button onClick={() => openMovModal()} className="btn-primary text-sm flex items-center gap-1">
+                <Plus size={16} /> Movimiento
               </button>
-              <label className="btn-secondary text-sm flex items-center gap-1 cursor-pointer">
-                <Upload size={16} /> Importar
-                <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleCSVImport} />
-              </label>
             </>
           )}
-          <button onClick={handlePrintReport} className="btn-secondary text-sm flex items-center gap-1">
-            <Printer size={16} /> Imprimir
-          </button>
-          <button onClick={() => openMovModal()} className="btn-primary text-sm flex items-center gap-1">
-            <Plus size={16} /> Movimiento
-          </button>
+          {tab === 'transferencias' && (
+            <button onClick={() => abrirTransferModal()} className="btn-primary text-sm flex items-center gap-1">
+              <Send size={16} /> Nueva transferencia
+            </button>
+          )}
         </div>
       </div>
 
@@ -260,15 +391,30 @@ export default function InventarioPage() {
           <button onClick={() => setTab('movimientos')} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === 'movimientos' ? 'bg-iados-primary text-white' : 'text-slate-400 hover:text-white'}`}>
             Movimientos
           </button>
+          {transferenciasActivo && (
+            <button onClick={() => setTab('transferencias')} className={`px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1.5 ${tab === 'transferencias' ? 'bg-iados-primary text-white' : 'text-slate-400 hover:text-white'}`}>
+              <Send size={14} /> Transferencias
+              {pendientesRecibir.length > 0 && (
+                <span className="bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{pendientesRecibir.length}</span>
+              )}
+            </button>
+          )}
+          {inventarioCompartido && (
+            <button onClick={() => setTab('general')} className={`px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1.5 ${tab === 'general' ? 'bg-iados-primary text-white' : 'text-slate-400 hover:text-white'}`}>
+              <Layers size={14} /> General
+            </button>
+          )}
         </div>
-        <div className="relative flex-1 w-full sm:w-auto">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar producto..."
-            className="w-full pl-10 pr-4 py-2 bg-iados-card rounded-xl border border-slate-700 focus:border-iados-primary outline-none text-sm"
-          />
-        </div>
+        {(tab === 'stock' || tab === 'movimientos') && (
+          <div className="relative flex-1 w-full sm:w-auto">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar producto..."
+              className="w-full pl-10 pr-4 py-2 bg-iados-card rounded-xl border border-slate-700 focus:border-iados-primary outline-none text-sm"
+            />
+          </div>
+        )}
         <button onClick={load} className="p-2 text-slate-400 hover:text-white"><RefreshCw size={18} /></button>
       </div>
 
@@ -339,7 +485,7 @@ export default function InventarioPage() {
             <div className="text-center py-12 text-slate-500">No se encontraron productos</div>
           )}
         </div>
-      ) : (
+      ) : tab === 'movimientos' ? (
         <div className="space-y-2">
           {(filtered as Movimiento[]).map(m => (
             <div key={m.id} className="bg-iados-card rounded-xl p-4 flex items-center gap-4">
@@ -369,6 +515,168 @@ export default function InventarioPage() {
           {(filtered as Movimiento[]).length === 0 && (
             <div className="text-center py-12 text-slate-500">No hay movimientos registrados</div>
           )}
+        </div>
+      ) : tab === 'transferencias' ? (
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-300 mb-2 flex items-center gap-1.5">
+              <Inbox size={16} /> Pendientes por recibir
+            </h3>
+            <div className="space-y-2">
+              {pendientesRecibir.map(t => (
+                <div key={t.id} className="bg-iados-card rounded-xl p-4 flex items-center gap-4">
+                  <div className="p-2 rounded-lg bg-yellow-900/30">
+                    <Clock size={20} className="text-yellow-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">{t.producto_nombre} <span className="text-slate-500 text-xs">x{t.cantidad}</span></div>
+                    <div className="text-xs text-slate-400">Folio {t.folio} · Desde {t.tienda_origen_nombre}</div>
+                    {t.notas && <div className="text-xs text-slate-500 mt-0.5">{t.notas}</div>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => handleRecibirTransferencia(t.id)} className="btn-primary text-xs flex items-center gap-1 px-3 py-1.5">
+                      <CheckCircle2 size={14} /> Recibir
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {pendientesRecibir.length === 0 && (
+                <div className="text-center py-8 text-slate-500 text-sm">No hay transferencias pendientes por recibir</div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold text-slate-300 mb-2 flex items-center gap-1.5">
+              <Send size={16} /> Enviadas
+            </h3>
+            <div className="space-y-2">
+              {enviadas.map(t => (
+                <div key={t.id} className="bg-iados-card rounded-xl p-4 flex items-center gap-4">
+                  <div className="p-2 rounded-lg bg-slate-700/50">
+                    <Building2 size={20} className="text-slate-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">{t.producto_nombre} <span className="text-slate-500 text-xs">x{t.cantidad}</span></div>
+                    <div className="text-xs text-slate-400">Folio {t.folio} · A {t.tienda_destino_nombre}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className={`text-xs font-semibold ${TRANSF_ESTADO_LABEL[t.estado]?.color}`}>
+                      {TRANSF_ESTADO_LABEL[t.estado]?.label}
+                    </div>
+                    <div className="text-xs text-slate-500">{new Date(t.created_at).toLocaleString()}</div>
+                  </div>
+                  {t.estado === 'pendiente' && (
+                    <button onClick={() => handleCancelarTransferencia(t.id)} className="text-red-400 hover:text-red-300 p-1.5" title="Cancelar">
+                      <XCircle size={18} />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {enviadas.length === 0 && (
+                <div className="text-center py-8 text-slate-500 text-sm">No has enviado transferencias</div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-400 border-b border-slate-700">
+                <th className="pb-3 pl-2">Producto</th>
+                <th className="pb-3">SKU</th>
+                <th className="pb-3 text-right">Stock total</th>
+                <th className="pb-3">Por tienda</th>
+              </tr>
+            </thead>
+            <tbody>
+              {vistaGeneral.map(item => (
+                <tr key={item.id} className="border-b border-slate-800">
+                  <td className="py-3 pl-2">{item.nombre}</td>
+                  <td className="py-3 text-slate-400">{item.sku}</td>
+                  <td className={`py-3 text-right font-bold ${item.stock_total <= item.stock_minimo ? 'text-red-400' : ''}`}>
+                    {item.stock_total} {item.unidad}
+                  </td>
+                  <td className="py-3">
+                    <div className="flex flex-wrap gap-1.5">
+                      {item.por_tienda.map(pt => (
+                        <span key={pt.tienda_id} className="text-xs bg-slate-700/50 rounded-full px-2 py-0.5 whitespace-nowrap">
+                          {pt.tienda_nombre}: <span className="font-semibold">{pt.stock}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {vistaGeneral.length === 0 && (
+            <div className="text-center py-12 text-slate-500">No hay productos con inventario compartido</div>
+          )}
+        </div>
+      )}
+
+      {/* Modal: Nueva Transferencia */}
+      {showTransferModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowTransferModal(false)}>
+          <div className="bg-iados-surface rounded-2xl p-6 w-full max-w-md mx-4 border border-slate-700" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-semibold text-lg">Nueva transferencia</h3>
+              <button onClick={() => setShowTransferModal(false)}><X size={20} /></button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">Tienda destino</label>
+                <select
+                  value={transferForm.tienda_destino_id}
+                  onChange={e => setTransferForm({ ...transferForm, tienda_destino_id: parseInt(e.target.value) })}
+                  className="w-full px-3 py-2 bg-iados-card rounded-lg border border-slate-700 outline-none focus:border-iados-primary"
+                >
+                  <option value={0}>Selecciona una tienda</option>
+                  {tiendasEmpresa.map(t => (
+                    <option key={t.id} value={t.id}>{t.nombre}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">Producto</label>
+                <select
+                  value={transferForm.producto_id}
+                  onChange={e => setTransferForm({ ...transferForm, producto_id: parseInt(e.target.value) })}
+                  className="w-full px-3 py-2 bg-iados-card rounded-lg border border-slate-700 outline-none focus:border-iados-primary"
+                >
+                  <option value={0}>Selecciona un producto</option>
+                  {productos.map(p => (
+                    <option key={p.id} value={p.id}>{p.nombre} ({p.sku})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">Cantidad</label>
+                <input
+                  type="number" min="0" step="0.01"
+                  value={transferForm.cantidad}
+                  onChange={e => setTransferForm({ ...transferForm, cantidad: e.target.value })}
+                  className="w-full px-3 py-2 bg-iados-card rounded-lg border border-slate-700 outline-none focus:border-iados-primary"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">Notas (opcional)</label>
+                <input
+                  value={transferForm.notas}
+                  onChange={e => setTransferForm({ ...transferForm, notas: e.target.value })}
+                  className="w-full px-3 py-2 bg-iados-card rounded-lg border border-slate-700 outline-none focus:border-iados-primary"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 mt-5">
+              <button onClick={() => setShowTransferModal(false)} className="btn-secondary flex-1">Cancelar</button>
+              <button onClick={handleCrearTransferencia} disabled={transferSaving} className="btn-primary flex-1 disabled:opacity-50">
+                {transferSaving ? 'Enviando...' : 'Crear transferencia'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

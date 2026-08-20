@@ -303,6 +303,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
       impuesto: i.impuesto,
       modificadores: i.modificadores,
       notas: i.notas,
+      apartado_tienda_id: i.apartado_tienda_id,
     })),
     subtotal: getSubtotal(),
     descuento: 0,

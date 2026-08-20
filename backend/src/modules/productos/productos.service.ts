@@ -1,11 +1,12 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { parse } from 'csv-parse/sync';
 import { Producto, ProductoTienda } from './producto.entity';
 import { Categoria } from '../categorias/categoria.entity';
 import { ConfigIaImagenes } from './config-ia-imagenes.entity';
+import { EmpresasService } from '../empresas/empresas.service';
 
 @Injectable()
 export class ProductosService {
@@ -17,7 +18,26 @@ export class ProductosService {
     @InjectRepository(Categoria) private catRepo: Repository<Categoria>,
     @InjectRepository(ConfigIaImagenes) private iaImagenesRepo: Repository<ConfigIaImagenes>,
     private configService: ConfigService,
+    private empresasService: EmpresasService,
   ) {}
+
+  // Stock del mismo producto en otras tiendas de la MISMA empresa — solo tiene sentido
+  // si la empresa activo "inventario compartido" (config_especial.inventario_compartido).
+  // Usado por el POS para ofrecer "aparta aqui, surte alla" cuando el stock local no alcanza.
+  async stockEnOtrasTiendas(scope: any, producto_id: number): Promise<{ tienda_id: number; tienda_nombre: string; stock: number }[]> {
+    const { inventario_compartido } = await this.empresasService.getConfigEspecial(scope.empresa_id);
+    if (!inventario_compartido) return [];
+    const rows = await this.ptRepo.createQueryBuilder('pt')
+      .innerJoin('tiendas', 't', 't.id = pt.tienda_id')
+      .where('pt.producto_id = :pid', { pid: producto_id })
+      .andWhere('pt.tienda_id != :tid', { tid: scope.tienda_id })
+      .andWhere('t.empresa_id = :eid', { eid: scope.empresa_id })
+      .andWhere('t.activo = 1')
+      .andWhere('pt.stock > 0')
+      .select(['pt.tienda_id AS tienda_id', 't.nombre AS tienda_nombre', 'pt.stock AS stock'])
+      .getRawMany();
+    return rows.map((r) => ({ tienda_id: Number(r.tienda_id), tienda_nombre: r.tienda_nombre, stock: Number(r.stock) }));
+  }
 
   findAll(scope: any, categoria_id?: number) {
     // Nunca mezclar catalogos de distintos tenants/empresas — ni siquiera para superadmin.
@@ -29,7 +49,7 @@ export class ProductosService {
     return this.repo.find({ where, relations: ['categoria'], order: { orden: 'ASC', nombre: 'ASC' } });
   }
 
-  findForPOS(scope: any) {
+  async findForPOS(scope: any) {
     const adminRoles = ['admin', 'superadmin', 'manager'];
     const qb = this.repo.createQueryBuilder('p')
       .leftJoinAndSelect('p.categoria', 'c')
@@ -48,20 +68,51 @@ export class ProductosService {
       qb.andWhere('c.modulo = :modulo', { modulo: scope.modulo });
     }
 
-    return qb.getMany();
+    const productos = await qb.getMany();
+
+    // Con "inventario compartido" activo, el POS debe ver el stock DE ESTA TIENDA, no el
+    // acumulado de la empresa — de otra forma no detectaria cuando falta stock local y
+    // nunca ofreceria la opcion de apartar en otra tienda.
+    const { inventario_compartido } = await this.empresasService.getConfigEspecial(scope.empresa_id);
+    if (!inventario_compartido || !scope.tienda_id || productos.length === 0) return productos;
+    const ptRows = await this.ptRepo.find({ where: { tienda_id: scope.tienda_id, producto_id: In(productos.map((p) => p.id)) } });
+    const ptMap = new Map(ptRows.map((pt) => [pt.producto_id, Number(pt.stock)]));
+    return productos.map((p) => (p.controla_stock ? Object.assign(p, { stock_actual: ptMap.get(p.id) ?? 0 }) : p));
   }
 
   findOne(id: number) {
     return this.repo.findOne({ where: { id }, relations: ['categoria'] });
   }
 
-  create(data: Partial<Producto>) {
+  async create(data: Partial<Producto>) {
     const clean: any = { ...data };
     if (clean.categoria_id === '' || clean.categoria_id === null) clean.categoria_id = null;
     if (clean.costo === '' || clean.costo === undefined) delete clean.costo;
     if (clean.imagen_url === '') clean.imagen_url = null;
     delete clean.created_at; delete clean.updated_at;
-    return this.repo.save(this.repo.create(clean));
+    const saved = await this.repo.save(this.repo.create(clean as Partial<Producto>));
+    if (saved.controla_stock) {
+      await this.seedProductoTiendaSiCompartido(saved.empresa_id, saved.id, Number(saved.stock_actual || 0));
+    }
+    return saved;
+  }
+
+  // Si la empresa tiene "inventario compartido" activo, un producto nuevo con stock inicial
+  // necesita filas en producto_tienda desde el arranque — si no, la primera venta lo veria
+  // en 0 en todas las tiendas (nadie sembro nada para el, a diferencia de los productos que
+  // ya existian cuando se prendio el toggle). Igual que la migracion inicial: copia el mismo
+  // stock a cada tienda; el admin lo corrige despues por tienda si hace falta.
+  private async seedProductoTiendaSiCompartido(empresa_id: number, producto_id: number, stock: number) {
+    const { inventario_compartido } = await this.empresasService.getConfigEspecial(empresa_id);
+    if (!inventario_compartido) return;
+    const tiendas = await this.ptRepo.manager.query('SELECT id, tenant_id FROM tiendas WHERE empresa_id = ?', [empresa_id]);
+    for (const tienda of tiendas) {
+      const existing = await this.ptRepo.findOne({ where: { producto_id, tienda_id: tienda.id } });
+      if (existing) continue;
+      await this.ptRepo.save(this.ptRepo.create({
+        tenant_id: tienda.tenant_id, tienda_id: tienda.id, producto_id, stock, disponible: true,
+      }));
+    }
   }
 
   async update(id: number, data: Partial<Producto>) {
@@ -229,10 +280,16 @@ export class ProductosService {
         if (categoriaId) prodData.categoria_id = categoriaId;
 
         if (existing) {
-          await this.repo.save({ ...existing, ...prodData });
+          const savedProd = await this.repo.save({ ...existing, ...prodData });
+          if (savedProd.controla_stock) {
+            await this.seedProductoTiendaSiCompartido(scope.empresa_id, savedProd.id, Number(savedProd.stock_actual || 0));
+          }
           results.updated++;
         } else {
-          await this.repo.save(this.repo.create(prodData));
+          const savedProd = await this.repo.save(this.repo.create(prodData));
+          if (savedProd.controla_stock) {
+            await this.seedProductoTiendaSiCompartido(scope.empresa_id, savedProd.id, Number(savedProd.stock_actual || 0));
+          }
           results.success++;
         }
       } catch (err) {

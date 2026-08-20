@@ -43,6 +43,22 @@ export class Empresa {
     mostrar_precios?: boolean;      // default implícito: true (si null/undefined, se trata como true)
     precio_manual?: boolean;        // default implícito: false
     notif_cliente_estados?: boolean; // default implícito: false
+    empleados_enabled?: boolean;
+    // Inventario compartido entre tiendas de esta empresa: si una tienda no tiene stock
+    // de un producto, el POS puede ofrecer apartarlo en otra tienda de la misma empresa.
+    inventario_compartido?: boolean; // default implícito: false
+    // Transferencias directas de stock entre tiendas de esta empresa (folio-based).
+    // Requiere ademas inventario_compartido=true, ya que opera sobre producto_tienda.
+    transferencias_activo?: boolean; // default implícito: false
+    moneda?: {
+      activa?: boolean;              // segunda moneda habilitada (default: false)
+      codigo?: string;                // ej. 'USD' (default: 'USD')
+      modo_tipo_cambio?: 'manual' | 'automatico'; // default: 'manual'
+      tipo_cambio_manual?: number;    // MXN por 1 unidad de la moneda secundaria
+      tipo_cambio_actual?: number;    // valor vigente (manual o el ultimo obtenido automaticamente)
+      tipo_cambio_actualizado_at?: string; // ISO, solo cuando modo automatico
+      modo_visualizacion?: 'ambas' | 'solo_base' | 'solo_secundaria'; // default: 'ambas'
+    };
   } | null;
 
   @Column({ default: true })

@@ -84,6 +84,7 @@ export class Producto {
 
 @Entity('producto_tienda')
 @Index(['tenant_id', 'tienda_id', 'producto_id'])
+@Index(['producto_id', 'tienda_id'], { unique: true })
 export class ProductoTienda {
   @PrimaryGeneratedColumn()
   id: number;

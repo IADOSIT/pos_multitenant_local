@@ -3,18 +3,26 @@ import { Repository } from 'typeorm';
 import { Producto, ProductoTienda } from './producto.entity';
 import { Categoria } from '../categorias/categoria.entity';
 import { ConfigIaImagenes } from './config-ia-imagenes.entity';
+import { EmpresasService } from '../empresas/empresas.service';
 export declare class ProductosService {
     private repo;
     private ptRepo;
     private catRepo;
     private iaImagenesRepo;
     private configService;
+    private empresasService;
     private logger;
-    constructor(repo: Repository<Producto>, ptRepo: Repository<ProductoTienda>, catRepo: Repository<Categoria>, iaImagenesRepo: Repository<ConfigIaImagenes>, configService: ConfigService);
+    constructor(repo: Repository<Producto>, ptRepo: Repository<ProductoTienda>, catRepo: Repository<Categoria>, iaImagenesRepo: Repository<ConfigIaImagenes>, configService: ConfigService, empresasService: EmpresasService);
+    stockEnOtrasTiendas(scope: any, producto_id: number): Promise<{
+        tienda_id: number;
+        tienda_nombre: string;
+        stock: number;
+    }[]>;
     findAll(scope: any, categoria_id?: number): Promise<Producto[]>;
     findForPOS(scope: any): Promise<Producto[]>;
     findOne(id: number): Promise<Producto | null>;
-    create(data: Partial<Producto>): Promise<Producto[]>;
+    create(data: Partial<Producto>): Promise<Producto>;
+    private seedProductoTiendaSiCompartido;
     update(id: number, data: Partial<Producto>): Promise<Producto | null>;
     getCSVTemplate(): string;
     private decodeCSV;

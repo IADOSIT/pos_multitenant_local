@@ -21,14 +21,31 @@ const sync_1 = require("csv-parse/sync");
 const producto_entity_1 = require("./producto.entity");
 const categoria_entity_1 = require("../categorias/categoria.entity");
 const config_ia_imagenes_entity_1 = require("./config-ia-imagenes.entity");
+const empresas_service_1 = require("../empresas/empresas.service");
 let ProductosService = class ProductosService {
-    constructor(repo, ptRepo, catRepo, iaImagenesRepo, configService) {
+    constructor(repo, ptRepo, catRepo, iaImagenesRepo, configService, empresasService) {
         this.repo = repo;
         this.ptRepo = ptRepo;
         this.catRepo = catRepo;
         this.iaImagenesRepo = iaImagenesRepo;
         this.configService = configService;
+        this.empresasService = empresasService;
         this.logger = new common_1.Logger('ProductosService');
+    }
+    async stockEnOtrasTiendas(scope, producto_id) {
+        const { inventario_compartido } = await this.empresasService.getConfigEspecial(scope.empresa_id);
+        if (!inventario_compartido)
+            return [];
+        const rows = await this.ptRepo.createQueryBuilder('pt')
+            .innerJoin('tiendas', 't', 't.id = pt.tienda_id')
+            .where('pt.producto_id = :pid', { pid: producto_id })
+            .andWhere('pt.tienda_id != :tid', { tid: scope.tienda_id })
+            .andWhere('t.empresa_id = :eid', { eid: scope.empresa_id })
+            .andWhere('t.activo = 1')
+            .andWhere('pt.stock > 0')
+            .select(['pt.tienda_id AS tienda_id', 't.nombre AS tienda_nombre', 'pt.stock AS stock'])
+            .getRawMany();
+        return rows.map((r) => ({ tienda_id: Number(r.tienda_id), tienda_nombre: r.tienda_nombre, stock: Number(r.stock) }));
     }
     findAll(scope, categoria_id) {
         const where = { activo: true, tenant_id: scope.tenant_id, empresa_id: scope.empresa_id };
@@ -36,7 +53,7 @@ let ProductosService = class ProductosService {
             where.categoria_id = categoria_id;
         return this.repo.find({ where, relations: ['categoria'], order: { orden: 'ASC', nombre: 'ASC' } });
     }
-    findForPOS(scope) {
+    async findForPOS(scope) {
         const adminRoles = ['admin', 'superadmin', 'manager'];
         const qb = this.repo.createQueryBuilder('p')
             .leftJoinAndSelect('p.categoria', 'c')
@@ -51,12 +68,18 @@ let ProductosService = class ProductosService {
         if (scope.modulo && !adminRoles.includes(scope.rol)) {
             qb.andWhere('c.modulo = :modulo', { modulo: scope.modulo });
         }
-        return qb.getMany();
+        const productos = await qb.getMany();
+        const { inventario_compartido } = await this.empresasService.getConfigEspecial(scope.empresa_id);
+        if (!inventario_compartido || !scope.tienda_id || productos.length === 0)
+            return productos;
+        const ptRows = await this.ptRepo.find({ where: { tienda_id: scope.tienda_id, producto_id: (0, typeorm_2.In)(productos.map((p) => p.id)) } });
+        const ptMap = new Map(ptRows.map((pt) => [pt.producto_id, Number(pt.stock)]));
+        return productos.map((p) => (p.controla_stock ? Object.assign(p, { stock_actual: ptMap.get(p.id) ?? 0 }) : p));
     }
     findOne(id) {
         return this.repo.findOne({ where: { id }, relations: ['categoria'] });
     }
-    create(data) {
+    async create(data) {
         const clean = { ...data };
         if (clean.categoria_id === '' || clean.categoria_id === null)
             clean.categoria_id = null;
@@ -66,7 +89,25 @@ let ProductosService = class ProductosService {
             clean.imagen_url = null;
         delete clean.created_at;
         delete clean.updated_at;
-        return this.repo.save(this.repo.create(clean));
+        const saved = await this.repo.save(this.repo.create(clean));
+        if (saved.controla_stock) {
+            await this.seedProductoTiendaSiCompartido(saved.empresa_id, saved.id, Number(saved.stock_actual || 0));
+        }
+        return saved;
+    }
+    async seedProductoTiendaSiCompartido(empresa_id, producto_id, stock) {
+        const { inventario_compartido } = await this.empresasService.getConfigEspecial(empresa_id);
+        if (!inventario_compartido)
+            return;
+        const tiendas = await this.ptRepo.manager.query('SELECT id, tenant_id FROM tiendas WHERE empresa_id = ?', [empresa_id]);
+        for (const tienda of tiendas) {
+            const existing = await this.ptRepo.findOne({ where: { producto_id, tienda_id: tienda.id } });
+            if (existing)
+                continue;
+            await this.ptRepo.save(this.ptRepo.create({
+                tenant_id: tienda.tenant_id, tienda_id: tienda.id, producto_id, stock, disponible: true,
+            }));
+        }
     }
     async update(id, data) {
         const { id: _id, created_at, updated_at, ...rest } = data;
@@ -217,11 +258,17 @@ let ProductosService = class ProductosService {
                 if (categoriaId)
                     prodData.categoria_id = categoriaId;
                 if (existing) {
-                    await this.repo.save({ ...existing, ...prodData });
+                    const savedProd = await this.repo.save({ ...existing, ...prodData });
+                    if (savedProd.controla_stock) {
+                        await this.seedProductoTiendaSiCompartido(scope.empresa_id, savedProd.id, Number(savedProd.stock_actual || 0));
+                    }
                     results.updated++;
                 }
                 else {
-                    await this.repo.save(this.repo.create(prodData));
+                    const savedProd = await this.repo.save(this.repo.create(prodData));
+                    if (savedProd.controla_stock) {
+                        await this.seedProductoTiendaSiCompartido(scope.empresa_id, savedProd.id, Number(savedProd.stock_actual || 0));
+                    }
                     results.success++;
                 }
             }
@@ -346,6 +393,7 @@ exports.ProductosService = ProductosService = __decorate([
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
-        config_1.ConfigService])
+        config_1.ConfigService,
+        empresas_service_1.EmpresasService])
 ], ProductosService);
 //# sourceMappingURL=productos.service.js.map

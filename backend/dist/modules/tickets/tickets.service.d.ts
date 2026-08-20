@@ -8,11 +8,22 @@ export declare class TicketsService {
     saveConfig(data: Partial<TicketConfig>): Promise<TicketConfig>;
     updateConfig(id: number, data: Partial<TicketConfig>): Promise<TicketConfig | null>;
     private s;
-    generateTicketData(venta: any, config: TicketConfig): {
+    private renderTotal;
+    generateTicketData(venta: any, config: TicketConfig, moneda?: {
+        activa?: boolean;
+        codigo?: string;
+        tipo_cambio_actual?: number;
+        modo_visualizacion?: string;
+    }): {
         lines: string[];
         raw: string;
     };
-    generatePreCuentaData(data: any, config: TicketConfig): {
+    generatePreCuentaData(data: any, config: TicketConfig, moneda?: {
+        activa?: boolean;
+        codigo?: string;
+        tipo_cambio_actual?: number;
+        modo_visualizacion?: string;
+    }): {
         lines: string[];
         raw: string;
     };

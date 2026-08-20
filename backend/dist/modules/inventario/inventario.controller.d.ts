@@ -18,5 +18,18 @@ export declare class InventarioController {
         errors: any[];
         total: any;
     }>;
+    getVistaGeneral(scope: any): Promise<{
+        id: number;
+        sku: string;
+        nombre: string;
+        stock_minimo: number;
+        unidad: string;
+        stock_total: number;
+        por_tienda: {
+            tienda_id: number;
+            tienda_nombre: string;
+            stock: number;
+        }[];
+    }[]>;
     listStockPorModulo(scope: any, modulo?: string): Promise<import("../productos/producto.entity").Producto[]>;
 }

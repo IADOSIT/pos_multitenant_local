@@ -5,11 +5,12 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { TenantScope } from '../../common/decorators/tenant.decorator';
 import { TicketsService } from './tickets.service';
+import { EmpresasService } from '../empresas/empresas.service';
 
 @Controller('tickets')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class TicketsController {
-  constructor(private service: TicketsService) {}
+  constructor(private service: TicketsService, private empresasService: EmpresasService) {}
 
   @Get('config')
   getConfig(@TenantScope() scope) {
@@ -40,7 +41,8 @@ export class TicketsController {
   @Post('preview')
   async preview(@Body() data: any, @TenantScope() scope) {
     const config = await this.service.getConfig(scope.tenant_id, scope.empresa_id, scope.tienda_id);
-    const ticket = this.service.generateTicketData(data.venta, config);
+    const { moneda } = await this.empresasService.getConfigEspecial(scope.empresa_id);
+    const ticket = this.service.generateTicketData(data.venta, config, moneda);
     return {
       ...ticket,
       ancho_papel:       config.ancho_papel    ?? 80,
@@ -57,7 +59,8 @@ export class TicketsController {
   @Post('precuenta')
   async precuenta(@Body() data: any, @TenantScope() scope) {
     const config = await this.service.getConfig(scope.tenant_id, scope.empresa_id, scope.tienda_id);
-    const ticket = this.service.generatePreCuentaData(data, config);
+    const { moneda } = await this.empresasService.getConfigEspecial(scope.empresa_id);
+    const ticket = this.service.generatePreCuentaData(data, config, moneda);
     return {
       ...ticket,
       ancho_papel:    config.ancho_papel    ?? 80,

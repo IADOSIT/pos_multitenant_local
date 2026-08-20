@@ -40,6 +40,7 @@ interface POSState {
   updateQuantity: (itemId: string, cantidad: number) => void;
   updateItemPrice: (id: string, price: number) => void;
   updateItemNotes: (itemId: string, notas: string) => void;
+  setItemApartado: (itemId: string, tienda_id: number | undefined, tienda_nombre?: string) => void;
   clearCart: () => void;
 
   getSubtotal: () => number;
@@ -90,6 +91,8 @@ export const usePOSStore = create<POSState>((set, get) => ({
                 ...i,
                 cantidad: i.cantidad + cantidad,
                 subtotal: (i.cantidad + cantidad) * (i.precioManual ?? i.precio),
+                apartado_tienda_id: undefined,
+                apartado_tienda_nombre: undefined,
               }
             : i,
         ),
@@ -106,6 +109,8 @@ export const usePOSStore = create<POSState>((set, get) => ({
         descuento: 0,
         impuesto: 0, // Se calcula dinámicamente en getImpuestos
         subtotal: precio * cantidad,
+        stock_actual: (producto as any).stock_actual !== undefined ? Number((producto as any).stock_actual) : undefined,
+        controla_stock: (producto as any).controla_stock,
       };
       set({ cart: [...cart, item] });
     }
@@ -121,7 +126,9 @@ export const usePOSStore = create<POSState>((set, get) => ({
     }
     set({
       cart: get().cart.map((i) =>
-        i.id === itemId ? { ...i, cantidad, subtotal: cantidad * (i.precioManual ?? i.precio) } : i,
+        i.id === itemId
+          ? { ...i, cantidad, subtotal: cantidad * (i.precioManual ?? i.precio), apartado_tienda_id: undefined, apartado_tienda_nombre: undefined }
+          : i,
       ),
     });
   },
@@ -137,6 +144,13 @@ export const usePOSStore = create<POSState>((set, get) => ({
 
   updateItemNotes: (itemId, notas) =>
     set({ cart: get().cart.map((i) => (i.id === itemId ? { ...i, notas } : i)) }),
+
+  setItemApartado: (itemId, tienda_id, tienda_nombre) =>
+    set({
+      cart: get().cart.map((i) =>
+        i.id === itemId ? { ...i, apartado_tienda_id: tienda_id, apartado_tienda_nombre: tienda_id ? tienda_nombre : undefined } : i,
+      ),
+    }),
 
   clearCart: () => set({ cart: [], notaPedido: '', clienteNombre: '', clienteTelefono: '', clienteDireccion: '' }),
 

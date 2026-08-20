@@ -3,9 +3,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TicketConfig } from './ticket-config.entity';
 import { TicketsController } from './tickets.controller';
 import { TicketsService } from './tickets.service';
+import { EmpresasModule } from '../empresas/empresas.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([TicketConfig])],
+  imports: [TypeOrmModule.forFeature([TicketConfig]), EmpresasModule],
   controllers: [TicketsController],
   providers: [TicketsService],
   exports: [TicketsService],

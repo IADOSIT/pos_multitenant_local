@@ -13,12 +13,13 @@ const inventario_entity_1 = require("./inventario.entity");
 const producto_entity_1 = require("../productos/producto.entity");
 const inventario_controller_1 = require("./inventario.controller");
 const inventario_service_1 = require("./inventario.service");
+const empresas_module_1 = require("../empresas/empresas.module");
 let InventarioModule = class InventarioModule {
 };
 exports.InventarioModule = InventarioModule;
 exports.InventarioModule = InventarioModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([inventario_entity_1.MovimientoInventario, producto_entity_1.Producto])],
+        imports: [typeorm_1.TypeOrmModule.forFeature([inventario_entity_1.MovimientoInventario, producto_entity_1.Producto, producto_entity_1.ProductoTienda]), empresas_module_1.EmpresasModule],
         controllers: [inventario_controller_1.InventarioController],
         providers: [inventario_service_1.InventarioService],
         exports: [inventario_service_1.InventarioService],

@@ -39,6 +39,8 @@ import { EcommerceModule } from './modules/ecommerce/ecommerce.module';
 import { LogisticaModule } from './modules/logistica/logistica.module';
 import { EmpleadosModule } from './modules/empleados/empleados.module';
 import { BasculaModule } from './modules/bascula/bascula.module';
+import { ApartadosModule } from './modules/apartados/apartados.module';
+import { TransferenciasModule } from './modules/transferencias/transferencias.module';
 
 // En SERVER LOCAL/EXTERNO: servir desde frontend/dist-prod (build con plantillas).
 // En SERVER OFFLINE (exe instalado): dist-prod no existe → cae a backend/public.
@@ -94,6 +96,8 @@ const _serveStatic = existsSync(_staticRoot);
     LogisticaModule,
     EmpleadosModule,
     BasculaModule,
+    ApartadosModule,
+    TransferenciasModule,
   ],
   providers: [SchemaSyncService],
 })

@@ -53,6 +53,9 @@ let InventarioController = class InventarioController {
     csvImport(file, scope) {
         return this.service.importCSV(file.buffer, scope);
     }
+    getVistaGeneral(scope) {
+        return this.service.getVistaGeneral(scope);
+    }
     listStockPorModulo(scope, modulo) {
         return this.service.listStockPorModulo(scope, modulo);
     }
@@ -126,6 +129,13 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", void 0)
 ], InventarioController.prototype, "csvImport", null);
+__decorate([
+    (0, common_1.Get)('vista-general'),
+    __param(0, (0, tenant_decorator_1.TenantScope)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], InventarioController.prototype, "getVistaGeneral", null);
 __decorate([
     (0, common_1.Get)('stock-modulo'),
     (0, roles_decorator_1.Roles)('superadmin', 'admin', 'manager', 'cajero', 'mesero'),

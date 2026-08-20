@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { usePOSStore } from '../../store/pos.store';
-import { pedidosApi } from '../../api/endpoints';
-import { Minus, Plus, Trash2, ShoppingCart, Send, BookOpen, MessageSquare, Phone, FileText } from 'lucide-react';
+import { pedidosApi, productosApi } from '../../api/endpoints';
+import { Minus, Plus, Trash2, ShoppingCart, Send, BookOpen, MessageSquare, Phone, FileText, PackageSearch, X as XIcon } from 'lucide-react';
 import { money } from '../../utils/money';
+import { formatMonto, MonedaConfig } from '../../utils/moneda';
+import toast from 'react-hot-toast';
 
 interface Props {
   onPay: () => void;
@@ -25,10 +27,37 @@ interface Props {
   paraLlevarVisible?: boolean;
   mostrarPrecios?: boolean;
   precioManual?: boolean;
+  moneda?: MonedaConfig;
+  inventarioCompartido?: boolean;
 }
 
-export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreCuenta, precuentaEnabled, cuentaAbiertaEnabled, notasPorItem, notasRapidas = [], cantidadesRapidas, notasPedidoEnabled, datosEnvioEnabled, pedidoActivo, onActualizarCuenta, onCancelarEdicion, mesaNumeroOculto, cajaManaged, enSitioVisible = true, paraLlevarVisible = true, mostrarPrecios = true, precioManual = false }: Props) {
-  const { cart, updateQuantity, removeFromCart, clearCart, updateItemNotes, getSubtotal, getImpuestos, getTotal, cajaActiva, modoServicio, tipoCobro, mesaActiva, setMesaActiva, tipoServicio, setTipoServicio, notaPedido, setNotaPedido, clienteNombre, setClienteNombre, clienteTelefono, setClienteTelefono, clienteDireccion, setClienteDireccion, updateItemPrice } = usePOSStore();
+export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreCuenta, precuentaEnabled, cuentaAbiertaEnabled, notasPorItem, notasRapidas = [], cantidadesRapidas, notasPedidoEnabled, datosEnvioEnabled, pedidoActivo, onActualizarCuenta, onCancelarEdicion, mesaNumeroOculto, cajaManaged, enSitioVisible = true, paraLlevarVisible = true, mostrarPrecios = true, precioManual = false, moneda, inventarioCompartido = false }: Props) {
+  const { cart, updateQuantity, removeFromCart, clearCart, updateItemNotes, getSubtotal, getImpuestos, getTotal, cajaActiva, modoServicio, tipoCobro, mesaActiva, setMesaActiva, tipoServicio, setTipoServicio, notaPedido, setNotaPedido, clienteNombre, setClienteNombre, clienteTelefono, setClienteTelefono, clienteDireccion, setClienteDireccion, updateItemPrice, setItemApartado } = usePOSStore();
+
+  // Apartar en otra tienda — selector de tienda destino cuando el stock local no alcanza
+  const [apartadoPickerItemId, setApartadoPickerItemId] = useState<string | null>(null);
+  const [apartadoOpciones, setApartadoOpciones] = useState<{ tienda_id: number; tienda_nombre: string; stock: number }[]>([]);
+  const [apartadoLoading, setApartadoLoading] = useState(false);
+
+  const abrirApartadoPicker = async (item: any) => {
+    setApartadoPickerItemId(item.id);
+    setApartadoOpciones([]);
+    setApartadoLoading(true);
+    try {
+      const { data } = await productosApi.stockOtrasTiendas(item.producto_id);
+      setApartadoOpciones(data || []);
+      if (!data?.length) toast('Sin stock disponible en otras tiendas', { icon: '⚠️' });
+    } catch {
+      toast.error('No se pudo consultar stock en otras tiendas');
+    } finally {
+      setApartadoLoading(false);
+    }
+  };
+
+  const elegirTiendaApartado = (tienda_id: number, tienda_nombre: string) => {
+    if (apartadoPickerItemId) setItemApartado(apartadoPickerItemId, tienda_id, tienda_nombre);
+    setApartadoPickerItemId(null);
+  };
 
   // Auto-seleccionar tipo de servicio si solo uno está habilitado
   useEffect(() => {
@@ -118,6 +147,9 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
   const isMesa = modoServicio === 'mesa';
   const isPostPago = isMesa && tipoCobro === 'post_pago';
   const precioManualIncompleto = precioManual && cart.some(i => i.precioManual === undefined || i.precioManual === 0);
+  const stockApartadoIncompleto = inventarioCompartido && cart.some(
+    (i) => i.controla_stock && i.stock_actual !== undefined && i.cantidad > i.stock_actual && !i.apartado_tienda_id,
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -364,6 +396,27 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
                 )}
               </div>
 
+              {/* Apartado: stock local insuficiente + inventario compartido activo */}
+              {inventarioCompartido && item.controla_stock && item.stock_actual !== undefined && item.cantidad > item.stock_actual && (
+                item.apartado_tienda_id ? (
+                  <div className="mt-1.5 flex items-center gap-1.5 bg-blue-900/30 border border-blue-700/50 rounded-lg px-2 py-1">
+                    <PackageSearch size={12} className="text-blue-400 shrink-0" />
+                    <span className="text-xs text-blue-300 flex-1 truncate">Apartado en {item.apartado_tienda_nombre}</span>
+                    <button onClick={() => setItemApartado(item.id, undefined)} className="text-blue-400 hover:text-red-400 shrink-0"><XIcon size={12} /></button>
+                  </div>
+                ) : (
+                  <div className="mt-1.5 flex items-center gap-1.5 bg-yellow-900/30 border border-yellow-700/50 rounded-lg px-2 py-1">
+                    <span className="text-xs text-yellow-400 flex-1">⚠ Sin stock suficiente ({item.stock_actual} disp.)</span>
+                    <button
+                      onClick={() => abrirApartadoPicker(item)}
+                      className="text-xs font-medium text-blue-300 hover:text-blue-200 underline shrink-0"
+                    >
+                      Apartar en otra tienda
+                    </button>
+                  </div>
+                )
+              )}
+
               {/* Nota visible */}
               {notasPorItem && editingNotaId !== item.id && item.notas && (
                 <p
@@ -445,6 +498,11 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
               <p className="text-xs text-yellow-400">⚠ Ingresa el precio de todos los productos</p>
             </div>
           )}
+          {stockApartadoIncompleto && (
+            <div className="px-3 py-1.5 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
+              <p className="text-xs text-yellow-400">⚠ Resuelve el apartado de los productos sin stock</p>
+            </div>
+          )}
           {(mostrarPrecios || precioManual) && (
             <>
               <div className="flex justify-between text-sm text-slate-400">
@@ -459,7 +517,7 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
               )}
               <div className="flex justify-between text-xl font-bold pt-2 border-t border-slate-600">
                 <span>Total</span>
-                <span className="text-iados-accent tabular-nums">${money(getTotal())}</span>
+                <span className="text-iados-accent tabular-nums">{formatMonto(getTotal(), moneda)}</span>
               </div>
             </>
           )}
@@ -506,11 +564,41 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
                   <span className="text-sm">Cuenta</span>
                 </button>
               )}
-              <button onClick={onPay} disabled={(!cajaActiva && !cajaManaged) || (isMesa && !mesaActiva && !mesaNumeroOculto) || precioManualIncompleto} className="btn-accent flex-1 text-lg disabled:opacity-50">
+              <button onClick={onPay} disabled={(!cajaActiva && !cajaManaged) || (isMesa && !mesaActiva && !mesaNumeroOculto) || precioManualIncompleto || stockApartadoIncompleto} className="btn-accent flex-1 text-lg disabled:opacity-50">
                 Cobrar{mostrarPrecios ? ` $${money(getTotal())}` : ''}
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Selector de tienda para apartar */}
+      {apartadoPickerItemId && (
+        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4" onClick={() => setApartadoPickerItemId(null)}>
+          <div className="card w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-base flex items-center gap-2"><PackageSearch size={18} /> Apartar en otra tienda</h3>
+              <button onClick={() => setApartadoPickerItemId(null)} className="text-slate-400 hover:text-white"><XIcon size={18} /></button>
+            </div>
+            {apartadoLoading ? (
+              <p className="text-sm text-slate-400 text-center py-6">Buscando stock...</p>
+            ) : apartadoOpciones.length === 0 ? (
+              <p className="text-sm text-slate-400 text-center py-6">No hay stock disponible en otras tiendas.</p>
+            ) : (
+              <div className="space-y-2 max-h-72 overflow-y-auto">
+                {apartadoOpciones.map((o) => (
+                  <button
+                    key={o.tienda_id}
+                    onClick={() => elegirTiendaApartado(o.tienda_id, o.tienda_nombre)}
+                    className="w-full flex items-center justify-between bg-iados-card hover:bg-iados-primary/20 border border-slate-600 hover:border-iados-primary rounded-xl px-3 py-2.5 transition-colors"
+                  >
+                    <span className="text-sm font-medium">{o.tienda_nombre}</span>
+                    <span className="text-xs text-slate-400">{o.stock} disp.</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

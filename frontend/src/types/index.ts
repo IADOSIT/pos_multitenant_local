@@ -50,6 +50,10 @@ export interface CartItem {
   descuento: number;
   impuesto: number;
   subtotal: number;
+  stock_actual?: number;
+  controla_stock?: boolean;
+  apartado_tienda_id?: number;
+  apartado_tienda_nombre?: string;
 }
 
 export interface Venta {

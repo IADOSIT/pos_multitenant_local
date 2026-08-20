@@ -47,7 +47,7 @@ export const empresasApi = {
     form.append('logo', file);
     return api.post(`/empresas/${id}/upload-logo`, form);
   },
-  setConfigEspecial: (id: number, data: Partial<{ mostrar_precios: boolean; precio_manual: boolean; notif_cliente_estados: boolean; empleados_enabled: boolean; campos_formulario: any; auto_cancel_horas: number }>) =>
+  setConfigEspecial: (id: number, data: Partial<{ mostrar_precios: boolean; precio_manual: boolean; notif_cliente_estados: boolean; empleados_enabled: boolean; campos_formulario: any; auto_cancel_horas: number; inventario_compartido: boolean; transferencias_activo: boolean; moneda: any }>) =>
     api.patch(`/empresas/${id}/config-especial`, data),
 };
 
@@ -95,6 +95,15 @@ export const productosApi = {
     // tardar minutos — el timeout global de 10s del cliente cortaba el import a medias.
     return api.post(`/productos/csv/import?update=${update}`, form, { timeout: 300000 });
   },
+  stockOtrasTiendas: (id: number) => api.get(`/productos/${id}/stock-otras-tiendas`),
+};
+
+// Apartados (reservas de inventario compartido entre tiendas)
+export const apartadosApi = {
+  pendientes: () => api.get('/apartados/pendientes'),
+  buscarPorFolio: (folio: string) => api.get(`/apartados/folio/${encodeURIComponent(folio)}`),
+  entregar: (id: number) => api.post(`/apartados/${id}/entregar`),
+  cancelar: (id: number, motivo: string) => api.post(`/apartados/${id}/cancelar`, { motivo }),
 };
 
 // Ecommerce (admin)
@@ -234,6 +243,18 @@ export const inventarioApi = {
     form.append('file', file);
     return api.post('/inventario/csv/import', form);
   },
+  vistaGeneral: () => api.get('/inventario/vista-general'),
+};
+
+// Transferencias directas de inventario entre tiendas (misma empresa)
+export const transferenciasApi = {
+  crear: (data: { tienda_destino_id: number; producto_id: number; cantidad: number; notas?: string }) =>
+    api.post('/transferencias', data),
+  pendientesRecibir: () => api.get('/transferencias/pendientes-recibir'),
+  enviadas: () => api.get('/transferencias/enviadas'),
+  buscarPorFolio: (folio: string) => api.get(`/transferencias/folio/${encodeURIComponent(folio)}`),
+  recibir: (id: number) => api.post(`/transferencias/${id}/recibir`),
+  cancelar: (id: number, motivo: string) => api.post(`/transferencias/${id}/cancelar`, { motivo }),
 };
 
 // Print

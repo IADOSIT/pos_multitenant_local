@@ -48,6 +48,8 @@ const ecommerce_module_1 = require("./modules/ecommerce/ecommerce.module");
 const logistica_module_1 = require("./modules/logistica/logistica.module");
 const empleados_module_1 = require("./modules/empleados/empleados.module");
 const bascula_module_1 = require("./modules/bascula/bascula.module");
+const apartados_module_1 = require("./modules/apartados/apartados.module");
+const transferencias_module_1 = require("./modules/transferencias/transferencias.module");
 const _distProd = (0, path_1.join)(process.cwd(), '..', 'frontend', 'dist-prod');
 const _staticRoot = (0, fs_1.existsSync)(_distProd)
     ? _distProd
@@ -103,6 +105,8 @@ exports.AppModule = AppModule = __decorate([
             logistica_module_1.LogisticaModule,
             empleados_module_1.EmpleadosModule,
             bascula_module_1.BasculaModule,
+            apartados_module_1.ApartadosModule,
+            transferencias_module_1.TransferenciasModule,
         ],
         providers: [schema_sync_service_1.SchemaSyncService],
     })

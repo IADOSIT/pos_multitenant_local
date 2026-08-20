@@ -20,9 +20,11 @@ const roles_guard_1 = require("../../common/guards/roles.guard");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
 const tenant_decorator_1 = require("../../common/decorators/tenant.decorator");
 const tickets_service_1 = require("./tickets.service");
+const empresas_service_1 = require("../empresas/empresas.service");
 let TicketsController = class TicketsController {
-    constructor(service) {
+    constructor(service, empresasService) {
         this.service = service;
+        this.empresasService = empresasService;
     }
     getConfig(scope) {
         return this.service.getConfig(scope.tenant_id, scope.empresa_id, scope.tienda_id);
@@ -40,7 +42,8 @@ let TicketsController = class TicketsController {
     }
     async preview(data, scope) {
         const config = await this.service.getConfig(scope.tenant_id, scope.empresa_id, scope.tienda_id);
-        const ticket = this.service.generateTicketData(data.venta, config);
+        const { moneda } = await this.empresasService.getConfigEspecial(scope.empresa_id);
+        const ticket = this.service.generateTicketData(data.venta, config, moneda);
         return {
             ...ticket,
             ancho_papel: config.ancho_papel ?? 80,
@@ -55,7 +58,8 @@ let TicketsController = class TicketsController {
     }
     async precuenta(data, scope) {
         const config = await this.service.getConfig(scope.tenant_id, scope.empresa_id, scope.tienda_id);
-        const ticket = this.service.generatePreCuentaData(data, config);
+        const { moneda } = await this.empresasService.getConfigEspecial(scope.empresa_id);
+        const ticket = this.service.generatePreCuentaData(data, config, moneda);
         return {
             ...ticket,
             ancho_papel: config.ancho_papel ?? 80,
@@ -122,6 +126,6 @@ __decorate([
 exports.TicketsController = TicketsController = __decorate([
     (0, common_1.Controller)('tickets'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), roles_guard_1.RolesGuard),
-    __metadata("design:paramtypes", [tickets_service_1.TicketsService])
+    __metadata("design:paramtypes", [tickets_service_1.TicketsService, empresas_service_1.EmpresasService])
 ], TicketsController);
 //# sourceMappingURL=tickets.controller.js.map

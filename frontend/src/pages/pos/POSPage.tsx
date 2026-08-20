@@ -8,6 +8,7 @@ import { io, Socket } from 'socket.io-client';
 import { resolveUploadUrl } from '../../api/client';
 import { printComanda, printTicket } from '../../utils/printTicket';
 import { decodeEan13PesoVariable } from '../../utils/ean13';
+import { formatMonto, MonedaConfig } from '../../utils/moneda';
 import { Producto, Categoria } from '../../types';
 import toast from 'react-hot-toast';
 import CartPanel from '../../components/pos/CartPanel';
@@ -15,10 +16,11 @@ import PayModal from '../../components/pos/PayModal';
 import AbrirCuentaModal from '../../components/pos/AbrirCuentaModal';
 import DevolucionBuscarModal from '../../components/pos/DevolucionBuscarModal';
 import DevolucionModal from '../../components/pos/DevolucionModal';
-import { Search, ShoppingBag, Wifi, WifiOff, CreditCard, X, Clock, RefreshCw, Trash2, Minus, Plus, FileText, RotateCcw } from 'lucide-react';
+import ApartadosPanel from '../../components/pos/ApartadosPanel';
+import { Search, ShoppingBag, Wifi, WifiOff, CreditCard, X, Clock, RefreshCw, Trash2, Minus, Plus, FileText, RotateCcw, PackageSearch } from 'lucide-react';
 
 // ── Long-press product card ──────────────────────────────────────────────────
-function ProductCard({ prod, onClick, onLongPress, showStockBadge, mostrarPrecios }: { prod: Producto; onClick: () => void; onLongPress: () => void; showStockBadge?: boolean; mostrarPrecios?: boolean }) {
+function ProductCard({ prod, onClick, onLongPress, showStockBadge, mostrarPrecios, moneda }: { prod: Producto; onClick: () => void; onLongPress: () => void; showStockBadge?: boolean; mostrarPrecios?: boolean; moneda?: MonedaConfig }) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const firedRef = useRef(false);
 
@@ -57,7 +59,7 @@ function ProductCard({ prod, onClick, onLongPress, showStockBadge, mostrarPrecio
       )}
       <span className="text-sm font-medium leading-tight line-clamp-2">{prod.nombre}</span>
       {mostrarPrecios !== false && (
-        <span className="text-iados-accent font-bold mt-1">${Number(prod.precio).toFixed(2)}</span>
+        <span className="text-iados-accent font-bold mt-1">{formatMonto(Number(prod.precio), moneda)}</span>
       )}
       {stockBajoCritico && (
         <span className="absolute top-1.5 right-1.5 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
@@ -101,10 +103,13 @@ export default function POSPage() {
   const [precuentaEnabled, setPrecuentaEnabled] = useState(false);
   const [showDevBuscar, setShowDevBuscar] = useState(false);
   const [devVentaId, setDevVentaId] = useState<number | null>(null);
+  const [showApartados, setShowApartados] = useState(false);
   const [devolucionesEnabled, setDevolucionesEnabled] = useState(false);
   const [devolucionesRol, setDevolucionesRol] = useState('admin');
   const [mostrarPrecios, setMostrarPrecios] = useState(true);
   const [precioManual, setPrecioManual] = useState(false);
+  const [moneda, setMoneda] = useState<MonedaConfig | undefined>(undefined);
+  const [inventarioCompartido, setInventarioCompartido] = useState(false);
   const [escanerHabilitado, setEscanerHabilitado] = useState(false);
   const busquedaRef = useRef<HTMLInputElement | null>(null);
   const [basculaEnPos, setBasculaEnPos] = useState(false);
@@ -280,6 +285,8 @@ export default function POSPage() {
         const cfgEsp = empR.data?.config_especial || {};
         setMostrarPrecios(cfgEsp.mostrar_precios !== false);
         setPrecioManual(cfgEsp.precio_manual === true);
+        setMoneda(cfgEsp.moneda?.activa ? cfgEsp.moneda : undefined);
+        setInventarioCompartido(cfgEsp.inventario_compartido === true);
       } catch {}
     }
   };
@@ -649,6 +656,18 @@ export default function POSPage() {
             </button>
           )}
 
+          {/* Botón Apartados (inventario compartido entre tiendas) */}
+          {inventarioCompartido && (
+            <button
+              onClick={() => setShowApartados(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600/20 border border-blue-600/40 hover:bg-blue-600/30 text-blue-400 text-sm font-medium transition-colors shrink-0"
+              title="Apartados de inventario"
+            >
+              <PackageSearch size={16} />
+              <span className="hidden sm:inline">Apartados</span>
+            </button>
+          )}
+
           {/* Botón Cuentas Abiertas */}
           {cuentaAbiertaEnabled && <button
             onClick={() => { setShowCuentas(true); loadCuentasAbiertas(); }}
@@ -738,6 +757,7 @@ export default function POSPage() {
                 onLongPress={() => handleProductLongPress(prod)}
                 showStockBadge={stockBadgeEnabled}
                 mostrarPrecios={mostrarPrecios}
+                moneda={moneda}
               />
             ))}
           </div>
@@ -774,6 +794,8 @@ export default function POSPage() {
           paraLlevarVisible={paraLlevarVisible}
           mostrarPrecios={mostrarPrecios}
           precioManual={precioManual}
+          moneda={moneda}
+          inventarioCompartido={inventarioCompartido}
         />
       </div>
 
@@ -917,6 +939,9 @@ export default function POSPage() {
           onSuccess={() => { setDevVentaId(null); loadCaja(); }}
         />
       )}
+
+      {/* Panel: Apartados */}
+      {showApartados && <ApartadosPanel onClose={() => setShowApartados(false)} />}
 
       {/* Panel: Cuentas Abiertas */}
       {showCuentas && (

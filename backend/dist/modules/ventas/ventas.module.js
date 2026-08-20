@@ -14,12 +14,14 @@ const auditoria_entity_1 = require("./auditoria.entity");
 const caja_entity_1 = require("../caja/caja.entity");
 const ventas_controller_1 = require("./ventas.controller");
 const ventas_service_1 = require("./ventas.service");
+const empresas_module_1 = require("../empresas/empresas.module");
+const apartados_module_1 = require("../apartados/apartados.module");
 let VentasModule = class VentasModule {
 };
 exports.VentasModule = VentasModule;
 exports.VentasModule = VentasModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([venta_entity_1.Venta, venta_entity_1.VentaDetalle, venta_entity_1.VentaPago, auditoria_entity_1.Auditoria, caja_entity_1.Caja])],
+        imports: [typeorm_1.TypeOrmModule.forFeature([venta_entity_1.Venta, venta_entity_1.VentaDetalle, venta_entity_1.VentaPago, auditoria_entity_1.Auditoria, caja_entity_1.Caja]), empresas_module_1.EmpresasModule, apartados_module_1.ApartadosModule],
         controllers: [ventas_controller_1.VentasController],
         providers: [ventas_service_1.VentasService],
         exports: [ventas_service_1.VentasService],

@@ -54,6 +54,9 @@ let ProductosController = class ProductosController {
     findOne(id) {
         return this.service.findOne(id);
     }
+    stockOtrasTiendas(id, scope) {
+        return this.service.stockEnOtrasTiendas(scope, id);
+    }
     create(data, scope) {
         return this.service.create({ ...data, tenant_id: scope.tenant_id, empresa_id: scope.empresa_id });
     }
@@ -162,6 +165,14 @@ __decorate([
     __metadata("design:paramtypes", [Number]),
     __metadata("design:returntype", void 0)
 ], ProductosController.prototype, "findOne", null);
+__decorate([
+    (0, common_1.Get)(':id/stock-otras-tiendas'),
+    __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __param(1, (0, tenant_decorator_1.TenantScope)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Number, Object]),
+    __metadata("design:returntype", void 0)
+], ProductosController.prototype, "stockOtrasTiendas", null);
 __decorate([
     (0, common_1.Post)(),
     (0, roles_decorator_1.Roles)('superadmin', 'admin'),

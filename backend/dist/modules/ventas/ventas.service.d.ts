@@ -2,13 +2,17 @@ import { Repository, DataSource } from 'typeorm';
 import { Venta } from './venta.entity';
 import { Auditoria } from './auditoria.entity';
 import { Caja } from '../caja/caja.entity';
+import { EmpresasService } from '../empresas/empresas.service';
+import { ApartadosService } from '../apartados/apartados.service';
 export declare class VentasService {
     private ventasRepo;
     private auditoriaRepo;
     private cajaRepo;
     private dataSource;
+    private empresasService;
+    private apartadosService;
     private logger;
-    constructor(ventasRepo: Repository<Venta>, auditoriaRepo: Repository<Auditoria>, cajaRepo: Repository<Caja>, dataSource: DataSource);
+    constructor(ventasRepo: Repository<Venta>, auditoriaRepo: Repository<Auditoria>, cajaRepo: Repository<Caja>, dataSource: DataSource, empresasService: EmpresasService, apartadosService: ApartadosService);
     private generateFolio;
     crear(data: any, scope: any): Promise<Venta>;
     cancelar(id: number, motivo: string, scope: any): Promise<Venta>;

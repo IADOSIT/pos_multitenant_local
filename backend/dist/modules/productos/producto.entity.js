@@ -159,6 +159,7 @@ __decorate([
 ], ProductoTienda.prototype, "producto", void 0);
 exports.ProductoTienda = ProductoTienda = __decorate([
     (0, typeorm_1.Entity)('producto_tienda'),
-    (0, typeorm_1.Index)(['tenant_id', 'tienda_id', 'producto_id'])
+    (0, typeorm_1.Index)(['tenant_id', 'tienda_id', 'producto_id']),
+    (0, typeorm_1.Index)(['producto_id', 'tienda_id'], { unique: true })
 ], ProductoTienda);
 //# sourceMappingURL=producto.entity.js.map

@@ -11,16 +11,64 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var EmpresasService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EmpresasService = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
+const schedule_1 = require("@nestjs/schedule");
 const empresa_entity_1 = require("./empresa.entity");
 const user_entity_1 = require("../users/user.entity");
-let EmpresasService = class EmpresasService {
-    constructor(repo) {
+let EmpresasService = EmpresasService_1 = class EmpresasService {
+    constructor(repo, dataSource) {
         this.repo = repo;
+        this.dataSource = dataSource;
+        this.logger = new common_1.Logger(EmpresasService_1.name);
+    }
+    async migrarStockPorTienda(empresa_id) {
+        const productos = await this.dataSource.query('SELECT id, stock_actual FROM productos WHERE empresa_id = ? AND controla_stock = 1', [empresa_id]);
+        if (!productos.length)
+            return;
+        const tiendas = await this.dataSource.query('SELECT id FROM tiendas WHERE empresa_id = ?', [empresa_id]);
+        if (!tiendas.length)
+            return;
+        for (const prod of productos) {
+            for (const tienda of tiendas) {
+                const [existing] = await this.dataSource.query('SELECT id FROM producto_tienda WHERE producto_id = ? AND tienda_id = ?', [prod.id, tienda.id]);
+                if (existing)
+                    continue;
+                await this.dataSource.query(`INSERT INTO producto_tienda (tenant_id, tienda_id, producto_id, stock, disponible)
+           SELECT p.tenant_id, ?, p.id, ?, 1 FROM productos p WHERE p.id = ?`, [tienda.id, prod.stock_actual, prod.id]);
+            }
+        }
+        this.logger.log(`Inventario compartido activado: stock sembrado para empresa ${empresa_id} (${productos.length} productos x ${tiendas.length} tiendas)`);
+    }
+    async actualizarTiposCambioAutomaticos() {
+        const token = process.env.BANXICO_TOKEN;
+        if (!token)
+            return;
+        const empresas = await this.findEmpresasConTipoCambioAutomatico();
+        if (empresas.length === 0)
+            return;
+        let tipoCambio = null;
+        try {
+            const res = await fetch(`https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/oportuno?token=${token}`, { headers: { Accept: 'application/json' } });
+            if (!res.ok)
+                throw new Error(`Banxico respondio ${res.status}`);
+            const json = await res.json();
+            const dato = json?.bmx?.series?.[0]?.datos?.[0]?.dato;
+            tipoCambio = dato ? parseFloat(String(dato).replace(/,/g, '')) : null;
+        }
+        catch (err) {
+            this.logger.warn(`No se pudo obtener el tipo de cambio de Banxico: ${err}`);
+            return;
+        }
+        if (!tipoCambio || Number.isNaN(tipoCambio))
+            return;
+        for (const empresa of empresas) {
+            await this.actualizarTipoCambioAutomatico(empresa.id, tipoCambio);
+        }
     }
     findAll(scope) {
         const where = {};
@@ -52,12 +100,41 @@ let EmpresasService = class EmpresasService {
             throw new common_1.NotFoundException('Empresa no encontrada');
         const { empleados_enabled, ...rest } = data;
         const safeData = scope.rol === user_entity_1.UserRole.SUPERADMIN ? data : rest;
+        const activandoInventarioCompartido = safeData.inventario_compartido === true && empresa.config_especial?.inventario_compartido !== true;
+        if (safeData.moneda) {
+            const m = safeData.moneda;
+            if (m.modo_tipo_cambio === 'manual' && typeof m.tipo_cambio_manual === 'number') {
+                m.tipo_cambio_actual = m.tipo_cambio_manual;
+            }
+        }
         empresa.config_especial = {
             ...(empresa.config_especial || {}),
             ...safeData,
+            ...(safeData.moneda ? { moneda: { ...(empresa.config_especial?.moneda || {}), ...safeData.moneda } } : {}),
         };
         const saved = await this.repo.save(empresa);
+        if (activandoInventarioCompartido) {
+            await this.migrarStockPorTienda(id);
+        }
         return { config_especial: saved.config_especial };
+    }
+    async actualizarTipoCambioAutomatico(empresa_id, tipo_cambio) {
+        const empresa = await this.repo.findOne({ where: { id: empresa_id } });
+        if (!empresa)
+            return;
+        empresa.config_especial = {
+            ...(empresa.config_especial || {}),
+            moneda: {
+                ...(empresa.config_especial?.moneda || {}),
+                tipo_cambio_actual: tipo_cambio,
+                tipo_cambio_actualizado_at: new Date().toISOString(),
+            },
+        };
+        await this.repo.save(empresa);
+    }
+    async findEmpresasConTipoCambioAutomatico() {
+        const todas = await this.repo.find();
+        return todas.filter((e) => e.config_especial?.moneda?.activa && e.config_especial?.moneda?.modo_tipo_cambio === 'automatico');
     }
     async getConfigEspecial(empresa_id) {
         const empresa = await this.repo.findOne({ where: { id: empresa_id } });
@@ -66,13 +143,29 @@ let EmpresasService = class EmpresasService {
             mostrar_precios: cfg.mostrar_precios !== false,
             precio_manual: cfg.precio_manual === true,
             notif_cliente_estados: cfg.notif_cliente_estados === true,
+            inventario_compartido: cfg.inventario_compartido === true,
+            transferencias_activo: cfg.transferencias_activo === true,
+            moneda: {
+                activa: cfg.moneda?.activa === true,
+                codigo: cfg.moneda?.codigo || 'USD',
+                tipo_cambio_actual: cfg.moneda?.tipo_cambio_actual || 0,
+                modo_visualizacion: cfg.moneda?.modo_visualizacion || 'ambas',
+            },
         };
     }
 };
 exports.EmpresasService = EmpresasService;
-exports.EmpresasService = EmpresasService = __decorate([
+__decorate([
+    (0, schedule_1.Cron)('0 8 * * *'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], EmpresasService.prototype, "actualizarTiposCambioAutomaticos", null);
+exports.EmpresasService = EmpresasService = EmpresasService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(empresa_entity_1.Empresa)),
-    __metadata("design:paramtypes", [typeorm_2.Repository])
+    __param(1, (0, typeorm_1.InjectDataSource)()),
+    __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.DataSource])
 ], EmpresasService);
 //# sourceMappingURL=empresas.service.js.map

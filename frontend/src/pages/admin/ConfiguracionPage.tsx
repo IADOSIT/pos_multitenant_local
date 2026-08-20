@@ -63,8 +63,25 @@ export default function ConfiguracionPage() {
     precio_manual: boolean;
     notif_cliente_estados: boolean;
     empleados_enabled: boolean;
-  }>({ mostrar_precios: true, precio_manual: false, notif_cliente_estados: false, empleados_enabled: false });
+    inventario_compartido: boolean;
+    transferencias_activo: boolean;
+    moneda: {
+      activa: boolean;
+      codigo: string;
+      modo_tipo_cambio: 'manual' | 'automatico';
+      tipo_cambio_manual: number;
+      tipo_cambio_actual: number;
+      tipo_cambio_actualizado_at: string;
+      modo_visualizacion: 'ambas' | 'solo_base' | 'solo_secundaria';
+    };
+  }>({
+    mostrar_precios: true, precio_manual: false, notif_cliente_estados: false, empleados_enabled: false,
+    inventario_compartido: false,
+    transferencias_activo: false,
+    moneda: { activa: false, codigo: 'USD', modo_tipo_cambio: 'manual', tipo_cambio_manual: 0, tipo_cambio_actual: 0, tipo_cambio_actualizado_at: '', modo_visualizacion: 'ambas' },
+  });
   const [savingCfgEsp, setSavingCfgEsp] = useState(false);
+  const [savingMoneda, setSavingMoneda] = useState(false);
   // Generacion de imagenes de producto con IA (Productos > "Generar con IA")
   const [iaImgForm, setIaImgForm] = useState<{ provider: 'pollinations' | 'openai'; openai_api_key: string }>({ provider: 'pollinations', openai_api_key: '' });
   const [savingIaImg, setSavingIaImg] = useState(false);
@@ -264,11 +281,23 @@ export default function ConfiguracionPage() {
         setPalette((data.config_apariencia.paleta as PaletteName) || 'default');
       }
       const cfgEsp = data?.config_especial || {};
+      const mon = cfgEsp.moneda || {};
       setCfgEspecial({
         mostrar_precios: cfgEsp.mostrar_precios !== false,
         precio_manual: cfgEsp.precio_manual === true,
         notif_cliente_estados: cfgEsp.notif_cliente_estados === true,
         empleados_enabled: cfgEsp.empleados_enabled === true,
+        inventario_compartido: cfgEsp.inventario_compartido === true,
+        transferencias_activo: cfgEsp.transferencias_activo === true,
+        moneda: {
+          activa: mon.activa === true,
+          codigo: mon.codigo || 'USD',
+          modo_tipo_cambio: mon.modo_tipo_cambio || 'manual',
+          tipo_cambio_manual: mon.tipo_cambio_manual || 0,
+          tipo_cambio_actual: mon.tipo_cambio_actual || 0,
+          tipo_cambio_actualizado_at: mon.tipo_cambio_actualizado_at || '',
+          modo_visualizacion: mon.modo_visualizacion || 'ambas',
+        },
       });
       const savedCampos = cfgEsp.campos_formulario;
       if (savedCampos) {
@@ -283,7 +312,7 @@ export default function ConfiguracionPage() {
     } catch {}
   };
 
-  const handleToggleCfgEspecial = async (campo: 'mostrar_precios' | 'precio_manual' | 'notif_cliente_estados' | 'empleados_enabled', valor: boolean) => {
+  const handleToggleCfgEspecial = async (campo: 'mostrar_precios' | 'precio_manual' | 'notif_cliente_estados' | 'empleados_enabled' | 'inventario_compartido' | 'transferencias_activo', valor: boolean) => {
     const empId = user?.empresa_id;
     if (!empId) return;
     setSavingCfgEsp(true);
@@ -296,6 +325,23 @@ export default function ConfiguracionPage() {
       toast.error('Error al guardar configuración');
     } finally {
       setSavingCfgEsp(false);
+    }
+  };
+
+  const handleUpdateMoneda = async (parcial: Partial<typeof cfgEspecial.moneda>) => {
+    const empId = user?.empresa_id;
+    if (!empId) return;
+    setSavingMoneda(true);
+    const nuevaMoneda = { ...cfgEspecial.moneda, ...parcial };
+    try {
+      const { data } = await empresasApi.setConfigEspecial(empId, { moneda: nuevaMoneda });
+      const monedaGuardada = data?.config_especial?.moneda || nuevaMoneda;
+      setCfgEspecial((prev) => ({ ...prev, moneda: { ...prev.moneda, ...monedaGuardada } }));
+      toast.success('Configuración guardada');
+    } catch {
+      toast.error('Error al guardar configuración');
+    } finally {
+      setSavingMoneda(false);
     }
   };
 
@@ -1094,6 +1140,131 @@ export default function ConfiguracionPage() {
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${cfgEspecial.empleados_enabled ? 'translate-x-6' : 'translate-x-1'}`} />
                 </button>
+              </div>
+            )}
+
+            {/* Toggle 5: Inventario compartido entre tiendas de la empresa */}
+            <div className="flex items-start justify-between py-3 mt-2 pt-4 border-t border-slate-600">
+              <div className="flex-1 pr-4">
+                <p className="text-sm font-medium">Inventario compartido entre tiendas</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Si una tienda de esta empresa no tiene stock de un producto, el POS ofrece apartarlo en otra tienda de la misma empresa: el cliente paga aquí y pasa a recogerlo allá.
+                </p>
+              </div>
+              <button
+                onClick={() => handleToggleCfgEspecial('inventario_compartido', !cfgEspecial.inventario_compartido)}
+                disabled={savingCfgEsp}
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none ${cfgEspecial.inventario_compartido ? 'bg-iados-primary' : 'bg-slate-600'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${cfgEspecial.inventario_compartido ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+
+            {/* Toggle 5b: Transferencias directas de stock entre tiendas — requiere inventario compartido */}
+            <div className={`flex items-start justify-between py-3 pl-4 border-l-2 ${cfgEspecial.inventario_compartido ? 'border-iados-primary/40' : 'border-slate-700'}`}>
+              <div className="flex-1 pr-4">
+                <p className={`text-sm font-medium ${!cfgEspecial.inventario_compartido ? 'text-slate-500' : ''}`}>Transferencias directas entre tiendas</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Permite enviar stock de un producto de una tienda a otra (con folio de seguimiento), sin pasar por una venta. {!cfgEspecial.inventario_compartido && 'Requiere activar primero el inventario compartido.'}
+                </p>
+              </div>
+              <button
+                onClick={() => handleToggleCfgEspecial('transferencias_activo', !cfgEspecial.transferencias_activo)}
+                disabled={savingCfgEsp || !cfgEspecial.inventario_compartido}
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none disabled:opacity-40 ${cfgEspecial.transferencias_activo ? 'bg-iados-primary' : 'bg-slate-600'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${cfgEspecial.transferencias_activo ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+          </div>
+
+          {/* ── Multi-moneda ──────────────────────────────────────────────── */}
+          <div className="bg-iados-card rounded-2xl border border-slate-700 p-5">
+            <h3 className="font-semibold text-base mb-1 flex items-center gap-2">
+              <DollarSign size={16} className="text-iados-primary" />
+              Moneda
+            </h3>
+            <p className="text-xs text-slate-400 mb-4">
+              Los precios se siguen guardando y cobrando en pesos (MXN). Al activar una segunda moneda, el sistema solo la usa como referencia/conversión en catálogo, POS y tickets.
+            </p>
+
+            <div className="flex items-start justify-between py-3 border-b border-slate-700/60">
+              <div className="flex-1 pr-4">
+                <p className="text-sm font-medium">Activar segunda moneda (dólar americano)</p>
+                <p className="text-xs text-slate-400 mt-0.5">Muestra el equivalente en USD junto al precio en pesos, según cómo lo configures abajo.</p>
+              </div>
+              <button
+                onClick={() => handleUpdateMoneda({ activa: !cfgEspecial.moneda.activa })}
+                disabled={savingMoneda}
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none ${cfgEspecial.moneda.activa ? 'bg-iados-primary' : 'bg-slate-600'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${cfgEspecial.moneda.activa ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+
+            {cfgEspecial.moneda.activa && (
+              <div className="pt-4 space-y-4">
+                <div>
+                  <p className="text-sm font-medium mb-2">¿Cómo se obtiene el tipo de cambio?</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleUpdateMoneda({ modo_tipo_cambio: 'manual' })}
+                      disabled={savingMoneda}
+                      className={`flex-1 rounded-xl border px-4 py-2.5 text-sm text-left transition-colors ${cfgEspecial.moneda.modo_tipo_cambio === 'manual' ? 'border-iados-primary bg-iados-primary/10' : 'border-slate-700 hover:border-slate-500'}`}
+                    >
+                      <span className="font-medium">Manual</span>
+                      <p className="text-xs text-slate-400 mt-0.5">Tú capturas el valor del dólar.</p>
+                    </button>
+                    <button
+                      onClick={() => handleUpdateMoneda({ modo_tipo_cambio: 'automatico' })}
+                      disabled={savingMoneda}
+                      className={`flex-1 rounded-xl border px-4 py-2.5 text-sm text-left transition-colors ${cfgEspecial.moneda.modo_tipo_cambio === 'automatico' ? 'border-iados-primary bg-iados-primary/10' : 'border-slate-700 hover:border-slate-500'}`}
+                    >
+                      <span className="font-medium">Automático</span>
+                      <p className="text-xs text-slate-400 mt-0.5">Se actualiza 1 vez al día con el tipo de cambio FIX oficial del Banco de México.</p>
+                    </button>
+                  </div>
+                </div>
+
+                {cfgEspecial.moneda.modo_tipo_cambio === 'manual' ? (
+                  <div>
+                    <label className="text-sm font-medium mb-1.5 block">Pesos por 1 USD</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={cfgEspecial.moneda.tipo_cambio_manual || ''}
+                      onChange={(e) => setCfgEspecial((prev) => ({ ...prev, moneda: { ...prev.moneda, tipo_cambio_manual: parseFloat(e.target.value) || 0 } }))}
+                      onBlur={() => handleUpdateMoneda({ tipo_cambio_manual: cfgEspecial.moneda.tipo_cambio_manual })}
+                      className="w-full max-w-[180px] bg-iados-surface border border-slate-600 rounded-lg px-3 py-2 text-sm"
+                      placeholder="18.50"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-sm">
+                    <RefreshCw size={14} className="text-slate-400" />
+                    <span>
+                      Tipo de cambio actual: <strong>${cfgEspecial.moneda.tipo_cambio_actual?.toFixed(2) || '—'}</strong>
+                      {cfgEspecial.moneda.tipo_cambio_actualizado_at && (
+                        <span className="text-slate-400"> · actualizado {new Date(cfgEspecial.moneda.tipo_cambio_actualizado_at).toLocaleString('es-MX')}</span>
+                      )}
+                    </span>
+                  </div>
+                )}
+
+                <div>
+                  <p className="text-sm font-medium mb-2">¿Qué importes se muestran?</p>
+                  <select
+                    value={cfgEspecial.moneda.modo_visualizacion}
+                    onChange={(e) => handleUpdateMoneda({ modo_visualizacion: e.target.value as any })}
+                    disabled={savingMoneda}
+                    className="w-full max-w-xs bg-iados-surface border border-slate-600 rounded-lg px-3 py-2 text-sm"
+                  >
+                    <option value="ambas">Ambas monedas (MXN y USD)</option>
+                    <option value="solo_base">Solo pesos (MXN)</option>
+                    <option value="solo_secundaria">Solo dólares (USD)</option>
+                  </select>
+                </div>
               </div>
             )}
           </div>
