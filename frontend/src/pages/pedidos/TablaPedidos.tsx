@@ -4,10 +4,10 @@
 // Filtra y pagina en cliente sobre lo que le pasa el padre. Es tonta a proposito:
 // no sabe cargar ni actualizar nada, solo avisa que se selecciono o se avanzo una fila.
 import { useState, useEffect, useMemo } from 'react';
-import { ClipboardList, Eye, Check, Loader2, AlertTriangle } from 'lucide-react';
+import { ClipboardList, Eye, Check, Loader2, AlertTriangle, ArrowRight } from 'lucide-react';
 import {
   PedidoUnificado, Origen, EstadoUnificado,
-  ORIGENES, ESTADOS_UNIFICADOS, siguienteEstadoRaw, tiempoTranscurrido,
+  ORIGENES, ESTADOS_UNIFICADOS, estadoUnificadoDe, siguienteEstadoRaw, tiempoTranscurrido,
 } from './pedidosUnificados';
 
 const POR_PAGINA = 20;
@@ -101,7 +101,7 @@ export default function TablaPedidos({
 
       {/* Tabla */}
       <div className="bg-iados-surface rounded-xl overflow-x-auto">
-        <table className="w-full text-sm min-w-[720px]">
+        <table className="w-full text-sm min-w-[820px]">
           <thead>
             <tr className="border-b border-slate-700 text-xs text-slate-400">
               <th className="text-left px-4 py-3">Origen</th>
@@ -128,6 +128,10 @@ export default function TablaPedidos({
               const est = ESTADOS_UNIFICADOS[p.estado];
               const EstIcon = est.icon;
               const siguiente = siguienteEstadoRaw(p);
+              // El boton de avanzar nombra el estado destino: con solo una palomita
+              // no se sabia a donde iba a mover el pedido.
+              const destino = siguiente ? ESTADOS_UNIFICADOS[estadoUnificadoDe(p.origen, siguiente)] : null;
+              const DestinoIcon = destino?.icon ?? Check;
               const abrible = tieneDetalle(p);
               return (
                 <tr
@@ -180,16 +184,17 @@ export default function TablaPedidos({
                           <Eye size={14} />
                         </button>
                       )}
-                      {siguiente && (
+                      {siguiente && destino && (
                         <button
                           onClick={e => { e.stopPropagation(); onAvanzar(p); }}
                           disabled={avanzandoKey === p.key}
-                          className="p-1.5 text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50"
-                          title="Avanzar al siguiente estado"
+                          className={`inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium px-2.5 py-1 rounded-full transition-all hover:brightness-125 disabled:opacity-50 ${destino.bg} ${destino.color}`}
+                          title={`Avanzar este pedido a ${destino.label}`}
                         >
                           {avanzandoKey === p.key
-                            ? <Loader2 size={14} className="animate-spin" />
-                            : <Check size={14} />}
+                            ? <Loader2 size={11} className="animate-spin" />
+                            : <><ArrowRight size={11} /><DestinoIcon size={11} /></>}
+                          {destino.label}
                         </button>
                       )}
                     </div>
