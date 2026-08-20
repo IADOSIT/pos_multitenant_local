@@ -27,7 +27,7 @@ __decorate([
     __metadata("design:type", Number)
 ], EcommercePedido.prototype, "tenant_id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ nullable: true }),
+    (0, typeorm_1.Column)({ type: 'int', nullable: true }),
     __metadata("design:type", Object)
 ], EcommercePedido.prototype, "cliente_id", void 0);
 __decorate([

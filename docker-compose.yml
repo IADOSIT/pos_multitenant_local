@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260820-historial-pedidos-cliente-shop"
+        CACHE_BUST: "20260820-fix-cliente-id-datatype"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:

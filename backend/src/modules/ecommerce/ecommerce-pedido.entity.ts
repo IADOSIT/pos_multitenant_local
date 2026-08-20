@@ -19,7 +19,7 @@ export class EcommercePedido {
   @Column()
   tenant_id: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'int', nullable: true })
   cliente_id: number | null;
 
   @Column({ length: 20 })
