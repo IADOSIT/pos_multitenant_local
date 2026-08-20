@@ -7,8 +7,9 @@ import toast from 'react-hot-toast';
 import {
   Warehouse, Search, Plus, ArrowDownToLine, ArrowUpFromLine, RefreshCw,
   Download, Upload, FileSpreadsheet, AlertTriangle, X, ChevronDown, Printer,
-  Send, Inbox, CheckCircle2, XCircle, Building2, Clock, Layers
+  Send, Inbox, CheckCircle2, XCircle, Building2, Clock, Layers, BarChart3
 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 type Producto = {
   id: number; sku: string; nombre: string; stock_actual: number;
@@ -56,7 +57,7 @@ export default function InventarioPage() {
   usePageHeader({ title: 'Inventario', subtitle: 'Existencias y movimientos de stock' });
   const { user } = useAuthStore();
   const isAdmin = user && ['superadmin', 'admin', 'manager'].includes(user.rol);
-  const [tab, setTab] = useState<'stock' | 'movimientos' | 'transferencias' | 'general'>('stock');
+  const [tab, setTab] = useState<'stock' | 'movimientos' | 'transferencias' | 'general' | 'grafica'>('stock');
   const [productos, setProductos] = useState<Producto[]>([]);
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [search, setSearch] = useState('');
@@ -82,6 +83,22 @@ export default function InventarioPage() {
 
   // Vista general (total empresa + desglose por tienda)
   const [vistaGeneral, setVistaGeneral] = useState<VistaGeneralItem[]>([]);
+
+  // Agregado por tienda para la pestaña Grafica: cuantos SKUs distintos tienen
+  // stock > 0 y cuantas unidades totales suma cada tienda, a partir de la misma
+  // data de vistaGeneral (evita pedirle otro endpoint al backend).
+  const graficaData = (() => {
+    const map = new Map<number, { tienda_id: number; nombre: string; skus: number; unidades: number }>();
+    for (const item of vistaGeneral) {
+      for (const pt of item.por_tienda) {
+        const entry = map.get(pt.tienda_id) || { tienda_id: pt.tienda_id, nombre: pt.tienda_nombre, skus: 0, unidades: 0 };
+        if (pt.stock > 0) entry.skus += 1;
+        entry.unidades += pt.stock;
+        map.set(pt.tienda_id, entry);
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  })();
 
   useEffect(() => {
     if (!user?.empresa_id) return;
@@ -171,7 +188,7 @@ export default function InventarioPage() {
 
   const load = async () => {
     if (tab === 'transferencias') { loadTransferencias(); return; }
-    if (tab === 'general') { loadVistaGeneral(); return; }
+    if (tab === 'general' || tab === 'grafica') { loadVistaGeneral(); return; }
     setLoading(true);
     try {
       if (tab === 'stock') {
@@ -407,6 +424,11 @@ export default function InventarioPage() {
               <Layers size={14} /> General
             </button>
           )}
+          {inventarioCompartido && (
+            <button onClick={() => setTab('grafica')} className={`px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1.5 ${tab === 'grafica' ? 'bg-iados-primary text-white' : 'text-slate-400 hover:text-white'}`}>
+              <BarChart3 size={14} /> Grafica
+            </button>
+          )}
         </div>
         {(tab === 'stock' || tab === 'movimientos') && (
           <div className="relative flex-1 w-full sm:w-auto">
@@ -582,7 +604,7 @@ export default function InventarioPage() {
             </div>
           </div>
         </div>
-      ) : (
+      ) : tab === 'general' ? (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -616,6 +638,40 @@ export default function InventarioPage() {
           </table>
           {vistaGeneral.length === 0 && (
             <div className="text-center py-12 text-slate-500">No hay productos con inventario compartido</div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-iados-card rounded-2xl border border-slate-700 p-5">
+              <h3 className="font-semibold text-sm mb-1">Productos con stock por tienda</h3>
+              <p className="text-xs text-slate-400 mb-4">Cuantos SKUs distintos tienen existencia mayor a 0 en cada tienda.</p>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={graficaData} margin={{ top: 4, right: 8, left: -12, bottom: 24 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <XAxis dataKey="nombre" tick={{ fill: '#94a3b8', fontSize: 11 }} interval={0} angle={-15} textAnchor="end" height={50} />
+                  <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} allowDecimals={false} />
+                  <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: '#e2e8f0' }} />
+                  <Bar dataKey="skus" name="Productos con stock" fill="#6366f1" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="bg-iados-card rounded-2xl border border-slate-700 p-5">
+              <h3 className="font-semibold text-sm mb-1">Unidades totales en stock por tienda</h3>
+              <p className="text-xs text-slate-400 mb-4">Suma de existencias de todos los productos (todas las unidades) en cada tienda.</p>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={graficaData} margin={{ top: 4, right: 8, left: -12, bottom: 24 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <XAxis dataKey="nombre" tick={{ fill: '#94a3b8', fontSize: 11 }} interval={0} angle={-15} textAnchor="end" height={50} />
+                  <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                  <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: '#e2e8f0' }} />
+                  <Bar dataKey="unidades" name="Unidades en stock" fill="#22c55e" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          {graficaData.length === 0 && (
+            <div className="text-center py-12 text-slate-500">No hay productos con inventario compartido para graficar</div>
           )}
         </div>
       )}
