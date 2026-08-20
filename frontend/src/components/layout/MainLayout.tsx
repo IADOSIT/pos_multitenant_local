@@ -119,6 +119,7 @@ export default function MainLayout() {
   const [sidebarPermisos, setSidebarPermisos] = useState<Record<string, string[]>>({});
   const [logisticaEnabled, setLogisticaEnabled] = useState(false);
   const [basculaEnabled, setBasculaEnabled] = useState(false);
+  const [mesasMenuEnabled, setMesasMenuEnabled] = useState(true);
 
   // Fetch DB host from backend health endpoint
   useEffect(() => {
@@ -136,6 +137,7 @@ export default function MainLayout() {
           const cp = data?.config_pos || {};
           setCajeroDashboard(cp.cajero_dashboard_enabled || false);
           setSidebarPermisos(cp.sidebar_permisos || {});
+          setMesasMenuEnabled(cp.mesas_menu_enabled !== false);
         }).catch(() => {});
       });
     }
@@ -200,6 +202,7 @@ export default function MainLayout() {
   const baseFiltered = navItems.filter((n) => {
     if (!user) return false;
     if (!n.roles.includes(user.rol)) return false;
+    if (n.to === '/admin/mesas' && !mesasMenuEnabled && user.rol !== 'superadmin') return false;
 
     const permList = sidebarPermisos[user.rol];
     const hasPermList = permList && permList.length > 0 && !['superadmin'].includes(user.rol);

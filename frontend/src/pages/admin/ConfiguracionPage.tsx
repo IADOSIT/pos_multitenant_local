@@ -247,6 +247,7 @@ export default function ConfiguracionPage() {
     dashboard_top_n: 10,
     dashboard_mostrar_margen: false,
     mesa_numero_oculto: false,
+    mesas_menu_enabled: true,
     sidebar_permisos: {} as Record<string, string[]>,
     whatsapp_eventos: { stock_bajo: true, resumen_diario: false } as Record<string, boolean>,
     reportes_tabs_config: [
@@ -504,6 +505,7 @@ export default function ConfiguracionPage() {
       dashboard_top_n: cp.dashboard_top_n || 10,
       dashboard_mostrar_margen: cp.dashboard_mostrar_margen || false,
       mesa_numero_oculto: cp.mesa_numero_oculto || false,
+      mesas_menu_enabled: cp.mesas_menu_enabled !== false,
       sidebar_permisos: cp.sidebar_permisos || {},
       whatsapp_eventos: cp.whatsapp_eventos || { stock_bajo: true, resumen_diario: false },
       reportes_tabs_config: cp.reportes_tabs_config || [
@@ -576,6 +578,7 @@ export default function ConfiguracionPage() {
           dashboard_top_n: form.dashboard_top_n,
           dashboard_mostrar_margen: form.dashboard_mostrar_margen,
           mesa_numero_oculto: form.mesa_numero_oculto,
+          mesas_menu_enabled: form.mesas_menu_enabled,
           precuenta_enabled: form.precuenta_enabled,
           sidebar_permisos: form.sidebar_permisos,
           whatsapp_eventos: form.whatsapp_eventos,
@@ -652,7 +655,7 @@ export default function ConfiguracionPage() {
       dashboard_categorias_enabled: false, dashboard_drill_down_enabled: false,
       dashboard_unidad_enabled: false, dashboard_top_productos_enabled: false,
       dashboard_top_n: 10, dashboard_mostrar_margen: false,
-      mesa_numero_oculto: false, sidebar_permisos: {}, whatsapp_eventos: { stock_bajo: true, resumen_diario: false },
+      mesa_numero_oculto: false, mesas_menu_enabled: true, sidebar_permisos: {}, whatsapp_eventos: { stock_bajo: true, resumen_diario: false },
       reportes_tabs_config: [
         { key: 'caja',     label: 'Cierre de Caja', enabled: true },
         { key: 'kpi',      label: 'KPI',            enabled: true },
@@ -1584,6 +1587,21 @@ export default function ConfiguracionPage() {
               {/* ── Sección Mesas ── */}
               <div className="card space-y-3">
                 <h3 className="font-bold text-sm flex items-center gap-2"><Monitor size={16} className="text-purple-400" /> Modo Mesa</h3>
+                <div className="flex items-start justify-between py-1">
+                  <div className="flex-1 pr-4">
+                    <span className="text-sm font-medium">Mostrar "Mesas" en el menú lateral</span>
+                    <p className="text-xs text-slate-500 mt-0.5">Oculta el acceso a Mesas para cajero, mesero, manager y admin cuando esta tienda no lo necesita. El superadmin siempre lo ve.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, mesas_menu_enabled: !form.mesas_menu_enabled })}
+                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none ${
+                      form.mesas_menu_enabled ? 'bg-iados-primary' : 'bg-slate-600'
+                    }`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${form.mesas_menu_enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
+                </div>
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input type="checkbox" checked={form.mesa_numero_oculto}
                     onChange={(e) => setForm({ ...form, mesa_numero_oculto: e.target.checked })}
