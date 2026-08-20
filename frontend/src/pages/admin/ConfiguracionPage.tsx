@@ -44,12 +44,69 @@ const DEFAULT_CAMPOS: Record<CampoKey, CampoFormularioConfig> = {
 
 import { usePageHeader } from '../../store/pageHeader.store';
 
+// ── Presets de tipo de negocio (Punto 1 posv2) ──────────────────────────────
+// Fijos en frontend (sin tabla nueva): cada preset es un parche sobre config_pos
+// de LA TIENDA seleccionada + un recalculo de sidebar_permisos. Nunca toca
+// empresa/tenant — solo se aplica al `form` que ya guarda handleSave() vía
+// tiendasApi.update(selected.id, ...).
+const SIDEBAR_ALL_ROUTES = ['/pos', '/dashboard', '/pedidos', '/caja', '/reportes', '/inventario', '/catalogos', '/admin/mesas', '/admin/usuarios', '/admin/tienda-en-linea', '/admin/configuracion', '/ayuda'];
+const SIDEBAR_ROLES = ['cajero', 'mesero', 'manager', 'admin'];
+
+interface BusinessPreset {
+  key: string;
+  label: string;
+  emoji: string;
+  desc: string;
+  patch: Record<string, any>;
+  sidebarHide: string[];
+}
+
+const BUSINESS_PRESETS: BusinessPreset[] = [
+  {
+    key: 'restaurante', emoji: '🍽️', label: 'Restaurante',
+    desc: 'Servicio a mesa, cuentas abiertas',
+    patch: { modo_servicio: 'mesa', pos_layout: 'restaurante', tipo_cobro_mesa: 'post_pago', notas_por_item: true, habilitar_cuenta_abierta: true, en_sitio_visible: true, para_llevar_visible: true, escaner_habilitado: false, pos_stock_badge_enabled: false, devoluciones_enabled: false },
+    sidebarHide: [],
+  },
+  {
+    key: 'cafeteria', emoji: '☕', label: 'Cafetería / Comida rápida',
+    desc: 'Mostrador, para llevar y en sitio',
+    patch: { modo_servicio: 'autoservicio', pos_layout: 'restaurante', notas_por_item: true, habilitar_cuenta_abierta: false, en_sitio_visible: true, para_llevar_visible: true, escaner_habilitado: false, pos_stock_badge_enabled: false, devoluciones_enabled: false },
+    sidebarHide: ['/admin/mesas'],
+  },
+  {
+    key: 'retail', emoji: '🛠️', label: 'Ferretería / Retail',
+    desc: 'Venta rápida con escáner de códigos',
+    patch: { modo_servicio: 'autoservicio', pos_layout: 'retail', notas_por_item: false, escaner_habilitado: true, pos_stock_badge_enabled: true, devoluciones_enabled: true },
+    sidebarHide: ['/admin/mesas'],
+  },
+  {
+    key: 'abarrotes', emoji: '🛒', label: 'Abarrotes / Minisuper',
+    desc: 'Escáner, control de stock visible',
+    patch: { modo_servicio: 'autoservicio', pos_layout: 'retail', notas_por_item: false, escaner_habilitado: true, pos_stock_badge_enabled: true, devoluciones_enabled: true },
+    sidebarHide: ['/admin/mesas'],
+  },
+  {
+    key: 'farmacia', emoji: '💊', label: 'Farmacia',
+    desc: 'Escáner, devoluciones y datos de cliente',
+    patch: { modo_servicio: 'autoservicio', pos_layout: 'retail', notas_por_item: false, escaner_habilitado: true, pos_stock_badge_enabled: true, devoluciones_enabled: true, cliente_venta_enabled: true },
+    sidebarHide: ['/admin/mesas'],
+  },
+  {
+    key: 'servicios', emoji: '🧰', label: 'Servicios',
+    desc: 'Sin inventario por escáner, con notas por pedido',
+    patch: { modo_servicio: 'autoservicio', pos_layout: 'retail', notas_por_item: false, notas_pedido_enabled: true, cliente_venta_enabled: true, escaner_habilitado: false, pos_stock_badge_enabled: false, devoluciones_enabled: false },
+    sidebarHide: ['/admin/mesas'],
+  },
+];
+
 export default function ConfiguracionPage() {
   const { user } = useAuthStore();
   const { theme, palette, setTheme, setPalette } = useThemeStore();
   const navigate = useNavigate();
   const [tiendas, setTiendas] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
+  const [appliedPreset, setAppliedPreset] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingNew, setEditingNew] = useState(false);
@@ -395,6 +452,7 @@ export default function ConfiguracionPage() {
 
   const selectTienda = (tienda: any) => {
     setSelected(tienda);
+    setAppliedPreset(null);
     const cp = tienda.config_pos || {};
     const ci = tienda.config_impresora || {};
     setForm({
@@ -554,6 +612,18 @@ export default function ConfiguracionPage() {
       }
     } catch (e: any) { toast.error(e.response?.data?.message || 'Error al guardar'); }
     finally { setLoading(false); }
+  };
+
+  // Aplica un preset de tipo de negocio SOLO al form en memoria de la tienda
+  // seleccionada — no guarda solo, el admin revisa y presiona "Guardar" abajo.
+  const applyBusinessPreset = (preset: BusinessPreset) => {
+    const newSidebarPermisos: Record<string, string[]> = {};
+    SIDEBAR_ROLES.forEach((rol) => {
+      newSidebarPermisos[rol] = SIDEBAR_ALL_ROUTES.filter((r) => !preset.sidebarHide.includes(r));
+    });
+    setForm({ ...form, ...preset.patch, sidebar_permisos: newSidebarPermisos });
+    setAppliedPreset(preset.label);
+    toast.success(`Preset "${preset.label}" aplicado — revisa los ajustes y presiona Guardar`);
   };
 
   const handleDelete = async (tienda: any) => {
@@ -1692,6 +1762,33 @@ export default function ConfiguracionPage() {
                 <input ref={logoRef} type="file" accept=".jpg,.jpeg,.png,.webp,.gif,.heic,.heif" className="hidden" onChange={handleLogoUpload} />
               </div>
             </div>
+          </div>
+
+          {/* Preset de tipo de negocio — sugerencia de configuracion inicial, solo para ESTA tienda */}
+          <div className="card space-y-3 border-2 border-iados-primary/30">
+            <div>
+              <h3 className="font-bold text-sm flex items-center gap-2"><Sparkles size={16} className="text-iados-primary" /> Tipo de negocio</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Elige el que más se parezca a esta tienda para aplicar una configuración sugerida (menú lateral, modo de venta, escáner, devoluciones...).
+                Solo afecta <strong>esta tienda</strong> — no cambia nada en la empresa ni en otras tiendas. Después de aplicar puedes seguir ajustando cualquier opción manualmente.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {BUSINESS_PRESETS.map((p) => (
+                <button
+                  key={p.key}
+                  onClick={() => applyBusinessPreset(p)}
+                  className={`p-3 rounded-xl border-2 text-left transition-colors ${appliedPreset === p.label ? 'border-iados-primary bg-iados-primary/10' : 'border-slate-700 hover:border-iados-primary/60'}`}
+                >
+                  <p className="text-lg mb-1">{p.emoji}</p>
+                  <p className="font-bold text-xs">{p.label}</p>
+                  <p className="text-[10px] text-slate-500">{p.desc}</p>
+                </button>
+              ))}
+            </div>
+            {appliedPreset && (
+              <p className="text-xs text-green-400 flex items-center gap-1"><Check size={12} /> Preset "{appliedPreset}" aplicado abajo — revisa las secciones y presiona Guardar Configuración al final para confirmar.</p>
+            )}
           </div>
 
           {/* Apariencia - Temas y Paletas (por empresa) */}
