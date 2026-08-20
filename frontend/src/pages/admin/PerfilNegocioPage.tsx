@@ -85,11 +85,6 @@ export default function PerfilNegocioPage() {
 
   return (
     <div className="p-4 space-y-6 max-w-3xl">
-      <div className="flex items-center gap-3">
-        <Layers size={22} className="text-iados-primary" />
-        <h1 className="text-xl font-bold">Perfil de Negocio</h1>
-      </div>
-
       {/* Card perfil carbon_hielo */}
       <div className="bg-iados-card rounded-2xl border border-slate-700 overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-700 flex items-center justify-between">

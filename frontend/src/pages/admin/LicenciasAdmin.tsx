@@ -394,9 +394,8 @@ export default function LicenciasAdmin() {
 
   return (
     <div className="p-4 space-y-4 max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Shield size={28} /> Licencias</h1>
+      {/* Acciones */}
+      <div className="flex items-center justify-end flex-wrap gap-2">
         <div className="flex gap-2">
           <button onClick={load} className="btn-secondary flex items-center gap-1"><RefreshCw size={16} /></button>
           <button onClick={() => { setShowGenerar(!showGenerar); setCodigoGenerado(''); }} className="btn-primary flex items-center gap-2">

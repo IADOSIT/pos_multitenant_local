@@ -243,14 +243,11 @@ export default function InventarioDualPage() {
 
   return (
     <div className="p-4 space-y-4">
-      {/* Header */}
+      {/* Estado + acciones */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold">Inventario Carbón + Hielo</h1>
-          <span className="bg-iados-primary/20 text-iados-primary text-xs px-2 py-0.5 rounded-full border border-iados-primary/30">
-            Perfil Activo
-          </span>
-        </div>
+        <span className="bg-iados-primary/20 text-iados-primary text-xs px-2 py-0.5 rounded-full border border-iados-primary/30">
+          Perfil Activo
+        </span>
         <button onClick={loadData} className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-iados-card">
           <RefreshCw size={18} />
         </button>

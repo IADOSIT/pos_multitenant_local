@@ -235,10 +235,7 @@ export default function MantenimientoPage() {
 
   return (
     <div className="p-4 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <HardDrive size={24} /> Mantenimiento
-        </h1>
+      <div className="flex items-center justify-end mb-4">
         <button onClick={loadAll} disabled={loading} className="btn-secondary text-sm">
           <RefreshCw size={16} className={`mr-1 ${loading ? 'animate-spin' : ''}`} /> Actualizar
         </button>

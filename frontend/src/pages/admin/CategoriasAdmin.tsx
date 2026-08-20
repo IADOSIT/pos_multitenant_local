@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { categoriasApi, productosApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
 import toast from 'react-hot-toast';
-import { Plus, Edit2, Tag, Trash2, Search, X, Image, ImagePlus } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, X, Image, ImagePlus } from 'lucide-react';
 
 export default function CategoriasAdmin() {
   const [categorias, setCategorias] = useState<any[]>([]);
@@ -76,8 +76,7 @@ export default function CategoriasAdmin() {
 
   return (
     <div className="p-4 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Tag size={24} /> Categorias</h1>
+      <div className="flex items-center justify-end mb-4">
         <button onClick={() => { setShowForm(true); setEditItem(null); setForm({ nombre: '', color: '#3b82f6', icono: '', orden: '0', es_seccion_especial: false, tipo_seccion: '', imagen_url: '' }); }} className="btn-primary text-sm">
           <Plus size={16} className="mr-1" />Nueva
         </button>

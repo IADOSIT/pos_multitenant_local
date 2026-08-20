@@ -5,7 +5,7 @@ import { resolveUploadUrl } from '../../api/client';
 import { removeBackgroundToWhite } from '../../utils/removeBackground';
 import { generateProductImageFree, base64ToBlob } from '../../utils/generateProductImage';
 import toast from 'react-hot-toast';
-import { Plus, Upload, Download, Search, Edit2, Package, Trash2, Image, X, ImagePlus, Wand2, Sparkles } from 'lucide-react';
+import { Plus, Upload, Download, Search, Edit2, Trash2, Image, X, ImagePlus, Wand2, Sparkles } from 'lucide-react';
 import DataGrid from '../../components/ui/DataGrid';
 
 export default function ProductosAdmin() {
@@ -243,8 +243,7 @@ export default function ProductosAdmin() {
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Package size={24} /> Productos</h1>
+      <div className="flex items-center justify-end flex-wrap gap-2 mb-4">
         <div className="flex gap-2">
           <button onClick={handleCSVDownload} className="btn-secondary text-sm"><Download size={16} className="mr-1" />CSV Template</button>
           <button onClick={() => fileRef.current?.click()} className="btn-secondary text-sm"><Upload size={16} className="mr-1" />Importar CSV</button>

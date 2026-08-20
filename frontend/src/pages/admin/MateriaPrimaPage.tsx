@@ -133,16 +133,8 @@ export default function MateriaPrimaPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <Beef className="text-orange-400" size={28} />
-          <div>
-            <h1 className="text-2xl font-bold">Materia Prima</h1>
-            <p className="text-xs text-slate-500">Ingreso manual o por plantilla CSV</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      {/* Acciones */}
+      <div className="flex flex-wrap justify-end gap-2 mb-6">
           <button onClick={handleDownloadTemplate} className="btn-secondary text-sm flex items-center gap-1.5">
             <Download size={16} /> Plantilla
           </button>
@@ -156,7 +148,6 @@ export default function MateriaPrimaPage() {
           <button onClick={openNew} className="btn-primary text-sm flex items-center gap-1.5">
             <Plus size={16} /> Agregar
           </button>
-        </div>
       </div>
 
       {/* Stats */}
