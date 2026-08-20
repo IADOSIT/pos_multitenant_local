@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import {
   FileText, FileSpreadsheet, Download, Calendar, TrendingUp,
   DollarSign, Receipt, ShoppingBag, Ban, ChevronDown, ChevronUp, Loader2, Printer,
-  Users, Phone, MapPin, Search, RotateCcw,
+  Users, Phone, MapPin, Search, RotateCcw, Globe,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -47,6 +47,7 @@ export default function ReportesPage() {
   const [clienteSearch, setClienteSearch] = useState('');
   const [clientesLoading, setClientesLoading] = useState(false);
   const [expandedVentas, setExpandedVentas] = useState(false);
+  const [expandedOnline, setExpandedOnline] = useState(false);
   const [devolucionVentaId, setDevolucionVentaId] = useState<number | null>(null);
   const [configPos, setConfigPos] = useState<any>({});
   const chartRef = useRef<HTMLDivElement>(null);
@@ -160,7 +161,7 @@ export default function ReportesPage() {
   const exportCajaPDF = async () => {
     if (!reporte) return;
     const { jsPDF, autoTable } = await cargarPdf();
-    const { caja, resumen, ventas, top_productos } = reporte;
+    const { caja, resumen, ventas, top_productos, ventas_online } = reporte;
     const doc = new jsPDF();
     const pw = doc.internal.pageSize.getWidth();
 
@@ -253,6 +254,27 @@ export default function ReportesPage() {
       });
     }
 
+    // Ventas en línea (tienda en línea) — no reconciliadas en esta caja
+    if (ventas_online?.pedidos?.length) {
+      doc.addPage();
+      doc.setFontSize(12);
+      doc.text(`Ventas en línea (${ventas_online.resumen.num_pedidos} — $${Number(ventas_online.resumen.total).toFixed(2)})`, 14, 20);
+      autoTable(doc, {
+        startY: 24,
+        head: [['Folio', 'Fecha', 'Cliente', 'Estado', 'Total']],
+        body: ventas_online.pedidos.map((p: any) => [
+          p.numero_pedido,
+          new Date(p.created_at).toLocaleString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+          p.cliente_nombre,
+          p.estado,
+          `$${Number(p.total).toFixed(2)}`,
+        ]),
+        theme: 'grid',
+        headStyles: { fillColor: [59, 130, 246], fontSize: 7 },
+        styles: { fontSize: 7 },
+      });
+    }
+
     doc.setFontSize(8);
     doc.text(`Generado: ${new Date().toLocaleString('es-MX')} | POS-iaDoS`, pw / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
     doc.save(`Reporte_Caja_${caja.nombre}_${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -263,7 +285,7 @@ export default function ReportesPage() {
   const exportCajaExcel = async () => {
     if (!reporte) return;
     const XLSX = await import('xlsx');
-    const { caja, resumen, ventas, top_productos } = reporte;
+    const { caja, resumen, ventas, top_productos, ventas_online } = reporte;
     const wb = XLSX.utils.book_new();
 
     // Resumen sheet
@@ -316,6 +338,22 @@ export default function ReportesPage() {
         ...top_productos.map((p: any, i: number) => [i + 1, p.nombre, p.cantidad, p.total]),
       ];
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(topData), 'Top Productos');
+    }
+
+    // Ventas en línea sheet — no reconciliadas en esta caja
+    if (ventas_online?.pedidos?.length) {
+      const onlineData = [
+        ['Folio', 'Fecha', 'Cliente', 'Correo', 'Estado', 'Total'],
+        ...ventas_online.pedidos.map((p: any) => [
+          p.numero_pedido,
+          new Date(p.created_at).toLocaleString('es-MX'),
+          p.cliente_nombre,
+          p.cliente_email,
+          p.estado,
+          Number(p.total),
+        ]),
+      ];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(onlineData), 'Ventas en línea');
     }
 
     XLSX.writeFile(wb, `Reporte_Caja_${caja.nombre}_${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -665,6 +703,54 @@ export default function ReportesPage() {
                                   </button>
                                 )}
                               </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Ventas en línea (tienda en línea) — informativo, no se reconcilia en esta caja */}
+              {reporte.ventas_online && (reporte.ventas_online.pedidos?.length > 0) && (
+                <div className="card">
+                  <button onClick={() => setExpandedOnline(!expandedOnline)} className="flex items-center justify-between w-full">
+                    <h3 className="font-bold flex items-center gap-2">
+                      <Globe size={16} className="text-blue-400" />
+                      Ventas en línea ({reporte.ventas_online.resumen.num_pedidos})
+                      <span className="text-green-400 font-normal">${Number(reporte.ventas_online.resumen.total).toFixed(2)}</span>
+                    </h3>
+                    {expandedOnline ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  </button>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Pedidos de la tienda en línea creados durante este turno. Se cobran por pasarela — no forman parte del efectivo/tarjeta de esta caja.
+                    {reporte.ventas_online.resumen.num_cancelados > 0 && ` ${reporte.ventas_online.resumen.num_cancelados} cancelado(s) no incluido(s) en el total.`}
+                  </p>
+                  {expandedOnline && (
+                    <div className="mt-3 overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-left text-slate-400 border-b border-slate-700">
+                            <th className="pb-2 pr-3">Folio</th>
+                            <th className="pb-2 pr-3">Hora</th>
+                            <th className="pb-2 pr-3">Cliente</th>
+                            <th className="pb-2 pr-3">Estado</th>
+                            <th className="pb-2 pr-3 text-right">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {reporte.ventas_online.pedidos.map((p: any) => (
+                            <tr key={p.id} className="border-b border-slate-700/50 hover:bg-iados-card/50">
+                              <td className="py-2 pr-3 font-mono text-xs">{p.numero_pedido}</td>
+                              <td className="py-2 pr-3 text-xs">{new Date(p.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</td>
+                              <td className="py-2 pr-3">{p.cliente_nombre}</td>
+                              <td className="py-2 pr-3">
+                                <span className={`text-xs px-2 py-0.5 rounded ${p.estado === 'cancelado' ? 'bg-red-600/30 text-red-400' : 'bg-blue-600/30 text-blue-400'}`}>
+                                  {p.estado}
+                                </span>
+                              </td>
+                              <td className="py-2 pr-3 text-right font-bold">${Number(p.total).toFixed(2)}</td>
                             </tr>
                           ))}
                         </tbody>

@@ -12,6 +12,7 @@ const typeorm_1 = require("@nestjs/typeorm");
 const caja_entity_1 = require("./caja.entity");
 const venta_entity_1 = require("../ventas/venta.entity");
 const auditoria_entity_1 = require("../ventas/auditoria.entity");
+const ecommerce_pedido_entity_1 = require("../ecommerce/ecommerce-pedido.entity");
 const caja_controller_1 = require("./caja.controller");
 const caja_service_1 = require("./caja.service");
 let CajaModule = class CajaModule {
@@ -19,7 +20,7 @@ let CajaModule = class CajaModule {
 exports.CajaModule = CajaModule;
 exports.CajaModule = CajaModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([caja_entity_1.Caja, caja_entity_1.MovimientoCaja, venta_entity_1.Venta, auditoria_entity_1.Auditoria])],
+        imports: [typeorm_1.TypeOrmModule.forFeature([caja_entity_1.Caja, caja_entity_1.MovimientoCaja, venta_entity_1.Venta, auditoria_entity_1.Auditoria, ecommerce_pedido_entity_1.EcommercePedido])],
         controllers: [caja_controller_1.CajaController],
         providers: [caja_service_1.CajaService],
         exports: [caja_service_1.CajaService],

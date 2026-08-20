@@ -6,8 +6,19 @@ import toast from 'react-hot-toast';
 import {
   Globe, Store, Palette, Check, X, Copy, ExternalLink, Loader2,
   ShoppingBag, TrendingUp, Package, ToggleLeft, ToggleRight,
-  Megaphone, Truck, ClipboardList, FileText,
+  Megaphone, Truck, ClipboardList, FileText, RefreshCw,
 } from 'lucide-react';
+import TablaPedidos from '../pedidos/TablaPedidos';
+import DetallePedidoWeb from '../pedidos/DetallePedidoWeb';
+import {
+  PedidoUnificado, ESTADOS_UNIFICADOS, estadoUnificadoDe, siguienteEstadoRaw,
+  normalizarPedidoWeb, ordenarPorFecha,
+} from '../pedidos/pedidosUnificados';
+
+// Los pedidos web de una empresa no suelen pasar de unos cientos activos/recientes;
+// esta pestaña es para "buscar el folio que le dieron a un cliente", no un historial
+// completo paginado en servidor — con este límite alcanza y se evita esa complejidad.
+const LIMITE_PEDIDOS = 300;
 
 const DOMINIOBASE = 'iados.store';
 
@@ -46,6 +57,7 @@ function mergeCampos(saved: any): Campos {
 
 const TABS = [
   { id: 'general',     label: 'General',     icon: Store },
+  { id: 'pedidos',     label: 'Pedidos',     icon: Package },
   { id: 'diseno',      label: 'Diseño',      icon: Palette },
   { id: 'promociones', label: 'Promociones', icon: Megaphone },
   { id: 'envio',       label: 'Envío',       icon: Truck },
@@ -82,7 +94,38 @@ export default function TiendaEnLineaPage() {
   const [stats, setStats] = useState({ pedidos: 0 });
   const [copied, setCopied] = useState(false);
 
+  // Consulta de folios (Punto 2 posv2): un listado buscable de los pedidos que
+  // nacieron en la tienda en línea, para que el admin pueda ubicar el avance de
+  // un folio sin tener que ir a la pestaña general de Pedidos del POS.
+  const [pedidosWeb, setPedidosWeb] = useState<any[]>([]);
+  const [pedidosLoading, setPedidosLoading] = useState(false);
+  const [selectedPedido, setSelectedPedido] = useState<PedidoUnificado | null>(null);
+  const [avanzandoKey, setAvanzandoKey] = useState<string | null>(null);
+
   useEffect(() => { load(); }, []);
+
+  const loadPedidos = useCallback(async () => {
+    setPedidosLoading(true);
+    try {
+      const { data } = await ecommerceApi.listPedidos({ page: 1, limit: LIMITE_PEDIDOS });
+      setPedidosWeb(data?.data || []);
+    } catch { toast.error('Error al cargar pedidos'); }
+    setPedidosLoading(false);
+  }, []);
+
+  useEffect(() => { if (tab === 'pedidos') loadPedidos(); }, [tab, loadPedidos]);
+
+  const listadoPedidos = ordenarPorFecha(pedidosWeb.map(normalizarPedidoWeb));
+
+  const handleAvanzarPedido = async (pedido: PedidoUnificado, estadoRaw: string) => {
+    setAvanzandoKey(pedido.key);
+    try {
+      const { data } = await ecommerceApi.updateEstado(pedido.id, estadoRaw);
+      setPedidosWeb(ps => ps.map(x => (x.id === pedido.id ? { ...x, estado: data.estado } : x)));
+      toast.success(`Pedido ${pedido.numero} → ${ESTADOS_UNIFICADOS[estadoUnificadoDe('web', data.estado)].label}`);
+    } catch { toast.error('Error al actualizar estado'); }
+    finally { setAvanzandoKey(null); }
+  };
 
   function setPref(path: 'promociones' | 'envio_gratis', patch: any) {
     setForm((f: any) => ({ ...f, preferencias: { ...f.preferencias, [path]: { ...f.preferencias?.[path], ...patch } } }));
@@ -287,12 +330,52 @@ export default function TiendaEnLineaPage() {
             </div>
             <div className="bg-slate-800 rounded-xl p-4 space-y-2">
               <p className="text-sm font-semibold text-white">Estadísticas</p>
-              <div className="flex items-center justify-between py-2">
+              <button onClick={() => setTab('pedidos')} className="flex items-center justify-between py-2 w-full hover:opacity-80 transition-opacity">
                 <div className="flex items-center gap-2 text-xs text-slate-400"><Package size={12} /> Pedidos web</div>
                 <span className="text-sm font-semibold text-white">{stats.pedidos}</span>
-              </div>
+              </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── PEDIDOS (consulta de folios) ── */}
+      {tab === 'pedidos' && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-slate-400">
+              Busca por folio, cliente o correo para ver el avance de un pedido de la tienda en línea.
+            </p>
+            <button onClick={loadPedidos} disabled={pedidosLoading} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs rounded-lg transition-colors disabled:opacity-50">
+              {pedidosLoading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />} Actualizar
+            </button>
+          </div>
+          {pedidosLoading && pedidosWeb.length === 0 ? (
+            <div className="flex items-center justify-center py-16 text-slate-400">
+              <Loader2 className="animate-spin mr-2" size={20} /> Cargando pedidos...
+            </div>
+          ) : (
+            <TablaPedidos
+              pedidos={listadoPedidos}
+              mostrarPrecios
+              mostrarFiltroOrigen={false}
+              seleccionadoKey={selectedPedido?.key || null}
+              avanzandoKey={avanzandoKey}
+              vacioTexto="Aún no hay pedidos de la tienda en línea"
+              tieneDetalle={() => true}
+              onSelect={setSelectedPedido}
+              onAvanzar={p => { const s = siguienteEstadoRaw(p); if (s) handleAvanzarPedido(p, s); }}
+            />
+          )}
+
+          {selectedPedido && (
+            <DetallePedidoWeb
+              pedido={selectedPedido}
+              mostrarPrecios
+              onClose={() => setSelectedPedido(null)}
+              onAvanzar={handleAvanzarPedido}
+            />
+          )}
         </div>
       )}
 

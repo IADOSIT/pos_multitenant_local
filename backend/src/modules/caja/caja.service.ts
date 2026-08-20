@@ -1,8 +1,9 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Between, Repository } from 'typeorm';
 import { Caja, CajaEstado, MovimientoCaja, MovimientoCajaTipo } from './caja.entity';
 import { Venta, VentaEstado } from '../ventas/venta.entity';
+import { EcommercePedido } from '../ecommerce/ecommerce-pedido.entity';
 
 @Injectable()
 export class CajaService {
@@ -10,6 +11,7 @@ export class CajaService {
     @InjectRepository(Caja) private cajaRepo: Repository<Caja>,
     @InjectRepository(MovimientoCaja) private movRepo: Repository<MovimientoCaja>,
     @InjectRepository(Venta) private ventaRepo: Repository<Venta>,
+    @InjectRepository(EcommercePedido) private pedidoWebRepo: Repository<EcommercePedido>,
   ) {}
 
   async abrir(data: any, scope: any) {
@@ -132,6 +134,20 @@ export class CajaService {
       prodMap.set(d.producto_sku, curr);
     }));
 
+    // Ventas en línea (tienda en línea): no pasan por esta caja ni cuentan como
+    // efectivo/tarjeta reconciliado aquí — se cobran/gestionan aparte por pasarela.
+    // Se muestran solo como referencia informativa, por el rango de fechas de este
+    // turno. `ecommerce_pedidos` es por empresa (una tienda en línea por empresa),
+    // no por tienda física, así que se filtra por empresa_id, no por tienda_id.
+    const pedidosWeb = await this.pedidoWebRepo.find({
+      where: {
+        empresa_id: caja.empresa_id,
+        created_at: Between(caja.fecha_apertura, caja.fecha_cierre || new Date()),
+      },
+      order: { created_at: 'ASC' },
+    });
+    const pedidosWebValidos = pedidosWeb.filter(p => p.estado !== 'cancelado');
+
     return {
       caja,
       ventas,
@@ -150,6 +166,14 @@ export class CajaService {
         diferencia: Number(caja.diferencia || 0),
       },
       top_productos: [...prodMap.values()].sort((a, b) => b.total - a.total).slice(0, 20),
+      ventas_online: {
+        pedidos: pedidosWeb,
+        resumen: {
+          num_pedidos: pedidosWebValidos.length,
+          num_cancelados: pedidosWeb.length - pedidosWebValidos.length,
+          total: pedidosWebValidos.reduce((s, p) => s + Number(p.total), 0),
+        },
+      },
     };
   }
 

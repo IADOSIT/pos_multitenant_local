@@ -18,11 +18,13 @@ const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const caja_entity_1 = require("./caja.entity");
 const venta_entity_1 = require("../ventas/venta.entity");
+const ecommerce_pedido_entity_1 = require("../ecommerce/ecommerce-pedido.entity");
 let CajaService = class CajaService {
-    constructor(cajaRepo, movRepo, ventaRepo) {
+    constructor(cajaRepo, movRepo, ventaRepo, pedidoWebRepo) {
         this.cajaRepo = cajaRepo;
         this.movRepo = movRepo;
         this.ventaRepo = ventaRepo;
+        this.pedidoWebRepo = pedidoWebRepo;
     }
     async abrir(data, scope) {
         const abierta = await this.cajaRepo.findOne({
@@ -127,6 +129,14 @@ let CajaService = class CajaService {
             curr.total += Number(d.subtotal);
             prodMap.set(d.producto_sku, curr);
         }));
+        const pedidosWeb = await this.pedidoWebRepo.find({
+            where: {
+                empresa_id: caja.empresa_id,
+                created_at: (0, typeorm_2.Between)(caja.fecha_apertura, caja.fecha_cierre || new Date()),
+            },
+            order: { created_at: 'ASC' },
+        });
+        const pedidosWebValidos = pedidosWeb.filter(p => p.estado !== 'cancelado');
         return {
             caja,
             ventas,
@@ -145,6 +155,14 @@ let CajaService = class CajaService {
                 diferencia: Number(caja.diferencia || 0),
             },
             top_productos: [...prodMap.values()].sort((a, b) => b.total - a.total).slice(0, 20),
+            ventas_online: {
+                pedidos: pedidosWeb,
+                resumen: {
+                    num_pedidos: pedidosWebValidos.length,
+                    num_cancelados: pedidosWeb.length - pedidosWebValidos.length,
+                    total: pedidosWebValidos.reduce((s, p) => s + Number(p.total), 0),
+                },
+            },
         };
     }
     getActiva(scope) {
@@ -166,7 +184,9 @@ exports.CajaService = CajaService = __decorate([
     __param(0, (0, typeorm_1.InjectRepository)(caja_entity_1.Caja)),
     __param(1, (0, typeorm_1.InjectRepository)(caja_entity_1.MovimientoCaja)),
     __param(2, (0, typeorm_1.InjectRepository)(venta_entity_1.Venta)),
+    __param(3, (0, typeorm_1.InjectRepository)(ecommerce_pedido_entity_1.EcommercePedido)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository])
 ], CajaService);

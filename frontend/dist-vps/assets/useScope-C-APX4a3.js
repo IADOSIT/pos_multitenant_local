@@ -1,0 +1,1 @@
+import{u as d,a as n}from"./index-C4blStop.js";function i(){const e=d(a=>a.user),t=n(a=>a.viewAs);return{tiendaId:(t==null?void 0:t.tienda_id)??(e==null?void 0:e.tienda_id),empresaId:(t==null?void 0:t.empresa_id)??(e==null?void 0:e.empresa_id)}}export{i as u};

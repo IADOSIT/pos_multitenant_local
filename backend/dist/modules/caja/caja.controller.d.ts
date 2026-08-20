@@ -40,6 +40,14 @@ export declare class CajaController {
             cantidad: number;
             total: number;
         }[];
+        ventas_online: {
+            pedidos: import("../ecommerce/ecommerce-pedido.entity").EcommercePedido[];
+            resumen: {
+                num_pedidos: number;
+                num_cancelados: number;
+                total: number;
+            };
+        };
     }>;
     getActiva(scope: any): Promise<import("./caja.entity").Caja | null>;
     findAll(scope: any): Promise<import("./caja.entity").Caja[]>;

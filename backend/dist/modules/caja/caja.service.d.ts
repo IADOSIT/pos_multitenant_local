@@ -1,11 +1,13 @@
 import { Repository } from 'typeorm';
 import { Caja, MovimientoCaja } from './caja.entity';
 import { Venta } from '../ventas/venta.entity';
+import { EcommercePedido } from '../ecommerce/ecommerce-pedido.entity';
 export declare class CajaService {
     private cajaRepo;
     private movRepo;
     private ventaRepo;
-    constructor(cajaRepo: Repository<Caja>, movRepo: Repository<MovimientoCaja>, ventaRepo: Repository<Venta>);
+    private pedidoWebRepo;
+    constructor(cajaRepo: Repository<Caja>, movRepo: Repository<MovimientoCaja>, ventaRepo: Repository<Venta>, pedidoWebRepo: Repository<EcommercePedido>);
     abrir(data: any, scope: any): Promise<Caja>;
     cerrar(id: number, data: any, scope: any): Promise<Caja>;
     movimiento(cajaId: number, data: any, scope: any): Promise<MovimientoCaja>;
@@ -44,6 +46,14 @@ export declare class CajaService {
             cantidad: number;
             total: number;
         }[];
+        ventas_online: {
+            pedidos: EcommercePedido[];
+            resumen: {
+                num_pedidos: number;
+                num_cancelados: number;
+                total: number;
+            };
+        };
     }>;
     getActiva(scope: any): Promise<Caja | null>;
     findAll(scope: any): Promise<Caja[]>;
