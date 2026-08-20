@@ -1,10 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { createColumnHelper, ColumnDef } from '@tanstack/react-table';
 import { productosApi, categoriasApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
 import { removeBackgroundToWhite } from '../../utils/removeBackground';
 import { generateProductImageFree, base64ToBlob } from '../../utils/generateProductImage';
 import toast from 'react-hot-toast';
 import { Plus, Upload, Download, Search, Edit2, Package, Trash2, Image, X, ImagePlus, Wand2, Sparkles } from 'lucide-react';
+import DataGrid from '../../components/ui/DataGrid';
 
 export default function ProductosAdmin() {
   const [productos, setProductos] = useState<any[]>([]);
@@ -175,6 +177,70 @@ export default function ProductosAdmin() {
     return p.nombre.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
   });
 
+  const columnHelper = createColumnHelper<any>();
+  const columns = useMemo<ColumnDef<any, any>[]>(() => [
+    columnHelper.display({
+      id: 'img',
+      header: 'Img',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const p = row.original;
+        return p.imagen_url ? (
+          <img src={resolveUploadUrl(p.imagen_url)} alt={p.nombre} className="w-10 h-10 object-cover rounded" />
+        ) : (
+          <div className="w-10 h-10 bg-slate-700 rounded flex items-center justify-center text-xs text-slate-400"><Image size={16} /></div>
+        );
+      },
+    }),
+    columnHelper.accessor('sku', {
+      header: 'SKU',
+      cell: (info) => <span className="font-mono text-xs">{info.getValue()}</span>,
+    }),
+    columnHelper.accessor('nombre', { header: 'Nombre' }),
+    columnHelper.accessor('precio', {
+      header: 'Precio',
+      cell: (info) => <span className="text-green-400 font-bold">${Number(info.getValue()).toFixed(2)}</span>,
+    }),
+    columnHelper.accessor((row) => row.categoria?.nombre || '-', { id: 'categoria', header: 'Categoria' }),
+    columnHelper.accessor('activo', {
+      header: 'Estado',
+      cell: (info) => {
+        const activo = info.getValue();
+        return <span className={`px-2 py-1 rounded text-xs ${activo ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>{activo ? 'Activo' : 'Inactivo'}</span>;
+      },
+    }),
+    columnHelper.accessor('disponible', {
+      header: 'Disponible',
+      cell: ({ row }) => {
+        const p = row.original;
+        return (
+          <button
+            onClick={() => handleToggleDisponible(p)}
+            className={`px-2 py-1 rounded text-xs font-medium transition-colors ${p.disponible ? 'bg-blue-900 text-blue-300 hover:bg-blue-800' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}
+            title={p.disponible ? 'En POS — clic para ocultar' : 'Oculto en POS — clic para mostrar'}
+          >
+            {p.disponible ? 'En POS' : 'Oculto'}
+          </button>
+        );
+      },
+    }),
+    columnHelper.display({
+      id: 'acciones',
+      header: '',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const p = row.original;
+        return (
+          <div className="flex gap-1">
+            <button onClick={() => handleEdit(p)} className="p-2 hover:bg-iados-card rounded-lg"><Edit2 size={16} /></button>
+            <button onClick={() => setDeleteConfirm(p)} className="p-2 hover:bg-red-900/50 rounded-lg text-red-400"><Trash2 size={16} /></button>
+          </div>
+        );
+      },
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], []);
+
   return (
     <div className="p-4 max-w-6xl mx-auto">
       <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
@@ -223,46 +289,7 @@ export default function ProductosAdmin() {
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-slate-400 border-b border-slate-700">
-              <th className="p-3">Img</th><th className="p-3">SKU</th><th className="p-3">Nombre</th><th className="p-3">Precio</th><th className="p-3">Categoria</th><th className="p-3">Estado</th><th className="p-3">Disponible</th><th className="p-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((p) => (
-              <tr key={p.id} className="border-b border-slate-800 hover:bg-iados-card/50">
-                <td className="p-3">
-                  {p.imagen_url ? (
-                    <img src={resolveUploadUrl(p.imagen_url)} alt={p.nombre} className="w-10 h-10 object-cover rounded" />
-                  ) : (
-                    <div className="w-10 h-10 bg-slate-700 rounded flex items-center justify-center text-xs text-slate-400"><Image size={16} /></div>
-                  )}
-                </td>
-                <td className="p-3 font-mono text-xs">{p.sku}</td>
-                <td className="p-3">{p.nombre}</td>
-                <td className="p-3 text-green-400 font-bold">${Number(p.precio).toFixed(2)}</td>
-                <td className="p-3">{p.categoria?.nombre || '-'}</td>
-                <td className="p-3"><span className={`px-2 py-1 rounded text-xs ${p.activo ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>{p.activo ? 'Activo' : 'Inactivo'}</span></td>
-                <td className="p-3">
-                  <button
-                    onClick={() => handleToggleDisponible(p)}
-                    className={`px-2 py-1 rounded text-xs font-medium transition-colors ${p.disponible ? 'bg-blue-900 text-blue-300 hover:bg-blue-800' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}
-                    title={p.disponible ? 'En POS — clic para ocultar' : 'Oculto en POS — clic para mostrar'}
-                  >
-                    {p.disponible ? 'En POS' : 'Oculto'}
-                  </button>
-                </td>
-                <td className="p-3 flex gap-1">
-                  <button onClick={() => handleEdit(p)} className="p-2 hover:bg-iados-card rounded-lg"><Edit2 size={16} /></button>
-                  <button onClick={() => setDeleteConfirm(p)} className="p-2 hover:bg-red-900/50 rounded-lg text-red-400"><Trash2 size={16} /></button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataGrid data={filtered} columns={columns} emptyMessage="No hay productos" />
 
       {/* Modal Formulario */}
       {showForm && (

@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tanstack/react-table": "^8.21.3",
     "@types/qrcode": "^1.5.6",
     "axios": "^1.6.2",
     "dexie": "^3.2.4",
