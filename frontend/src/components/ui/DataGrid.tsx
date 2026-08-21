@@ -16,11 +16,12 @@ interface DataGridProps<T> {
   pageSize?: number;
   emptyMessage?: string;
   rowClassName?: (row: T) => string;
+  onRowClick?: (row: T) => void;
 }
 
 // Grid headless sobre TanStack Table: nosotros controlamos 100% el markup/estilos
 // (Tailwind), la libreria solo aporta el estado de orden/paginacion/filtrado.
-export default function DataGrid<T>({ data, columns, globalFilter, pageSize = 20, emptyMessage = 'Sin resultados', rowClassName }: DataGridProps<T>) {
+export default function DataGrid<T>({ data, columns, globalFilter, pageSize = 20, emptyMessage = 'Sin resultados', rowClassName, onRowClick }: DataGridProps<T>) {
   const table = useReactTable({
     data,
     columns,
@@ -71,7 +72,11 @@ export default function DataGrid<T>({ data, columns, globalFilter, pageSize = 20
               </tr>
             )}
             {rows.map((row) => (
-              <tr key={row.id} className={`border-b border-slate-800 hover:bg-iados-card/50 ${rowClassName?.(row.original) || ''}`}>
+              <tr
+                key={row.id}
+                onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                className={`border-b border-slate-800 hover:bg-iados-card/50 ${onRowClick ? 'cursor-pointer' : ''} ${rowClassName?.(row.original) || ''}`}
+              >
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id} className="p-3">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

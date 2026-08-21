@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { createColumnHelper, ColumnDef } from '@tanstack/react-table';
 import { usersApi, tenantsApi, empresasApi, tiendasApi, empleadosApi } from '../../api/endpoints';
 import { getBioSocket } from '../../api/socket';
 import { resolveUploadUrl } from '../../api/client';
 import { useAuthStore } from '../../store/auth.store';
 import toast from 'react-hot-toast';
+import DataGrid from '../../components/ui/DataGrid';
 import {
   Plus, Users, UserCheck, UserX, Trash2, Edit2,
   Briefcase, UserCog, Clock, Copy, RefreshCw, Settings,
@@ -326,6 +328,46 @@ export default function UsuariosAdmin() {
   const isSA      = user?.rol === 'superadmin';
   const isAdmin   = user?.rol === 'admin';
 
+  const usuariosColumnHelper = createColumnHelper<any>();
+  const usuariosColumns = useMemo<ColumnDef<any, any>[]>(() => [
+    usuariosColumnHelper.accessor('nombre', { header: 'Nombre' }),
+    usuariosColumnHelper.accessor('email', { header: 'Email' }),
+    usuariosColumnHelper.accessor('rol', {
+      header: 'Rol',
+      cell: ({ getValue }) => (
+        <span className={`px-2 py-1 rounded text-xs text-white ${ROL_COLORS[getValue()] || 'bg-slate-600'}`}>{getValue()}</span>
+      ),
+    }),
+    usuariosColumnHelper.display({
+      id: 'scope',
+      header: 'Tenant / Empresa / Tienda',
+      cell: ({ row }) => (
+        <span className="text-xs text-slate-400">{row.original.tenant_id} / {row.original.empresa_id} / {row.original.tienda_id}</span>
+      ),
+    }),
+    usuariosColumnHelper.display({
+      id: 'estado',
+      header: 'Estado',
+      cell: ({ row }) => (
+        <button onClick={() => handleToggle(row.original.id)} className={`flex items-center gap-1 text-xs ${row.original.activo ? 'text-green-400' : 'text-red-400'}`}>
+          {row.original.activo ? <><UserCheck size={14} /> Activo</> : <><UserX size={14} /> Inactivo</>}
+        </button>
+      ),
+    }),
+    usuariosColumnHelper.display({
+      id: 'acciones',
+      header: '',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="flex gap-1">
+          <button onClick={() => handleEdit(row.original)} className="p-2 hover:bg-iados-card rounded-lg"><Edit2 size={16} /></button>
+          <button onClick={() => setDeleteConfirm(row.original)} className="p-2 hover:bg-red-900/50 rounded-lg text-red-400"><Trash2 size={16} /></button>
+        </div>
+      ),
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], []);
+
   usePageHeader({
     title: 'Usuarios',
     subtitle: 'Cuentas y permisos del equipo',
@@ -352,37 +394,7 @@ export default function UsuariosAdmin() {
 
       {activeTab === 'usuarios' && (
       <>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-slate-400 border-b border-slate-700">
-              <th className="p-3">Nombre</th><th className="p-3">Email</th><th className="p-3">Rol</th>
-              <th className="p-3">Tenant / Empresa / Tienda</th><th className="p-3">Estado</th><th className="p-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {usuarios.map((u) => (
-              <tr key={u.id} className="border-b border-slate-800 hover:bg-iados-card/50">
-                <td className="p-3 font-medium">{u.nombre}</td>
-                <td className="p-3 text-slate-400">{u.email}</td>
-                <td className="p-3">
-                  <span className={`px-2 py-1 rounded text-xs text-white ${ROL_COLORS[u.rol] || 'bg-slate-600'}`}>{u.rol}</span>
-                </td>
-                <td className="p-3 text-xs text-slate-400">{u.tenant_id} / {u.empresa_id} / {u.tienda_id}</td>
-                <td className="p-3">
-                  <button onClick={() => handleToggle(u.id)} className={`flex items-center gap-1 text-xs ${u.activo ? 'text-green-400' : 'text-red-400'}`}>
-                    {u.activo ? <><UserCheck size={14} /> Activo</> : <><UserX size={14} /> Inactivo</>}
-                  </button>
-                </td>
-                <td className="p-3 flex gap-1">
-                  <button onClick={() => handleEdit(u)} className="p-2 hover:bg-iados-card rounded-lg"><Edit2 size={16} /></button>
-                  <button onClick={() => setDeleteConfirm(u)} className="p-2 hover:bg-red-900/50 rounded-lg text-red-400"><Trash2 size={16} /></button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataGrid data={usuarios} columns={usuariosColumns} emptyMessage="No hay usuarios" />
 
       {/* ── Wizard ── */}
       {showWizard && (

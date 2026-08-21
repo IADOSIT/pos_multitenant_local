@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { createColumnHelper, ColumnDef } from '@tanstack/react-table';
 import { cajaApi, dashboardApi, ventasApi, ticketsApi, tiendasApi, empresasApi } from '../../api/endpoints';
 import DevolucionModal from '../../components/pos/DevolucionModal';
 import { useAuthStore } from '../../store/auth.store';
 import { useScope } from '../../hooks/useScope';
 import { printTicket } from '../../utils/printTicket';
+import DataGrid from '../../components/ui/DataGrid';
 import toast from 'react-hot-toast';
 import {
   FileText, FileSpreadsheet, Download, Calendar, TrendingUp,
@@ -491,6 +493,41 @@ export default function ReportesPage() {
     !clienteSearch || c.telefono?.includes(clienteSearch) || c.nombre?.toLowerCase().includes(clienteSearch.toLowerCase()),
   );
 
+  const clientesColumnHelper = createColumnHelper<any>();
+  const clientesColumns = useMemo<ColumnDef<any, any>[]>(() => [
+    clientesColumnHelper.display({
+      id: 'num',
+      header: '#',
+      enableSorting: false,
+      cell: ({ row }) => <span className="text-slate-500 text-xs">{filteredClientes.findIndex(c => c.telefono === row.original.telefono) + 1}</span>,
+    }),
+    clientesColumnHelper.accessor('telefono', {
+      header: () => <><Phone size={13} className="inline mr-1" />Telefono</>,
+      cell: ({ getValue }) => <span className="font-mono text-xs">{getValue()}</span>,
+    }),
+    clientesColumnHelper.accessor('nombre', {
+      header: 'Nombre',
+      cell: ({ getValue }) => getValue() || <span className="text-slate-500 text-xs italic">sin nombre</span>,
+    }),
+    clientesColumnHelper.accessor('direccion', {
+      header: () => <><MapPin size={13} className="inline mr-1" />Direccion</>,
+      cell: ({ getValue }) => <span className="text-slate-400 text-xs max-w-[180px] truncate block">{getValue() || '-'}</span>,
+    }),
+    clientesColumnHelper.accessor('total_compras', {
+      header: 'Compras',
+      cell: ({ getValue }) => <div className="text-right text-blue-400 font-medium">{getValue()}</div>,
+    }),
+    clientesColumnHelper.accessor('total_gastado', {
+      header: 'Total',
+      cell: ({ getValue }) => <div className="text-right text-green-400 font-bold">${Number(getValue()).toFixed(2)}</div>,
+    }),
+    clientesColumnHelper.accessor('ultima_visita', {
+      header: 'Ultima visita',
+      cell: ({ getValue }) => <div className="text-right text-slate-400 text-xs">{new Date(getValue()).toLocaleDateString('es-MX')}</div>,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [filteredClientes]);
+
   const pagosData = reporte?.resumen ? [
     { name: 'Efectivo', value: Number(reporte.resumen.total_efectivo) },
     { name: 'Tarjeta', value: Number(reporte.resumen.total_tarjeta) },
@@ -887,39 +924,12 @@ export default function ReportesPage() {
                 <span><span className="text-white font-bold">{filteredClientes.reduce((s, c) => s + c.total_compras, 0)}</span> compras</span>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-slate-400 border-b border-slate-700">
-                      <th className="pb-2 pl-2">#</th>
-                      <th className="pb-2"><Phone size={13} className="inline mr-1" />Telefono</th>
-                      <th className="pb-2">Nombre</th>
-                      <th className="pb-2 hidden md:table-cell"><MapPin size={13} className="inline mr-1" />Direccion</th>
-                      <th className="pb-2 text-right">Compras</th>
-                      <th className="pb-2 text-right">Total</th>
-                      <th className="pb-2 text-right hidden sm:table-cell">Ultima visita</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredClientes.map((c, i) => (
-                      <tr key={c.telefono} className="border-b border-slate-700/50 hover:bg-iados-card/50">
-                        <td className="py-2.5 pl-2 text-slate-500 text-xs">{i + 1}</td>
-                        <td className="py-2.5 font-mono text-xs">{c.telefono}</td>
-                        <td className="py-2.5">{c.nombre || <span className="text-slate-500 text-xs italic">sin nombre</span>}</td>
-                        <td className="py-2.5 text-slate-400 text-xs hidden md:table-cell max-w-[180px] truncate">{c.direccion || '-'}</td>
-                        <td className="py-2.5 text-right text-blue-400 font-medium">{c.total_compras}</td>
-                        <td className="py-2.5 text-right text-green-400 font-bold">${Number(c.total_gastado).toFixed(2)}</td>
-                        <td className="py-2.5 text-right text-slate-400 text-xs hidden sm:table-cell">
-                          {new Date(c.ultima_visita).toLocaleDateString('es-MX')}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {filteredClientes.length === 0 && (
-                  <div className="text-center py-12 text-slate-500">No hay clientes con telefono registrado</div>
-                )}
-              </div>
+              <DataGrid
+                key={clienteSearch}
+                data={filteredClientes}
+                columns={clientesColumns}
+                emptyMessage="No hay clientes con telefono registrado"
+              />
             </>
           )}
         </div>

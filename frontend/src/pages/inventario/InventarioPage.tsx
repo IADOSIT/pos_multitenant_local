@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createColumnHelper, ColumnDef } from '@tanstack/react-table';
 import { inventarioApi, transferenciasApi, tiendasApi, empresasApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
 import { useAuthStore } from '../../store/auth.store';
 import { formatMonto, MonedaConfig } from '../../utils/moneda';
 import toast from 'react-hot-toast';
+import DataGrid from '../../components/ui/DataGrid';
 import {
   Warehouse, Search, Plus, ArrowDownToLine, ArrowUpFromLine, RefreshCw,
   Download, Upload, FileSpreadsheet, AlertTriangle, X, ChevronDown, Printer,
@@ -312,6 +314,77 @@ export default function InventarioPage() {
     setShowModal(true);
   };
 
+  const stockColumnHelper = createColumnHelper<Producto>();
+  const stockColumns = useMemo<ColumnDef<Producto, any>[]>(() => [
+    stockColumnHelper.accessor('nombre', {
+      header: 'Producto',
+      cell: ({ row }) => {
+        const p = row.original;
+        const lowStock = p.controla_stock && p.stock_minimo > 0 && p.stock_actual <= p.stock_minimo;
+        return (
+          <div className="flex items-center gap-2">
+            {p.imagen_url ? (
+              <img src={resolveUploadUrl(p.imagen_url)} alt="" className="w-8 h-8 rounded object-cover" />
+            ) : (
+              <div className="w-8 h-8 bg-slate-700 rounded flex items-center justify-center text-xs text-slate-400">
+                {p.nombre.charAt(0)}
+              </div>
+            )}
+            <span className="font-medium">{p.nombre}</span>
+            {lowStock && <AlertTriangle size={14} className="text-red-400" />}
+          </div>
+        );
+      },
+    }),
+    stockColumnHelper.accessor('sku', { header: 'SKU', cell: ({ getValue }) => <span className="text-slate-400">{getValue()}</span> }),
+    stockColumnHelper.accessor('stock_actual', {
+      header: 'Stock',
+      cell: ({ row }) => {
+        const p = row.original;
+        const lowStock = p.controla_stock && p.stock_minimo > 0 && p.stock_actual <= p.stock_minimo;
+        return <div className={`text-right font-bold ${lowStock ? 'text-red-400' : 'text-white'}`}>{p.stock_actual ?? 0} {p.unidad || 'pza'}</div>;
+      },
+    }),
+    stockColumnHelper.accessor('stock_minimo', {
+      header: 'Minimo',
+      cell: ({ getValue }) => <div className="text-right text-slate-400">{getValue() ?? 0}</div>,
+    }),
+    stockColumnHelper.accessor('controla_stock', {
+      header: 'Controla',
+      cell: ({ getValue }) => (
+        <div className="text-center">
+          <span className={`text-xs px-2 py-0.5 rounded-full ${getValue() ? 'bg-green-900/30 text-green-400' : 'bg-slate-700 text-slate-500'}`}>
+            {getValue() ? 'Si' : 'No'}
+          </span>
+        </div>
+      ),
+    }),
+    stockColumnHelper.accessor('costo', {
+      header: 'Costo',
+      cell: ({ getValue }) => <div className="text-right text-slate-400 whitespace-nowrap">{formatMonto(Number(getValue() || 0), moneda)}</div>,
+    }),
+    stockColumnHelper.accessor('precio', {
+      header: 'Precio',
+      cell: ({ getValue }) => <div className="text-right whitespace-nowrap">{formatMonto(Number(getValue() || 0), moneda)}</div>,
+    }),
+    stockColumnHelper.display({
+      id: 'acciones',
+      header: 'Acciones',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="flex items-center justify-center gap-1">
+          <button onClick={() => openMovModal(row.original)} className="p-1.5 hover:bg-iados-primary/20 rounded-lg text-iados-primary" title="Registrar movimiento">
+            <Plus size={16} />
+          </button>
+          <button onClick={() => setShowSettingsModal(row.original)} className="p-1.5 hover:bg-slate-700 rounded-lg text-slate-400" title="Config stock">
+            <ChevronDown size={16} />
+          </button>
+        </div>
+      ),
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [moneda]);
+
   const handlePrintReport = () => {
     const now = new Date();
     const fecha = now.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -528,67 +601,13 @@ export default function InventarioPage() {
               </span>
             </div>
           )}
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-slate-400 border-b border-slate-700">
-                <th className="pb-3 pl-2">Producto</th>
-                <th className="pb-3">SKU</th>
-                <th className="pb-3 text-right">Stock</th>
-                <th className="pb-3 text-right">Minimo</th>
-                <th className="pb-3 text-center">Controla</th>
-                <th className="pb-3 text-right">Costo</th>
-                <th className="pb-3 text-right">Precio</th>
-                <th className="pb-3 text-center">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(filtered as Producto[]).map(p => {
-                const lowStock = p.controla_stock && p.stock_minimo > 0 && p.stock_actual <= p.stock_minimo;
-                return (
-                  <tr key={p.id} className={`border-b border-slate-800 hover:bg-iados-card/50 ${lowStock ? 'bg-red-900/10' : ''}`}>
-                    <td className="py-3 pl-2">
-                      <div className="flex items-center gap-2">
-                        {p.imagen_url ? (
-                          <img src={resolveUploadUrl(p.imagen_url)} alt="" className="w-8 h-8 rounded object-cover" />
-                        ) : (
-                          <div className="w-8 h-8 bg-slate-700 rounded flex items-center justify-center text-xs text-slate-400">
-                            {p.nombre.charAt(0)}
-                          </div>
-                        )}
-                        <span className="font-medium">{p.nombre}</span>
-                        {lowStock && <AlertTriangle size={14} className="text-red-400" />}
-                      </div>
-                    </td>
-                    <td className="py-3 text-slate-400">{p.sku}</td>
-                    <td className={`py-3 text-right font-bold ${lowStock ? 'text-red-400' : 'text-white'}`}>
-                      {p.stock_actual ?? 0} {p.unidad || 'pza'}
-                    </td>
-                    <td className="py-3 text-right text-slate-400">{p.stock_minimo ?? 0}</td>
-                    <td className="py-3 text-center">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${p.controla_stock ? 'bg-green-900/30 text-green-400' : 'bg-slate-700 text-slate-500'}`}>
-                        {p.controla_stock ? 'Si' : 'No'}
-                      </span>
-                    </td>
-                    <td className="py-3 text-right text-slate-400 whitespace-nowrap">{formatMonto(Number(p.costo || 0), moneda)}</td>
-                    <td className="py-3 text-right whitespace-nowrap">{formatMonto(Number(p.precio || 0), moneda)}</td>
-                    <td className="py-3 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <button onClick={() => openMovModal(p)} className="p-1.5 hover:bg-iados-primary/20 rounded-lg text-iados-primary" title="Registrar movimiento">
-                          <Plus size={16} />
-                        </button>
-                        <button onClick={() => setShowSettingsModal(p)} className="p-1.5 hover:bg-slate-700 rounded-lg text-slate-400" title="Config stock">
-                          <ChevronDown size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {(filtered as Producto[]).length === 0 && (
-            <div className="text-center py-12 text-slate-500">No se encontraron productos</div>
-          )}
+          <DataGrid
+            key={search}
+            data={filtered as Producto[]}
+            columns={stockColumns}
+            rowClassName={p => (p.controla_stock && p.stock_minimo > 0 && p.stock_actual <= p.stock_minimo ? 'bg-red-900/10' : '')}
+            emptyMessage="No se encontraron productos"
+          />
         </div>
       ) : tab === 'movimientos' ? (
         <div className="space-y-2">

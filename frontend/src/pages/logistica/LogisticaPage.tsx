@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { createColumnHelper, ColumnDef } from '@tanstack/react-table';
 import { logisticaApi } from '../../api/endpoints';
 import type { Repartidor, EntregaPedido, EstadoEntrega, ConfigLogistica, MetricasLogistica } from '../../types';
 import { Truck, Users, BarChart2, Copy, Check, Plus, Edit2, Power, RefreshCw, MapPin, Phone, Clock, AlertTriangle, CheckCircle, Zap, MessageSquare, Save, ChevronRight } from 'lucide-react';
+import DataGrid from '../../components/ui/DataGrid';
 import toast from 'react-hot-toast';
 
 type Tab = 'entregas' | 'repartidores' | 'metricas';
@@ -140,6 +142,70 @@ function TabEntregas() {
 
   const activas = entregas.filter(e => e.estado === 'asignado' || e.estado === 'en_camino').length;
 
+  const entregasColumnHelper = createColumnHelper<EntregaPedido>();
+  const entregasColumns = useMemo<ColumnDef<EntregaPedido, any>[]>(() => [
+    entregasColumnHelper.accessor('pedido_folio', {
+      header: 'Folio',
+      cell: ({ getValue }) => <span className="font-mono text-xs text-slate-400">{getValue()}</span>,
+    }),
+    entregasColumnHelper.accessor('cliente_nombre', {
+      header: 'Cliente',
+      cell: ({ row }) => (
+        <>
+          <p className="font-medium">{row.original.cliente_nombre || '—'}</p>
+          {row.original.cliente_direccion && (
+            <p className="text-xs text-slate-500 flex items-center gap-1">
+              <MapPin size={10} /> {row.original.cliente_direccion.slice(0, 40)}...
+            </p>
+          )}
+        </>
+      ),
+    }),
+    entregasColumnHelper.accessor('total', {
+      header: 'Total',
+      cell: ({ getValue }) => (
+        <div className="text-right text-green-400 font-bold">${Number(getValue()).toFixed(2)}</div>
+      ),
+    }),
+    entregasColumnHelper.accessor('repartidor_nombre', { header: 'Repartidor' }),
+    entregasColumnHelper.accessor('estado', {
+      header: 'Estado',
+      cell: ({ getValue }) => {
+        const badge = estadoBadge[getValue() as EstadoEntrega];
+        return (
+          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${badge.text} ${badge.bg}`}>
+            {badge.label}
+          </span>
+        );
+      },
+    }),
+    entregasColumnHelper.accessor('created_at', {
+      header: 'Hora',
+      cell: ({ getValue }) => (
+        <span className="text-xs text-slate-500">
+          {new Date(getValue()).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+        </span>
+      ),
+    }),
+    entregasColumnHelper.display({
+      id: 'accion',
+      header: 'Acción',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const posibles = nextEstados[row.original.estado] || [];
+        return posibles.length > 0 ? (
+          <button
+            onClick={() => { setCambioModal(row.original); setCambioEstado(''); }}
+            className="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-300"
+          >
+            Cambiar estado
+          </button>
+        ) : null;
+      },
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], []);
+
   return (
     <div>
       {/* Filters */}
@@ -182,62 +248,7 @@ function TabEntregas() {
           <p>Sin entregas para los filtros seleccionados</p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-slate-500 text-xs border-b border-slate-700">
-                <th className="text-left py-2 pr-4">Folio</th>
-                <th className="text-left py-2 pr-4">Cliente</th>
-                <th className="text-right py-2 pr-4">Total</th>
-                <th className="text-left py-2 pr-4">Repartidor</th>
-                <th className="text-left py-2 pr-4">Estado</th>
-                <th className="text-left py-2 pr-4">Hora</th>
-                <th className="text-left py-2">Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entregas.map(e => {
-                const badge = estadoBadge[e.estado];
-                const posibles = nextEstados[e.estado] || [];
-                return (
-                  <tr key={e.id} className="border-b border-slate-800 hover:bg-iados-card/30">
-                    <td className="py-2.5 pr-4 font-mono text-xs text-slate-400">{e.pedido_folio}</td>
-                    <td className="py-2.5 pr-4">
-                      <p className="font-medium">{e.cliente_nombre || '—'}</p>
-                      {e.cliente_direccion && (
-                        <p className="text-xs text-slate-500 flex items-center gap-1">
-                          <MapPin size={10} /> {e.cliente_direccion.slice(0, 40)}...
-                        </p>
-                      )}
-                    </td>
-                    <td className="py-2.5 pr-4 text-right text-green-400 font-bold">
-                      ${Number(e.total).toFixed(2)}
-                    </td>
-                    <td className="py-2.5 pr-4">{e.repartidor_nombre}</td>
-                    <td className="py-2.5 pr-4">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${badge.text} ${badge.bg}`}>
-                        {badge.label}
-                      </span>
-                    </td>
-                    <td className="py-2.5 pr-4 text-xs text-slate-500">
-                      {new Date(e.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
-                    </td>
-                    <td className="py-2.5">
-                      {posibles.length > 0 && (
-                        <button
-                          onClick={() => { setCambioModal(e); setCambioEstado(''); }}
-                          className="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-300"
-                        >
-                          Cambiar estado
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <DataGrid data={entregas} columns={entregasColumns} pageSize={20} />
       )}
 
       {/* Modal cambio de estado */}
