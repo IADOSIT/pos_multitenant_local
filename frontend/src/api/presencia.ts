@@ -8,17 +8,25 @@ import { io, Socket } from 'socket.io-client';
 let socket: Socket | null = null;
 let tokenActual: string | null = null;
 
-// El POS se instala tambien on-premise, donde VITE_API_URL apunta a localhost.
-// Ahi el monitor no aplica (vive solo en la nube), asi que ni se intenta conectar.
-const apiUrl = import.meta.env.VITE_API_URL || '/api';
-const esNube = !apiUrl.includes('localhost') && !apiUrl.includes('127.0.0.1');
+// El POS tambien se instala on-premise, servido por el backend en la PC del cliente
+// (localhost o una IP de la LAN). El monitor vive solo en la nube, asi que solo se
+// activa cuando la pagina se sirve desde el dominio de la nube.
+// OJO: no sirve mirar VITE_API_URL — vale '/api' en AMBOS despliegues (lo fijan asi
+// .env.production y los scripts de installer/), asi que no los distingue.
+const HOST_NUBE = 'iados.online';
+
+function esNube(): boolean {
+  if (typeof window === 'undefined') return false;
+  const host = window.location.hostname.toLowerCase();
+  return host === HOST_NUBE || host.endsWith('.' + HOST_NUBE);
+}
 
 function baseSocket(): string {
   return import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://posapi.iados.online';
 }
 
 function puedeConectar(): boolean {
-  return esNube && typeof navigator !== 'undefined' && navigator.onLine;
+  return esNube() && typeof navigator !== 'undefined' && navigator.onLine;
 }
 
 export function iniciarPresencia(token: string, rutaInicial: string): void {
