@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import type { Socket } from 'socket.io-client';
 import { Activity, Users, Store, Smartphone, MonitorSmartphone } from 'lucide-react';
-import { getPresenciaSocket } from '../../api/presencia';
+import { alTenerPresencia } from '../../api/presencia';
 import { etiquetaDeRuta } from '../../components/layout/navItems';
 import { tiendasApi } from '../../api/endpoints';
 import { usePageHeader } from '../../store/pageHeader.store';
@@ -21,6 +22,13 @@ const VACIO: Snapshot = { grupos: [], total_usuarios: 0, total_sesiones: 0, tota
 
 /** Cuanto dura el resaltado de una fila que acaba de cambiar de pantalla. */
 const FLASH_MS = 2500;
+
+/**
+ * Ventana para agrupar altas/bajas antes de volver a pedir la foto completa.
+ * Tras un redeploy, N usuarios reconectan a la vez: sin esto serian N snapshots
+ * completos serializados por cada monitor abierto.
+ */
+const RESYNC_MS = 500;
 
 function hace(desde: number, ahora: number): string {
   const min = Math.floor((ahora - desde) / 60000);
@@ -57,63 +65,108 @@ export default function MonitorPage() {
     return () => clearInterval(id);
   }, []);
 
+  // Un solo temporizador de resync para toda la pantalla, vivo aunque el socket
+  // se reemplace; se limpia al desmontar.
+  const resyncTimer = useRef<any>(null);
+
+  // El socket lo crea usePresencia() en MainLayout, que es ANCESTRO de esta
+  // pantalla, y React corre los efectos de hijo a padre: con un F5 directo sobre
+  // /superadmin/monitor, aqui todavia no existe. Por eso no se lee el singleton
+  // sino que se pide que avisen cuando exista (y otra vez si se reemplaza).
   useEffect(() => {
-    const socket = getPresenciaSocket();
-    if (!socket) return;
+    let vivo = true;
+    let soltarSocket: (() => void) | null = null;
 
-    const marcarFlash = (socketId: string) => {
-      setFlash(f => ({ ...f, [socketId]: Date.now() }));
-      clearTimeout(flashTimers.current[socketId]);
-      flashTimers.current[socketId] = setTimeout(() => {
-        setFlash(f => { const { [socketId]: _, ...resto } = f; return resto; });
-      }, FLASH_MS);
-    };
+    const engancharse = (socket: Socket) => {
+      const marcarFlash = (socketId: string) => {
+        setFlash(f => ({ ...f, [socketId]: Date.now() }));
+        clearTimeout(flashTimers.current[socketId]);
+        flashTimers.current[socketId] = setTimeout(() => {
+          setFlash(f => { const { [socketId]: _, ...resto } = f; return resto; });
+        }, FLASH_MS);
+      };
 
-    const onSnapshot = (s: Snapshot) => { setSnapshot(s); setConectado(true); };
-    const onAlta = () => socket.emit('monitor-join');   // pedir foto nueva: es barato y evita reconciliar a mano
-    const onBaja = () => socket.emit('monitor-join');
-    const onPantalla = (d: { socket_id: string; ruta: string; desde: number }) => {
-      setSnapshot(prev => ({
-        ...prev,
-        grupos: prev.grupos.map(g => ({
-          ...g,
-          usuarios: g.usuarios.map(u => ({
-            ...u,
-            sesiones: u.sesiones.map(s =>
-              s.socket_id === d.socket_id
-                ? { ...s, pantalla_actual: d.ruta, pantalla_desde: d.desde, rastro: [...s.rastro, d.ruta].slice(-5) }
-                : s,
-            ),
+      // La foto completa sigue siendo la verdad — reconciliar altas y bajas a
+      // mano contra la estructura anidada seria mas codigo y mas bugs. Lo que se
+      // arregla es el volumen: el primer evento de una rafaga agenda UNA foto y
+      // los demas se suben a esa; nunca mas de una peticion por RESYNC_MS.
+      const resincronizar = () => {
+        if (resyncTimer.current) return;
+        resyncTimer.current = setTimeout(() => {
+          resyncTimer.current = null;
+          socket.emit('monitor-join');
+        }, RESYNC_MS);
+      };
+
+      const onSnapshot = (s: Snapshot) => { setSnapshot(s); setConectado(true); };
+      const onAlta = resincronizar;
+      const onBaja = resincronizar;
+      const onPantalla = (d: { socket_id: string; ruta: string; desde: number }) => {
+        setSnapshot(prev => ({
+          ...prev,
+          grupos: prev.grupos.map(g => ({
+            ...g,
+            usuarios: g.usuarios.map(u => ({
+              ...u,
+              sesiones: u.sesiones.map(s =>
+                s.socket_id === d.socket_id
+                  ? { ...s, pantalla_actual: d.ruta, pantalla_desde: d.desde, rastro: [...s.rastro, d.ruta].slice(-5) }
+                  : s,
+              ),
+            })),
           })),
-        })),
-      }));
-      marcarFlash(d.socket_id);
+        }));
+        marcarFlash(d.socket_id);
+      };
+
+      // Con nombre, no anonimos: hay que poder quitarlos al desmontar. El socket
+      // sobrevive a esta pantalla (lo abrio MainLayout), asi que un listener que
+      // no se quita se acumula cada vez que se entra al monitor.
+      const onDesconectado = () => setConectado(false);
+      const onConectado = () => socket.emit('monitor-join');
+
+      socket.on('presencia:snapshot', onSnapshot);
+      socket.on('presencia:alta', onAlta);
+      socket.on('presencia:baja', onBaja);
+      socket.on('presencia:pantalla', onPantalla);
+      socket.on('disconnect', onDesconectado);
+      socket.on('connect', onConectado);
+
+      // Entrar a la room es inmediato, nunca diferido: es lo que hace que
+      // lleguen los deltas. Si el socket ya estaba conectado, 'connect' no
+      // vuelve a dispararse y hay que unirse aqui; si aun no lo esta, se une
+      // onConectado (emitir antes solo lo dejaria en el buffer y produciria dos
+      // snapshots al arrancar).
+      if (socket.connected) {
+        socket.emit('monitor-join');
+        setConectado(true);
+      }
+
+      return () => {
+        socket.off('presencia:snapshot', onSnapshot);
+        socket.off('presencia:alta', onAlta);
+        socket.off('presencia:baja', onBaja);
+        socket.off('presencia:pantalla', onPantalla);
+        socket.off('disconnect', onDesconectado);
+        socket.off('connect', onConectado);
+        clearTimeout(resyncTimer.current);
+        resyncTimer.current = null;
+        // El socket sobrevive a esta pantalla: hay que salirse de la room o el
+        // backend seguiria difundiendo deltas a un monitor que ya no existe.
+        try { if (socket.connected) socket.emit('monitor-leave'); } catch { /* ignorado */ }
+      };
     };
 
-    // Con nombre, no anonimos: hay que poder quitarlos al desmontar. El socket
-    // sobrevive a esta pantalla (lo abrio MainLayout), asi que un listener que no
-    // se quita se acumula cada vez que se entra al monitor.
-    const onDesconectado = () => setConectado(false);
-    const onConectado = () => socket.emit('monitor-join');
-
-    socket.on('presencia:snapshot', onSnapshot);
-    socket.on('presencia:alta', onAlta);
-    socket.on('presencia:baja', onBaja);
-    socket.on('presencia:pantalla', onPantalla);
-    socket.on('disconnect', onDesconectado);
-    socket.on('connect', onConectado);
-
-    // Si el socket ya estaba conectado, 'connect' no vuelve a dispararse.
-    socket.emit('monitor-join');
-    if (socket.connected) setConectado(true);
+    const desuscribir = alTenerPresencia(socket => {
+      if (!vivo) return;
+      soltarSocket?.();
+      soltarSocket = engancharse(socket);
+    });
 
     return () => {
-      socket.off('presencia:snapshot', onSnapshot);
-      socket.off('presencia:alta', onAlta);
-      socket.off('presencia:baja', onBaja);
-      socket.off('presencia:pantalla', onPantalla);
-      socket.off('disconnect', onDesconectado);
-      socket.off('connect', onConectado);
+      vivo = false;
+      desuscribir();
+      soltarSocket?.();
       Object.values(flashTimers.current).forEach(clearTimeout);
     };
   }, []);
@@ -125,10 +178,9 @@ export default function MonitorPage() {
 
   return (
     <div className="p-4 max-w-6xl mx-auto space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Activity size={24} /> Monitor
-        </h1>
+      {/* El titulo lo pone usePageHeader, como en el resto de pantallas de
+          superadmin; aqui solo va la fila de estado y contadores. */}
+      <div className="flex items-center justify-end flex-wrap gap-2">
         <div className="flex items-center gap-4 text-sm text-slate-400">
           <span className={`flex items-center gap-1.5 ${conectado ? 'text-green-400' : 'text-red-400'}`}>
             <span className={`w-2 h-2 rounded-full ${conectado ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />

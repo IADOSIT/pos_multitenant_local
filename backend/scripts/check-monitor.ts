@@ -1,6 +1,8 @@
+import { Server as SocketServer } from 'socket.io';
 import { parseUserAgent } from '../src/modules/monitor/user-agent.util';
 import { MonitorService } from '../src/modules/monitor/monitor.service';
 import { IdentidadSesion, DispositivoInfo } from '../src/modules/monitor/monitor.types';
+import { roomsDelNamespace, ROOM_MONITOR } from '../src/modules/monitor/monitor.gateway';
 
 let fallos = 0;
 function check(nombre: string, real: any, esperado: any) {
@@ -107,6 +109,36 @@ const s8 = new MonitorService();
 const snap8 = s8.snapshot();
 check('sin nadie conectado',
   [snap8.grupos.length, snap8.total_usuarios, snap8.total_sesiones, snap8.total_tiendas], [0, 0, 0, 0]);
+
+console.log('\n--- rooms del namespace (difusion del gateway) ---');
+
+// Este bloque existe por un bug real: el gateway leia
+// `server.sockets.adapter.rooms`, que en un Namespace es undefined, asi que
+// emitirSiHayMonitores salia por el early-return SIEMPRE y el monitor nunca
+// recibia deltas. tsc no lo detecta porque el tipo declarado mentia sobre el
+// objeto en runtime. No hace falta levantar Nest: basta un socket.io de verdad.
+const ioServer = new SocketServer();
+const nspPresencia = ioServer.of('/presencia');
+
+check('Nest inyecta un Namespace, no un Server', nspPresencia.constructor.name, 'Namespace');
+check('nsp.sockets es un Map de sockets (no tiene .adapter)',
+  [nspPresencia.sockets instanceof Map, (nspPresencia.sockets as any).adapter === undefined], [true, true]);
+check('la ruta que usa el gateway resuelve a un Map',
+  roomsDelNamespace(nspPresencia) instanceof Map, true);
+check('una room vacia no existe todavia', roomsDelNamespace(nspPresencia)!.get(ROOM_MONITOR), undefined);
+
+// Con un socket dentro de la room, el guard tiene que ver size > 0.
+nspPresencia.adapter.addAll('sock-monitor', new Set(['sock-monitor', ROOM_MONITOR]));
+check('con un monitor dentro, el guard ve la room',
+  roomsDelNamespace(nspPresencia)!.get(ROOM_MONITOR)!.size, 1);
+nspPresencia.adapter.delAll('sock-monitor');
+check('al salir de la room, el guard vuelve a cortar',
+  roomsDelNamespace(nspPresencia)!.get(ROOM_MONITOR), undefined);
+
+check('to(room) existe en el Namespace (el emit nunca fue el problema)',
+  typeof nspPresencia.to(ROOM_MONITOR).emit, 'function');
+
+ioServer.close();
 
 console.log(fallos === 0 ? '\nTODO OK' : `\n${fallos} FALLAS`);
 process.exit(fallos === 0 ? 0 : 1);

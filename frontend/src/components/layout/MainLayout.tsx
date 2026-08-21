@@ -5,6 +5,7 @@ import { useAdminContextStore } from '../../store/adminContext.store';
 import { useDeployStore } from '../../store/deploy.store';
 import { useNotificaciones } from '../../hooks/useNotificaciones';
 import { usePresencia } from '../../hooks/usePresencia';
+import { presenciaDisponible } from '../../api/presencia';
 import { pedidosApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
 import apiClient from '../../api/client';
@@ -190,6 +191,8 @@ export default function MainLayout() {
     if (!user) return false;
     if (!n.roles.includes(user.rol)) return false;
     if (n.to === '/admin/mesas' && !mesasMenuEnabled && user.rol !== 'superadmin') return false;
+    // On-premise no hay presencia: el Monitor solo podria mostrar "Sin conexion".
+    if (n.to === '/superadmin/monitor' && !presenciaDisponible()) return false;
 
     const permList = sidebarPermisos[user.rol];
     const hasPermList = permList && permList.length > 0 && !['superadmin'].includes(user.rol);
