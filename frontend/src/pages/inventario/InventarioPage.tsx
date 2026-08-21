@@ -171,19 +171,6 @@ export default function InventarioPage() {
       return 0; // 'nombre': ya viene ordenado del backend (orden de catalogo + nombre)
     });
 
-  // Agrupa por categoria conservando el orden en que ya vienen (backend ordena por
-  // categorias.orden). Al ordenar por stock, cada grupo se reordena internamente pero
-  // las categorias en si mantienen su posicion relativa de aparicion.
-  const gruposGeneral = (() => {
-    const map = new Map<number, { categoria_id: number; categoria_nombre: string; items: VistaGeneralItem[] }>();
-    for (const item of filteredGeneral) {
-      const g = map.get(item.categoria_id) || { categoria_id: item.categoria_id, categoria_nombre: item.categoria_nombre, items: [] };
-      g.items.push(item);
-      map.set(item.categoria_id, g);
-    }
-    return Array.from(map.values());
-  })();
-
   const abrirTransferModal = (producto_id?: number) => {
     setTransferForm({ tienda_destino_id: tiendasEmpresa[0]?.id || 0, producto_id: producto_id || 0, cantidad: '', notas: '' });
     setShowTransferModal(true);
@@ -384,6 +371,43 @@ export default function InventarioPage() {
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [moneda]);
+
+  const generalColumnHelper = createColumnHelper<VistaGeneralItem>();
+  const generalColumns = useMemo<ColumnDef<VistaGeneralItem, any>[]>(() => {
+    const cols: ColumnDef<VistaGeneralItem, any>[] = [
+      generalColumnHelper.accessor('nombre', { header: 'Producto' }),
+      generalColumnHelper.accessor('sku', { header: 'SKU', cell: ({ getValue }) => <span className="text-slate-400">{getValue()}</span> }),
+      generalColumnHelper.accessor('categoria_nombre', { header: 'Categoria' }),
+      generalColumnHelper.accessor('stock_total', {
+        header: 'Total',
+        cell: ({ row }) => (
+          <div className={`text-right font-bold whitespace-nowrap ${row.original.stock_total <= row.original.stock_minimo ? 'text-red-400' : ''}`}>
+            {row.original.stock_total} {row.original.unidad}
+          </div>
+        ),
+      }),
+    ];
+    vistaGeneralTiendas.forEach(t => {
+      cols.push(
+        generalColumnHelper.display({
+          id: `tienda_${t.id}`,
+          header: t.nombre,
+          enableSorting: false,
+          cell: ({ row }) => {
+            const pt = row.original.por_tienda.find(x => x.tienda_id === t.id);
+            return (
+              <div className="text-right whitespace-nowrap">
+                <span className="font-semibold">{pt?.stock ?? 0}</span>
+                <span className="text-xs text-slate-400 ml-1.5">{formatMonto(pt?.precio ?? 0, moneda)}</span>
+              </div>
+            );
+          },
+        }),
+      );
+    });
+    return cols;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vistaGeneralTiendas, moneda]);
 
   const handlePrintReport = () => {
     const now = new Date();
@@ -704,57 +728,12 @@ export default function InventarioPage() {
           </div>
         </div>
       ) : tab === 'general' ? (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-slate-400 border-b border-slate-700">
-                <th className="pb-2 pl-2">Producto</th>
-                <th className="pb-2">SKU</th>
-                <th className="pb-2 text-right">Total</th>
-                {vistaGeneralTiendas.map(t => (
-                  <th key={t.id} className="pb-2 text-right whitespace-nowrap">
-                    <div>{t.nombre}</div>
-                    <div className="text-[10px] font-normal text-slate-500 normal-case">stock · precio</div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {gruposGeneral.map(grupo => (
-                <React.Fragment key={grupo.categoria_id}>
-                  <tr className="bg-iados-card/60">
-                    <td colSpan={3 + vistaGeneralTiendas.length} className="py-1.5 pl-2 text-xs font-semibold text-slate-300 uppercase tracking-wide">
-                      {grupo.categoria_nombre} <span className="text-slate-500 font-normal normal-case">({grupo.items.length})</span>
-                    </td>
-                  </tr>
-                  {grupo.items.map(item => (
-                    <tr key={item.id} className="border-b border-slate-800">
-                      <td className="py-2 pl-2">{item.nombre}</td>
-                      <td className="py-2 text-slate-400">{item.sku}</td>
-                      <td className={`py-2 text-right font-bold whitespace-nowrap ${item.stock_total <= item.stock_minimo ? 'text-red-400' : ''}`}>
-                        {item.stock_total} {item.unidad}
-                      </td>
-                      {vistaGeneralTiendas.map(t => {
-                        const pt = item.por_tienda.find(x => x.tienda_id === t.id);
-                        return (
-                          <td key={t.id} className="py-2 text-right whitespace-nowrap">
-                            <span className="font-semibold">{pt?.stock ?? 0}</span>
-                            <span className="text-xs text-slate-400 ml-1.5">{formatMonto(pt?.precio ?? 0, moneda)}</span>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
-          {filteredGeneral.length === 0 && (
-            <div className="text-center py-12 text-slate-500">
-              {vistaGeneral.length === 0 ? 'No hay productos con inventario compartido' : 'Sin resultados para tu busqueda'}
-            </div>
-          )}
-        </div>
+        <DataGrid
+          key={`${searchGeneral}-${ordenGeneral}-${vistaGeneralTiendas.length}`}
+          data={filteredGeneral}
+          columns={generalColumns}
+          emptyMessage={vistaGeneral.length === 0 ? 'No hay productos con inventario compartido' : 'Sin resultados para tu busqueda'}
+        />
       ) : (
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
