@@ -12,13 +12,17 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MonitorGateway = void 0;
+exports.MonitorGateway = exports.ROOM_MONITOR = void 0;
+exports.roomsDelNamespace = roomsDelNamespace;
 const websockets_1 = require("@nestjs/websockets");
 const socket_io_1 = require("socket.io");
 const jwt_1 = require("@nestjs/jwt");
 const monitor_service_1 = require("./monitor.service");
 const user_agent_util_1 = require("./user-agent.util");
-const ROOM_MONITOR = 'monitor';
+exports.ROOM_MONITOR = 'monitor';
+function roomsDelNamespace(nsp) {
+    return nsp?.adapter?.rooms;
+}
 let MonitorGateway = class MonitorGateway {
     constructor(monitor, jwt) {
         this.monitor = monitor;
@@ -63,20 +67,23 @@ let MonitorGateway = class MonitorGateway {
         const sesion = this.monitor.getSesion(client.id);
         if (sesion?.rol !== 'superadmin')
             return;
-        client.join(ROOM_MONITOR);
+        client.join(exports.ROOM_MONITOR);
         client.emit('presencia:snapshot', this.monitor.snapshot());
     }
+    handleMonitorLeave(client) {
+        client.leave(exports.ROOM_MONITOR);
+    }
     emitirSiHayMonitores(evento, carga) {
-        const room = this.server?.sockets?.adapter?.rooms?.get(ROOM_MONITOR);
+        const room = roomsDelNamespace(this.server)?.get(exports.ROOM_MONITOR);
         if (!room || room.size === 0)
             return;
-        this.server.to(ROOM_MONITOR).emit(evento, carga);
+        this.server.to(exports.ROOM_MONITOR).emit(evento, carga);
     }
 };
 exports.MonitorGateway = MonitorGateway;
 __decorate([
     (0, websockets_1.WebSocketServer)(),
-    __metadata("design:type", socket_io_1.Server)
+    __metadata("design:type", socket_io_1.Namespace)
 ], MonitorGateway.prototype, "server", void 0);
 __decorate([
     (0, websockets_1.SubscribeMessage)('pantalla'),
@@ -93,6 +100,13 @@ __decorate([
     __metadata("design:paramtypes", [socket_io_1.Socket]),
     __metadata("design:returntype", void 0)
 ], MonitorGateway.prototype, "handleMonitorJoin", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)('monitor-leave'),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket]),
+    __metadata("design:returntype", void 0)
+], MonitorGateway.prototype, "handleMonitorLeave", null);
 exports.MonitorGateway = MonitorGateway = __decorate([
     (0, websockets_1.WebSocketGateway)({ cors: { origin: '*' }, namespace: '/presencia' }),
     __metadata("design:paramtypes", [monitor_service_1.MonitorService,
