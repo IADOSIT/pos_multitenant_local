@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/auth.store';
 import { useAdminContextStore } from '../../store/adminContext.store';
 import { useDeployStore } from '../../store/deploy.store';
 import { useNotificaciones } from '../../hooks/useNotificaciones';
+import { usePresencia } from '../../hooks/usePresencia';
 import { pedidosApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
 import apiClient from '../../api/client';
@@ -89,6 +90,8 @@ export default function MainLayout() {
   const location = useLocation();
   // Superadmin sin tienda elegida: las pantallas por-tienda piden elegir una primero.
   const necesitaTienda = user?.rol === 'superadmin' && !viewAs && RUTAS_POR_TIENDA.has(location.pathname);
+  // Presencia para el monitor del superadmin. Opcional: si falla, no afecta nada.
+  usePresencia();
   // Tienda de contexto: si el superadmin está "viendo como" una tienda, TODO (flags de
   // config, báscula, branding) debe usar ESA tienda/empresa, no la de su propia cuenta.
   const tiendaCtxId = viewAs?.tienda_id ?? user?.tienda_id;
