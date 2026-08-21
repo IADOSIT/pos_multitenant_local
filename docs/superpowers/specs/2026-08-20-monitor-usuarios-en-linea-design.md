@@ -211,6 +211,27 @@ Monitor                        ● En vivo    14 usuarios · 17 sesiones · 5 ti
 - Los "hace 4m" se recalculan con un timer de 1 s local a la página, que muere al
   desmontarla. No genera tráfico.
 
+### Monitor es una pantalla global, no por tienda
+
+`MainLayout` distingue dos clases de pantalla mediante el conjunto
+`RUTAS_POR_TIENDA`: las que muestran datos de UNA tienda concreta (POS, Caja,
+Pedidos, Inventario…) y las globales (Config, Usuarios, Tenants, Licencias).
+Para un superadmin que no ha elegido tienda en el selector "ver como", la regla
+`necesitaTienda = superadmin && !viewAs && RUTAS_POR_TIENDA.has(pathname)` bloquea
+las primeras y deja pasar las segundas.
+
+**Monitor es de las globales.** `/superadmin/monitor` NO debe agregarse a
+`RUTAS_POR_TIENDA`: se accede sin tienda seleccionada, porque su razón de ser es
+justamente la vista cruzada de todas. Basta con no incluirlo — se documenta aquí
+para que nadie lo agregue después por inercia al ver que la pantalla agrupa por
+tienda.
+
+**El monitor ignora `viewAs`.** Aunque el superadmin esté "viendo como" una tienda
+concreta, Monitor sigue mostrando todas. Filtrarlo por la tienda en contexto
+vaciaría la pantalla de su propósito y volvería el total de arriba inconsistente
+con lo que dice el encabezado. Si hiciera falta mirar una sola tienda, es un
+filtro dentro de la propia pantalla, no un efecto del selector global.
+
 ### Dos casos que hay que decidir explícitamente
 
 **Sesiones sin tienda.** Un superadmin, o un admin que aún no eligió tienda en el
