@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260820-fix-cliente-id-datatype"
+        CACHE_BUST: "20260820-monitor-usuarios-en-linea"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
@@ -41,7 +41,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260820-fix-onnx-importmap-datagrid"
+        CACHE_BUST: "20260820-monitor-usuarios-en-linea"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:
