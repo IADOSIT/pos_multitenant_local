@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, InternalServerErrorException, HttpException, Logger } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Devolucion } from './devolucion.entity';
@@ -17,10 +17,15 @@ export class DevolucionesService {
   }
 
   async findByVenta(ventaId: number, scope: any): Promise<Devolucion[]> {
-    return this.repo.find({
-      where: { venta_id: ventaId, tenant_id: scope.tenant_id },
-      order: { created_at: 'DESC' },
-    });
+    try {
+      return await this.repo.find({
+        where: { venta_id: ventaId, tenant_id: scope.tenant_id },
+        order: { created_at: 'DESC' },
+      });
+    } catch (e: any) {
+      this.logger.error(`Error consultando devoluciones de venta ${ventaId}: ${e?.message}`, e?.stack);
+      throw new InternalServerErrorException(`Error consultando devoluciones: ${e?.message}`);
+    }
   }
 
   async findAll(scope: any, desde?: string, hasta?: string): Promise<Devolucion[]> {
@@ -40,79 +45,87 @@ export class DevolucionesService {
     items: { producto_id: number; cantidad: number }[];
   }, scope: any): Promise<Devolucion> {
 
-    // 1. Cargar venta original
-    const [venta] = await this.dataSource.query(
-      `SELECT v.id, v.folio, v.estado, v.tenant_id, v.tienda_id
-       FROM ventas v WHERE v.id = ? AND v.tenant_id = ?`,
-      [dto.venta_id, scope.tenant_id],
-    );
-    if (!venta) throw new NotFoundException('Venta no encontrada');
-    if (venta.estado === 'cancelada') throw new BadRequestException('No se puede devolver una venta cancelada');
-
-    // 2. Cargar detalles de la venta
-    const detalles: any[] = await this.dataSource.query(
-      `SELECT vd.producto_id, vd.producto_nombre, vd.producto_sku,
-              vd.cantidad, vd.precio_unitario
-       FROM venta_detalles vd WHERE vd.venta_id = ?`,
-      [dto.venta_id],
-    );
-
-    // 3. Calcular ya devuelto por item
-    const devueltoMap: Record<number, number> = {};
-    const devolucionesExistentes = await this.repo.find({ where: { venta_id: dto.venta_id } });
-    for (const dev of devolucionesExistentes) {
-      for (const item of dev.items) {
-        devueltoMap[item.producto_id] = (devueltoMap[item.producto_id] || 0) + Number(item.cantidad);
-      }
-    }
-
-    // 4. Validar cantidades y construir items de devolución
-    const itemsDevolucion: Devolucion['items'] = [];
+    let venta: any;
+    let devolucion: Devolucion;
     let montoTotal = 0;
+    let itemsDevolucion: Devolucion['items'] = [];
 
-    for (const itemDto of dto.items) {
-      if (!itemDto.cantidad || itemDto.cantidad <= 0) continue;
+    try {
+      // 1. Cargar venta original
+      [venta] = await this.dataSource.query(
+        `SELECT v.id, v.folio, v.estado, v.tenant_id, v.tienda_id
+         FROM ventas v WHERE v.id = ? AND v.tenant_id = ?`,
+        [dto.venta_id ?? null, scope.tenant_id ?? null],
+      );
+      if (!venta) throw new NotFoundException('Venta no encontrada');
+      if (venta.estado === 'cancelada') throw new BadRequestException('No se puede devolver una venta cancelada');
 
-      const detalle = detalles.find(d => Number(d.producto_id) === Number(itemDto.producto_id));
-      if (!detalle) throw new BadRequestException(`Producto ${itemDto.producto_id} no está en la venta`);
+      // 2. Cargar detalles de la venta
+      const detalles: any[] = await this.dataSource.query(
+        `SELECT vd.producto_id, vd.producto_nombre, vd.producto_sku,
+                vd.cantidad, vd.precio_unitario
+         FROM venta_detalles vd WHERE vd.venta_id = ?`,
+        [dto.venta_id ?? null],
+      );
 
-      const yaDevueltoCantidad = devueltoMap[itemDto.producto_id] || 0;
-      const disponible = Number(detalle.cantidad) - yaDevueltoCantidad;
-
-      if (itemDto.cantidad > disponible) {
-        throw new BadRequestException(
-          `"${detalle.producto_nombre}": máximo a devolver es ${disponible} (ya se devolvieron ${yaDevueltoCantidad})`
-        );
+      // 3. Calcular ya devuelto por item
+      const devueltoMap: Record<number, number> = {};
+      const devolucionesExistentes = await this.repo.find({ where: { venta_id: dto.venta_id } });
+      for (const dev of devolucionesExistentes) {
+        for (const item of dev.items || []) {
+          devueltoMap[item.producto_id] = (devueltoMap[item.producto_id] || 0) + Number(item.cantidad);
+        }
       }
 
-      const subtotal = Number(detalle.precio_unitario) * Number(itemDto.cantidad);
-      itemsDevolucion.push({
-        producto_id: Number(detalle.producto_id),
-        nombre: detalle.producto_nombre,
-        sku: detalle.producto_sku,
-        cantidad: Number(itemDto.cantidad),
-        precio_unitario: Number(detalle.precio_unitario),
-        subtotal,
-      });
-      montoTotal += subtotal;
+      // 4. Validar cantidades y construir items de devolución
+      for (const itemDto of dto.items) {
+        if (!itemDto.cantidad || itemDto.cantidad <= 0) continue;
+
+        const detalle = detalles.find(d => Number(d.producto_id) === Number(itemDto.producto_id));
+        if (!detalle) throw new BadRequestException(`Producto ${itemDto.producto_id} no está en la venta`);
+
+        const yaDevueltoCantidad = devueltoMap[itemDto.producto_id] || 0;
+        const disponible = Number(detalle.cantidad) - yaDevueltoCantidad;
+
+        if (itemDto.cantidad > disponible) {
+          throw new BadRequestException(
+            `"${detalle.producto_nombre}": máximo a devolver es ${disponible} (ya se devolvieron ${yaDevueltoCantidad})`
+          );
+        }
+
+        const subtotal = Number(detalle.precio_unitario) * Number(itemDto.cantidad);
+        itemsDevolucion.push({
+          producto_id: Number(detalle.producto_id),
+          nombre: detalle.producto_nombre,
+          sku: detalle.producto_sku,
+          cantidad: Number(itemDto.cantidad),
+          precio_unitario: Number(detalle.precio_unitario),
+          subtotal,
+        });
+        montoTotal += subtotal;
+      }
+
+      if (!itemsDevolucion.length) throw new BadRequestException('No hay ítems válidos para devolver');
+
+      // 5. Crear registro de devolución
+      const entity = new Devolucion();
+      entity.tenant_id = scope.tenant_id;
+      entity.empresa_id = scope.empresa_id;
+      entity.tienda_id = scope.tienda_id;
+      entity.venta_id = dto.venta_id;
+      entity.folio = this.generateFolio();
+      entity.venta_folio = venta.folio;
+      entity.usuario_id = scope.id || scope.sub;
+      entity.usuario_nombre = scope.nombre || 'Sistema';
+      if (dto.motivo) entity.motivo = dto.motivo;
+      entity.items = itemsDevolucion;
+      entity.monto_total = montoTotal;
+      devolucion = await this.repo.save(entity);
+    } catch (e: any) {
+      if (e instanceof HttpException) throw e;
+      this.logger.error(`Error creando devolución (venta ${dto.venta_id}): ${e?.message}`, e?.stack);
+      throw new InternalServerErrorException(`Error al procesar devolución: ${e?.message}`);
     }
-
-    if (!itemsDevolucion.length) throw new BadRequestException('No hay ítems válidos para devolver');
-
-    // 5. Crear registro de devolución
-    const entity = new Devolucion();
-    entity.tenant_id = scope.tenant_id;
-    entity.empresa_id = scope.empresa_id;
-    entity.tienda_id = scope.tienda_id;
-    entity.venta_id = dto.venta_id;
-    entity.folio = this.generateFolio();
-    entity.venta_folio = venta.folio;
-    entity.usuario_id = scope.id || scope.sub;
-    entity.usuario_nombre = scope.nombre || 'Sistema';
-    if (dto.motivo) entity.motivo = dto.motivo;
-    entity.items = itemsDevolucion;
-    entity.monto_total = montoTotal;
-    const devolucion = await this.repo.save(entity);
 
     // 6. Reponer stock para ítems que controlan inventario
     for (const item of itemsDevolucion) {
