@@ -62,6 +62,51 @@ export default function HeroSection({ info }: { info: any }) {
     )
   }
 
+  if (theme.heroStyle === 'produce-market') {
+    return (
+      <div style={{ position: 'relative', overflow: 'hidden', padding: '40px 16px 56px' }}>
+        <div style={{ position: 'absolute', top: -80, right: -80, width: 280, height: 280, borderRadius: '50%', background: 'var(--color-primary)', opacity: 0.08 }} />
+        <div style={{ position: 'absolute', bottom: -100, left: -60, width: 220, height: 220, borderRadius: '50%', background: 'var(--color-accent)', opacity: 0.08 }} />
+        <div style={{ maxWidth: 1200, margin: '0 auto', position: 'relative', display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 32, alignItems: 'center' }}>
+          <div>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--color-surface-hover)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-pill)', padding: '5px 14px', fontSize: 12, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 16 }}>
+              🌱 Fresco todos los días
+            </span>
+            {info.logo_url && <img src={info.logo_url} alt="logo" style={{ height: 40, objectFit: 'contain', marginBottom: 14, display: 'block' }} />}
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(28px, 4.5vw, 46px)', fontWeight: 700, color: 'var(--color-text)', margin: '0 0 14px', lineHeight: 1.15 }}>
+              {info.nombre_tienda || info.empresa?.nombre}
+            </h1>
+            {info.descripcion && <p style={{ fontSize: 15, color: 'var(--color-text-muted)', maxWidth: 460, lineHeight: 1.6, margin: '0 0 26px' }}>{info.descripcion}</p>}
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <Link href={`/${subdominio}/productos`} style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', padding: '13px 30px', borderRadius: 'var(--radius-pill)', fontWeight: 700, fontSize: 14, textDecoration: 'none' }}>
+                Ver catálogo 🧺
+              </Link>
+              {info.modo_mayoreo && (
+                <span style={{ background: 'var(--color-mayoreo)', color: 'var(--color-mayoreo-text)', padding: '13px 22px', borderRadius: 'var(--radius-pill)', fontSize: 13, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  💼 Precio mayoreo
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            {[
+              { emoji: '🍅', label: 'Frutas y verduras' },
+              { emoji: '🥖', label: 'Panadería' },
+              { emoji: '🧀', label: 'Lácteos y frescos' },
+              { emoji: '🧺', label: 'Despensa' },
+            ].map((c, i) => (
+              <div key={c.label} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)', padding: '20px 16px', textAlign: 'center', boxShadow: 'var(--shadow-card)', transform: i % 2 === 1 ? 'translateY(14px)' : 'none' }}>
+                <div style={{ fontSize: 30, marginBottom: 8 }}>{c.emoji}</div>
+                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text)', margin: 0, fontFamily: 'var(--font-display)' }}>{c.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // gradient-blue (lumina default)
   return (
     <div style={{ background: 'linear-gradient(135deg, #1e3a8a, #1e40af)', padding: '64px 16px', textAlign: 'center' }}>

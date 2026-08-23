@@ -1,7 +1,9 @@
 'use client'
 import Link from 'next/link'
+import { useState } from 'react'
 import { useShopTheme } from './ThemeProvider'
 import { useCart } from '@/hooks/useCart'
+import QuickViewModal from './QuickViewModal'
 
 interface Props {
   producto: any
@@ -13,6 +15,7 @@ interface Props {
 export default function ProductCard({ producto, subdominio, modoMayoreo, qtyMinMayoreo }: Props) {
   const { theme } = useShopTheme()
   const { addItem, items } = useCart()
+  const [quickViewOpen, setQuickViewOpen] = useState(false)
 
   const slug = producto.slug || producto.id
   const imagen = producto.imagenes_extra?.[0] || producto.imagen_url || null
@@ -20,8 +23,14 @@ export default function ProductCard({ producto, subdominio, modoMayoreo, qtyMinM
   const qtyMin = producto.qty_min_mayoreo ?? qtyMinMayoreo
   const inCart = items.find(i => i.productoId === producto.id)
 
-  const radius = theme.cardStyle === 'rounded-warm' ? 'var(--radius-lg)' : theme.cardStyle === 'glass-dark' ? 'var(--radius-sm)' : 'var(--radius-md)'
+  const radius = theme.cardStyle === 'rounded-warm' || theme.cardStyle === 'organic' ? 'var(--radius-lg)' : theme.cardStyle === 'glass-dark' ? 'var(--radius-sm)' : 'var(--radius-md)'
   const border = theme.cardStyle === 'glass-dark' ? '1px solid var(--color-border)' : '1px solid var(--color-border)'
+
+  function handleQuickView(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    setQuickViewOpen(true)
+  }
 
   function handleAdd(e: React.MouseEvent) {
     e.preventDefault()
@@ -40,6 +49,7 @@ export default function ProductCard({ producto, subdominio, modoMayoreo, qtyMinM
   const btnRadius = theme.buttonStyle === 'pill' ? 'var(--radius-pill)' : theme.buttonStyle === 'sharp' ? '0' : 'var(--radius-sm)'
 
   return (
+    <>
     <Link href={`/${subdominio}/productos/${slug}`} style={{ textDecoration: 'none', display: 'block' }}>
       <div style={{
         background: 'var(--color-surface)',
@@ -71,6 +81,16 @@ export default function ProductCard({ producto, subdominio, modoMayoreo, qtyMinM
             <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>Sin stock</span>
             </div>
+          )}
+          {theme.quickView && (
+            <button
+              onClick={handleQuickView}
+              aria-label="Vista rápida"
+              title="Vista rápida"
+              style={{ position: 'absolute', bottom: 8, right: 8, width: 32, height: 32, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,.92)', color: 'var(--color-text)', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,.18)' }}
+            >
+              👁
+            </button>
           )}
         </div>
 
@@ -119,5 +139,15 @@ export default function ProductCard({ producto, subdominio, modoMayoreo, qtyMinM
         </div>
       </div>
     </Link>
+    {quickViewOpen && (
+      <QuickViewModal
+        producto={producto}
+        subdominio={subdominio}
+        modoMayoreo={modoMayoreo}
+        qtyMinMayoreo={qtyMinMayoreo}
+        onClose={() => setQuickViewOpen(false)}
+      />
+    )}
+    </>
   )
 }

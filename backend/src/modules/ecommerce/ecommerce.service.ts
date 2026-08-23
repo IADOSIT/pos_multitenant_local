@@ -101,6 +101,7 @@ export class EcommerceService {
       { id: 'iados-market', nombre: 'iaDoS Market', descripcion: 'Estilo super/grocery: verde fresco, tipografía Barlow, look limpio y amable', modo: 'light', colorPrimary: '#629d23', colorBg: '#ffffff' },
       { id: 'iados-herramientas', nombre: 'iaDoS Herramientas', descripcion: 'Estilo ferretería/industrial: azul corporativo, tipografía Oswald y menú de categorías', modo: 'light', colorPrimary: '#2559c7', colorBg: '#f4f6f9' },
       { id: 'iados-albercas', nombre: 'iaDoS Albercas', descripcion: 'Químicos para alberca: teal de azulejo, tipografía Archivo y comparador de pH que lleva al producto', modo: 'light', colorPrimary: '#017a86', colorBg: '#f2f8f9' },
+      { id: 'iados-abarrotes', nombre: 'iaDoS Abarrotes', descripcion: 'Abarrotes/frutas y verduras: verde fresco, tipografía Fredoka, vista rápida y agregar al carrito sin salir del listado', modo: 'light', colorPrimary: '#2f9e44', colorBg: '#f6faf1' },
     ];
   }
 

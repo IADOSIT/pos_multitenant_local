@@ -39,6 +39,7 @@ export default async function ShopLayout({
     lumina: 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500&display=swap',
     obsidian: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap',
     zest: 'https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap',
+    'iados-abarrotes': 'https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap',
   }
 
   return (

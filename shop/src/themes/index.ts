@@ -1,4 +1,4 @@
-export type ThemeId = 'lumina' | 'obsidian' | 'zest'
+export type ThemeId = 'lumina' | 'obsidian' | 'zest' | 'iados-abarrotes'
 
 export interface Theme {
   id: ThemeId
@@ -31,11 +31,13 @@ export interface Theme {
   shadowCard: string
   shadowHover: string
   gridCols: number
-  navbarStyle: 'minimal' | 'bold' | 'warm'
-  heroStyle: 'gradient-blue' | 'dark-accent' | 'warm-block'
-  cardStyle: 'flat' | 'glass-dark' | 'rounded-warm'
-  badgeStyle: 'pill' | 'sharp' | 'pill-fat'
+  navbarStyle: 'minimal' | 'bold' | 'warm' | 'fresh'
+  heroStyle: 'gradient-blue' | 'dark-accent' | 'warm-block' | 'produce-market'
+  cardStyle: 'flat' | 'glass-dark' | 'rounded-warm' | 'organic'
+  badgeStyle: 'pill' | 'sharp' | 'pill-fat' | 'leaf'
   buttonStyle: 'rounded' | 'sharp' | 'pill'
+  /** Habilita el botón de "vista rápida" (previsualización sin salir del listado) sobre ProductCard. */
+  quickView?: boolean
 }
 
 export const THEMES: Record<ThemeId, Theme> = {
@@ -87,6 +89,24 @@ export const THEMES: Record<ThemeId, Theme> = {
     shadowCard: '0 2px 8px rgba(0,0,0,.08)', shadowHover: '0 6px 18px rgba(249,115,22,.18)',
     gridCols: 4, navbarStyle: 'warm', heroStyle: 'warm-block',
     cardStyle: 'rounded-warm', badgeStyle: 'pill-fat', buttonStyle: 'pill',
+  },
+  'iados-abarrotes': {
+    id: 'iados-abarrotes', nombre: 'iaDoS Abarrotes', modo: 'light',
+    colorBg: '#f6faf1', colorSurface: '#ffffff', colorSurfaceHover: '#eef7e4',
+    colorBorder: '#dfeed0', colorPrimary: '#2f9e44', colorPrimaryDark: '#217a34',
+    colorPrimaryText: '#ffffff', colorAccent: '#ff7a3d', colorAccentText: '#ffffff',
+    colorText: '#1b2b1e', colorTextMuted: '#5b6f5c', colorTextSubtle: '#94a596',
+    colorSuccess: '#2f9e44', colorWarning: '#e8a33d', colorDanger: '#e0483e',
+    colorMayoreo: '#7c3aed', colorMayoreoText: '#ffffff',
+    fontDisplay: "'Fredoka', 'Baloo 2', sans-serif",
+    fontBody: "'Manrope', 'Inter', sans-serif",
+    fontMono: "'JetBrains Mono', monospace",
+    radiusSm: '10px', radiusMd: '16px', radiusLg: '26px', radiusPill: '999px',
+    shadowCard: '0 2px 10px rgba(47,158,68,.08)',
+    shadowHover: '0 12px 28px rgba(47,158,68,.20)',
+    gridCols: 4, navbarStyle: 'fresh', heroStyle: 'produce-market',
+    cardStyle: 'organic', badgeStyle: 'leaf', buttonStyle: 'pill',
+    quickView: true,
   },
 }
 

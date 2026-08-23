@@ -2,10 +2,10 @@
   "/_not-found/page": "app/_not-found/page.js",
   "/page": "app/page.js",
   "/[subdominio]/pedido/[numero]/page": "app/[subdominio]/pedido/[numero]/page.js",
-  "/[subdominio]/productos/page": "app/[subdominio]/productos/page.js",
   "/[subdominio]/checkout/page": "app/[subdominio]/checkout/page.js",
-  "/[subdominio]/page": "app/[subdominio]/page.js",
   "/[subdominio]/carrito/page": "app/[subdominio]/carrito/page.js",
+  "/[subdominio]/pedidos/page": "app/[subdominio]/pedidos/page.js",
   "/[subdominio]/productos/[slug]/page": "app/[subdominio]/productos/[slug]/page.js",
-  "/[subdominio]/pedidos/page": "app/[subdominio]/pedidos/page.js"
+  "/[subdominio]/page": "app/[subdominio]/page.js",
+  "/[subdominio]/productos/page": "app/[subdominio]/productos/page.js"
 }
