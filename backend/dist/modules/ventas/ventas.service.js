@@ -249,8 +249,9 @@ let VentasService = class VentasService {
                 const hoy = new Date();
                 hoy.setHours(0, 0, 0, 0);
                 return await this.dataSource.query(`SELECT v.id, v.folio, v.total, v.estado, v.created_at,
-                  v.usuario_nombre, v.cliente_nombre, v.metodo_pago
+                  u.nombre AS usuario_nombre, v.cliente_nombre, v.metodo_pago
            FROM ventas v
+           LEFT JOIN users u ON u.id = v.usuario_id
            WHERE v.tenant_id=? AND v.tienda_id=? AND v.estado='completada'
              AND v.created_at >= ?
            ORDER BY v.created_at DESC LIMIT 30`, [scope.tenant_id ?? null, scope.tienda_id ?? null, hoy]);
@@ -259,8 +260,9 @@ let VentasService = class VentasService {
             const likeQ = `%${term}%`;
             const numQ = parseFloat(term) || null;
             return await this.dataSource.query(`SELECT v.id, v.folio, v.total, v.estado, v.created_at,
-                v.usuario_nombre, v.cliente_nombre, v.metodo_pago
+                u.nombre AS usuario_nombre, v.cliente_nombre, v.metodo_pago
          FROM ventas v
+         LEFT JOIN users u ON u.id = v.usuario_id
          WHERE v.tenant_id=? AND v.tienda_id=? AND v.estado='completada'
            AND (v.folio LIKE ? OR v.cliente_nombre LIKE ? ${numQ ? 'OR v.total = ?' : ''})
          ORDER BY v.created_at DESC LIMIT 20`, numQ
