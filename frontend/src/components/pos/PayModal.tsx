@@ -377,8 +377,10 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
           const { data } = await pedidosApi.cobrar(pedido.id, pagoData);
           window.dispatchEvent(new Event('inventario:changed'));
           generarEImprimir(data.venta);
-          setVentaCompletada(data.venta);
           toast.success(`Mesa ${pedido.mesa} cobrada`);
+          // Modo restaurante (no inline): sin pantalla de confirmacion, regresa directo al POS.
+          // Modo inline (retail): breve tarjeta que se autocierra sola (ver efecto mas abajo).
+          if (inline) setVentaCompletada(data.venta); else onClose();
         }
       } else {
         // ── Modo carrito: venta directa ──
@@ -391,9 +393,9 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
             toast.success(`Pago $${data.total} registrado — puedes agregar más items`);
             onClose();
           } else {
-            setVentaCompletada(data);
             toast.success(`Venta ${data.folio} completada`);
             clearCart();
+            if (inline) setVentaCompletada(data); else onClose();
           }
         } else {
           const folio = await offlineActions.saveVentaOffline(ventaData);
@@ -401,9 +403,9 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
             toast.success(`Pago offline ${folio} guardado — puedes agregar más items`);
             onClose();
           } else {
-            setVentaCompletada({ folio_offline: folio, total });
             toast.success(`Venta offline ${folio} guardada`);
             clearCart();
+            if (inline) setVentaCompletada({ folio_offline: folio, total }); else onClose();
           }
         }
       }
@@ -419,9 +421,9 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
           toast(`Pago offline ${folio} — puedes agregar más items`, { icon: '📡' });
           onClose();
         } else {
-          setVentaCompletada({ folio_offline: folio, total });
           toast('Guardada offline por error de red', { icon: '📡' });
           clearCart();
+          if (inline) setVentaCompletada({ folio_offline: folio, total }); else onClose();
         }
       } else {
         toast.error(err.response?.data?.message || 'Error al procesar pago');

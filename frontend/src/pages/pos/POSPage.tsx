@@ -184,6 +184,40 @@ export default function POSPage() {
     if (escanerHabilitado) busquedaRef.current?.focus();
   }, [escanerHabilitado]);
 
+  // Con el lector activo, el cursor SIEMPRE debe vivir en el buscador: si el usuario
+  // (o la pistola lectora) empieza a "teclear" sin el foco ahi, redirigimos el texto
+  // al buscador en vez de dejar que se pierda en el body u otro elemento sin input.
+  // NO se interfiere si ya esta escribiendo en OTRO campo de texto (modal abierto, etc).
+  useEffect(() => {
+    if (!escanerHabilitado) return;
+    const esCampoTexto = (el: Element | null) => {
+      if (!el) return false;
+      const tag = el.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (el as HTMLElement).isContentEditable;
+    };
+    const h = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key.length !== 1 || e.key === ' ') return;
+      const activo = document.activeElement;
+      if (activo === busquedaRef.current) return;
+      if (esCampoTexto(activo)) return;
+      e.preventDefault();
+      busquedaRef.current?.focus();
+      setBusqueda((prev) => prev + e.key);
+    };
+    window.addEventListener('keydown', h, true);
+    return () => window.removeEventListener('keydown', h, true);
+  }, [escanerHabilitado]);
+
+  // Tras cerrar cualquier modal/panel (pago, cantidad, pesaje, devolucion, cuentas...) con
+  // el lector activo, regresa el foco al buscador para que la siguiente lectura no se pierda.
+  useEffect(() => {
+    if (!escanerHabilitado) return;
+    if (showPay || qtyModal || pesoModal || showDevBuscar || devVentaId || showCuentas || showAbrirCuenta || showApartados) return;
+    const t = setTimeout(() => busquedaRef.current?.focus(), 50);
+    return () => clearTimeout(t);
+  }, [escanerHabilitado, showPay, qtyModal, pesoModal, showDevBuscar, devVentaId, showCuentas, showAbrirCuenta, showApartados]);
+
   const loadCuentasAbiertas = useCallback(async () => {
     try {
       const { data } = await pedidosApi.pendientes();

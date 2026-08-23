@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { ventasApi } from '../../api/endpoints';
-import { X, Search, RotateCcw, Clock, User } from 'lucide-react';
+import { X, Search, RotateCcw, Clock, User, AlertTriangle } from 'lucide-react';
 
 interface Props {
   onClose: () => void;
@@ -11,6 +11,7 @@ export default function DevolucionBuscarModal({ onClose, onSelectVenta }: Props)
   const [q, setQ] = useState('');
   const [ventas, setVentas] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -25,8 +26,18 @@ export default function DevolucionBuscarModal({ onClose, onSelectVenta }: Props)
     try {
       const { data } = await ventasApi.buscar(term);
       setVentas(data || []);
-    } catch {
+      setError(null);
+    } catch (err: any) {
       setVentas([]);
+      // No confundir "sin resultados" con un error real (permisos, red, servidor caído):
+      // mostrar el motivo real para poder diagnosticarlo en vez de decir "no encontradas".
+      if (err?.response?.status === 403) {
+        setError('Tu usuario no tiene permiso para buscar ventas para devolución.');
+      } else if (err?.response) {
+        setError(err.response?.data?.message || `Error del servidor (${err.response.status})`);
+      } else {
+        setError('No se pudo conectar con el servidor. Revisa tu conexión.');
+      }
     } finally {
       setLoading(false);
     }
@@ -88,7 +99,17 @@ export default function DevolucionBuscarModal({ onClose, onSelectVenta }: Props)
         <div className="overflow-y-auto flex-1 space-y-2">
           {loading && <p className="text-center text-slate-400 py-8 text-sm">Buscando...</p>}
 
-          {!loading && ventas.length === 0 && (
+          {!loading && error && (
+            <div className="text-center text-red-400 py-10">
+              <AlertTriangle size={36} className="mx-auto mb-2 opacity-40" />
+              <p className="text-sm font-medium">{error}</p>
+              <button onClick={() => buscar(q)} className="text-xs mt-2 underline text-slate-400 hover:text-slate-300">
+                Reintentar
+              </button>
+            </div>
+          )}
+
+          {!loading && !error && ventas.length === 0 && (
             <div className="text-center text-slate-500 py-10">
               <RotateCcw size={36} className="mx-auto mb-2 opacity-20" />
               <p className="text-sm">No se encontraron ventas</p>
