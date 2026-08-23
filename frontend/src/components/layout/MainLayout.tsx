@@ -4,13 +4,14 @@ import { useAuthStore } from '../../store/auth.store';
 import { useAdminContextStore } from '../../store/adminContext.store';
 import { useDeployStore } from '../../store/deploy.store';
 import { useNotificaciones } from '../../hooks/useNotificaciones';
+import { usePresencia } from '../../hooks/usePresencia';
+import { presenciaDisponible } from '../../api/presencia';
 import { pedidosApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
 import apiClient from '../../api/client';
 import toast from 'react-hot-toast';
 import {
-  ShoppingCart, LayoutDashboard, CreditCard, Package,
-  Users, Building2, Settings, LogOut, Menu, X, ClipboardList, FileBarChart, Warehouse, Database, Lock, BookOpen, Grid3X3, Truck, Scale, Store, PanelLeftClose, PanelLeftOpen, HelpCircle
+  Package, LogOut, Menu, X, Database, Lock, Truck, Scale, Store, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 import { logisticaApi, basculaApi, empresasApi } from '../../api/endpoints';
 import StockAlertBanner from '../ui/StockAlertBanner';
@@ -18,6 +19,7 @@ import LicenciaBanner from './LicenciaBanner';
 import ViewAsBanner from './ViewAsBanner';
 import LockScreen from '../ui/LockScreen';
 import PageHeader from './PageHeader';
+import { navItems } from './navItems';
 
 // Título de respaldo por ruta para el header estandarizado (cuando la pantalla no fija el suyo).
 const PAGE_TITLES: Record<string, string> = {
@@ -63,22 +65,6 @@ const backendHost = (() => {
   try { return new URL(apiUrl).host; } catch { return 'localhost:3000'; }
 })();
 
-const navItems = [
-  { to: '/pos',                 icon: ShoppingCart,    label: 'POS',        roles: ['superadmin', 'admin', 'manager', 'cajero', 'mesero'] },
-  { to: '/dashboard',           icon: LayoutDashboard, label: 'Dashboard',  roles: ['superadmin', 'admin', 'manager', 'cajero'] },
-  { to: '/pedidos',             icon: ClipboardList,   label: 'Pedidos',    roles: ['superadmin', 'admin', 'manager', 'cajero', 'mesero'], badge: true },
-  { to: '/caja',                icon: CreditCard,      label: 'Caja',       roles: ['superadmin', 'admin', 'manager', 'cajero'] },
-  { to: '/reportes',            icon: FileBarChart,    label: 'Reportes',   roles: ['superadmin', 'admin', 'manager', 'cajero'] },
-  { to: '/inventario',          icon: Warehouse,       label: 'Inventario', roles: ['superadmin', 'admin', 'manager', 'cajero'] },
-  { to: '/catalogos',           icon: BookOpen,        label: 'Catalogos',  roles: ['superadmin', 'admin'] },
-  { to: '/admin/mesas',         icon: Grid3X3,         label: 'Mesas',      roles: ['superadmin', 'admin'] },
-  { to: '/admin/usuarios',      icon: Users,           label: 'Usuarios',   roles: ['superadmin', 'admin'] },
-  { to: '/admin/tienda-en-linea', icon: Store,         label: 'Tienda en Línea', roles: ['superadmin', 'admin'] },
-  { to: '/admin/configuracion', icon: Settings,        label: 'Config',     roles: ['superadmin', 'admin'] },
-  { to: '/admin/tenants',       icon: Building2,       label: 'Tenants',    roles: ['superadmin'] },
-  { to: '/ayuda',                icon: HelpCircle,      label: 'Ayuda',      roles: ['superadmin', 'admin', 'manager', 'cajero', 'mesero'] },
-];
-
 export default function MainLayout() {
   const { user, logout, lock, isLocked } = useAuthStore();
   const { viewAs } = useAdminContextStore();
@@ -89,6 +75,8 @@ export default function MainLayout() {
   const location = useLocation();
   // Superadmin sin tienda elegida: las pantallas por-tienda piden elegir una primero.
   const necesitaTienda = user?.rol === 'superadmin' && !viewAs && RUTAS_POR_TIENDA.has(location.pathname);
+  // Presencia para el monitor del superadmin. Opcional: si falla, no afecta nada.
+  usePresencia();
   // Tienda de contexto: si el superadmin está "viendo como" una tienda, TODO (flags de
   // config, báscula, branding) debe usar ESA tienda/empresa, no la de su propia cuenta.
   const tiendaCtxId = viewAs?.tienda_id ?? user?.tienda_id;
@@ -203,6 +191,8 @@ export default function MainLayout() {
     if (!user) return false;
     if (!n.roles.includes(user.rol)) return false;
     if (n.to === '/admin/mesas' && !mesasMenuEnabled && user.rol !== 'superadmin') return false;
+    // On-premise no hay presencia: el Monitor solo podria mostrar "Sin conexion".
+    if (n.to === '/superadmin/monitor' && !presenciaDisponible()) return false;
 
     const permList = sidebarPermisos[user.rol];
     const hasPermList = permList && permList.length > 0 && !['superadmin'].includes(user.rol);

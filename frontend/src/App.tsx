@@ -16,6 +16,7 @@ const ProductosAdmin = lazy(() => import('./pages/admin/ProductosAdmin'));
 const CategoriasAdmin = lazy(() => import('./pages/admin/CategoriasAdmin'));
 const UsuariosAdmin = lazy(() => import('./pages/superadmin/UsuariosAdmin'));
 const TenantsAdmin = lazy(() => import('./pages/superadmin/TenantsAdmin'));
+const MonitorPage = lazy(() => import('./pages/superadmin/MonitorPage'));
 const TicketsConfig = lazy(() => import('./pages/admin/TicketsConfig'));
 const PedidosPage = lazy(() => import('./pages/pedidos/PedidosPage'));
 const ConfiguracionPage = lazy(() => import('./pages/admin/ConfiguracionPage'));
@@ -125,6 +126,9 @@ export default function App() {
           } />
           <Route path="admin/tenants" element={
             <PrivateRoute roles={['superadmin']}><TenantsAdmin /></PrivateRoute>
+          } />
+          <Route path="superadmin/monitor" element={
+            <PrivateRoute roles={['superadmin']}><MonitorPage /></PrivateRoute>
           } />
           <Route path="inventario-dual" element={
             <PrivateRoute roles={['superadmin', 'admin', 'manager', 'cajero']}>
