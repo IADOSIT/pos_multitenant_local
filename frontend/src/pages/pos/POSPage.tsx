@@ -179,6 +179,18 @@ export default function POSPage() {
     busquedaRef.current?.focus();
   }, [busqueda, productos, escanerHabilitado]);
 
+  // La pistola termina el escaneo con Enter. Si para entonces el codigo no hizo match arriba
+  // (producto inexistente), se avisa en pantalla, se limpia el buscador y se regresa el foco
+  // para que la siguiente lectura no se pierda.
+  const handleBusquedaKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter' || !escanerHabilitado || !busqueda.trim()) return;
+    const producto = productos.find((p) => (p as any).codigo_barras && (p as any).codigo_barras === busqueda);
+    if (producto) return; // ya lo tomo el effect de arriba antes de llegar aqui
+    toast.error(`Producto no encontrado: ${busqueda}`, { duration: 3000 });
+    setBusqueda('');
+    busquedaRef.current?.focus();
+  };
+
   // Al activar el escaner, enfoca el buscador para que la pistola pueda "teclear" de inmediato.
   useEffect(() => {
     if (escanerHabilitado) busquedaRef.current?.focus();
@@ -675,6 +687,7 @@ export default function POSPage() {
               type="text"
               value={busqueda}
               onChange={(e) => { setBusqueda(e.target.value); setCategoriaActiva(null); }}
+              onKeyDown={handleBusquedaKeyDown}
               placeholder={escanerHabilitado ? 'Buscar producto o escanear código...' : 'Buscar producto o SKU...'}
               className="input-touch pl-10"
             />
