@@ -123,7 +123,7 @@ export default async function PedidoPage({ params }: PageProps) {
           </Link>
         </div>
       </div>
-      <StoreFooter tiendaNombre={info.nombre_tienda} empresaNombre={info.empresa?.nombre} />
+      <StoreFooter tiendaNombre={info.nombre_tienda} empresaNombre={info.empresa?.nombre} contacto={info.preferencias?.contacto} />
     </CartProvider>
   )
 }

@@ -104,7 +104,7 @@ export default async function ProductosPage({ params, searchParams }: PageProps)
           </div>
         </div>
       </div>
-      <StoreFooter tiendaNombre={info.nombre_tienda} empresaNombre={info.empresa?.nombre} />
+      <StoreFooter tiendaNombre={info.nombre_tienda} empresaNombre={info.empresa?.nombre} contacto={info.preferencias?.contacto} />
     </CartProvider>
   )
 }

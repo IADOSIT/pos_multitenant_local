@@ -18,7 +18,7 @@ export default async function MisPedidosPage({ params }: PageProps) {
     <CartProvider>
       <Navbar categorias={categorias} />
       <MisPedidosView subdominio={subdominio} />
-      <StoreFooter tiendaNombre={info.nombre_tienda} empresaNombre={info.empresa?.nombre} />
+      <StoreFooter tiendaNombre={info.nombre_tienda} empresaNombre={info.empresa?.nombre} contacto={info.preferencias?.contacto} />
     </CartProvider>
   )
 }

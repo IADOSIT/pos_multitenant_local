@@ -18,7 +18,7 @@ export default async function CheckoutPage({ params }: PageProps) {
     <CartProvider>
       <Navbar categorias={categorias} />
       <CheckoutForm subdominio={subdominio} info={info} />
-      <StoreFooter tiendaNombre={info.nombre_tienda} empresaNombre={info.empresa?.nombre} />
+      <StoreFooter tiendaNombre={info.nombre_tienda} empresaNombre={info.empresa?.nombre} contacto={info.preferencias?.contacto} />
     </CartProvider>
   )
 }

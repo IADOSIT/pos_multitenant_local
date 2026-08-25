@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import {
   Globe, Store, Palette, Check, X, Copy, ExternalLink, Loader2,
   ShoppingBag, TrendingUp, Package, ToggleLeft, ToggleRight,
-  Megaphone, Truck, ClipboardList, FileText, RefreshCw,
+  Megaphone, Truck, ClipboardList, FileText, RefreshCw, Phone,
 } from 'lucide-react';
 import TablaPedidos from '../pedidos/TablaPedidos';
 import DetallePedidoWeb from '../pedidos/DetallePedidoWeb';
@@ -60,12 +60,21 @@ const TABS = [
   { id: 'general',     label: 'General',     icon: Store },
   { id: 'pedidos',     label: 'Pedidos',     icon: Package },
   { id: 'diseno',      label: 'Diseño',      icon: Palette },
+  { id: 'contacto',    label: 'Contacto',    icon: Phone },
   { id: 'promociones', label: 'Promociones', icon: Megaphone },
   { id: 'envio',       label: 'Envío',       icon: Truck },
   { id: 'checkout',    label: 'Checkout',    icon: ClipboardList },
   { id: 'mayoreo',     label: 'Mayoreo',     icon: TrendingUp },
   { id: 'legal',       label: 'Legal',       icon: FileText },
 ] as const;
+
+const DEFAULT_CONTACTO = {
+  activo: false,
+  telefono: '', mostrar_telefono: true,
+  whatsapp: '', mostrar_whatsapp: true, whatsapp_mensaje: 'Hola, tengo una duda sobre un producto',
+  nombre_contacto: '', mostrar_nombre: true,
+  redes: { facebook: '', instagram: '', tiktok: '', x: '' },
+};
 
 function Toggle({ on, onClick, color = 'text-green-400' }: { on: boolean; onClick: () => void; color?: string }) {
   return (
@@ -86,7 +95,11 @@ export default function TiendaEnLineaPage() {
     color_primario: '#1e40af', color_secundario: '#0f172a',
     modo_mayoreo: false, qty_min_mayoreo: 10, mensaje_mayoreo: '',
     politica_envio: '', terminos: '', tema_id: 'lumina',
-    preferencias: { promociones: { activo: false, texto: '⚡ Oferta del día — termina en' }, envio_gratis: { activo: false, umbral: 500 } },
+    preferencias: {
+      promociones: { activo: false, texto: '⚡ Oferta del día — termina en' },
+      envio_gratis: { activo: false, umbral: 500 },
+      contacto: DEFAULT_CONTACTO,
+    },
   });
   const [campos, setCampos] = useState<Campos>(DEFAULT_CAMPOS);
   const [autoCancel, setAutoCancel] = useState<number>(0);
@@ -128,8 +141,21 @@ export default function TiendaEnLineaPage() {
     finally { setAvanzandoKey(null); }
   };
 
-  function setPref(path: 'promociones' | 'envio_gratis', patch: any) {
+  function setPref(path: 'promociones' | 'envio_gratis' | 'contacto', patch: any) {
     setForm((f: any) => ({ ...f, preferencias: { ...f.preferencias, [path]: { ...f.preferencias?.[path], ...patch } } }));
+  }
+
+  function setContactoRed(red: keyof typeof DEFAULT_CONTACTO.redes, valor: string) {
+    setForm((f: any) => ({
+      ...f,
+      preferencias: {
+        ...f.preferencias,
+        contacto: {
+          ...DEFAULT_CONTACTO, ...f.preferencias?.contacto,
+          redes: { ...DEFAULT_CONTACTO.redes, ...f.preferencias?.contacto?.redes, [red]: valor },
+        },
+      },
+    }));
   }
 
   async function load() {
@@ -154,6 +180,10 @@ export default function TiendaEnLineaPage() {
           preferencias: {
             promociones: { activo: false, texto: '⚡ Oferta del día — termina en', ...(data.preferencias?.promociones || {}) },
             envio_gratis: { activo: false, umbral: 500, ...(data.preferencias?.envio_gratis || {}) },
+            contacto: {
+              ...DEFAULT_CONTACTO, ...(data.preferencias?.contacto || {}),
+              redes: { ...DEFAULT_CONTACTO.redes, ...(data.preferencias?.contacto?.redes || {}) },
+            },
           },
         });
       }
@@ -405,6 +435,93 @@ export default function TiendaEnLineaPage() {
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ── CONTACTO ── */}
+      {tab === 'contacto' && (
+        <div className="space-y-4 max-w-2xl">
+          <div className="bg-slate-800 rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-white flex items-center gap-2"><Phone size={14} /> Mostrar contacto en la tienda</p>
+              <p className="text-xs text-slate-400 mt-0.5">Para que tus clientes puedan escribirte antes o después de comprar.</p>
+            </div>
+            <Toggle on={!!form.preferencias?.contacto?.activo} color="text-sky-400"
+              onClick={() => setPref('contacto', { activo: !form.preferencias?.contacto?.activo })} />
+          </div>
+
+          {form.preferencias?.contacto?.activo && (
+            <>
+              <div className="bg-slate-800 rounded-xl p-4 space-y-3">
+                <p className="text-sm font-semibold text-white">Teléfono</p>
+                <div className="flex items-center gap-2">
+                  <input value={form.preferencias?.contacto?.telefono || ''}
+                    onChange={e => setPref('contacto', { telefono: e.target.value })}
+                    placeholder="10 dígitos" className={inputCls} />
+                  <label className="flex items-center gap-2 text-xs text-slate-400 whitespace-nowrap">
+                    <button onClick={() => setPref('contacto', { mostrar_telefono: !form.preferencias?.contacto?.mostrar_telefono })}
+                      className={`transition-colors ${form.preferencias?.contacto?.mostrar_telefono ? 'text-blue-400' : 'text-slate-500'}`}>
+                      {form.preferencias?.contacto?.mostrar_telefono ? <ToggleRight size={26} /> : <ToggleLeft size={26} />}
+                    </button>
+                    Mostrar
+                  </label>
+                </div>
+              </div>
+
+              <div className="bg-slate-800 rounded-xl p-4 space-y-3">
+                <p className="text-sm font-semibold text-white">WhatsApp</p>
+                <div className="flex items-center gap-2">
+                  <input value={form.preferencias?.contacto?.whatsapp || ''}
+                    onChange={e => setPref('contacto', { whatsapp: e.target.value })}
+                    placeholder="Ej: 5215512345678 (con código de país)" className={inputCls} />
+                  <label className="flex items-center gap-2 text-xs text-slate-400 whitespace-nowrap">
+                    <button onClick={() => setPref('contacto', { mostrar_whatsapp: !form.preferencias?.contacto?.mostrar_whatsapp })}
+                      className={`transition-colors ${form.preferencias?.contacto?.mostrar_whatsapp ? 'text-green-400' : 'text-slate-500'}`}>
+                      {form.preferencias?.contacto?.mostrar_whatsapp ? <ToggleRight size={26} /> : <ToggleLeft size={26} />}
+                    </button>
+                    Mostrar
+                  </label>
+                </div>
+                <input value={form.preferencias?.contacto?.whatsapp_mensaje || ''}
+                  onChange={e => setPref('contacto', { whatsapp_mensaje: e.target.value })}
+                  placeholder="Mensaje inicial del botón de WhatsApp" className={inputCls} />
+              </div>
+
+              <div className="bg-slate-800 rounded-xl p-4 space-y-3">
+                <p className="text-sm font-semibold text-white">Nombre para mostrar</p>
+                <div className="flex items-center gap-2">
+                  <input value={form.preferencias?.contacto?.nombre_contacto || ''}
+                    onChange={e => setPref('contacto', { nombre_contacto: e.target.value })}
+                    placeholder="Ej: Atención a clientes Jessovi" className={inputCls} />
+                  <label className="flex items-center gap-2 text-xs text-slate-400 whitespace-nowrap">
+                    <button onClick={() => setPref('contacto', { mostrar_nombre: !form.preferencias?.contacto?.mostrar_nombre })}
+                      className={`transition-colors ${form.preferencias?.contacto?.mostrar_nombre ? 'text-blue-400' : 'text-slate-500'}`}>
+                      {form.preferencias?.contacto?.mostrar_nombre ? <ToggleRight size={26} /> : <ToggleLeft size={26} />}
+                    </button>
+                    Mostrar
+                  </label>
+                </div>
+              </div>
+
+              <div className="bg-slate-800 rounded-xl p-4 space-y-3">
+                <p className="text-sm font-semibold text-white">Redes sociales</p>
+                <p className="text-xs text-slate-400">Pega el link completo de cada red. Deja vacío para ocultarla.</p>
+                {([
+                  ['facebook', 'https://facebook.com/tu-tienda'],
+                  ['instagram', 'https://instagram.com/tu-tienda'],
+                  ['tiktok', 'https://tiktok.com/@tu-tienda'],
+                  ['x', 'https://x.com/tu-tienda'],
+                ] as const).map(([red, placeholder]) => (
+                  <div key={red} className="flex items-center gap-2">
+                    <span className="text-xs text-slate-400 w-16 capitalize">{red}</span>
+                    <input value={form.preferencias?.contacto?.redes?.[red] || ''}
+                      onChange={e => setContactoRed(red, e.target.value)}
+                      placeholder={placeholder} className={inputCls} />
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 

@@ -18,7 +18,7 @@ export default async function CarritoPage({ params }: PageProps) {
     <CartProvider>
       <Navbar categorias={categorias} />
       <CarritoView subdominio={subdominio} info={info} />
-      <StoreFooter tiendaNombre={info.nombre_tienda} empresaNombre={info.empresa?.nombre} />
+      <StoreFooter tiendaNombre={info.nombre_tienda} empresaNombre={info.empresa?.nombre} contacto={info.preferencias?.contacto} />
     </CartProvider>
   )
 }

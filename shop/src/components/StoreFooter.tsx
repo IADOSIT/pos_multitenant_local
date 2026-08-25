@@ -1,7 +1,27 @@
 import { IADOS } from '@/lib/constants'
 
-export default function StoreFooter({ tiendaNombre, empresaNombre }: { tiendaNombre?: string; empresaNombre?: string }) {
+interface ContactoConfig {
+  activo?: boolean
+  telefono?: string; mostrar_telefono?: boolean
+  whatsapp?: string; mostrar_whatsapp?: boolean; whatsapp_mensaje?: string
+  nombre_contacto?: string; mostrar_nombre?: boolean
+  redes?: { facebook?: string; instagram?: string; tiktok?: string; x?: string }
+}
+
+const REDES_LABEL: Record<string, string> = { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', x: 'X (Twitter)' }
+
+function soloDigitos(v: string) {
+  return v.replace(/\D/g, '')
+}
+
+export default function StoreFooter({ tiendaNombre, empresaNombre, contacto }: { tiendaNombre?: string; empresaNombre?: string; contacto?: ContactoConfig }) {
   const nombre = tiendaNombre || empresaNombre || 'esta tienda'
+  const mostrarContacto = !!contacto?.activo && (
+    (contacto.mostrar_telefono && contacto.telefono) ||
+    (contacto.mostrar_whatsapp && contacto.whatsapp) ||
+    (contacto.mostrar_nombre && contacto.nombre_contacto) ||
+    Object.values(contacto.redes || {}).some(Boolean)
+  )
   return (
     <footer style={{
       background: 'var(--color-surface)',
@@ -26,6 +46,38 @@ export default function StoreFooter({ tiendaNombre, empresaNombre }: { tiendaNom
               {nombre} opera en la plataforma Punto de Venta iaDoS.
             </p>
           </div>
+
+          {/* Contacto de la tienda */}
+          {mostrarContacto && (
+            <div>
+              <p style={{ fontWeight: 700, fontSize: 13, color: 'var(--color-text)', marginBottom: 10 }}>
+                {(contacto?.mostrar_nombre && contacto.nombre_contacto) || `Contacta a ${nombre}`}
+              </p>
+              <div style={{ fontSize: 13, color: 'var(--color-text-muted)', lineHeight: 2 }}>
+                {contacto?.mostrar_telefono && contacto.telefono && (
+                  <p><a href={`tel:${soloDigitos(contacto.telefono)}`} style={{ color: 'inherit', textDecoration: 'none' }}>📞 {contacto.telefono}</a></p>
+                )}
+                {contacto?.mostrar_whatsapp && contacto.whatsapp && (
+                  <p>
+                    <a
+                      href={`https://wa.me/${soloDigitos(contacto.whatsapp)}${contacto.whatsapp_mensaje ? `?text=${encodeURIComponent(contacto.whatsapp_mensaje)}` : ''}`}
+                      target="_blank" rel="noreferrer"
+                      style={{ color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 600 }}
+                    >
+                      💬 WhatsApp
+                    </a>
+                  </p>
+                )}
+                {contacto?.redes && Object.entries(contacto.redes).filter(([, url]) => url).map(([red, url]) => (
+                  <p key={red}>
+                    <a href={url} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>
+                      {REDES_LABEL[red] || red}
+                    </a>
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Contacto iaDoS */}
           <div>
