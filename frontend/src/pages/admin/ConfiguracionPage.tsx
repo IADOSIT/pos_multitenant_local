@@ -6,7 +6,7 @@ import { useAuthStore } from '../../store/auth.store';
 import TicketsConfig from './TicketsConfig';
 import { useThemeStore, ThemeName, PaletteName } from '../../store/theme.store';
 import toast from 'react-hot-toast';
-import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers, TrendingUp, DollarSign, Truck, X, Scale, Search, Sparkles } from 'lucide-react';
+import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Download, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers, TrendingUp, DollarSign, Truck, X, Scale, Search, Sparkles } from 'lucide-react';
 import MantenimientoPage from './MantenimientoPage';
 import LicenciasAdmin from './LicenciasAdmin';
 import PerfilNegocioPage from './PerfilNegocioPage';
@@ -2562,6 +2562,33 @@ export default function ConfiguracionPage() {
                       <code className="text-xs text-slate-600 break-all block">{bsConfig.tienda_token}</code>
                     </div>
                   )}
+
+                  {/* Guia de instalacion del bridge fisico */}
+                  <div className="border-t border-iados-card pt-4 space-y-3">
+                    <h5 className="text-xs font-bold text-slate-400">Instalar en la PC con la bascula conectada</h5>
+                    <ol className="text-xs text-slate-400 space-y-1.5 list-decimal list-inside">
+                      <li>Instalar el driver de puerto serial (VCP) de la bascula Torrey en la PC Windows que va a estar conectada por USB.</li>
+                      <li>Conectar el cable USB de la bascula y anotar el puerto COM que le asigna Windows en Administrador de dispositivos → Puertos (COM y LPT).</li>
+                      <li>Descargar el bridge de abajo, descomprimirlo, y copiar <code className="bg-slate-700 px-1 rounded text-blue-300">.env.example</code> como <code className="bg-slate-700 px-1 rounded text-blue-300">.env</code>.</li>
+                      <li>En ese <code className="bg-slate-700 px-1 rounded text-blue-300">.env</code>, pegar el token de esta tienda (arriba) en <code className="bg-slate-700 px-1 rounded text-blue-300">TIENDA_TOKEN</code> y el puerto COM anotado en <code className="bg-slate-700 px-1 rounded text-blue-300">SCALE_PORT</code>.</li>
+                      <li>En el menu fisico de la bascula, activar la transmision continua por RS-232 y confirmar que el baudrate coincide con <code className="bg-slate-700 px-1 rounded text-blue-300">SCALE_BAUD</code> (9600 por defecto).</li>
+                      <li>Ejecutar <code className="bg-slate-700 px-1 rounded text-blue-300">start.bat</code> — debe aparecer un icono en la bandeja de Windows leyendo el peso en vivo.</li>
+                    </ol>
+                    <div className="flex items-center gap-3 flex-wrap pt-1">
+                      <a href={resolveUploadUrl('/api/uploads/downloads/bascula-bridge.zip')} download
+                        className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 border border-blue-800 rounded-lg px-3 py-1.5">
+                        <Download size={12} /> Descargar Bridge Bascula
+                      </a>
+                      <a href="https://redtorrey.com/software/vcp_v1-5-0_setup_w8_x64_64bits.zip" target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-300 border border-slate-700 rounded-lg px-3 py-1.5">
+                        <ExternalLink size={12} /> Driver Torrey (Windows)
+                      </a>
+                    </div>
+                    <p className="text-xs text-slate-600">
+                      Probado con basculas Torrey serie L-PCR / PCR con salida serial/USB. Para otras marcas, el bridge
+                      trae un lector generico (ver <code className="bg-slate-700 px-1 rounded text-blue-300">bascula-bridge/LEEME.txt</code>) que puede requerir ajustar el formato de trama en <code className="bg-slate-700 px-1 rounded text-blue-300">main.js</code>.
+                    </p>
+                  </div>
 
                   {/* Preview de productos vendibles por peso */}
                   <div className="border-t border-iados-card pt-4">
