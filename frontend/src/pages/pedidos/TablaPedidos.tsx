@@ -68,17 +68,25 @@ export default function TablaPedidos({
           );
         },
       }),
+      // El consecutivo va grande y el folio completo debajo en chico: el personal
+      // compara ordenes por el numero ("la 70 entro antes que la 90"), pero el folio
+      // sigue a la vista porque es lo que aparece en el ticket.
       columnHelper.accessor('numero', {
         header: '# Pedido',
         cell: ({ row }) => (
-          <span className="font-mono text-xs text-slate-300">
-            {row.original.numero}
+          <div className="leading-tight">
+            <span className="text-lg font-bold text-white tabular-nums">
+              {row.original.numeroCorto !== null ? `#${row.original.numeroCorto}` : row.original.numero}
+            </span>
             {row.original.requiereAtencion && (
-              <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-bold text-orange-300">
+              <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-bold text-orange-300 align-middle">
                 <AlertTriangle size={10} /> POR CONFIRMAR
               </span>
             )}
-          </span>
+            {row.original.numeroCorto !== null && (
+              <div className="font-mono text-[10px] text-slate-500">{row.original.numero}</div>
+            )}
+          </div>
         ),
       }),
       columnHelper.accessor('referencia', {

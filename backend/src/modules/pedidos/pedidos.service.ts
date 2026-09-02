@@ -20,7 +20,9 @@ export class PedidosService {
     @Optional() private selfOrderService?: SelfOrderService,
   ) {}
 
-  private async generateFolio(tienda_id: number): Promise<string> {
+  // Devuelve el folio de siempre y, ademas, el consecutivo crudo: es el mismo numero
+  // que ya iba embebido en el folio, expuesto aparte para poder mostrarlo como "#70".
+  private async generateFolio(tienda_id: number): Promise<{ folio: string; numero: number }> {
     return this.dataSource.transaction(async (manager) => {
       const [tienda] = await manager.query(
         'SELECT folio_pedido_counter, nombre FROM tiendas WHERE id = ? FOR UPDATE',
@@ -34,12 +36,12 @@ export class PedidosService {
       const initial = (tienda?.nombre || 'X')
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z]/g, '')
         .charAt(0).toUpperCase() || 'X';
-      return `I${initial}${String(newCounter).padStart(8, '0')}`;
+      return { folio: `I${initial}${String(newCounter).padStart(8, '0')}`, numero: newCounter };
     });
   }
 
   async crear(data: any, scope: any) {
-    const folio = await this.generateFolio(scope.tienda_id);
+    const { folio, numero: numero_orden } = await this.generateFolio(scope.tienda_id);
 
     const pedido = this.pedidosRepo.create({
       tenant_id: scope.tenant_id,
@@ -48,6 +50,7 @@ export class PedidosService {
       usuario_id: scope.id || scope.sub,
       usuario_nombre: scope.nombre,
       folio,
+      numero_orden,
       mesa: data.mesa,
       subtotal: data.subtotal,
       descuento: data.descuento || 0,
@@ -79,6 +82,7 @@ export class PedidosService {
     this.notificacionesService.emitToTienda(scope.tienda_id, 'nuevo_pedido', {
       id: full!.id,
       folio: full!.folio,
+      numero_orden: full!.numero_orden,
       mesa: full!.mesa,
       total: full!.total,
       items: full!.detalles?.length || 0,

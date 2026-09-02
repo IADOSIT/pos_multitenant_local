@@ -60,6 +60,10 @@ __decorate([
     __metadata("design:type", Number)
 ], Tienda.prototype, "folio_venta_counter", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ default: 0 }),
+    __metadata("design:type", Number)
+], Tienda.prototype, "folio_devolucion_counter", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'json', nullable: true }),
     __metadata("design:type", Object)
 ], Tienda.prototype, "config_ticket", void 0);

@@ -12,8 +12,22 @@ export class DevolucionesService {
     @InjectDataSource() private dataSource: DataSource,
   ) {}
 
-  private generateFolio(): string {
-    return 'DEV-' + Date.now().toString(36).toUpperCase();
+  // Consecutivo por tienda, con el mismo patron de bloqueo (FOR UPDATE) que ventas y
+  // pedidos. Antes era 'DEV-' + timestamp en base36: unico, pero imposible de ordenar
+  // o comparar a simple vista, que es justo lo que necesita el personal de mostrador.
+  private async generateFolio(tienda_id: number): Promise<{ folio: string; numero: number }> {
+    return this.dataSource.transaction(async (manager) => {
+      const [tienda] = await manager.query(
+        'SELECT folio_devolucion_counter FROM tiendas WHERE id = ? FOR UPDATE',
+        [tienda_id],
+      );
+      const newCounter = (tienda?.folio_devolucion_counter || 0) + 1;
+      await manager.query(
+        'UPDATE tiendas SET folio_devolucion_counter = ? WHERE id = ?',
+        [newCounter, tienda_id],
+      );
+      return { folio: `DEV-${String(newCounter).padStart(6, '0')}`, numero: newCounter };
+    });
   }
 
   async findByVenta(ventaId: number, scope: any): Promise<Devolucion[]> {
@@ -113,7 +127,9 @@ export class DevolucionesService {
       entity.empresa_id = scope.empresa_id;
       entity.tienda_id = scope.tienda_id;
       entity.venta_id = dto.venta_id;
-      entity.folio = this.generateFolio();
+      const { folio: folioDev, numero: numeroDev } = await this.generateFolio(scope.tienda_id);
+      entity.folio = folioDev;
+      entity.numero_orden = numeroDev;
       entity.venta_folio = venta.folio;
       entity.usuario_id = scope.id || scope.sub;
       entity.usuario_nombre = scope.nombre || 'Sistema';

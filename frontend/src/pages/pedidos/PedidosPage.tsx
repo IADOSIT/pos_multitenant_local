@@ -6,11 +6,12 @@ import { useNotificaciones } from '../../hooks/useNotificaciones';
 import { printTicket, printComanda } from '../../utils/printTicket';
 import { resolveUploadUrl } from '../../api/client';
 import toast from 'react-hot-toast';
-import { ClipboardList, CreditCard, XCircle, RefreshCw, Check, Ban, Receipt, FileText, Truck, AlertTriangle } from 'lucide-react';
+import { ClipboardList, XCircle, RefreshCw, Ban, Truck } from 'lucide-react';
 import { ecommerceApi, tiendasApi } from '../../api/endpoints';
 import PinConfirmModal from '../../components/ui/PinConfirmModal';
 import TablaPedidos from './TablaPedidos';
 import DetallePedidoWeb from './DetallePedidoWeb';
+import DetallePedidoPOS from './DetallePedidoPOS';
 import {
   PedidoUnificado, ESTADOS_UNIFICADOS, estadoUnificadoDe, siguienteEstadoRaw,
   normalizarPedidoPOS, normalizarPedidoWeb, ordenarPorFecha, esCerrado,
@@ -94,6 +95,15 @@ export default function PedidosPage() {
       .filter(p => esCerrado(p.estado) === (tab === 'completados'));
     return ordenarPorFecha([...dePOS, ...deWeb]);
   }, [pedidos, pedidosWeb, tab]);
+
+  // `selected` guarda el pedido crudo porque es lo que consumen todos los handlers de
+  // esta pagina. El modal ademas necesita la fila normalizada (numero corto, estado
+  // unificado, referencia), asi que se busca en el listado en vez de duplicar estado:
+  // asi sigue en sync sola despues de cada load().
+  const selectedUnificado = useMemo(
+    () => (selected ? listado.find(p => p.key === `pos-${selected.id}`) ?? null : null),
+    [selected, listado],
+  );
 
   useEffect(() => { load(); }, [load]);
 
@@ -385,7 +395,7 @@ export default function PedidosPage() {
         seleccionadoKey={selectedWeb?.key || (selected ? `pos-${selected.id}` : null)}
         avanzandoKey={avanzandoKey}
         vacioTexto={tab === 'pendientes' ? 'No hay pedidos pendientes' : 'No hay pedidos completados'}
-        tieneDetalle={p => p.origen === 'web' || (tab === 'pendientes' && canManage)}
+        tieneDetalle={p => p.origen === 'web' || canManage}
         onSelect={handleSelect}
         onAvanzar={handleAvanzarFila}
       />
@@ -399,113 +409,40 @@ export default function PedidosPage() {
         />
       )}
 
-      {/* Detail + Actions Panel */}
-      {selected && tab === 'pendientes' && canManage && (
-        <div className="fixed bottom-0 left-0 right-0 md:left-20 lg:left-56 bg-iados-surface border-t border-slate-700 p-4 z-40">
-          <div className="max-w-6xl mx-auto flex items-center justify-between flex-wrap gap-2">
-            <div>
-              <span className="font-bold">Mesa {selected.mesa}</span>
-              <span className="text-slate-400 mx-2">|</span>
-              <span className="font-mono text-sm">{selected.folio}</span>
-              {cfgEspecial.mostrar_precios && (
-                <>
-                  <span className="text-slate-400 mx-2">|</span>
-                  <span className="text-green-400 font-bold">${Number(selected.total).toFixed(2)}</span>
-                </>
-              )}
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {/* Self-order: confirm/reject when received and not yet confirmed by mesero */}
-              {selected.self_order && selected.estado === 'recibido' && !selected.mesero_confirmado && (
-                <>
-                  <button
-                    onClick={() => handleConfirmarSO(selected)}
-                    className="bg-green-700 hover:bg-green-600 text-white px-3 py-2 rounded-xl text-sm flex items-center gap-1"
-                  >
-                    <Check size={15} /> Confirmar al cliente
-                  </button>
-                  <button
-                    onClick={() => { setShowRechazarSO(true); setRechazarMotivo(''); }}
-                    className="bg-red-800 hover:bg-red-700 text-white px-3 py-2 rounded-xl text-sm flex items-center gap-1"
-                  >
-                    <Ban size={15} /> Rechazar
-                  </button>
-                </>
-              )}
-              {nextEstado[selected.estado] && selected.estado !== 'listo_para_entrega' && (
-                <button onClick={() => handleAvanzarEstado(selected)} className="btn-secondary text-sm">
-                  {selected.estado === 'recibido' ? 'Iniciar Preparacion' : 'Marcar Listo'}
-                </button>
-              )}
-              {(selected.estado === 'listo_para_entrega' || selected.estado === 'recibido' || selected.estado === 'en_elaboracion') && (
-                <div className="flex flex-col items-start gap-1">
-                  <button
-                    onClick={() => {
-                      setShowCobrar(true);
-                      setMetodo('efectivo');
-                      setPagado('');
-                      if (cfgEspecial.precio_manual && selected?.detalles) {
-                        const init: Record<number, string> = {};
-                        selected.detalles.forEach((d: any) => { init[d.id] = ''; });
-                        setPreciosManual(init);
-                      }
-                    }}
-                    disabled={!cajaActiva || checkingCaja}
-                    title={!checkingCaja && !cajaActiva ? 'No hay caja abierta — ábrela en POS o Caja para poder cobrar' : undefined}
-                    className="btn-primary text-sm"
-                  >
-                    <CreditCard size={16} className="mr-1" />Cobrar
-                  </button>
-                  {!checkingCaja && !cajaActiva && (
-                    <span className="flex items-center gap-1 text-xs text-yellow-400 bg-yellow-900/30 border border-yellow-800 rounded-lg px-2 py-1">
-                      <AlertTriangle size={12} /> No puedes cobrar: no hay caja abierta. Ábrela en POS o Caja.
-                    </span>
-                  )}
-                </div>
-              )}
-              {precuentaEnabled && (
-                <button
-                  onClick={() => handlePreCuenta(selected)}
-                  className="btn-secondary text-xs flex items-center gap-1"
-                  title="Imprimir Pre-cuenta"
-                >
-                  <FileText size={14} /> Pre-cuenta
-                </button>
-              )}
-              <button
-                onClick={() => handlePrintComanda(selected)}
-                className="btn-secondary text-xs flex items-center gap-1"
-                title="Imprimir Comanda"
-              >
-                <Receipt size={14} /> Comanda
-              </button>
-              {/* Asignar entrega — visible para cualquier pedido pendiente si logística está habilitada.
-                  Antes solo aparecía si tipo_servicio/self_order/cliente_direccion ya traían datos de
-                  entrega, lo que lo hacía aparecer inconsistente (ej. pedidos tomados manualmente en
-                  POS sin esos campos). El cajero decide si aplica o no. */}
-              {logisticaEnabled && (
-                entregaActual ? (
-                  <span className="text-xs text-slate-400 flex items-center gap-1 px-2 py-2">
-                    <Truck size={13} />
-                    {entregaActual.repartidor_nombre} — {entregaActual.estado}
-                  </span>
-                ) : (
-                  <button
-                    onClick={() => setShowAsignarEntrega(true)}
-                    className="btn-secondary text-xs flex items-center gap-1"
-                    title="Asignar a repartidor"
-                  >
-                    <Truck size={14} /> Asignar entrega
-                  </button>
-                )
-              )}
-              <button onClick={() => { setShowCancelar(true); setCancelMotivo(''); }} className="text-red-400 hover:bg-red-900/50 px-3 py-2 rounded-xl text-sm">
-                Cancelar
-              </button>
-              <button onClick={() => setSelected(null)} className="btn-secondary text-sm">Cerrar</button>
-            </div>
-          </div>
-        </div>
+      {/* Detalle del pedido de mostrador/QR. Sustituye a la barra inferior que antes
+          mostraba solo folio y total en letra chica: aqui se ve el pedido completo en
+          grande y con las mismas acciones (los handlers no cambiaron).
+          Se oculta mientras hay un submodal encima para no apilar dos capas. */}
+      {selectedUnificado && !showCobrar && !showCancelar && !showRechazarSO
+        && !showAsignarEntrega && !showPinCancelar && (
+        <DetallePedidoPOS
+          pedido={selectedUnificado}
+          mostrarPrecios={cfgEspecial.mostrar_precios}
+          puedeOperar={tab === 'pendientes' && canManage}
+          precuentaEnabled={precuentaEnabled}
+          logisticaEnabled={logisticaEnabled}
+          entregaActual={entregaActual}
+          cajaActiva={cajaActiva}
+          checkingCaja={checkingCaja}
+          onClose={() => setSelected(null)}
+          onAvanzarEstado={handleAvanzarEstado}
+          onCobrar={() => {
+            setShowCobrar(true);
+            setMetodo('efectivo');
+            setPagado('');
+            if (cfgEspecial.precio_manual && selected?.detalles) {
+              const init: Record<number, string> = {};
+              selected.detalles.forEach((d: any) => { init[d.id] = ''; });
+              setPreciosManual(init);
+            }
+          }}
+          onCancelar={() => { setShowCancelar(true); setCancelMotivo(''); }}
+          onConfirmarSO={handleConfirmarSO}
+          onRechazarSO={() => { setShowRechazarSO(true); setRechazarMotivo(''); }}
+          onPreCuenta={handlePreCuenta}
+          onComanda={handlePrintComanda}
+          onAsignarEntrega={() => setShowAsignarEntrega(true)}
+        />
       )}
 
       {/* Modal Cobrar */}

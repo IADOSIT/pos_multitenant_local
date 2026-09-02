@@ -38,11 +38,11 @@ let PedidosService = class PedidosService {
             const initial = (tienda?.nombre || 'X')
                 .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z]/g, '')
                 .charAt(0).toUpperCase() || 'X';
-            return `I${initial}${String(newCounter).padStart(8, '0')}`;
+            return { folio: `I${initial}${String(newCounter).padStart(8, '0')}`, numero: newCounter };
         });
     }
     async crear(data, scope) {
-        const folio = await this.generateFolio(scope.tienda_id);
+        const { folio, numero: numero_orden } = await this.generateFolio(scope.tienda_id);
         const pedido = this.pedidosRepo.create({
             tenant_id: scope.tenant_id,
             empresa_id: scope.empresa_id,
@@ -50,6 +50,7 @@ let PedidosService = class PedidosService {
             usuario_id: scope.id || scope.sub,
             usuario_nombre: scope.nombre,
             folio,
+            numero_orden,
             mesa: data.mesa,
             subtotal: data.subtotal,
             descuento: data.descuento || 0,
@@ -78,6 +79,7 @@ let PedidosService = class PedidosService {
         this.notificacionesService.emitToTienda(scope.tienda_id, 'nuevo_pedido', {
             id: full.id,
             folio: full.folio,
+            numero_orden: full.numero_orden,
             mesa: full.mesa,
             total: full.total,
             items: full.detalles?.length || 0,

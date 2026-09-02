@@ -32,6 +32,11 @@ export class Empresa {
   @Column({ length: 500, nullable: true })
   logo_url: string;
 
+  // Consecutivo de transferencias de inventario: van entre tiendas de esta empresa,
+  // asi que el contador vive aqui y no en `tiendas`.
+  @Column({ default: 0 })
+  folio_transferencia_counter: number;
+
   @Column({ type: 'json', nullable: true })
   config_apariencia: {
     tema: string;

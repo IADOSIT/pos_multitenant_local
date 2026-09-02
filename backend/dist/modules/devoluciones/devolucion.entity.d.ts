@@ -5,6 +5,7 @@ export declare class Devolucion {
     tienda_id: number;
     venta_id: number;
     folio: string;
+    numero_orden: number;
     venta_folio: string;
     usuario_id: number;
     usuario_nombre: string;

@@ -22,8 +22,17 @@ export interface PedidoUnificado {
   key: string;
   id: number;
   origen: Origen;
-  /** folio (mostrador) o numero_pedido (web). */
+  /** folio (mostrador) o numero_pedido (web). Se conserva para trazabilidad y busqueda. */
   numero: string;
+  /**
+   * Consecutivo corto para mostrar en pantalla ("#70"). Lo que el personal necesita
+   * para saber de un vistazo que la orden 70 entro antes que la 90.
+   *
+   * Viene de `numero_orden` (backend). Los pedidos creados antes de que existiera esa
+   * columna llegan en 0, asi que se cae a leer la cola numerica del folio, que es
+   * exactamente el mismo consecutivo: IM00000070 -> 70, EP-26-0001 -> 1.
+   */
+  numeroCorto: number | null;
   /** "Mesa 5" o el nombre del cliente. */
   referencia: string;
   /** Segunda linea de la columna cliente: quien lo tomo, o el correo. */
@@ -85,6 +94,19 @@ const SIGUIENTE_WEB: Record<string, string> = {
   enviado: 'entregado',
 };
 
+/**
+ * Consecutivo visible de un pedido: usa `numero_orden` si el backend ya lo manda y,
+ * si no (registros anteriores a esa columna), extrae la cola numerica del folio.
+ * Devuelve null si el folio no trae ningun numero, para no inventar un "#0".
+ */
+function numeroCortoDe(numeroOrden: any, folio: string | undefined): number | null {
+  const n = Number(numeroOrden);
+  if (Number.isFinite(n) && n > 0) return n;
+  const cola = /(\d+)\s*$/.exec(folio || '');
+  const legado = cola ? parseInt(cola[1], 10) : NaN;
+  return Number.isFinite(legado) && legado > 0 ? legado : null;
+}
+
 export function normalizarPedidoPOS(p: any): PedidoUnificado {
   const esQR = !!p.self_order;
   return {
@@ -92,6 +114,7 @@ export function normalizarPedidoPOS(p: any): PedidoUnificado {
     id: p.id,
     origen: esQR ? 'qr' : 'mostrador',
     numero: p.folio,
+    numeroCorto: numeroCortoDe(p.numero_orden, p.folio),
     referencia: p.mesa ? `Mesa ${p.mesa}` : (p.cliente_nombre || 'Mostrador'),
     subtitulo: p.usuario_nombre || (esQR ? p.cliente_nombre || 'Cliente' : 'Mesero'),
     total: Number(p.total) || 0,
@@ -109,6 +132,7 @@ export function normalizarPedidoWeb(p: any): PedidoUnificado {
     id: p.id,
     origen: 'web',
     numero: p.numero_pedido,
+    numeroCorto: numeroCortoDe(p.numero_orden, p.numero_pedido),
     referencia: p.cliente_nombre || 'Cliente',
     subtitulo: p.cliente_email || p.cliente_tel || '',
     total: Number(p.total) || 0,

@@ -19,8 +19,11 @@ const typeorm_2 = require("typeorm");
 const transferencia_entity_1 = require("./transferencia.entity");
 const producto_entity_1 = require("../productos/producto.entity");
 const empresas_service_1 = require("../empresas/empresas.service");
-function generarFolio() {
-    return `TR-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+async function generarFolio(manager, empresa_id) {
+    const [empresa] = await manager.query('SELECT folio_transferencia_counter FROM empresas WHERE id = ? FOR UPDATE', [empresa_id]);
+    const newCounter = (empresa?.folio_transferencia_counter || 0) + 1;
+    await manager.query('UPDATE empresas SET folio_transferencia_counter = ? WHERE id = ?', [newCounter, empresa_id]);
+    return { folio: `TR-${String(newCounter).padStart(6, '0')}`, numero: newCounter };
 }
 let TransferenciasService = class TransferenciasService {
     constructor(repo, prodRepo, dataSource, empresasService) {
@@ -60,7 +63,7 @@ let TransferenciasService = class TransferenciasService {
             }
             const stockNuevo = stockDisponible - cantidad;
             await manager.query('UPDATE producto_tienda SET stock = ? WHERE id = ?', [stockNuevo, pt.id]);
-            const folio = generarFolio();
+            const { folio, numero: numero_orden } = await generarFolio(manager, scope.empresa_id);
             await manager.query(`INSERT INTO movimientos_inventario
           (tenant_id, empresa_id, tienda_id, producto_id, producto_nombre, producto_sku,
            tipo, cantidad, stock_anterior, stock_nuevo, concepto, usuario_id, usuario_nombre)
@@ -79,6 +82,7 @@ let TransferenciasService = class TransferenciasService {
                 tienda_destino_id: data.tienda_destino_id,
                 tienda_destino_nombre: tiendaDestino.nombre,
                 folio,
+                numero_orden,
                 producto_id: producto.id,
                 producto_nombre: producto.nombre,
                 producto_sku: producto.sku || '',

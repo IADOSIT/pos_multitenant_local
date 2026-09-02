@@ -22,6 +22,11 @@ export class Devolucion {
   @Column({ length: 50 })
   folio: string;
 
+  // Consecutivo por tienda. Antes el folio era 'DEV-' + timestamp en base36, que no
+  // se podia ordenar ni comparar a simple vista.
+  @Column({ default: 0 })
+  numero_orden: number;
+
   @Column({ length: 50 })
   venta_folio: string;
 

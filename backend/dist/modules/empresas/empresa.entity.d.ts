@@ -10,6 +10,7 @@ export declare class Empresa {
     telefono: string;
     email: string;
     logo_url: string;
+    folio_transferencia_counter: number;
     config_apariencia: {
         tema: string;
         paleta: string;

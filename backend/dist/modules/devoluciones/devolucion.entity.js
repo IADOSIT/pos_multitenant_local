@@ -39,6 +39,10 @@ __decorate([
     __metadata("design:type", String)
 ], Devolucion.prototype, "folio", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ default: 0 }),
+    __metadata("design:type", Number)
+], Devolucion.prototype, "numero_orden", void 0);
+__decorate([
     (0, typeorm_1.Column)({ length: 50 }),
     __metadata("design:type", String)
 ], Devolucion.prototype, "venta_folio", void 0);

@@ -1,12 +1,25 @@
 import { Injectable, BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { TransferenciaInventario, TransferenciaEstado } from './transferencia.entity';
 import { Producto } from '../productos/producto.entity';
 import { EmpresasService } from '../empresas/empresas.service';
 
-function generarFolio(): string {
-  return `TR-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+// Consecutivo por empresa (una transferencia siempre va entre tiendas de la misma
+// empresa). Antes era timestamp + random: unico, pero no se podia ordenar ni comparar.
+// Se apoya en el `manager` de la transaccion que ya envuelve la creacion, asi que el
+// contador y el movimiento de stock siguen siendo atomicos.
+async function generarFolio(manager: EntityManager, empresa_id: number): Promise<{ folio: string; numero: number }> {
+  const [empresa] = await manager.query(
+    'SELECT folio_transferencia_counter FROM empresas WHERE id = ? FOR UPDATE',
+    [empresa_id],
+  );
+  const newCounter = (empresa?.folio_transferencia_counter || 0) + 1;
+  await manager.query(
+    'UPDATE empresas SET folio_transferencia_counter = ? WHERE id = ?',
+    [newCounter, empresa_id],
+  );
+  return { folio: `TR-${String(newCounter).padStart(6, '0')}`, numero: newCounter };
 }
 
 @Injectable()
@@ -59,7 +72,7 @@ export class TransferenciasService {
       const stockNuevo = stockDisponible - cantidad;
       await manager.query('UPDATE producto_tienda SET stock = ? WHERE id = ?', [stockNuevo, pt.id]);
 
-      const folio = generarFolio();
+      const { folio, numero: numero_orden } = await generarFolio(manager, scope.empresa_id);
       await manager.query(
         `INSERT INTO movimientos_inventario
           (tenant_id, empresa_id, tienda_id, producto_id, producto_nombre, producto_sku,
@@ -82,6 +95,7 @@ export class TransferenciasService {
         tienda_destino_id: data.tienda_destino_id,
         tienda_destino_nombre: tiendaDestino.nombre,
         folio,
+        numero_orden,
         producto_id: producto.id,
         producto_nombre: producto.nombre,
         producto_sku: producto.sku || '',

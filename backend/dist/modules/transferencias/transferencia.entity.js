@@ -53,6 +53,10 @@ __decorate([
     __metadata("design:type", String)
 ], TransferenciaInventario.prototype, "folio", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ default: 0 }),
+    __metadata("design:type", Number)
+], TransferenciaInventario.prototype, "numero_orden", void 0);
+__decorate([
     (0, typeorm_1.Column)(),
     __metadata("design:type", Number)
 ], TransferenciaInventario.prototype, "producto_id", void 0);

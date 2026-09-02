@@ -60,6 +60,10 @@ __decorate([
     __metadata("design:type", String)
 ], Venta.prototype, "folio", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ default: 0 }),
+    __metadata("design:type", Number)
+], Venta.prototype, "numero_orden", void 0);
+__decorate([
     (0, typeorm_1.Column)({ length: 50, nullable: true }),
     __metadata("design:type", String)
 ], Venta.prototype, "folio_offline", void 0);

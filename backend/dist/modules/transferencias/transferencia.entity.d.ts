@@ -12,6 +12,7 @@ export declare class TransferenciaInventario {
     tienda_destino_id: number;
     tienda_destino_nombre: string;
     folio: string;
+    numero_orden: number;
     producto_id: number;
     producto_nombre: string;
     producto_sku: string;

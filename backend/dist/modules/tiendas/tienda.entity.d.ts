@@ -11,6 +11,7 @@ export declare class Tienda {
     slug: string;
     folio_pedido_counter: number;
     folio_venta_counter: number;
+    folio_devolucion_counter: number;
     config_ticket: any;
     config_impresora: any;
     config_pos: {

@@ -47,6 +47,10 @@ __decorate([
     __metadata("design:type", String)
 ], Pedido.prototype, "folio", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ default: 0 }),
+    __metadata("design:type", Number)
+], Pedido.prototype, "numero_orden", void 0);
+__decorate([
     (0, typeorm_1.Column)({ nullable: true, default: 0 }),
     __metadata("design:type", Number)
 ], Pedido.prototype, "mesa", void 0);

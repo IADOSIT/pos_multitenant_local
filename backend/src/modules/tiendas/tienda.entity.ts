@@ -37,6 +37,9 @@ export class Tienda {
   @Column({ default: 0 })
   folio_venta_counter: number;
 
+  @Column({ default: 0 })
+  folio_devolucion_counter: number;
+
   @Column({ type: 'json', nullable: true })
   config_ticket: any;
 

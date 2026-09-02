@@ -18,6 +18,7 @@ export declare class Venta {
     usuario_id: number;
     pedido_id: number;
     folio: string;
+    numero_orden: number;
     folio_offline: string;
     subtotal: number;
     descuento: number;

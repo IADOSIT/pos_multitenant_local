@@ -38,6 +38,11 @@ export class TransferenciaInventario {
   @Column({ length: 30 })
   folio: string;
 
+  // Consecutivo por empresa (una transferencia va entre tiendas de la misma empresa).
+  // Antes el folio era 'TR-' + timestamp + random, imposible de comparar u ordenar.
+  @Column({ default: 0 })
+  numero_orden: number;
+
   @Column()
   producto_id: number;
 

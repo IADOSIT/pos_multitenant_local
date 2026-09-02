@@ -30,6 +30,13 @@ export class Pedido {
   @Column({ length: 50 })
   folio: string;
 
+  // Numero de orden visible para el personal: el mismo consecutivo que ya lleva el
+  // folio, pero como entero para poder mostrarlo corto ("#70") y compararlo de un
+  // vistazo. El folio se conserva intacto como llave de trazabilidad (tickets,
+  // apartados, devoluciones), asi que nada de lo que lo consume cambia.
+  @Column({ default: 0 })
+  numero_orden: number;
+
   @Column({ nullable: true, default: 0 })
   mesa: number;
 

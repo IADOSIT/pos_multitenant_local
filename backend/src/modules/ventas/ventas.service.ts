@@ -21,7 +21,9 @@ export class VentasService {
     private apartadosService: ApartadosService,
   ) {}
 
-  private async generateFolio(tienda_id: number): Promise<string> {
+  // Igual que en pedidos: el folio no cambia, solo se expone tambien el consecutivo
+  // crudo para poder mostrarlo corto y comparable en pantalla.
+  private async generateFolio(tienda_id: number): Promise<{ folio: string; numero: number }> {
     return this.dataSource.transaction(async (manager) => {
       const [tienda] = await manager.query(
         'SELECT folio_venta_counter, nombre FROM tiendas WHERE id = ? FOR UPDATE',
@@ -35,7 +37,7 @@ export class VentasService {
       const initial = (tienda?.nombre || 'X')
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z]/g, '')
         .charAt(0).toUpperCase() || 'X';
-      return `I${initial}${String(newCounter).padStart(8, '0')}`;
+      return { folio: `I${initial}${String(newCounter).padStart(8, '0')}`, numero: newCounter };
     });
   }
 
@@ -83,7 +85,7 @@ export class VentasService {
       }
     }
 
-    const folio = await this.generateFolio(scope.tienda_id);
+    const { folio, numero: numero_orden } = await this.generateFolio(scope.tienda_id);
 
     const venta = this.ventasRepo.create({
       tenant_id: scope.tenant_id,
@@ -92,6 +94,7 @@ export class VentasService {
       caja_id: data.caja_id,
       usuario_id: scope.id || scope.sub,
       folio,
+      numero_orden,
       folio_offline: data.folio_offline || null,
       subtotal: data.subtotal,
       descuento: data.descuento || 0,

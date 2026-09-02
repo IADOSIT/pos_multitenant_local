@@ -53,6 +53,10 @@ __decorate([
     __metadata("design:type", String)
 ], Empresa.prototype, "logo_url", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ default: 0 }),
+    __metadata("design:type", Number)
+], Empresa.prototype, "folio_transferencia_counter", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'json', nullable: true }),
     __metadata("design:type", Object)
 ], Empresa.prototype, "config_apariencia", void 0);

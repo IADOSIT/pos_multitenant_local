@@ -42,6 +42,11 @@ export class Venta {
   @Column({ length: 50 })
   folio: string;
 
+  // Consecutivo numerico legible de la venta (mismo valor que la cola del folio).
+  // Ver la nota en pedido.entity.ts: el folio no cambia, esto solo lo acompana.
+  @Column({ default: 0 })
+  numero_orden: number;
+
   @Column({ length: 50, nullable: true })
   folio_offline: string;
 

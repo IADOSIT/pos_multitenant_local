@@ -12,6 +12,7 @@ export declare class Pedido {
     tienda_id: number;
     usuario_id: number;
     folio: string;
+    numero_orden: number;
     mesa: number;
     estado: PedidoEstado;
     subtotal: number;
