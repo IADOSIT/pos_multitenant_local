@@ -108,6 +108,12 @@ let scalePort = null;
 let scaleBuffer = '';
 let scalePoller = null;
 let scaleReintento = null;
+// Generacion de conexion. Cada cierre o reconfiguracion la incrementa, lo que
+// invalida cualquier open() que haya quedado en vuelo: si termina despues, se
+// da cuenta de que su generacion ya vencio y suelta el puerto en vez de
+// quedarselo sin que nadie lo referencie (eso dejaba COMx tomado para siempre
+// y todos los reintentos posteriores fallaban con "Access denied").
+let scaleGen = 0;
 let lastPesoEmitido = null;
 let lastPesoEstable = 0;
 let configWin = null;
@@ -236,16 +242,33 @@ function procesarLectura(linea) {
 
 // Cierra el puerto y detiene el polling. Se usa al reconfigurar y al salir.
 function cerrarBascula(cb) {
+  scaleGen++; // invalida cualquier apertura en vuelo
   if (scaleReintento) { clearTimeout(scaleReintento); scaleReintento = null; }
   if (scalePoller) { clearInterval(scalePoller); scalePoller = null; }
   scaleBuffer = '';
   const p = scalePort;
   scalePort = null;
-  if (p?.isOpen) { p.removeAllListeners('close'); p.close(() => cb && cb()); }
-  else if (cb) cb();
+  if (p) {
+    p.removeAllListeners('close');
+    // Si el open() todavia no termino, p.isOpen es false y no se puede cerrar
+    // aun: el propio callback lo soltara al ver que su generacion vencio.
+    if (p.isOpen) { p.close(() => cb && cb()); return; }
+  }
+  if (cb) cb();
+}
+
+// Un solo temporizador de reintento vivo a la vez. Antes cada fallo agregaba
+// uno nuevo y se acumulaban, disparando aperturas en paralelo sobre el mismo COM.
+function programarReintento() {
+  if (scaleReintento) clearTimeout(scaleReintento);
+  scaleReintento = setTimeout(abrirBascula, 10000);
 }
 
 function abrirBascula() {
+  // Nunca dejar dos objetos SerialPort sobre el mismo COM: si ya hay uno, se
+  // cierra y se vuelve a entrar por el callback.
+  if (scalePort) { cerrarBascula(abrirBascula); return; }
+
   const portPath = config.SCALE_PORT;
   const baudRate = parseInt(config.SCALE_BAUD, 10) || 9600;
   const pollMs = parseInt(config.SCALE_POLL_MS, 10) || 0;
@@ -260,15 +283,25 @@ function abrirBascula() {
   }
 
   estado.puerto = portPath;
-  scalePort = new SerialPort({ path: portPath, baudRate, autoOpen: false });
+  const gen = scaleGen;
+  const port = new SerialPort({ path: portPath, baudRate, autoOpen: false });
+  scalePort = port;
 
-  scalePort.open((err) => {
+  port.open((err) => {
+    // Se reconfiguro (o se cerro) mientras abriamos: este intento ya no vale.
+    if (gen !== scaleGen) {
+      if (!err) {
+        console.warn('[bridge] Apertura tardia descartada — soltando el puerto');
+        port.close(() => {});
+      }
+      return;
+    }
     if (err) {
       console.warn(`[bridge] No se pudo abrir ${portPath}: ${err.message} — reintentando en 10s`);
       estado.bascula = `No abre ${portPath}: ${err.message}`;
       updateTray(`Sin bascula (${portPath})`);
       pushEstado();
-      scaleReintento = setTimeout(abrirBascula, 10000);
+      programarReintento();
       return;
     }
     console.log(`[bridge] Bascula conectada en ${portPath} @ ${baudRate}bps`);
@@ -279,7 +312,7 @@ function abrirBascula() {
     if (pollMs > 0 && pollCmd) {
       console.log(`[bridge] Modo polling: enviando ${JSON.stringify(pollCmd)} cada ${pollMs}ms`);
       scalePoller = setInterval(() => {
-        if (scalePort?.isOpen) scalePort.write(pollCmd, (e) => { if (e) console.warn('[bridge] write:', e.message); });
+        if (port.isOpen) port.write(pollCmd, (e) => { if (e) console.warn('[bridge] write:', e.message); });
       }, pollMs);
     } else {
       console.log('[bridge] Modo flujo continuo (sin polling)');
@@ -287,7 +320,8 @@ function abrirBascula() {
     pushEstado();
   });
 
-  scalePort.on('data', (chunk) => {
+  port.on('data', (chunk) => {
+    if (gen !== scaleGen) return; // datos de un puerto que ya quedo obsoleto
     scaleBuffer += chunk.toString('ascii');
     if (scaleBuffer.length > 200) scaleBuffer = scaleBuffer.slice(-200); // evitar crecimiento sin limite
 
@@ -300,19 +334,21 @@ function abrirBascula() {
     }
   });
 
-  scalePort.on('error', (err) => {
+  port.on('error', (err) => {
     console.error('[bridge] Error de puerto serial:', err.message);
   });
 
-  scalePort.on('close', () => {
+  port.on('close', () => {
+    if (gen !== scaleGen) return; // cierre provocado por una reconfiguracion
     console.warn('[bridge] Puerto serial cerrado — reintentando en 10s');
     if (scalePoller) { clearInterval(scalePoller); scalePoller = null; }
+    if (scalePort === port) scalePort = null;
     scaleBuffer = '';
     estado.bascula = 'Desconectada';
     estado.polling = false;
     updateTray('Bascula desconectada');
     pushEstado();
-    scaleReintento = setTimeout(abrirBascula, 10000);
+    programarReintento();
   });
 }
 
