@@ -406,6 +406,7 @@ export default function PedidosPage() {
           mostrarPrecios={cfgEspecial.mostrar_precios}
           onClose={() => setSelectedWeb(null)}
           onAvanzar={handleAvanzarWeb}
+          onCotizado={load}
         />
       )}
 

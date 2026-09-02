@@ -55,12 +55,21 @@ export class EcommercePedido {
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   total: number;
 
+  // 'cotizacion'  = el cliente cerro el checkout en modo cotizacion: no hay precios
+  //                 todavia, no es una compra. Se ve distinto en Pedidos.
+  // 'por_cobrar'  = el admin ya cotizo (puso precios) y se genero el pedido de
+  //                 mostrador ligado, que espera cobro en el POS.
   @Column({
     type: 'enum',
-    enum: ['pendiente', 'confirmado', 'preparando', 'enviado', 'entregado', 'cancelado'],
+    enum: ['pendiente', 'cotizacion', 'por_cobrar', 'confirmado', 'preparando', 'enviado', 'entregado', 'cancelado'],
     default: 'pendiente',
   })
   estado: string;
+
+  // Pedido de mostrador (tabla `pedidos`) generado al cotizar. Es el que se cobra
+  // en el POS con el flujo normal; al cobrarse marca esta cotizacion como entregada.
+  @Column({ type: 'int', nullable: true })
+  pedido_id: number | null;
 
   @Column({ type: 'text', nullable: true })
   notas_cliente: string;

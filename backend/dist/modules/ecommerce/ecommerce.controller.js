@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EcommerceController = void 0;
 const common_1 = require("@nestjs/common");
+const platform_express_1 = require("@nestjs/platform-express");
 const passport_1 = require("@nestjs/passport");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
@@ -41,6 +42,12 @@ let EcommerceController = class EcommerceController {
     getTemas() {
         return this.service.getTemas();
     }
+    async uploadBanner(file) {
+        if (!file)
+            throw new common_1.BadRequestException('No se recibió ningún archivo');
+        const { saveUploadedImage } = await Promise.resolve().then(() => require('../../common/utils/upload-image.util'));
+        return { url: await saveUploadedImage(file, 'banner') };
+    }
     getProductosEcommerce(scope, query) {
         return this.service.getPublicProductos('', this.dataSource, { ...query, _scope: scope });
     }
@@ -61,6 +68,9 @@ let EcommerceController = class EcommerceController {
     }
     updateEstado(scope, id, body) {
         return this.service.updateEstadoPedido(scope, id, body.estado, body.notas_internas);
+    }
+    cotizarPedido(scope, id, body) {
+        return this.service.cotizarPedido(scope, id, body);
     }
     deletePedido(scope, id) {
         return this.service.deletePedido(scope, id);
@@ -105,6 +115,15 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], EcommerceController.prototype, "getTemas", null);
+__decorate([
+    (0, common_1.Post)('config/upload-banner'),
+    (0, roles_decorator_1.Roles)('superadmin', 'admin'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('image')),
+    __param(0, (0, common_1.UploadedFile)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], EcommerceController.prototype, "uploadBanner", null);
 __decorate([
     (0, common_1.Get)('productos'),
     __param(0, (0, tenant_decorator_1.TenantScope)()),
@@ -165,6 +184,16 @@ __decorate([
     __metadata("design:paramtypes", [Object, Number, Object]),
     __metadata("design:returntype", void 0)
 ], EcommerceController.prototype, "updateEstado", null);
+__decorate([
+    (0, common_1.Put)('pedidos/:id/cotizar'),
+    (0, roles_decorator_1.Roles)('superadmin', 'admin', 'manager'),
+    __param(0, (0, tenant_decorator_1.TenantScope)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Number, Object]),
+    __metadata("design:returntype", void 0)
+], EcommerceController.prototype, "cotizarPedido", null);
 __decorate([
     (0, common_1.Delete)('pedidos/:id'),
     (0, roles_decorator_1.Roles)('superadmin', 'admin'),

@@ -15,6 +15,7 @@ export declare class EcommercePedido {
     iva: number;
     total: number;
     estado: string;
+    pedido_id: number | null;
     notas_cliente: string;
     cliente_empresa: string | null;
     notas_internas: string;

@@ -60,7 +60,13 @@ export class PedidosService {
       cliente_nombre: data.cliente_nombre,
       cliente_telefono: data.cliente_telefono,
       cliente_direccion: data.cliente_direccion,
+      cliente_email: data.cliente_email ?? null,
+      cliente_empresa: data.cliente_empresa ?? null,
       tipo_servicio: data.tipo_servicio || 'en_sitio',
+      // Solo los llena la cotizacion web (ecommerce): un pedido de mostrador normal
+      // sigue naciendo en 'recibido' y sin origen ligado.
+      estado: data.estado || PedidoEstado.RECIBIDO,
+      ecommerce_pedido_id: data.ecommerce_pedido_id ?? null,
       detalles: data.items.map((item: any) => ({
         producto_id: item.producto_id,
         producto_nombre: item.nombre,
@@ -262,6 +268,17 @@ export class PedidosService {
     pedido.venta_id = venta.id;
     pedido.estado = PedidoEstado.ENTREGADO;
     await this.pedidosRepo.save(pedido);
+
+    // Si viene de una cotizacion web, cerrarla tambien: ya se cobro en caja.
+    // Update directo para no acoplar PedidosService con EcommerceService (ese
+    // importa a este, no al reves).
+    if (pedido.ecommerce_pedido_id) {
+      await this.pedidosRepo.manager
+        .query(`UPDATE ecommerce_pedidos SET estado = 'entregado', updated_at = NOW() WHERE id = ?`, [
+          pedido.ecommerce_pedido_id,
+        ])
+        .catch(() => {});
+    }
 
     // Si es self-order, crear encuesta y notificar al cliente
     if (pedido.self_order && this.selfOrderService) {

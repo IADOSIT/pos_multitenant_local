@@ -21,11 +21,26 @@ const ecommerce_pedido_entity_1 = require("./ecommerce-pedido.entity");
 const ecommerce_producto_config_entity_1 = require("./ecommerce-producto-config.entity");
 const cliente_entity_1 = require("./cliente.entity");
 const campos_formulario_helper_1 = require("../empresas/campos-formulario.helper");
+const pedidos_service_1 = require("../pedidos/pedidos.service");
+const pedido_entity_1 = require("../pedidos/pedido.entity");
+function direccionPlana(dir) {
+    if (!dir)
+        return null;
+    if (typeof dir === 'string')
+        return dir.slice(0, 300);
+    const partes = ['calle', 'numero', 'colonia', 'ciudad', 'estado', 'cp', 'referencias']
+        .map((k) => dir[k])
+        .filter((v) => typeof v === 'string' && v.trim());
+    return partes.length ? partes.join(', ').slice(0, 300) : null;
+}
 const MAX_REINTENTOS_NUMERO = 4;
 function esDuplicado(e) {
     const code = e?.code ?? e?.driverError?.code;
     const errno = e?.errno ?? e?.driverError?.errno;
     return code === 'ER_DUP_ENTRY' || errno === 1062;
+}
+function esModoCotizacion(config) {
+    return !!config?.preferencias?.cotizaciones?.activo;
 }
 function slugify(text) {
     return text
@@ -39,11 +54,12 @@ function slugify(text) {
         .slice(0, 63);
 }
 let EcommerceService = class EcommerceService {
-    constructor(configRepo, pedidoRepo, productoConfigRepo, clienteRepo) {
+    constructor(configRepo, pedidoRepo, productoConfigRepo, clienteRepo, pedidosService) {
         this.configRepo = configRepo;
         this.pedidoRepo = pedidoRepo;
         this.productoConfigRepo = productoConfigRepo;
         this.clienteRepo = clienteRepo;
+        this.pedidosService = pedidosService;
     }
     async getConfig(scope) {
         return this.configRepo.findOne({ where: { empresa_id: scope.empresa_id } });
@@ -94,6 +110,7 @@ let EcommerceService = class EcommerceService {
             { id: 'iados-herramientas', nombre: 'iaDoS Herramientas', descripcion: 'Estilo ferretería/industrial: azul corporativo, tipografía Oswald y menú de categorías', modo: 'light', colorPrimary: '#2559c7', colorBg: '#f4f6f9' },
             { id: 'iados-albercas', nombre: 'iaDoS Albercas', descripcion: 'Químicos para alberca: teal de azulejo, tipografía Archivo y comparador de pH que lleva al producto', modo: 'light', colorPrimary: '#017a86', colorBg: '#f2f8f9' },
             { id: 'iados-abarrotes', nombre: 'iaDoS Abarrotes', descripcion: 'Abarrotes/frutas y verduras: verde fresco, tipografía Fredoka, vista rápida y agregar al carrito sin salir del listado', modo: 'light', colorPrimary: '#2f9e44', colorBg: '#f6faf1' },
+            { id: 'iados-movilidad', nombre: 'iaDoS Movilidad', descripcion: 'Autopartes y autos: taller oscuro con ámbar de señalamiento, tipografía Rajdhani y buscador por marca/modelo/año', modo: 'dark', colorPrimary: '#ffb020', colorBg: '#12151a' },
         ];
     }
     async getProductoConfig(productoId) {
@@ -148,10 +165,79 @@ let EcommerceService = class EcommerceService {
             p.notas_internas = notas_internas;
         return this.pedidoRepo.save(p);
     }
+    async cotizarPedido(scope, id, dto) {
+        const p = await this.getPedido(scope, id);
+        if (p.estado !== 'cotizacion') {
+            throw new common_1.BadRequestException('Solo se pueden cotizar pedidos en estado "cotización"');
+        }
+        if (p.pedido_id)
+            throw new common_1.BadRequestException('Esta cotización ya fue enviada al POS');
+        const tienda_id = dto.tienda_id || scope.tienda_id;
+        if (!tienda_id)
+            throw new common_1.BadRequestException('Selecciona la tienda que cobrará la cotización');
+        const precios = new Map();
+        for (const it of dto.items || []) {
+            const precio = Number(it.precio_unitario);
+            if (!Number.isFinite(precio) || precio < 0)
+                throw new common_1.BadRequestException('Precio inválido en la cotización');
+            precios.set(Number(it.producto_id), precio);
+        }
+        let subtotal = 0;
+        const items = (p.items || []).map((it) => {
+            const precio_unitario = precios.has(Number(it.producto_id))
+                ? precios.get(Number(it.producto_id))
+                : Number(it.precio_unitario || 0);
+            const qty = Number(it.qty || 0);
+            const sub = precio_unitario * qty;
+            subtotal += sub;
+            return { ...it, precio_unitario, subtotal: sub };
+        });
+        if (!items.length)
+            throw new common_1.BadRequestException('La cotización no tiene productos');
+        if (subtotal <= 0)
+            throw new common_1.BadRequestException('Captura al menos un precio mayor a cero');
+        const descuento = Number(dto.descuento || 0);
+        const total = Math.max(0, subtotal - descuento);
+        const pedidoPos = await this.pedidosService.crear({
+            mesa: 0,
+            subtotal,
+            descuento,
+            impuestos: 0,
+            total,
+            notas: `Cotización web ${p.numero_pedido}${p.notas_cliente ? ' | ' + p.notas_cliente : ''}`,
+            cliente_nombre: p.cliente_nombre,
+            cliente_telefono: p.cliente_tel,
+            cliente_direccion: direccionPlana(p.direccion_envio),
+            cliente_email: p.cliente_email,
+            cliente_empresa: p.cliente_empresa,
+            tipo_servicio: 'para_llevar',
+            estado: pedido_entity_1.PedidoEstado.LISTO_PARA_ENTREGA,
+            ecommerce_pedido_id: p.id,
+            items: items.map((it) => ({
+                producto_id: it.producto_id,
+                nombre: it.nombre,
+                sku: it.sku,
+                cantidad: Number(it.qty || 0),
+                precio: Number(it.precio_unitario || 0),
+            })),
+        }, { ...scope, tienda_id });
+        p.items = items;
+        p.subtotal = subtotal;
+        p.descuento = descuento;
+        p.iva = 0;
+        p.total = total;
+        p.estado = 'por_cobrar';
+        p.pedido_id = pedidoPos.id;
+        if (dto.notas_internas !== undefined)
+            p.notas_internas = dto.notas_internas;
+        await this.pedidoRepo.save(p);
+        return { ...p, folio_pos: pedidoPos.folio };
+    }
     async deletePedido(scope, id) {
         const p = await this.getPedido(scope, id);
-        if (p.estado !== 'pendiente')
-            throw new common_1.BadRequestException('Solo se pueden eliminar pedidos pendientes');
+        if (p.estado !== 'pendiente' && p.estado !== 'cotizacion') {
+            throw new common_1.BadRequestException('Solo se pueden eliminar pedidos pendientes o cotizaciones');
+        }
         await this.pedidoRepo.remove(p);
         return { ok: true };
     }
@@ -242,7 +328,7 @@ let EcommerceService = class EcommerceService {
         sql += ` LIMIT ? OFFSET ?`;
         params.push(+limit, +offset);
         const rows = await dataSource.query(sql, params);
-        const mostrarPrecios = await this.mostrarPreciosParaEmpresa(config.empresa_id, dataSource);
+        const mostrarPrecios = !esModoCotizacion(config) && (await this.mostrarPreciosParaEmpresa(config.empresa_id, dataSource));
         const data = rows.map((r) => ({
             ...r,
             precio_venta: mostrarPrecios ? r.precio_venta : null,
@@ -280,7 +366,7 @@ let EcommerceService = class EcommerceService {
        WHERE p.categoria_id = ? AND p.empresa_id = ? AND p.id != ? AND p.activo = 1
          AND COALESCE(ep.visible_ecommerce, 1) = 1
        LIMIT 4`, [row.categoria_id, config.empresa_id, row.id]);
-        const mostrarPrecios = await this.mostrarPreciosParaEmpresa(config.empresa_id, dataSource);
+        const mostrarPrecios = !esModoCotizacion(config) && (await this.mostrarPreciosParaEmpresa(config.empresa_id, dataSource));
         return {
             ...row,
             precio_venta: mostrarPrecios ? row.precio_venta : null,
@@ -318,6 +404,7 @@ let EcommerceService = class EcommerceService {
                     throw new common_1.BadRequestException(`El campo "${campoConf.label}" es obligatorio`);
             }
         }
+        const modoCotizacion = esModoCotizacion(config);
         const items = [];
         let subtotal = 0;
         let esMayoreo = false;
@@ -329,17 +416,17 @@ let EcommerceService = class EcommerceService {
          WHERE p.id = ? AND p.empresa_id = ? AND p.activo = 1`, [item.producto_id, config.empresa_id]);
             if (!prod)
                 throw new common_1.BadRequestException(`Producto ${item.producto_id} no encontrado`);
-            if (prod.cotizacion) {
+            if (prod.cotizacion && !modoCotizacion) {
                 throw new common_1.BadRequestException(`${prod.nombre} se vende por cotización — solicítala en lugar de agregarlo al carrito`);
             }
-            if (prod.controla_stock && prod.stock_actual < item.qty) {
+            if (!modoCotizacion && prod.controla_stock && prod.stock_actual < item.qty) {
                 throw new common_1.BadRequestException(`Stock insuficiente para ${prod.nombre}`);
             }
             const qtyMin = prod.qty_min_mayoreo ?? config.qty_min_mayoreo;
-            const aplicaMayoreo = config.modo_mayoreo && prod.precio_mayoreo && item.qty >= qtyMin;
+            const aplicaMayoreo = !modoCotizacion && config.modo_mayoreo && prod.precio_mayoreo && item.qty >= qtyMin;
             if (aplicaMayoreo)
                 esMayoreo = true;
-            const precioUnitario = aplicaMayoreo ? +prod.precio_mayoreo : +prod.precio;
+            const precioUnitario = modoCotizacion ? 0 : aplicaMayoreo ? +prod.precio_mayoreo : +prod.precio;
             const itemSubtotal = precioUnitario * item.qty;
             subtotal += itemSubtotal;
             items.push({
@@ -371,7 +458,7 @@ let EcommerceService = class EcommerceService {
             descuento: 0,
             iva: 0,
             total: subtotal,
-            estado: 'pendiente',
+            estado: modoCotizacion ? 'cotizacion' : 'pendiente',
             notas_cliente: notas_cliente || null,
         });
         let pedido;
@@ -479,6 +566,7 @@ exports.EcommerceService = EcommerceService = __decorate([
     __metadata("design:paramtypes", [typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
-        typeorm_2.Repository])
+        typeorm_2.Repository,
+        pedidos_service_1.PedidosService])
 ], EcommerceService);
 //# sourceMappingURL=ecommerce.service.js.map

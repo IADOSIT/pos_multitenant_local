@@ -3,12 +3,14 @@ import { EcommerceConfig } from './ecommerce-config.entity';
 import { EcommercePedido } from './ecommerce-pedido.entity';
 import { EcommerceProductoConfig } from './ecommerce-producto-config.entity';
 import { Cliente } from './cliente.entity';
+import { PedidosService } from '../pedidos/pedidos.service';
 export declare class EcommerceService {
     private configRepo;
     private pedidoRepo;
     private productoConfigRepo;
     private clienteRepo;
-    constructor(configRepo: Repository<EcommerceConfig>, pedidoRepo: Repository<EcommercePedido>, productoConfigRepo: Repository<EcommerceProductoConfig>, clienteRepo: Repository<Cliente>);
+    private pedidosService;
+    constructor(configRepo: Repository<EcommerceConfig>, pedidoRepo: Repository<EcommercePedido>, productoConfigRepo: Repository<EcommerceProductoConfig>, clienteRepo: Repository<Cliente>, pedidosService: PedidosService);
     getConfig(scope: any): Promise<EcommerceConfig | null>;
     upsertConfig(scope: any, data: Partial<EcommerceConfig>): Promise<EcommerceConfig>;
     verificarSubdominio(subdominio: string, empresaId: number): Promise<{
@@ -37,6 +39,31 @@ export declare class EcommerceService {
     }>;
     getPedido(scope: any, id: number): Promise<EcommercePedido>;
     updateEstadoPedido(scope: any, id: number, estado: string, notas_internas?: string): Promise<EcommercePedido>;
+    cotizarPedido(scope: any, id: number, dto: any): Promise<{
+        folio_pos: string;
+        id: number;
+        empresa_id: number;
+        tenant_id: number;
+        cliente_id: number | null;
+        numero_pedido: string;
+        tipo_venta: "menudeo" | "mayoreo";
+        cliente_nombre: string;
+        cliente_email: string;
+        cliente_tel: string;
+        direccion_envio: any;
+        items: any[];
+        subtotal: number;
+        descuento: number;
+        iva: number;
+        total: number;
+        estado: string;
+        pedido_id: number | null;
+        notas_cliente: string;
+        cliente_empresa: string | null;
+        notas_internas: string;
+        created_at: Date;
+        updated_at: Date;
+    }>;
     deletePedido(scope: any, id: number): Promise<{
         ok: boolean;
     }>;

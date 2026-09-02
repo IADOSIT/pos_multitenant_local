@@ -100,6 +100,11 @@ export class Pedido {
   @Column({ default: false })
   cuenta_abierta: boolean;
 
+  // Cotizacion web de origen (tabla `ecommerce_pedidos`). Cuando este pedido se
+  // cobra, la cotizacion se cierra sola. Null en los pedidos normales de mostrador.
+  @Column({ type: 'int', nullable: true })
+  ecommerce_pedido_id: number | null;
+
   @CreateDateColumn()
   created_at: Date;
 

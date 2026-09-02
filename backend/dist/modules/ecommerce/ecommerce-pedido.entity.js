@@ -77,11 +77,15 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
-        enum: ['pendiente', 'confirmado', 'preparando', 'enviado', 'entregado', 'cancelado'],
+        enum: ['pendiente', 'cotizacion', 'por_cobrar', 'confirmado', 'preparando', 'enviado', 'entregado', 'cancelado'],
         default: 'pendiente',
     }),
     __metadata("design:type", String)
 ], EcommercePedido.prototype, "estado", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', nullable: true }),
+    __metadata("design:type", Object)
+], EcommercePedido.prototype, "pedido_id", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'text', nullable: true }),
     __metadata("design:type", String)

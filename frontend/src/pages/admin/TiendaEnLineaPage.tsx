@@ -7,6 +7,7 @@ import {
   Globe, Store, Palette, Check, X, Copy, ExternalLink, Loader2,
   ShoppingBag, TrendingUp, Package, ToggleLeft, ToggleRight,
   Megaphone, Truck, ClipboardList, FileText, RefreshCw, Phone,
+  Image as Images, Upload, Trash2, ArrowUp, ArrowDown, FileSignature,
 } from 'lucide-react';
 import TablaPedidos from '../pedidos/TablaPedidos';
 import DetallePedidoWeb from '../pedidos/DetallePedidoWeb';
@@ -31,6 +32,7 @@ const TEMAS_PREVIEW: Record<string, { bg: string; primary: string; secondary: st
   'iados-herramientas': { bg: '#f4f6f9', primary: '#2559c7', secondary: '#16233b', text: '#16233b', border: '#e2e6ec', nombre: 'iaDoS Herramientas', desc: 'Ferretería · Azul + Oswald' },
   'iados-abarrotes': { bg: '#f6faf1', primary: '#2f9e44', secondary: '#1b2b1e', text: '#1b2b1e', border: '#dfeed0', nombre: 'iaDoS Abarrotes', desc: 'Abarrotes · Verde fresco + vista rápida' },
   'iados-albercas':     { bg: '#f2f8f9', primary: '#017a86', secondary: '#0a2a33', text: '#0a2a33', border: '#d3e3e6', nombre: 'iaDoS Albercas',     desc: 'Albercas · Teal + Archivo' },
+  'iados-movilidad':    { bg: '#12151a', primary: '#ffb020', secondary: '#0b0d11', text: '#e9edf2', border: '#242a33', nombre: 'iaDoS Movilidad',    desc: 'Autopartes · Ámbar + Rajdhani' },
 };
 
 type CampoKey = 'nombre' | 'telefono' | 'email' | 'direccion' | 'empresa' | 'notas';
@@ -60,6 +62,7 @@ const TABS = [
   { id: 'general',     label: 'General',     icon: Store },
   { id: 'pedidos',     label: 'Pedidos',     icon: Package },
   { id: 'diseno',      label: 'Diseño',      icon: Palette },
+  { id: 'banners',     label: 'Banners',     icon: Images },
   { id: 'contacto',    label: 'Contacto',    icon: Phone },
   { id: 'promociones', label: 'Promociones', icon: Megaphone },
   { id: 'envio',       label: 'Envío',       icon: Truck },
@@ -74,6 +77,32 @@ const DEFAULT_CONTACTO = {
   whatsapp: '', mostrar_whatsapp: true, whatsapp_mensaje: 'Hola, tengo una duda sobre un producto',
   nombre_contacto: '', mostrar_nombre: true,
   redes: { facebook: '', instagram: '', tiktok: '', x: '' },
+};
+
+// Banners/flyers de la tienda. Si `activo` es false (o no hay imagenes) la tienda
+// no pinta absolutamente nada: es una capa opcional sobre cualquier plantilla.
+const DEFAULT_BANNERS = {
+  activo: false,
+  animacion: 'fade' as 'fade' | 'slide' | 'zoom' | 'flash',
+  intervalo: 6,          // segundos entre imagenes
+  altura: 'media' as 'baja' | 'media' | 'alta',
+  posicion: 'arriba' as 'arriba' | 'abajo',   // antes o despues del hero de la plantilla
+  imagenes: [] as { url: string; titulo?: string; subtitulo?: string; enlace?: string }[],
+};
+
+const ANIMACIONES = [
+  { id: 'fade',  label: 'Fundido',  desc: 'Transición suave, la más sobria' },
+  { id: 'slide', label: 'Deslizar', desc: 'Entra desde un costado' },
+  { id: 'zoom',  label: 'Zoom',     desc: 'Acercamiento lento tipo Ken Burns' },
+  { id: 'flash', label: 'Flash',    desc: 'Destello de entrada, para ofertas' },
+] as const;
+
+// Modo cotizacion de la tienda: oculta TODOS los precios y el checkout deja de ser
+// una compra — se convierte en solicitud que el admin cotiza y cobra en el POS.
+const DEFAULT_COTIZACIONES = {
+  activo: false,
+  texto_boton: 'Solicitar cotización',
+  mensaje: 'Recibimos tu solicitud. Te enviaremos la cotización con los precios y disponibilidad.',
 };
 
 function Toggle({ on, onClick, color = 'text-green-400' }: { on: boolean; onClick: () => void; color?: string }) {
@@ -99,8 +128,11 @@ export default function TiendaEnLineaPage() {
       promociones: { activo: false, texto: '⚡ Oferta del día — termina en' },
       envio_gratis: { activo: false, umbral: 500 },
       contacto: DEFAULT_CONTACTO,
+      banners: DEFAULT_BANNERS,
+      cotizaciones: DEFAULT_COTIZACIONES,
     },
   });
+  const [subiendoBanner, setSubiendoBanner] = useState(false);
   const [campos, setCampos] = useState<Campos>(DEFAULT_CAMPOS);
   const [autoCancel, setAutoCancel] = useState<number>(0);
   const [subdCheck, setSubdCheck] = useState<'idle' | 'checking' | 'ok' | 'taken'>('idle');
@@ -141,8 +173,49 @@ export default function TiendaEnLineaPage() {
     finally { setAvanzandoKey(null); }
   };
 
-  function setPref(path: 'promociones' | 'envio_gratis' | 'contacto', patch: any) {
+  function setPref(path: 'promociones' | 'envio_gratis' | 'contacto' | 'banners' | 'cotizaciones', patch: any) {
     setForm((f: any) => ({ ...f, preferencias: { ...f.preferencias, [path]: { ...f.preferencias?.[path], ...patch } } }));
+  }
+
+  // ── Banners ───────────────────────────────────────────────────────────────
+  const bannerImgs = (): any[] => form.preferencias?.banners?.imagenes || [];
+
+  function setBannerImgs(imagenes: any[]) { setPref('banners', { imagenes }); }
+
+  function editarBanner(i: number, patch: any) {
+    setBannerImgs(bannerImgs().map((b, idx) => (idx === i ? { ...b, ...patch } : b)));
+  }
+
+  function quitarBanner(i: number) {
+    setBannerImgs(bannerImgs().filter((_, idx) => idx !== i));
+  }
+
+  function moverBanner(i: number, delta: number) {
+    const arr = [...bannerImgs()];
+    const j = i + delta;
+    if (j < 0 || j >= arr.length) return;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    setBannerImgs(arr);
+  }
+
+  async function subirBanners(files: FileList | null) {
+    if (!files?.length) return;
+    setSubiendoBanner(true);
+    const nuevos: any[] = [];
+    try {
+      for (const file of Array.from(files)) {
+        const { data } = await ecommerceApi.uploadBanner(file);
+        const url = typeof data === 'string' ? data : data?.url;
+        if (url) nuevos.push({ url, titulo: '', subtitulo: '', enlace: '' });
+      }
+      if (nuevos.length) {
+        setBannerImgs([...bannerImgs(), ...nuevos]);
+        toast.success(`${nuevos.length} imagen(es) lista(s) — guarda los cambios`);
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Error al subir la imagen');
+    }
+    setSubiendoBanner(false);
   }
 
   function setContactoRed(red: keyof typeof DEFAULT_CONTACTO.redes, valor: string) {
@@ -184,6 +257,11 @@ export default function TiendaEnLineaPage() {
               ...DEFAULT_CONTACTO, ...(data.preferencias?.contacto || {}),
               redes: { ...DEFAULT_CONTACTO.redes, ...(data.preferencias?.contacto?.redes || {}) },
             },
+            banners: {
+              ...DEFAULT_BANNERS, ...(data.preferencias?.banners || {}),
+              imagenes: data.preferencias?.banners?.imagenes || [],
+            },
+            cotizaciones: { ...DEFAULT_COTIZACIONES, ...(data.preferencias?.cotizaciones || {}) },
           },
         });
       }
@@ -405,6 +483,7 @@ export default function TiendaEnLineaPage() {
               mostrarPrecios
               onClose={() => setSelectedPedido(null)}
               onAvanzar={handleAvanzarPedido}
+              onCotizado={loadPedidos}
             />
           )}
         </div>
@@ -435,6 +514,121 @@ export default function TiendaEnLineaPage() {
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ── BANNERS / FLYERS ── */}
+      {tab === 'banners' && (
+        <div className="space-y-4">
+          <div className="bg-slate-800 rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-white flex items-center gap-2"><Images size={14} /> Banner o flyer personalizado</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Si está apagado la tienda no muestra nada: la plantilla queda tal cual.
+              </p>
+            </div>
+            <Toggle on={!!form.preferencias?.banners?.activo} color="text-fuchsia-400"
+              onClick={() => setPref('banners', { activo: !form.preferencias?.banners?.activo })} />
+          </div>
+
+          {form.preferencias?.banners?.activo && (
+            <>
+              <div className="bg-slate-800 rounded-xl p-4 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-xs text-slate-400 block mb-1">Animación</label>
+                    <select value={form.preferencias?.banners?.animacion || 'fade'}
+                      onChange={e => setPref('banners', { animacion: e.target.value })} className={inputCls}>
+                      {ANIMACIONES.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
+                    </select>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      {ANIMACIONES.find(a => a.id === (form.preferencias?.banners?.animacion || 'fade'))?.desc}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400 block mb-1">Segundos por imagen</label>
+                    <input type="number" min={2} max={30}
+                      value={form.preferencias?.banners?.intervalo ?? 6}
+                      onChange={e => setPref('banners', { intervalo: Math.min(30, Math.max(2, +e.target.value || 6)) })}
+                      className={inputCls} />
+                    <p className="text-[11px] text-slate-500 mt-1">Con una sola imagen no rota.</p>
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400 block mb-1">Altura</label>
+                    <select value={form.preferencias?.banners?.altura || 'media'}
+                      onChange={e => setPref('banners', { altura: e.target.value })} className={inputCls}>
+                      <option value="baja">Baja (franja)</option>
+                      <option value="media">Media</option>
+                      <option value="alta">Alta (portada)</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Posición en la portada</label>
+                  <div className="flex gap-2">
+                    {[{ id: 'arriba', label: 'Arriba del hero' }, { id: 'abajo', label: 'Debajo del hero' }].map(p => (
+                      <button key={p.id} onClick={() => setPref('banners', { posicion: p.id })}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                          (form.preferencias?.banners?.posicion || 'arriba') === p.id
+                            ? 'bg-fuchsia-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        }`}>{p.label}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-800 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-white">Imágenes ({bannerImgs().length})</p>
+                  <label className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+                    subiendoBanner ? 'bg-slate-700 text-slate-400' : 'bg-blue-600 hover:bg-blue-500 text-white'
+                  }`}>
+                    {subiendoBanner ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                    Subir imágenes
+                    <input type="file" accept="image/*" multiple hidden disabled={subiendoBanner}
+                      onChange={e => { subirBanners(e.target.files); e.target.value = ''; }} />
+                  </label>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Recomendado 1600×600 px (horizontal). Se recortan al ancho de la tienda sin deformarse.
+                </p>
+
+                {bannerImgs().length === 0 && (
+                  <div className="border border-dashed border-slate-600 rounded-lg py-8 text-center text-slate-500 text-sm">
+                    Aún no hay imágenes — la tienda no mostrará banner.
+                  </div>
+                )}
+
+                {bannerImgs().map((b: any, i: number) => (
+                  <div key={`${b.url}-${i}`} className="flex flex-col sm:flex-row gap-3 bg-slate-900/60 rounded-lg p-3">
+                    <img src={b.url} alt="" className="w-full sm:w-40 h-24 object-cover rounded-lg bg-slate-700 shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <input value={b.titulo || ''} onChange={e => editarBanner(i, { titulo: e.target.value })}
+                        placeholder="Título (opcional, se sobrepone a la imagen)" className={inputCls} />
+                      <input value={b.subtitulo || ''} onChange={e => editarBanner(i, { subtitulo: e.target.value })}
+                        placeholder="Subtítulo (opcional)" className={inputCls} />
+                      <input value={b.enlace || ''} onChange={e => editarBanner(i, { enlace: e.target.value })}
+                        placeholder="Enlace al hacer clic (opcional). Ej: /productos?categoria=3" className={inputCls} />
+                    </div>
+                    <div className="flex sm:flex-col gap-1 justify-end">
+                      <button onClick={() => moverBanner(i, -1)} disabled={i === 0}
+                        className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 disabled:opacity-30" title="Subir">
+                        <ArrowUp size={14} />
+                      </button>
+                      <button onClick={() => moverBanner(i, 1)} disabled={i === bannerImgs().length - 1}
+                        className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 disabled:opacity-30" title="Bajar">
+                        <ArrowDown size={14} />
+                      </button>
+                      <button onClick={() => quitarBanner(i)}
+                        className="p-2 rounded-lg bg-red-900/50 hover:bg-red-800 text-red-300" title="Quitar">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -579,6 +773,39 @@ export default function TiendaEnLineaPage() {
       {/* ── CHECKOUT ── */}
       {tab === 'checkout' && (
         <div className="space-y-4 max-w-3xl">
+          <div className="bg-slate-800 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-white flex items-center gap-2"><FileSignature size={14} /> Vender por cotización</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Oculta todos los precios: el cliente ve “Cotizar” y al finalizar envía una solicitud, no una compra.
+                </p>
+              </div>
+              <Toggle on={!!form.preferencias?.cotizaciones?.activo} color="text-indigo-400"
+                onClick={() => setPref('cotizaciones', { activo: !form.preferencias?.cotizaciones?.activo })} />
+            </div>
+            {form.preferencias?.cotizaciones?.activo && (
+              <div className="space-y-3 pt-1 border-t border-slate-700">
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1 mt-3">Texto del botón de finalizar</label>
+                  <input value={form.preferencias?.cotizaciones?.texto_boton || ''}
+                    onChange={e => setPref('cotizaciones', { texto_boton: e.target.value })}
+                    placeholder="Solicitar cotización" className={inputCls} />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Mensaje al terminar</label>
+                  <textarea value={form.preferencias?.cotizaciones?.mensaje || ''}
+                    onChange={e => setPref('cotizaciones', { mensaje: e.target.value })}
+                    rows={2} placeholder="Recibimos tu solicitud..." className={`${inputCls} resize-none`} />
+                </div>
+                <p className="text-xs text-indigo-300 bg-indigo-950/40 border border-indigo-900 rounded-lg p-3">
+                  Las solicitudes llegan a <b>Pedidos</b> marcadas como <b>Cotización</b>. Cuando captures los precios,
+                  el pedido pasa a <b>Por cobrar</b> y aparece en el POS listo para cobrarse en caja como cualquier venta.
+                </p>
+              </div>
+            )}
+          </div>
+
           <div className="bg-slate-800 rounded-xl p-4 space-y-3">
             <p className="text-sm font-semibold text-white flex items-center gap-2"><ClipboardList size={14} /> Datos a pedir en el checkout</p>
             <p className="text-xs text-slate-400">Elige qué datos pedir al cliente. Correo y teléfono se muestran siempre (se pide al menos uno para confirmar el pedido).</p>

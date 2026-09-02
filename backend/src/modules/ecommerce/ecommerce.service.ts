@@ -6,6 +6,19 @@ import { EcommercePedido } from './ecommerce-pedido.entity';
 import { EcommerceProductoConfig } from './ecommerce-producto-config.entity';
 import { Cliente } from './cliente.entity';
 import { resolveCamposFormulario } from '../empresas/campos-formulario.helper';
+import { PedidosService } from '../pedidos/pedidos.service';
+import { PedidoEstado } from '../pedidos/pedido.entity';
+
+// La direccion del ecommerce es un JSON ({calle, colonia, ciudad...}); el pedido de
+// mostrador guarda una sola linea de texto.
+function direccionPlana(dir: any): string | null {
+  if (!dir) return null;
+  if (typeof dir === 'string') return dir.slice(0, 300);
+  const partes = ['calle', 'numero', 'colonia', 'ciudad', 'estado', 'cp', 'referencias']
+    .map((k) => dir[k])
+    .filter((v) => typeof v === 'string' && v.trim());
+  return partes.length ? partes.join(', ').slice(0, 300) : null;
+}
 
 // Reintentos al generar el consecutivo del pedido cuando otro pedido concurrente
 // de la misma tienda se adelanto y tomo el mismo numero.
@@ -17,6 +30,12 @@ function esDuplicado(e: any): boolean {
   const code = e?.code ?? e?.driverError?.code;
   const errno = e?.errno ?? e?.driverError?.errno;
   return code === 'ER_DUP_ENTRY' || errno === 1062;
+}
+
+// Modo cotizacion a nivel tienda: se ocultan TODOS los precios y el checkout se
+// convierte en solicitud de cotizacion. Vive en preferencias (JSON), sin columnas nuevas.
+function esModoCotizacion(config: any): boolean {
+  return !!config?.preferencias?.cotizaciones?.activo;
 }
 
 function slugify(text: string): string {
@@ -42,6 +61,7 @@ export class EcommerceService {
     private productoConfigRepo: Repository<EcommerceProductoConfig>,
     @InjectRepository(Cliente)
     private clienteRepo: Repository<Cliente>,
+    private pedidosService: PedidosService,
   ) {}
 
   // ─── CONFIG ADMIN ────────────────────────────────────────────────────────────
@@ -102,6 +122,7 @@ export class EcommerceService {
       { id: 'iados-herramientas', nombre: 'iaDoS Herramientas', descripcion: 'Estilo ferretería/industrial: azul corporativo, tipografía Oswald y menú de categorías', modo: 'light', colorPrimary: '#2559c7', colorBg: '#f4f6f9' },
       { id: 'iados-albercas', nombre: 'iaDoS Albercas', descripcion: 'Químicos para alberca: teal de azulejo, tipografía Archivo y comparador de pH que lleva al producto', modo: 'light', colorPrimary: '#017a86', colorBg: '#f2f8f9' },
       { id: 'iados-abarrotes', nombre: 'iaDoS Abarrotes', descripcion: 'Abarrotes/frutas y verduras: verde fresco, tipografía Fredoka, vista rápida y agregar al carrito sin salir del listado', modo: 'light', colorPrimary: '#2f9e44', colorBg: '#f6faf1' },
+      { id: 'iados-movilidad', nombre: 'iaDoS Movilidad', descripcion: 'Autopartes y autos: taller oscuro con ámbar de señalamiento, tipografía Rajdhani y buscador por marca/modelo/año', modo: 'dark', colorPrimary: '#ffb020', colorBg: '#12151a' },
     ];
   }
 
@@ -162,9 +183,88 @@ export class EcommerceService {
     return this.pedidoRepo.save(p);
   }
 
+  // Cierra una solicitud de cotizacion: el admin fija el precio de cada renglon y
+  // el pedido pasa a "por cobrar". Ademas se materializa un pedido de mostrador
+  // (tabla `pedidos`) ligado por ecommerce_pedido_id, para que el cobro use el
+  // flujo normal del POS (caja -> venta -> ticket -> corte) sin caminos nuevos.
+  async cotizarPedido(scope: any, id: number, dto: any) {
+    const p = await this.getPedido(scope, id);
+    if (p.estado !== 'cotizacion') {
+      throw new BadRequestException('Solo se pueden cotizar pedidos en estado "cotización"');
+    }
+    if (p.pedido_id) throw new BadRequestException('Esta cotización ya fue enviada al POS');
+
+    const tienda_id = dto.tienda_id || scope.tienda_id;
+    if (!tienda_id) throw new BadRequestException('Selecciona la tienda que cobrará la cotización');
+
+    const precios = new Map<number, number>();
+    for (const it of dto.items || []) {
+      const precio = Number(it.precio_unitario);
+      if (!Number.isFinite(precio) || precio < 0) throw new BadRequestException('Precio inválido en la cotización');
+      precios.set(Number(it.producto_id), precio);
+    }
+
+    let subtotal = 0;
+    const items = (p.items || []).map((it: any) => {
+      const precio_unitario = precios.has(Number(it.producto_id))
+        ? precios.get(Number(it.producto_id))!
+        : Number(it.precio_unitario || 0);
+      const qty = Number(it.qty || 0);
+      const sub = precio_unitario * qty;
+      subtotal += sub;
+      return { ...it, precio_unitario, subtotal: sub };
+    });
+    if (!items.length) throw new BadRequestException('La cotización no tiene productos');
+    if (subtotal <= 0) throw new BadRequestException('Captura al menos un precio mayor a cero');
+
+    const descuento = Number(dto.descuento || 0);
+    const total = Math.max(0, subtotal - descuento);
+
+    const pedidoPos = await this.pedidosService.crear(
+      {
+        mesa: 0,
+        subtotal,
+        descuento,
+        impuestos: 0,
+        total,
+        notas: `Cotización web ${p.numero_pedido}${p.notas_cliente ? ' | ' + p.notas_cliente : ''}`,
+        cliente_nombre: p.cliente_nombre,
+        cliente_telefono: p.cliente_tel,
+        cliente_direccion: direccionPlana(p.direccion_envio),
+        cliente_email: p.cliente_email,
+        cliente_empresa: p.cliente_empresa,
+        tipo_servicio: 'para_llevar',
+        estado: PedidoEstado.LISTO_PARA_ENTREGA,
+        ecommerce_pedido_id: p.id,
+        items: items.map((it: any) => ({
+          producto_id: it.producto_id,
+          nombre: it.nombre,
+          sku: it.sku,
+          cantidad: Number(it.qty || 0),
+          precio: Number(it.precio_unitario || 0),
+        })),
+      },
+      { ...scope, tienda_id },
+    );
+
+    p.items = items;
+    p.subtotal = subtotal;
+    p.descuento = descuento;
+    p.iva = 0;
+    p.total = total;
+    p.estado = 'por_cobrar';
+    p.pedido_id = pedidoPos!.id;
+    if (dto.notas_internas !== undefined) p.notas_internas = dto.notas_internas;
+    await this.pedidoRepo.save(p);
+
+    return { ...p, folio_pos: pedidoPos!.folio };
+  }
+
   async deletePedido(scope: any, id: number) {
     const p = await this.getPedido(scope, id);
-    if (p.estado !== 'pendiente') throw new BadRequestException('Solo se pueden eliminar pedidos pendientes');
+    if (p.estado !== 'pendiente' && p.estado !== 'cotizacion') {
+      throw new BadRequestException('Solo se pueden eliminar pedidos pendientes o cotizaciones');
+    }
     await this.pedidoRepo.remove(p);
     return { ok: true };
   }
@@ -266,7 +366,8 @@ export class EcommerceService {
     params.push(+limit, +offset);
 
     const rows = await dataSource.query(sql, params);
-    const mostrarPrecios = await this.mostrarPreciosParaEmpresa(config.empresa_id, dataSource);
+    const mostrarPrecios =
+      !esModoCotizacion(config) && (await this.mostrarPreciosParaEmpresa(config.empresa_id, dataSource));
     const data = rows.map((r: any) => ({
       ...r,
       precio_venta: mostrarPrecios ? r.precio_venta : null,
@@ -315,7 +416,8 @@ export class EcommerceService {
       [row.categoria_id, config.empresa_id, row.id],
     );
 
-    const mostrarPrecios = await this.mostrarPreciosParaEmpresa(config.empresa_id, dataSource);
+    const mostrarPrecios =
+      !esModoCotizacion(config) && (await this.mostrarPreciosParaEmpresa(config.empresa_id, dataSource));
 
     return {
       ...row,
@@ -357,6 +459,10 @@ export class EcommerceService {
       }
     }
 
+    // Modo cotizacion de tienda: no se venden precios, se reciben solicitudes.
+    // El pedido nace en $0 con estado 'cotizacion' y el admin lo cotiza desde el POS.
+    const modoCotizacion = esModoCotizacion(config);
+
     // Validar stock y calcular totales
     const items: any[] = [];
     let subtotal = 0;
@@ -373,19 +479,20 @@ export class EcommerceService {
       );
       if (!prod) throw new BadRequestException(`Producto ${item.producto_id} no encontrado`);
       // Un producto a cotizar no tiene precio de lista: entraria al pedido en $0.
-      // La tienda lo bloquea en la UI, esto cierra la puerta por API.
-      if (prod.cotizacion) {
+      // La tienda lo bloquea en la UI, esto cierra la puerta por API. En modo
+      // cotizacion todo el pedido va en $0 a proposito, asi que ahi no aplica.
+      if (prod.cotizacion && !modoCotizacion) {
         throw new BadRequestException(`${prod.nombre} se vende por cotización — solicítala en lugar de agregarlo al carrito`);
       }
-      if (prod.controla_stock && prod.stock_actual < item.qty) {
+      if (!modoCotizacion && prod.controla_stock && prod.stock_actual < item.qty) {
         throw new BadRequestException(`Stock insuficiente para ${prod.nombre}`);
       }
 
       const qtyMin = prod.qty_min_mayoreo ?? config.qty_min_mayoreo;
-      const aplicaMayoreo = config.modo_mayoreo && prod.precio_mayoreo && item.qty >= qtyMin;
+      const aplicaMayoreo = !modoCotizacion && config.modo_mayoreo && prod.precio_mayoreo && item.qty >= qtyMin;
       if (aplicaMayoreo) esMayoreo = true;
 
-      const precioUnitario = aplicaMayoreo ? +prod.precio_mayoreo : +prod.precio;
+      const precioUnitario = modoCotizacion ? 0 : aplicaMayoreo ? +prod.precio_mayoreo : +prod.precio;
       const itemSubtotal = precioUnitario * item.qty;
       subtotal += itemSubtotal;
 
@@ -426,7 +533,7 @@ export class EcommerceService {
         descuento: 0,
         iva: 0,
         total: subtotal,
-        estado: 'pendiente',
+        estado: modoCotizacion ? 'cotizacion' : 'pendiente',
         notas_cliente: notas_cliente || null,
       });
 

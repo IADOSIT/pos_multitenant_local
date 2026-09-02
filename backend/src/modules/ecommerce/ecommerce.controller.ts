@@ -1,4 +1,8 @@
-import { Controller, Get, Put, Post, Delete, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
+import {
+  Controller, Get, Put, Post, Delete, Param, Body, Query, ParseIntPipe, UseGuards,
+  UseInterceptors, UploadedFile, BadRequestException,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -44,6 +48,18 @@ export class EcommerceController {
     return this.service.getTemas();
   }
 
+  // Banners/flyers de la tienda. Devuelve la URL relativa (/api/uploads/...) que
+  // se guarda dentro de preferencias.banners; el archivo vive en el mismo volumen
+  // de uploads que las imagenes de producto.
+  @Post('config/upload-banner')
+  @Roles('superadmin', 'admin')
+  @UseInterceptors(FileInterceptor('image'))
+  async uploadBanner(@UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('No se recibió ningún archivo');
+    const { saveUploadedImage } = await import('../../common/utils/upload-image.util');
+    return { url: await saveUploadedImage(file, 'banner') };
+  }
+
   // ─── PRODUCTOS ECOMMERCE ───────────────────────────────────────────────────
 
   @Get('productos')
@@ -84,6 +100,13 @@ export class EcommerceController {
   @Roles('superadmin', 'admin', 'manager')
   updateEstado(@TenantScope() scope, @Param('id', ParseIntPipe) id: number, @Body() body: any) {
     return this.service.updateEstadoPedido(scope, id, body.estado, body.notas_internas);
+  }
+
+  // Fija precios a una solicitud de cotizacion y la manda "por cobrar" al POS.
+  @Put('pedidos/:id/cotizar')
+  @Roles('superadmin', 'admin', 'manager')
+  cotizarPedido(@TenantScope() scope, @Param('id', ParseIntPipe) id: number, @Body() body: any) {
+    return this.service.cotizarPedido(scope, id, body);
   }
 
   @Delete('pedidos/:id')

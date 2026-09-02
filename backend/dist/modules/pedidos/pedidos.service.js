@@ -60,7 +60,11 @@ let PedidosService = class PedidosService {
             cliente_nombre: data.cliente_nombre,
             cliente_telefono: data.cliente_telefono,
             cliente_direccion: data.cliente_direccion,
+            cliente_email: data.cliente_email ?? null,
+            cliente_empresa: data.cliente_empresa ?? null,
             tipo_servicio: data.tipo_servicio || 'en_sitio',
+            estado: data.estado || pedido_entity_1.PedidoEstado.RECIBIDO,
+            ecommerce_pedido_id: data.ecommerce_pedido_id ?? null,
             detalles: data.items.map((item) => ({
                 producto_id: item.producto_id,
                 producto_nombre: item.nombre,
@@ -233,6 +237,13 @@ let PedidosService = class PedidosService {
         pedido.venta_id = venta.id;
         pedido.estado = pedido_entity_1.PedidoEstado.ENTREGADO;
         await this.pedidosRepo.save(pedido);
+        if (pedido.ecommerce_pedido_id) {
+            await this.pedidosRepo.manager
+                .query(`UPDATE ecommerce_pedidos SET estado = 'entregado', updated_at = NOW() WHERE id = ?`, [
+                pedido.ecommerce_pedido_id,
+            ])
+                .catch(() => { });
+        }
         if (pedido.self_order && this.selfOrderService) {
             await this.selfOrderService.crearEncuestaAlCobrar(pedido);
             this.logisticaService.notificarPedidoWhatsapp(pedido, 'entregado', scope).catch(() => { });

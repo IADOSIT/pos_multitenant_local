@@ -9,13 +9,13 @@
 // original), asi que las acciones de cada flujo siguen operando sin cambios.
 import {
   Clock, Check, Package, PackageCheck, Truck, XCircle,
-  Store, Smartphone, ShoppingBag,
+  Store, Smartphone, ShoppingBag, FileSignature, Banknote,
 } from 'lucide-react';
 
 export type Origen = 'mostrador' | 'qr' | 'web';
 
 export type EstadoUnificado =
-  | 'nuevo' | 'confirmado' | 'preparando' | 'listo' | 'enviado' | 'entregado' | 'cancelado';
+  | 'nuevo' | 'cotizacion' | 'por_cobrar' | 'confirmado' | 'preparando' | 'listo' | 'enviado' | 'entregado' | 'cancelado';
 
 export interface PedidoUnificado {
   /** Unico en el listado mezclado: los ids se repiten entre las dos tablas. */
@@ -55,6 +55,8 @@ export const ORIGENES: Record<Origen, { label: string; icon: any; color: string;
 
 export const ESTADOS_UNIFICADOS: Record<EstadoUnificado, { label: string; color: string; bg: string; icon: any }> = {
   nuevo:      { label: 'Nuevo',      color: 'text-yellow-300', bg: 'bg-yellow-900/40', icon: Clock },
+  cotizacion: { label: 'Cotización', color: 'text-indigo-300', bg: 'bg-indigo-900/40', icon: FileSignature },
+  por_cobrar: { label: 'Por cobrar', color: 'text-amber-300',  bg: 'bg-amber-900/40',  icon: Banknote },
   confirmado: { label: 'Confirmado', color: 'text-blue-300',   bg: 'bg-blue-900/40',   icon: Check },
   preparando: { label: 'Preparando', color: 'text-purple-300', bg: 'bg-purple-900/40', icon: Package },
   listo:      { label: 'Listo',      color: 'text-green-300',  bg: 'bg-green-900/40',  icon: PackageCheck },
@@ -73,6 +75,10 @@ const ESTADO_POS: Record<string, EstadoUnificado> = {
 
 const ESTADO_WEB: Record<string, EstadoUnificado> = {
   pendiente: 'nuevo',
+  // Solicitud de cotizacion: todavia no es una compra, no tiene precios.
+  cotizacion: 'cotizacion',
+  // Ya cotizada: existe un pedido de mostrador esperando cobro en el POS.
+  por_cobrar: 'por_cobrar',
   confirmado: 'confirmado',
   preparando: 'preparando',
   enviado: 'enviado',
@@ -86,7 +92,13 @@ const SIGUIENTE_POS: Record<string, string> = {
   en_elaboracion: 'listo_para_entrega',
 };
 
-/** Siguiente estado web, en el vocabulario del backend de `ecommerce_pedidos`. */
+/**
+ * Siguiente estado web, en el vocabulario del backend de `ecommerce_pedidos`.
+ *
+ * `cotizacion` y `por_cobrar` quedan fuera a proposito: no "avanzan" solos. Una
+ * cotizacion se cierra capturando precios (modal Cotizar) y una ya cotizada la
+ * cierra el cobro en el POS, que la marca `entregado` desde el backend.
+ */
 const SIGUIENTE_WEB: Record<string, string> = {
   pendiente: 'confirmado',
   confirmado: 'preparando',

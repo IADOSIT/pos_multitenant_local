@@ -7,9 +7,14 @@ import { Cliente } from './cliente.entity';
 import { EcommerceService } from './ecommerce.service';
 import { EcommerceController } from './ecommerce.controller';
 import { EcommercePublicController } from './ecommerce-public.controller';
+import { PedidosModule } from '../pedidos/pedidos.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([EcommerceConfig, EcommercePedido, EcommerceProductoConfig, Cliente])],
+  imports: [
+    TypeOrmModule.forFeature([EcommerceConfig, EcommercePedido, EcommerceProductoConfig, Cliente]),
+    // Al cotizar se crea el pedido de mostrador que se cobra en el POS.
+    PedidosModule,
+  ],
   controllers: [EcommerceController, EcommercePublicController],
   providers: [EcommerceService],
   exports: [EcommerceService],

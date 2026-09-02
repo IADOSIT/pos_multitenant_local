@@ -34,6 +34,7 @@ export declare class Pedido {
     encuesta_token: string;
     tipo_servicio: string;
     cuenta_abierta: boolean;
+    ecommerce_pedido_id: number | null;
     created_at: Date;
     updated_at: Date;
     detalles: PedidoDetalle[];

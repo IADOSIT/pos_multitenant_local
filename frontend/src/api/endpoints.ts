@@ -115,6 +115,11 @@ export const ecommerceApi = {
   verificarSubdominio: (sub: string) => api.get('/ecommerce/config/verificar-subdominio', { params: { subdominio: sub } }),
   generarSubdominio: (nombre: string) => api.post('/ecommerce/config/generar-subdominio', { nombre }),
   getTemas: () => api.get('/ecommerce/config/temas'),
+  uploadBanner: (file: File) => {
+    const form = new FormData();
+    form.append('image', file);
+    return api.post('/ecommerce/config/upload-banner', form);
+  },
   // Productos
   getProductoConfig: (id: number) => api.get(`/ecommerce/productos/${id}/config`),
   saveProductoConfig: (id: number, data: any) => api.put(`/ecommerce/productos/${id}/config`, data),
@@ -123,6 +128,9 @@ export const ecommerceApi = {
   listPedidos: (params?: any) => api.get('/ecommerce/pedidos', { params }),
   getPedido: (id: number) => api.get(`/ecommerce/pedidos/${id}`),
   updateEstado: (id: number, estado: string, notas?: string) => api.put(`/ecommerce/pedidos/${id}/estado`, { estado, notas_internas: notas }),
+  // Fija precios a una solicitud de cotizacion: la manda "por cobrar" al POS.
+  cotizarPedido: (id: number, data: { items: { producto_id: number; precio_unitario: number }[]; descuento?: number; notas_internas?: string; tienda_id?: number }) =>
+    api.put(`/ecommerce/pedidos/${id}/cotizar`, data),
   deletePedido: (id: number) => api.delete(`/ecommerce/pedidos/${id}`),
 };
 
