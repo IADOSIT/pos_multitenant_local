@@ -23,6 +23,7 @@ INSTALACION
      TIENDA_TOKEN=<pegar aqui el token>
      SCALE_PORT=COM3   (revisar en Administrador de dispositivos)
      SCALE_BAUD=9600   (revisar manual de la bascula)
+     SCALE_POLL_MS=0   (ver "TIPO DE BASCULA" mas abajo)
    El token se copia desde el POS: Configuracion -> Bascula de
    autoservicio -> "Token del bridge".
 4. En el POS, en la misma pantalla de Configuracion, capturar la IP
@@ -40,14 +41,37 @@ USO
   (se abre en una ventana aparte), selecciona el producto, pone la
   fruta/verdura en la bascula, y confirma para imprimir la etiqueta.
 
+TIPO DE BASCULA (importante)
+-----------------------------
+Hay dos familias de bascula y el bridge las soporta a las dos, pero
+hay que decirle cual es en el .env:
+
+a) FLUJO CONTINUO — la bascula manda el peso sola, sin que se le pida.
+   Dejar SCALE_POLL_MS=0 (es el valor por defecto).
+
+b) POLLING — la bascula no dice nada hasta que se le pregunta. Es el
+   caso de la Torrey conectada por USB (aparece como "STMicroelectronics
+   Virtual COM Port"). Configurar:
+     SCALE_POLL_CMD=P\r\n
+     SCALE_POLL_MS=400
+   Con SCALE_POLL_MS=0 esta bascula NO leera nada nunca.
+
+Como saber cual es: abrir el bridge y mirar bridge.log. Si dice
+"Conectado — esperando peso" pero el peso nunca se mueve en el kiosko,
+es de polling: poner SCALE_POLL_MS=400 y reiniciar el bridge.
+
+En las basculas por USB con COM virtual (CDC) el valor de SCALE_BAUD
+es irrelevante; se puede dejar en 9600.
+
 AJUSTE DEL PROTOCOLO DE LA BASCULA
 -----------------------------------
-El bridge trae un lector generico que busca un numero decimal
-(ej. "001.250") en los datos que manda la bascula por el puerto
-serial. La mayoria de basculas de mostrador funcionan asi, pero si
-el peso no se lee correctamente, revisar el manual del modelo
-comprado para confirmar el formato exacto de la trama y ajustar la
-expresion regular PESO_REGEX en main.js.
+El bridge corta la respuesta por saltos de linea (CR o LF) y busca un
+numero decimal (ej. "001.250" o "  1.752 kg") en cada linea. Las
+lecturas que no traen numero (la Torrey manda "NEG." cuando el peso es
+negativo) se descartan solas. La mayoria de basculas de mostrador
+funcionan asi, pero si el peso no se lee correctamente, revisar el
+manual del modelo comprado para confirmar el formato exacto de la
+trama y ajustar la expresion regular PESO_REGEX en main.js.
 
 PROBLEMAS COMUNES
 ------------------
@@ -58,6 +82,8 @@ PROBLEMAS COMUNES
 - "Sin bascula (COMx)": confirmar el puerto COM correcto en
   Administrador de dispositivos y que ningun otro programa lo tenga
   abierto.
+- Conecta bien pero el peso siempre marca 0 o no se mueve: es una
+  bascula de polling, ver "TIPO DE BASCULA" arriba (SCALE_POLL_MS=400).
 - La etiqueta no imprime: confirmar que la impresora esta en la
   misma red, que la IP configurada es correcta, y que el puerto 9100
   (o el que corresponda) no esta bloqueado por firewall.
