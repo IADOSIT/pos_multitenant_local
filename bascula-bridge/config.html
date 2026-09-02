@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';" />
+<title>Configuracion del Bridge</title>
+<style>
+  :root {
+    --bg: #0f172a; --panel: #1e293b; --borde: #334155; --texto: #e2e8f0;
+    --tenue: #94a3b8; --acento: #f59e0b; --ok: #22c55e; --mal: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 18px; background: var(--bg); color: var(--texto);
+         font-family: "Segoe UI", system-ui, sans-serif; font-size: 14px; }
+  h1 { font-size: 17px; margin: 0 0 14px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
+       color: var(--tenue); margin: 18px 0 8px; font-weight: 600; }
+  .panel { background: var(--panel); border: 1px solid var(--borde); border-radius: 8px; padding: 14px; }
+  label { display: block; font-size: 12px; color: var(--tenue); margin: 10px 0 4px; }
+  input, select { width: 100%; padding: 8px 10px; border-radius: 6px; background: #0b1220;
+                  border: 1px solid var(--borde); color: var(--texto); font-size: 14px;
+                  font-family: inherit; }
+  input:focus, select:focus { outline: 2px solid var(--acento); outline-offset: -1px; }
+  .fila { display: flex; gap: 8px; align-items: flex-end; }
+  .fila > * { flex: 1; }
+  .fila > button { flex: 0 0 auto; }
+  button { padding: 8px 14px; border-radius: 6px; border: 1px solid var(--borde);
+           background: #334155; color: var(--texto); font-size: 13px; cursor: pointer;
+           font-family: inherit; }
+  button:hover { background: #475569; }
+  button.primario { background: var(--acento); border-color: var(--acento); color: #1c1300; font-weight: 700; }
+  button.primario:hover { background: #fbbf24; }
+  button:disabled { opacity: .5; cursor: default; }
+  .estado { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 13px; }
+  .estado dt { color: var(--tenue); }
+  .estado dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .pill.ok { background: #052e16; color: var(--ok); }
+  .pill.mal { background: #450a0a; color: var(--mal); }
+  .peso { font-size: 30px; font-weight: 700; color: var(--acento); font-variant-numeric: tabular-nums; }
+  .aviso { margin-top: 10px; padding: 10px; border-radius: 6px; font-size: 13px; display: none; }
+  .aviso.ok { display: block; background: #052e16; color: #86efac; border: 1px solid #166534; }
+  .aviso.mal { display: block; background: #450a0a; color: #fca5a5; border: 1px solid #991b1b; }
+  .ayuda { font-size: 12px; color: var(--tenue); margin-top: 4px; }
+  .pie { display: flex; gap: 8px; margin-top: 16px; }
+</style>
+</head>
+<body>
+  <h1>Bridge de bascula — Configuracion</h1>
+
+  <div class="panel">
+    <h2 style="margin-top:0">Estado actual</h2>
+    <dl class="estado">
+      <dt>Backend</dt><dd id="e-backend">—</dd>
+      <dt>Tienda</dt><dd id="e-tienda">—</dd>
+      <dt>Bascula</dt><dd id="e-bascula">—</dd>
+      <dt>Modo</dt><dd id="e-modo">—</dd>
+      <dt>Ultima trama</dt><dd id="e-trama">—</dd>
+    </dl>
+    <div style="margin-top:10px">Peso en vivo: <span class="peso" id="e-peso">—</span></div>
+  </div>
+
+  <h2>Tienda</h2>
+  <div class="panel">
+    <label for="token">Token de la tienda</label>
+    <input id="token" type="text" spellcheck="false" placeholder="pegar el token aqui" />
+    <div class="ayuda">Se copia del POS: Configuracion &rarr; Bascula de autoservicio &rarr; Token del bridge.</div>
+
+    <label for="backend">URL del backend</label>
+    <input id="backend" type="text" spellcheck="false" />
+  </div>
+
+  <h2>Bascula</h2>
+  <div class="panel">
+    <label for="puerto">Puerto donde esta conectada</label>
+    <div class="fila">
+      <select id="puerto"></select>
+      <button id="btn-refrescar" type="button">Refrescar</button>
+    </div>
+
+    <div class="fila" style="margin-top:10px">
+      <div>
+        <label for="baud">Velocidad (baud)</label>
+        <input id="baud" type="text" spellcheck="false" />
+      </div>
+      <div>
+        <label for="pollms">Consultar cada (ms)</label>
+        <input id="pollms" type="text" spellcheck="false" />
+      </div>
+      <div>
+        <label for="pollcmd">Comando</label>
+        <input id="pollcmd" type="text" spellcheck="false" />
+      </div>
+    </div>
+    <div class="ayuda">0 ms = la bascula manda el peso sola. Si no sabes cual es, usa Detectar.</div>
+
+    <div class="pie">
+      <button id="btn-detectar" type="button">Detectar automaticamente</button>
+    </div>
+    <div class="aviso" id="aviso"></div>
+  </div>
+
+  <div class="pie">
+    <button class="primario" id="btn-guardar" type="button">Guardar y reconectar</button>
+    <button id="btn-log" type="button">Ver bitacora</button>
+  </div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let puertosCargados = [];
+
+  function pill(txt, ok) {
+    return '<span class="pill ' + (ok ? 'ok' : 'mal') + '">' + txt + '</span>';
+  }
+
+  function pintarEstado(s) {
+    $('e-backend').innerHTML = pill(s.backend, s.backend === 'Conectado');
+    $('e-tienda').textContent = s.tienda_id ? ('#' + s.tienda_id) : '—';
+    $('e-bascula').innerHTML = pill(s.bascula, /^Abierta/.test(s.bascula));
+    $('e-modo').textContent = s.polling ? 'Polling (se le pregunta el peso)' : 'Flujo continuo';
+    $('e-trama').textContent = s.ultimaTrama ? JSON.stringify(s.ultimaTrama) : '—';
+    $('e-peso').textContent = (s.peso === null || s.peso === undefined) ? '—' : (s.peso.toFixed(3) + ' kg');
+  }
+
+  function pintarConfig(c) {
+    if (document.activeElement !== $('token')) $('token').value = c.TIENDA_TOKEN || '';
+    if (document.activeElement !== $('backend')) $('backend').value = c.BACKEND_URL || '';
+    if (document.activeElement !== $('baud')) $('baud').value = c.SCALE_BAUD || '9600';
+    if (document.activeElement !== $('pollms')) $('pollms').value = c.SCALE_POLL_MS || '0';
+    if (document.activeElement !== $('pollcmd')) $('pollcmd').value = c.SCALE_POLL_CMD || '';
+    seleccionarPuerto(c.SCALE_PORT);
+  }
+
+  function seleccionarPuerto(valor) {
+    const sel = $('puerto');
+    if (!valor) return;
+    // Si el puerto guardado no esta en la lista (bascula desconectada), lo agregamos
+    // igual para no perder el valor al guardar.
+    if (!puertosCargados.some((p) => p.path === valor)) {
+      const o = document.createElement('option');
+      o.value = valor;
+      o.textContent = valor + ' — (no detectado ahora)';
+      sel.appendChild(o);
+    }
+    sel.value = valor;
+  }
+
+  async function cargarPuertos(mantener) {
+    const previo = mantener || $('puerto').value;
+    puertosCargados = await window.bridge.listarPuertos();
+    const sel = $('puerto');
+    sel.innerHTML = '';
+    if (!puertosCargados.length) {
+      const o = document.createElement('option');
+      o.value = '';
+      o.textContent = 'No se detecto ningun puerto COM';
+      sel.appendChild(o);
+      return;
+    }
+    for (const p of puertosCargados) {
+      const o = document.createElement('option');
+      o.value = p.path;
+      o.textContent = p.etiqueta;
+      sel.appendChild(o);
+    }
+    seleccionarPuerto(previo);
+  }
+
+  function aviso(texto, ok) {
+    const a = $('aviso');
+    a.textContent = texto;
+    a.className = 'aviso ' + (ok ? 'ok' : 'mal');
+  }
+
+  $('btn-refrescar').addEventListener('click', () => cargarPuertos());
+
+  $('btn-detectar').addEventListener('click', async () => {
+    const btn = $('btn-detectar');
+    btn.disabled = true;
+    btn.textContent = 'Detectando (puede tardar ~8s)...';
+    aviso('Probando la bascula, no la muevas...', true);
+    try {
+      const r = await window.bridge.detectar({ puerto: $('puerto').value, baud: $('baud').value });
+      aviso(r.mensaje, r.ok);
+      if (r.ok) {
+        if (r.SCALE_POLL_MS !== undefined) $('pollms').value = r.SCALE_POLL_MS;
+        if (r.SCALE_POLL_CMD !== undefined) $('pollcmd').value = r.SCALE_POLL_CMD;
+      }
+    } catch (e) {
+      aviso('Error al detectar: ' + e.message, false);
+    }
+    btn.disabled = false;
+    btn.textContent = 'Detectar automaticamente';
+  });
+
+  $('btn-guardar').addEventListener('click', async () => {
+    const btn = $('btn-guardar');
+    btn.disabled = true;
+    try {
+      await window.bridge.guardar({
+        TIENDA_TOKEN: $('token').value,
+        BACKEND_URL: $('backend').value,
+        SCALE_PORT: $('puerto').value,
+        SCALE_BAUD: $('baud').value,
+        SCALE_POLL_MS: $('pollms').value,
+        SCALE_POLL_CMD: $('pollcmd').value,
+      });
+      aviso('Guardado. Reconectando con la nueva configuracion...', true);
+    } catch (e) {
+      aviso('No se pudo guardar: ' + e.message, false);
+    }
+    btn.disabled = false;
+  });
+
+  $('btn-log').addEventListener('click', () => window.bridge.abrirLog());
+
+  window.bridge.onEstado((s) => { pintarEstado(s); if (s.config) pintarConfig(s.config); });
+
+  (async () => {
+    const s = await window.bridge.obtenerEstado();
+    await cargarPuertos(s.config && s.config.SCALE_PORT);
+    pintarEstado(s);
+    pintarConfig(s.config);
+  })();
+</script>
+</body>
+</html>
