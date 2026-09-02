@@ -19,6 +19,13 @@ import DevolucionModal from '../../components/pos/DevolucionModal';
 import ApartadosPanel from '../../components/pos/ApartadosPanel';
 import { Search, ShoppingBag, Wifi, WifiOff, CreditCard, X, Clock, RefreshCw, Trash2, Minus, Plus, FileText, RotateCcw, PackageSearch } from 'lucide-react';
 
+// El catalogo captura `unidad` como texto libre, asi que llega escrito de varias
+// formas ("kg", "Kg", "KG", "kg "). El kiosko y el panel de configuracion no lo
+// notan porque filtran en MySQL (`unidad = 'kg'`, comparacion insensible a
+// mayusculas y a espacios finales); el POS comparaba en JS con === y por eso el
+// modal de pesaje nunca abria para esos productos aunque el kiosko si los mostrara.
+const esProductoPorPeso = (p: any) => String(p?.unidad || '').trim().toLowerCase() === 'kg';
+
 // ── Long-press product card ──────────────────────────────────────────────────
 function ProductCard({ prod, onClick, onLongPress, showStockBadge, mostrarPrecios, moneda }: { prod: Producto; onClick: () => void; onLongPress: () => void; showStockBadge?: boolean; mostrarPrecios?: boolean; moneda?: MonedaConfig }) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -120,6 +127,11 @@ export default function POSPage() {
   const [pesoModal, setPesoModal] = useState<{ producto: Producto } | null>(null);
   const [cotizaModal, setCotizaModal] = useState<{ producto: Producto; precio: string; qty: number } | null>(null);
   const [pesoEnVivo, setPesoEnVivo] = useState(0);
+  // El socket puede estar conectado al backend y aun asi no llegar ninguna lectura
+  // (el bridge de la tienda apagado, con otro token o en otra tienda). Se distingue
+  // "hay socket" de "la bascula esta mandando peso" para no dejar al cajero atorado
+  // en 0.000 kg sin poder capturarlo a mano.
+  const [pesoRecibido, setPesoRecibido] = useState(false);
   const [pesoManualInput, setPesoManualInput] = useState('');
   const basculaSockRef = useRef<Socket | null>(null);
 
@@ -138,7 +150,10 @@ export default function POSPage() {
       sock.emit('kiosk-join', { tienda_id: tiendaId });
     });
     sock.on('disconnect', () => setBasculaConectada(false));
-    sock.on('weight-update', (data: { peso_kg: number }) => setPesoEnVivo(data.peso_kg || 0));
+    sock.on('weight-update', (data: { peso_kg: number }) => {
+      setPesoEnVivo(data.peso_kg || 0);
+      setPesoRecibido(true);
+    });
     return () => { sock.disconnect(); };
   }, [basculaEnPos, tiendaId]);
 
@@ -386,8 +401,9 @@ export default function POSPage() {
       setCotizaModal({ producto, precio: '', qty: 1 });
       return;
     }
-    if (basculaEnPos && (producto as any).unidad === 'kg') {
+    if (basculaEnPos && esProductoPorPeso(producto)) {
       setPesoEnVivo(0);
+      setPesoRecibido(false);
       setPesoManualInput('');
       setPesoModal({ producto });
       return;
@@ -401,6 +417,15 @@ export default function POSPage() {
     // tiene, asi que se captura precio y cantidad en su propio modal.
     if (producto.cotizacion) {
       setCotizaModal({ producto, precio: '', qty: 1 });
+      return;
+    }
+    // Un producto por peso no se vende "por unidades": el modal de cantidad lo
+    // cobraria a precio/kg x N. Se manda al mismo modal de pesaje que el tap.
+    if (basculaEnPos && esProductoPorPeso(producto)) {
+      setPesoEnVivo(0);
+      setPesoRecibido(false);
+      setPesoManualInput('');
+      setPesoModal({ producto });
       return;
     }
     setQtyModal({ producto, qty: 1 });
@@ -972,8 +997,14 @@ export default function POSPage() {
               <button onClick={() => setPesoModal(null)} className="text-slate-400 hover:text-white"><X size={20} /></button>
             </div>
             <div className="flex items-center gap-1.5 mb-4">
-              <div className={`w-2 h-2 rounded-full ${basculaConectada ? 'bg-green-500' : 'bg-yellow-500 animate-pulse'}`} />
-              <span className="text-xs text-slate-500">{basculaConectada ? 'Báscula conectada' : 'Sin conexión — puedes capturar el peso manual'}</span>
+              <div className={`w-2 h-2 rounded-full ${pesoRecibido ? 'bg-green-500' : 'bg-yellow-500 animate-pulse'}`} />
+              <span className="text-xs text-slate-500">
+                {pesoRecibido
+                  ? 'Báscula conectada'
+                  : basculaConectada
+                    ? 'Esperando lectura de la báscula — puedes capturar el peso manual'
+                    : 'Sin conexión — puedes capturar el peso manual'}
+              </span>
             </div>
 
             <div className="bg-iados-card rounded-2xl px-6 py-6 flex flex-col items-center gap-1 mb-4">
@@ -981,7 +1012,10 @@ export default function POSPage() {
               <p className="text-4xl font-black tabular-nums">{pesoEnVivo.toFixed(3)} <span className="text-lg text-slate-500">kg</span></p>
             </div>
 
-            {!basculaConectada && (
+            {/* Mientras no haya un peso real de la bascula, el cajero siempre puede
+                capturarlo a mano: en cuanto llega la lectura el campo desaparece y
+                manda el peso de la bascula. */}
+            {pesoEnVivo <= 0 && (
               <input
                 type="number"
                 inputMode="decimal"
