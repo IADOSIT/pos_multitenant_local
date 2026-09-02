@@ -37,6 +37,10 @@ function loadConfig() {
     TIENDA_TOKEN: '',
     SCALE_PORT: 'COM3',
     SCALE_BAUD: '9600',
+    // Basculas de polling (p.ej. Torrey por USB CDC): no transmiten solas, hay que
+    // pedirles el peso. SCALE_POLL_MS=0 deja el comportamiento de flujo continuo.
+    SCALE_POLL_CMD: 'P\\r\\n',
+    SCALE_POLL_MS: '0',
   };
   const appDir = app.isPackaged ? path.dirname(process.execPath) : __dirname;
   const envPath = path.join(appDir, '.env');
@@ -57,6 +61,7 @@ let tray = null;
 let socket = null;
 let scalePort = null;
 let scaleBuffer = '';
+let scalePoller = null;
 let lastPesoEmitido = null;
 let lastPesoEstable = 0;
 
@@ -99,15 +104,42 @@ function connectSocket() {
 }
 
 // ── Bascula por serial (RS-232/USB) ────────────────────────────────────────────
-// Protocolo generico: acumula bytes crudos y extrae el primer numero decimal
-// (con signo opcional) que aparezca en el buffer reciente. El protocolo exacto
-// (framing, unidades) se ajusta segun el manual de la bascula comprada — este
-// parser generico cubre la mayoria de basculas de mostrador con salida continua.
+// Dos familias de bascula conviven aqui:
+//  · Flujo continuo: la bascula emite sola (SCALE_POLL_MS=0, comportamiento por defecto).
+//  · Polling: no dice nada hasta que se le pregunta. La Torrey por USB (CDC virtual
+//    STMicroelectronics VID:0483 PID:5740) es de este tipo — contesta a "P\r\n" con
+//    una trama "  1.752 kg" terminada en CR, y "  NEG.    " cuando el peso es negativo.
+// El framing se resuelve por lineas (CR y/o LF) para no arrastrar restos entre lecturas.
 const PESO_REGEX = /([+-]?\d{1,3}\.\d{1,3})/;
+
+// "P\r\n" viene del .env como texto literal; hay que convertir los escapes a bytes.
+function decodificarCmd(txt) {
+  return String(txt || '').replace(/\\r/g, '\r').replace(/\\n/g, '\n').replace(/\\x05/g, '\x05');
+}
+
+function procesarLectura(linea) {
+  const match = linea.match(PESO_REGEX);
+  if (!match) return; // "NEG.", encabezados o basura: se descarta sin emitir
+
+  const peso = Math.abs(parseFloat(match[1]));
+  if (Number.isNaN(peso)) return;
+
+  // Estabilidad simple: mismo valor (redondeado a 3 decimales) 2 lecturas seguidas
+  const pesoRedondeado = Math.round(peso * 1000) / 1000;
+  const estable = pesoRedondeado === lastPesoEstable;
+  lastPesoEstable = pesoRedondeado;
+
+  if (pesoRedondeado !== lastPesoEmitido || estable) {
+    lastPesoEmitido = pesoRedondeado;
+    if (socket?.connected) socket.emit('bridge-weight', { peso_kg: pesoRedondeado, estable });
+  }
+}
 
 function abrirBascula() {
   const portPath = config.SCALE_PORT;
   const baudRate = parseInt(config.SCALE_BAUD, 10) || 9600;
+  const pollMs = parseInt(config.SCALE_POLL_MS, 10) || 0;
+  const pollCmd = decodificarCmd(config.SCALE_POLL_CMD);
 
   scalePort = new SerialPort({ path: portPath, baudRate, autoOpen: false });
 
@@ -120,28 +152,26 @@ function abrirBascula() {
     }
     console.log(`[bridge] Bascula conectada en ${portPath} @ ${baudRate}bps`);
     updateTray('Conectado — esperando peso');
+
+    if (pollMs > 0 && pollCmd) {
+      console.log(`[bridge] Modo polling: enviando ${JSON.stringify(pollCmd)} cada ${pollMs}ms`);
+      scalePoller = setInterval(() => {
+        if (scalePort?.isOpen) scalePort.write(pollCmd, (e) => { if (e) console.warn('[bridge] write:', e.message); });
+      }, pollMs);
+    }
   });
 
   scalePort.on('data', (chunk) => {
     scaleBuffer += chunk.toString('ascii');
     if (scaleBuffer.length > 200) scaleBuffer = scaleBuffer.slice(-200); // evitar crecimiento sin limite
 
-    const match = scaleBuffer.match(PESO_REGEX);
-    if (!match) return;
-
-    const peso = Math.abs(parseFloat(match[1]));
-    if (Number.isNaN(peso)) return;
-
-    // Estabilidad simple: mismo valor (redondeado a 3 decimales) 2 lecturas seguidas
-    const pesoRedondeado = Math.round(peso * 1000) / 1000;
-    const estable = pesoRedondeado === lastPesoEstable;
-    lastPesoEstable = pesoRedondeado;
-
-    if (pesoRedondeado !== lastPesoEmitido || estable) {
-      lastPesoEmitido = pesoRedondeado;
-      if (socket?.connected) socket.emit('bridge-weight', { peso_kg: pesoRedondeado, estable });
+    // Corta por CR o LF: la Torrey solo manda CR, otras basculas mandan CRLF.
+    let i;
+    while ((i = scaleBuffer.search(/[\r\n]/)) >= 0) {
+      const linea = scaleBuffer.slice(0, i);
+      scaleBuffer = scaleBuffer.slice(i + 1);
+      if (linea.trim()) procesarLectura(linea);
     }
-    scaleBuffer = '';
   });
 
   scalePort.on('error', (err) => {
@@ -150,6 +180,8 @@ function abrirBascula() {
 
   scalePort.on('close', () => {
     console.warn('[bridge] Puerto serial cerrado — reintentando en 10s');
+    if (scalePoller) { clearInterval(scalePoller); scalePoller = null; }
+    scaleBuffer = '';
     updateTray('Bascula desconectada');
     setTimeout(abrirBascula, 10000);
   });
@@ -234,5 +266,6 @@ function updateTray(status) {
 app.on('window-all-closed', (e) => e.preventDefault());
 app.on('will-quit', () => {
   if (socket) socket.disconnect();
+  if (scalePoller) { clearInterval(scalePoller); scalePoller = null; }
   if (scalePort?.isOpen) scalePort.close();
 });
