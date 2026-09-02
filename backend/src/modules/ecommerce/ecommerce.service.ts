@@ -228,7 +228,7 @@ export class EcommerceService {
 
     let sql = `
       SELECT p.id, p.nombre, p.descripcion, p.sku, p.precio as precio_venta, p.imagen_url,
-             p.controla_stock, p.stock_actual as stock, p.categoria_id,
+             p.cotizacion, p.controla_stock, p.stock_actual as stock, p.categoria_id,
              c.nombre as categoria_nombre,
              COALESCE(ep.precio_mayoreo, NULL) as precio_mayoreo,
              COALESCE(ep.qty_min_mayoreo, NULL) as qty_min_mayoreo,
@@ -291,7 +291,7 @@ export class EcommerceService {
     const config = await this.getConfigBySubdominio(subdominio);
     const [row] = await dataSource.query(
       `SELECT p.id, p.nombre, p.descripcion, p.sku,
-              p.precio as precio_venta, p.imagen_url,
+              p.precio as precio_venta, p.imagen_url, p.cotizacion,
               p.controla_stock, p.stock_actual as stock,
               p.categoria_id,
               ep.precio_mayoreo, ep.qty_min_mayoreo, ep.descripcion_larga,
@@ -306,7 +306,7 @@ export class EcommerceService {
     if (!row) throw new NotFoundException('Producto no encontrado');
 
     const relacionados = await dataSource.query(
-      `SELECT p.id, p.nombre, p.precio, p.imagen_url, ep.slug
+      `SELECT p.id, p.nombre, p.precio, p.cotizacion, p.imagen_url, ep.slug
        FROM productos p
        LEFT JOIN ecommerce_producto_config ep ON ep.producto_id = p.id
        WHERE p.categoria_id = ? AND p.empresa_id = ? AND p.id != ? AND p.activo = 1
@@ -364,7 +364,7 @@ export class EcommerceService {
 
     for (const item of itemsInput) {
       const [prod] = await dataSource.query(
-        `SELECT p.id, p.nombre, p.sku, p.precio, p.controla_stock, p.stock_actual,
+        `SELECT p.id, p.nombre, p.sku, p.precio, p.cotizacion, p.controla_stock, p.stock_actual,
                 ep.precio_mayoreo, ep.qty_min_mayoreo
          FROM productos p
          LEFT JOIN ecommerce_producto_config ep ON ep.producto_id = p.id
@@ -372,6 +372,11 @@ export class EcommerceService {
         [item.producto_id, config.empresa_id],
       );
       if (!prod) throw new BadRequestException(`Producto ${item.producto_id} no encontrado`);
+      // Un producto a cotizar no tiene precio de lista: entraria al pedido en $0.
+      // La tienda lo bloquea en la UI, esto cierra la puerta por API.
+      if (prod.cotizacion) {
+        throw new BadRequestException(`${prod.nombre} se vende por cotización — solicítala en lugar de agregarlo al carrito`);
+      }
       if (prod.controla_stock && prod.stock_actual < item.qty) {
         throw new BadRequestException(`Stock insuficiente para ${prod.nombre}`);
       }

@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260901-modal-pedidos-folios-numericos"
+        CACHE_BUST: "20260901-productos-a-cotizar"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
@@ -41,7 +41,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260901-modal-pedidos-folios-numericos"
+        CACHE_BUST: "20260901-productos-a-cotizar"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

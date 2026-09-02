@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useShopTheme } from './ThemeProvider'
 import { useCart } from '@/hooks/useCart'
 import QuickViewModal from './QuickViewModal'
+import { TEXTO_COTIZACION } from '@/lib/cotizacion'
 
 interface Props {
   producto: any
@@ -22,6 +23,9 @@ export default function ProductCard({ producto, subdominio, modoMayoreo, qtyMinM
   const esMayoreo = modoMayoreo && producto.precio_mayoreo != null
   const qtyMin = producto.qty_min_mayoreo ?? qtyMinMayoreo
   const inCart = items.find(i => i.productoId === producto.id)
+  // Pieza sin precio de lista: no se agrega al carrito, el boton lleva a la ficha
+  // donde esta el contacto para pedir la cotizacion.
+  const esCotizacion = !!producto.cotizacion
 
   const radius = theme.cardStyle === 'rounded-warm' || theme.cardStyle === 'organic' ? 'var(--radius-lg)' : theme.cardStyle === 'glass-dark' ? 'var(--radius-sm)' : 'var(--radius-md)'
   const border = theme.cardStyle === 'glass-dark' ? '1px solid var(--color-border)' : '1px solid var(--color-border)'
@@ -33,6 +37,8 @@ export default function ProductCard({ producto, subdominio, modoMayoreo, qtyMinM
   }
 
   function handleAdd(e: React.MouseEvent) {
+    // Sin preventDefault: el clic sigue al Link y abre la ficha con el boton de cotizar.
+    if (esCotizacion) return
     e.preventDefault()
     addItem({
       productoId: producto.id,
@@ -106,10 +112,10 @@ export default function ProductCard({ producto, subdominio, modoMayoreo, qtyMinM
 
           <div style={{ marginTop: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-primary)', fontFamily: 'var(--font-display)' }}>
-                ${Number(producto.precio_venta).toFixed(2)}
+              <span style={{ fontSize: esCotizacion ? 13 : 18, fontWeight: 700, color: 'var(--color-primary)', fontFamily: 'var(--font-display)' }}>
+                {esCotizacion ? TEXTO_COTIZACION : `$${Number(producto.precio_venta).toFixed(2)}`}
               </span>
-              {esMayoreo && (
+              {!esCotizacion && esMayoreo && (
                 <span style={{ fontSize: 12, color: 'var(--color-mayoreo)', fontWeight: 600 }}>
                   ${Number(producto.precio_mayoreo).toFixed(2)} ×{qtyMin}+
                 </span>
@@ -117,23 +123,23 @@ export default function ProductCard({ producto, subdominio, modoMayoreo, qtyMinM
             </div>
             <button
               onClick={handleAdd}
-              disabled={producto.stock === 0}
+              disabled={!esCotizacion && producto.stock === 0}
               style={{
                 width: '100%',
-                background: inCart ? 'var(--color-success)' : 'var(--color-primary)',
-                color: inCart ? '#fff' : 'var(--color-primary-text)',
-                border: 'none',
+                background: esCotizacion ? 'var(--color-surface-hover)' : inCart ? 'var(--color-success)' : 'var(--color-primary)',
+                color: esCotizacion ? 'var(--color-text)' : inCart ? '#fff' : 'var(--color-primary-text)',
+                border: esCotizacion ? '1px solid var(--color-primary)' : 'none',
                 borderRadius: btnRadius,
                 padding: '9px 0',
                 fontSize: 12,
                 fontWeight: 700,
-                cursor: producto.stock === 0 ? 'not-allowed' : 'pointer',
-                opacity: producto.stock === 0 ? 0.5 : 1,
+                cursor: !esCotizacion && producto.stock === 0 ? 'not-allowed' : 'pointer',
+                opacity: !esCotizacion && producto.stock === 0 ? 0.5 : 1,
                 fontFamily: 'var(--font-body)',
                 transition: 'background .2s',
               }}
             >
-              {inCart ? `✓ En carrito (${inCart.qty})` : '+ Agregar'}
+              {esCotizacion ? 'Solicitar cotización' : inCart ? `✓ En carrito (${inCart.qty})` : '+ Agregar'}
             </button>
           </div>
         </div>

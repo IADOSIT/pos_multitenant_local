@@ -20,7 +20,7 @@ export default function POSRetailPage() {
   const {
     addToCart, cart, setCart, updateQuantity, removeFromCart, getItemCount,
     cajaActiva, setCajaActiva, tipoServicio, setTipoServicio,
-    setIvaConfig, setModoServicio,
+    setIvaConfig, setModoServicio, updateItemPrice, updateItemNotes,
   } = usePOSStore();
   const ticketsList = useRetailTickets((s) => s.tickets);
   const activeTicketId = useRetailTickets((s) => s.activeId);
@@ -52,6 +52,9 @@ export default function POSRetailPage() {
   const [cajaManaged, setCajaManaged] = useState(false);
   const [cajaLoaded, setCajaLoaded] = useState(false); // evita el parpadeo de "no hay caja"
   const [mostrarPrecios, setMostrarPrecios] = useState(true);
+  // Pieza sin precio de lista: en vez de agregarla en $0, la captura se convierte por un
+  // momento en captura de precio (Enter confirma, Escape cancela) sin sacar al cajero del teclado.
+  const [cotizaPend, setCotizaPend] = useState<{ producto: Producto; precio: string } | null>(null);
   const [enSitioVisible, setEnSitioVisible] = useState(true);
   const [paraLlevarVisible, setParaLlevarVisible] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -191,10 +194,33 @@ export default function POSRetailPage() {
     : [];
 
   const agregar = (p: Producto) => {
+    if (p.cotizacion) {
+      setBusqueda('');
+      setResIdx(0);
+      setCotizaPend({ producto: p, precio: '' });
+      return;
+    }
     addToCart(p, 1);
     setBusqueda('');
     setResIdx(0);
     inputRef.current?.focus();
+  };
+
+  // Agrega la pieza cotizada con el precio que el vendedor acordo. La nota marca la
+  // linea y ademas evita que addToCart la fusione con otra pieza igual a otro precio.
+  const confirmarCotizado = () => {
+    if (!cotizaPend) return;
+    const precio = Number(cotizaPend.precio);
+    if (!(precio > 0)) return;
+    const producto = cotizaPend.producto;
+    addToCart(producto, 1);
+    const item = [...usePOSStore.getState().cart].reverse().find((i) => i.producto_id === producto.id && !i.notas);
+    if (item) {
+      updateItemPrice(item.id, precio);
+      updateItemNotes(item.id, 'Precio cotizado');
+    }
+    setCotizaPend(null);
+    focarBuscador();
   };
 
   // El cursor SIEMPRE vive en el buscador. Con texto, Enter agrega; vacío, las flechas
@@ -276,9 +302,41 @@ export default function POSRetailPage() {
                       <span className="block text-sm text-white truncate">{p.nombre}</span>
                       <span className="block text-xs text-slate-500">{p.sku}</span>
                     </span>
-                    {mostrarPrecios && <span className="text-sm font-bold text-iados-accent tabular-nums">${money(p.precio)}</span>}
+                    {mostrarPrecios && (
+                      p.cotizacion
+                        ? <span className="px-2 py-0.5 rounded-full bg-amber-900 text-amber-300 text-[11px] font-bold whitespace-nowrap">A cotizar</span>
+                        : <span className="text-sm font-bold text-iados-accent tabular-nums">${money(p.precio)}</span>
+                    )}
                   </button>
                 ))}
+              </div>
+            )}
+            {/* Captura del precio acordado para una pieza a cotizar */}
+            {cotizaPend && (
+              <div className="absolute z-30 left-0 right-0 mt-1 bg-iados-surface border border-amber-600/60 rounded-xl shadow-2xl p-3">
+                <p className="text-sm text-white truncate">{cotizaPend.producto.nombre}</p>
+                <p className="text-xs text-amber-400 mb-2">Pieza a cotizar — captura el precio acordado</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    autoFocus
+                    value={cotizaPend.precio}
+                    onChange={(e) => setCotizaPend((c) => c ? { ...c, precio: e.target.value } : c)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { e.preventDefault(); confirmarCotizado(); }
+                      if (e.key === 'Escape') { e.preventDefault(); setCotizaPend(null); focarBuscador(); }
+                    }}
+                    placeholder="0.00"
+                    className="input-touch flex-1 text-center text-xl font-bold"
+                  />
+                  <button onClick={confirmarCotizado} disabled={!(Number(cotizaPend.precio) > 0)}
+                    className="btn-accent px-4 h-12 disabled:opacity-40">Agregar</button>
+                  <button onClick={() => { setCotizaPend(null); focarBuscador(); }}
+                    className="btn-secondary px-3 h-12">Cancelar</button>
+                </div>
               </div>
             )}
           </div>
@@ -337,7 +395,8 @@ export default function POSRetailPage() {
                     className={`border-b border-slate-800 ${idx === selIdx ? 'bg-iados-primary/25 ring-1 ring-inset ring-iados-primary' : 'hover:bg-iados-card/40'}`}>
                     <td className="px-3 py-2 text-slate-400 tabular-nums whitespace-nowrap">{i.sku}</td>
                     <td className="px-3 py-2 text-white font-medium">{i.nombre}</td>
-                    {mostrarPrecios && <td className="px-3 py-2 text-right text-slate-300 tabular-nums">${money(i.precio)}</td>}
+                    {/* El importe ya usa precioManual (pieza cotizada); el unitario debe leerlo igual. */}
+                    {mostrarPrecios && <td className="px-3 py-2 text-right text-slate-300 tabular-nums">${money(i.precioManual ?? i.precio)}</td>}
                     <td className="px-3 py-2">
                       <div className="flex items-center justify-center gap-1">
                         <button onClick={() => updateQuantity(i.id, i.cantidad - 1)} className="w-7 h-7 rounded-lg bg-iados-surface flex items-center justify-center active:scale-90"><Minus size={13} /></button>

@@ -27,7 +27,8 @@ export default function ProductosAdmin() {
   const fileRef = useRef<HTMLInputElement>(null);
   const imageFileRef = useRef<HTMLInputElement>(null);
 
-  const [form, setForm] = useState({ sku: '', nombre: '', descripcion: '', precio: '', costo: '', categoria_id: '', impuesto_pct: '16', unidad: 'pza', imagen_url: '', codigo_barras: '', disponible: true });
+  const FORM_VACIO = { sku: '', nombre: '', descripcion: '', precio: '', costo: '', categoria_id: '', impuesto_pct: '16', unidad: 'pza', imagen_url: '', codigo_barras: '', disponible: true, cotizacion: false };
+  const [form, setForm] = useState(FORM_VACIO);
 
   useEffect(() => { load(); }, []);
 
@@ -44,12 +45,15 @@ export default function ProductosAdmin() {
   };
 
   const handleSave = async () => {
+    // Un producto a cotizar no tiene precio de lista: se guarda en 0 para que ningun
+    // flujo (POS, tienda, tickets) lea un precio que en realidad no existe.
+    const payload = { ...form, precio: form.cotizacion ? 0 : Number(form.precio), costo: Number(form.costo), disponible: form.disponible, cotizacion: form.cotizacion };
     try {
       if (editItem) {
-        await productosApi.update(editItem.id, { ...form, precio: Number(form.precio), costo: Number(form.costo), disponible: form.disponible });
+        await productosApi.update(editItem.id, payload);
         toast.success('Producto actualizado');
       } else {
-        await productosApi.create({ ...form, precio: Number(form.precio), costo: Number(form.costo), disponible: form.disponible });
+        await productosApi.create(payload);
         toast.success('Producto creado');
       }
       setShowForm(false); setEditItem(null); load();
@@ -58,7 +62,7 @@ export default function ProductosAdmin() {
 
   const handleEdit = (p: any) => {
     setEditItem(p);
-    setForm({ sku: p.sku, nombre: p.nombre, descripcion: p.descripcion || '', precio: String(p.precio), costo: String(p.costo || ''), categoria_id: String(p.categoria_id || ''), impuesto_pct: String(p.impuesto_pct || 16), unidad: p.unidad || 'pza', imagen_url: p.imagen_url || '', codigo_barras: p.codigo_barras || '', disponible: p.disponible !== false });
+    setForm({ sku: p.sku, nombre: p.nombre, descripcion: p.descripcion || '', precio: String(p.precio), costo: String(p.costo || ''), categoria_id: String(p.categoria_id || ''), impuesto_pct: String(p.impuesto_pct || 16), unidad: p.unidad || 'pza', imagen_url: p.imagen_url || '', codigo_barras: p.codigo_barras || '', disponible: p.disponible !== false, cotizacion: !!p.cotizacion });
     setShowForm(true);
   };
 
@@ -199,7 +203,10 @@ export default function ProductosAdmin() {
     columnHelper.accessor('nombre', { header: 'Nombre' }),
     columnHelper.accessor('precio', {
       header: 'Precio',
-      cell: (info) => <span className="text-green-400 font-bold">${Number(info.getValue()).toFixed(2)}</span>,
+      cell: ({ row, getValue }) =>
+        row.original.cotizacion
+          ? <span className="px-2 py-1 rounded text-xs bg-amber-900 text-amber-300 whitespace-nowrap">A cotizar</span>
+          : <span className="text-green-400 font-bold">${Number(getValue()).toFixed(2)}</span>,
     }),
     columnHelper.accessor((row) => row.categoria?.nombre || '-', { id: 'categoria', header: 'Categoria' }),
     columnHelper.accessor('activo', {
@@ -248,7 +255,7 @@ export default function ProductosAdmin() {
           <button onClick={handleCSVDownload} className="btn-secondary text-sm"><Download size={16} className="mr-1" />CSV Template</button>
           <button onClick={() => fileRef.current?.click()} className="btn-secondary text-sm"><Upload size={16} className="mr-1" />Importar CSV</button>
           <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleCSVUpload} />
-          <button onClick={() => { setShowForm(true); setEditItem(null); setForm({ sku: '', nombre: '', descripcion: '', precio: '', costo: '', categoria_id: '', impuesto_pct: '16', unidad: 'pza', imagen_url: '', codigo_barras: '', disponible: true }); }} className="btn-primary text-sm">
+          <button onClick={() => { setShowForm(true); setEditItem(null); setForm(FORM_VACIO); }} className="btn-primary text-sm">
             <Plus size={16} className="mr-1" />Nuevo
           </button>
         </div>
@@ -318,8 +325,29 @@ export default function ProductosAdmin() {
               </select>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <input value={form.precio} onChange={(e) => setForm({ ...form, precio: e.target.value })} placeholder="Precio" type="number" className="input-touch" />
+              <input
+                value={form.cotizacion ? '' : form.precio}
+                onChange={(e) => setForm({ ...form, precio: e.target.value })}
+                disabled={form.cotizacion}
+                placeholder={form.cotizacion ? 'Se cotiza' : 'Precio'}
+                type="number"
+                className="input-touch disabled:opacity-50"
+              />
               <input value={form.costo} onChange={(e) => setForm({ ...form, costo: e.target.value })} placeholder="Costo" type="number" className="input-touch" />
+            </div>
+
+            {/* Piezas sin precio de lista (refacciones usadas, obra a la medida): la tienda
+                en linea muestra "Solicitar cotizacion" y el vendedor captura el precio al vender. */}
+            <div className="flex items-center gap-3 py-1">
+              <span className="text-sm text-slate-400">Precio a cotizar</span>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, cotizacion: !form.cotizacion })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${form.cotizacion ? 'bg-amber-600' : 'bg-slate-600'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${form.cotizacion ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+              <span className="text-xs text-slate-500">{form.cotizacion ? 'La tienda pide cotización en vez de mostrar precio' : 'Se vende al precio de lista'}</span>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <input value={form.impuesto_pct} onChange={(e) => setForm({ ...form, impuesto_pct: e.target.value })} placeholder="IVA %" type="number" className="input-touch" />

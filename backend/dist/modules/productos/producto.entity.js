@@ -44,6 +44,10 @@ __decorate([
     __metadata("design:type", Number)
 ], Producto.prototype, "precio", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ default: false }),
+    __metadata("design:type", Boolean)
+], Producto.prototype, "cotizacion", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'decimal', precision: 10, scale: 2, nullable: true }),
     __metadata("design:type", Number)
 ], Producto.prototype, "costo", void 0);

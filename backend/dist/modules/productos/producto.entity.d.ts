@@ -7,6 +7,7 @@ export declare class Producto {
     nombre: string;
     descripcion: string;
     precio: number;
+    cotizacion: boolean;
     costo: number;
     categoria_id: number;
     imagen_url: string;

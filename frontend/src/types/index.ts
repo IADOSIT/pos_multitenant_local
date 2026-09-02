@@ -29,6 +29,8 @@ export interface Producto {
   nombre: string;
   descripcion?: string;
   precio: number;
+  /** Pieza sin precio de lista: la tienda pide cotización y el cajero captura el precio acordado. */
+  cotizacion?: boolean;
   costo?: number;
   categoria_id: number;
   categoria?: Categoria;

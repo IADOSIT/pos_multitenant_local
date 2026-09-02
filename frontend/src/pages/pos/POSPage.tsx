@@ -59,7 +59,9 @@ function ProductCard({ prod, onClick, onLongPress, showStockBadge, mostrarPrecio
       )}
       <span className="text-sm font-medium leading-tight line-clamp-2">{prod.nombre}</span>
       {mostrarPrecios !== false && (
-        <span className="text-iados-accent font-bold mt-1">{formatMonto(Number(prod.precio), moneda)}</span>
+        prod.cotizacion
+          ? <span className="mt-1 px-2 py-0.5 rounded-full bg-amber-900 text-amber-300 text-[11px] font-bold">A cotizar</span>
+          : <span className="text-iados-accent font-bold mt-1">{formatMonto(Number(prod.precio), moneda)}</span>
       )}
       {stockBajoCritico && (
         <span className="absolute top-1.5 right-1.5 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
@@ -116,6 +118,7 @@ export default function POSPage() {
   const [basculaEnPos, setBasculaEnPos] = useState(false);
   const [basculaConectada, setBasculaConectada] = useState(false);
   const [pesoModal, setPesoModal] = useState<{ producto: Producto } | null>(null);
+  const [cotizaModal, setCotizaModal] = useState<{ producto: Producto; precio: string; qty: number } | null>(null);
   const [pesoEnVivo, setPesoEnVivo] = useState(0);
   const [pesoManualInput, setPesoManualInput] = useState('');
   const basculaSockRef = useRef<Socket | null>(null);
@@ -225,10 +228,10 @@ export default function POSPage() {
   // el lector activo, regresa el foco al buscador para que la siguiente lectura no se pierda.
   useEffect(() => {
     if (!escanerHabilitado) return;
-    if (showPay || qtyModal || pesoModal || showDevBuscar || devVentaId || showCuentas || showAbrirCuenta || showApartados) return;
+    if (showPay || qtyModal || pesoModal || cotizaModal || showDevBuscar || devVentaId || showCuentas || showAbrirCuenta || showApartados) return;
     const t = setTimeout(() => busquedaRef.current?.focus(), 50);
     return () => clearTimeout(t);
-  }, [escanerHabilitado, showPay, qtyModal, pesoModal, showDevBuscar, devVentaId, showCuentas, showAbrirCuenta, showApartados]);
+  }, [escanerHabilitado, showPay, qtyModal, pesoModal, cotizaModal, showDevBuscar, devVentaId, showCuentas, showAbrirCuenta, showApartados]);
 
   const loadCuentasAbiertas = useCallback(async () => {
     try {
@@ -377,6 +380,12 @@ export default function POSPage() {
   });
 
   const handleProductClick = (producto: Producto) => {
+    // Pieza sin precio de lista: el cajero captura el precio acordado antes de que
+    // entre al carrito, para que nunca se venda en $0.
+    if (producto.cotizacion) {
+      setCotizaModal({ producto, precio: '', qty: 1 });
+      return;
+    }
     if (basculaEnPos && (producto as any).unidad === 'kg') {
       setPesoEnVivo(0);
       setPesoManualInput('');
@@ -388,6 +397,12 @@ export default function POSPage() {
   };
 
   const handleProductLongPress = (producto: Producto) => {
+    // El modal de cantidad calcula sobre el precio de lista; una pieza a cotizar no
+    // tiene, asi que se captura precio y cantidad en su propio modal.
+    if (producto.cotizacion) {
+      setCotizaModal({ producto, precio: '', qty: 1 });
+      return;
+    }
     setQtyModal({ producto, qty: 1 });
   };
 
@@ -418,6 +433,28 @@ export default function POSPage() {
     }, 0);
     toast.success(`${producto.nombre} — ${peso.toFixed(3)}kg = $${precioCalculado.toFixed(2)}`, { duration: 1200 });
     setPesoModal(null);
+  };
+
+  // Producto a cotizar: se agrega con el precio que el vendedor acordo con el cliente.
+  // La nota marca la linea como cotizada y ademas evita que addToCart la fusione con
+  // otra pieza igual vendida a otro precio.
+  const confirmarCotizacionPOS = () => {
+    if (!cotizaModal) return;
+    const precio = Number(cotizaModal.precio);
+    const qty = cotizaModal.qty;
+    if (!(precio > 0) || qty < 1) return;
+    const producto = cotizaModal.producto;
+    addToCart(producto, qty);
+    setTimeout(() => {
+      const cartActual = usePOSStore.getState().cart;
+      const item = [...cartActual].reverse().find((i) => i.producto_id === producto.id && !i.notas);
+      if (item) {
+        updateItemPrice(item.id, precio);
+        updateItemNotes(item.id, 'Precio cotizado');
+      }
+    }, 0);
+    toast.success(`${producto.nombre} × ${qty} — $${precio.toFixed(2)}`, { duration: 1200 });
+    setCotizaModal(null);
   };
 
   const handleEnviarPedido = async () => {
@@ -969,6 +1006,67 @@ export default function POSPage() {
                 className="btn-accent flex-1 text-lg disabled:opacity-40"
               >
                 Agregar al carrito
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de precio cotizado (pieza sin precio de lista) */}
+      {cotizaModal && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setCotizaModal(null)}>
+          <div className="card w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-bold text-lg">{cotizaModal.producto.nombre}</h3>
+              <button onClick={() => setCotizaModal(null)} className="text-slate-400 hover:text-white"><X size={20} /></button>
+            </div>
+            <p className="text-xs text-amber-400 mb-4">Pieza a cotizar — captura el precio acordado con el cliente</p>
+
+            <label className="block text-xs text-slate-500 uppercase tracking-widest mb-1">Precio unitario</label>
+            <input
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="0.01"
+              autoFocus
+              value={cotizaModal.precio}
+              onChange={(e) => setCotizaModal((m) => m ? { ...m, precio: e.target.value } : m)}
+              onKeyDown={(e) => { if (e.key === 'Enter') confirmarCotizacionPOS(); }}
+              placeholder="0.00"
+              className="input-touch text-center text-2xl font-bold mb-4"
+            />
+
+            <label className="block text-xs text-slate-500 uppercase tracking-widest mb-1">Cantidad</label>
+            <div className="flex items-center gap-3 mb-4">
+              <button
+                onClick={() => setCotizaModal((m) => m ? { ...m, qty: Math.max(1, m.qty - 1) } : m)}
+                className="w-12 h-12 rounded-xl bg-iados-card flex items-center justify-center text-slate-300 hover:bg-iados-primary/30"
+              ><Minus size={18} /></button>
+              <input
+                type="number"
+                min="1"
+                value={cotizaModal.qty}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (!isNaN(v) && v >= 1) setCotizaModal((m) => m ? { ...m, qty: v } : m);
+                }}
+                onFocus={(e) => e.target.select()}
+                className="flex-1 input-touch text-center text-2xl font-bold"
+              />
+              <button
+                onClick={() => setCotizaModal((m) => m ? { ...m, qty: m.qty + 1 } : m)}
+                className="w-12 h-12 rounded-xl bg-iados-card flex items-center justify-center text-slate-300 hover:bg-iados-primary/30"
+              ><Plus size={18} /></button>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => setCotizaModal(null)} className="btn-secondary flex-1">Cancelar</button>
+              <button
+                onClick={confirmarCotizacionPOS}
+                disabled={!(Number(cotizaModal.precio) > 0)}
+                className="btn-accent flex-1 text-lg disabled:opacity-40"
+              >
+                Agregar ${((Number(cotizaModal.precio) || 0) * cotizaModal.qty).toFixed(2)}
               </button>
             </div>
           </div>

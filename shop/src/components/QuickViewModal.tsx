@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { useCart } from '@/hooks/useCart'
+import { TEXTO_COTIZACION } from '@/lib/cotizacion'
 
 interface Props {
   producto: any
@@ -28,6 +29,9 @@ export default function QuickViewModal({ producto, subdominio, modoMayoreo, qtyM
   const qtyMin = producto.qty_min_mayoreo ?? qtyMinMayoreo
   const inCart = items.find((i) => i.productoId === producto.id)
   const sinStock = producto.stock === 0
+  // Pieza sin precio de lista: la vista rapida no tiene los datos de contacto de la
+  // tienda, asi que manda a la ficha, que es donde vive el boton de cotizar.
+  const esCotizacion = !!producto.cotizacion
 
   function handleAdd() {
     addItem({
@@ -87,10 +91,10 @@ export default function QuickViewModal({ producto, subdominio, modoMayoreo, qtyM
           {producto.sku && <p style={{ fontSize: 11, color: 'var(--color-text-subtle)', margin: '0 0 14px' }}>SKU: {producto.sku}</p>}
 
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 10 }}>
-            <span style={{ fontSize: 26, fontWeight: 800, color: 'var(--color-primary)', fontFamily: 'var(--font-display)' }}>
-              ${Number(producto.precio_venta).toFixed(2)}
+            <span style={{ fontSize: esCotizacion ? 19 : 26, fontWeight: 800, color: 'var(--color-primary)', fontFamily: 'var(--font-display)' }}>
+              {esCotizacion ? TEXTO_COTIZACION : `$${Number(producto.precio_venta).toFixed(2)}`}
             </span>
-            {esMayoreo && (
+            {!esCotizacion && esMayoreo && (
               <span style={{ fontSize: 13, color: 'var(--color-mayoreo)', fontWeight: 700 }}>
                 ${Number(producto.precio_mayoreo).toFixed(2)} ×{qtyMin}+
               </span>
@@ -117,6 +121,19 @@ export default function QuickViewModal({ producto, subdominio, modoMayoreo, qtyM
             </div>
           )}
 
+          {esCotizacion ? (
+            <div style={{ marginTop: 'auto' }}>
+              <Link
+                href={`/${subdominio}/productos/${slug}`}
+                style={{ display: 'block', textAlign: 'center', background: 'var(--color-primary)', color: 'var(--color-primary-text)', borderRadius: 'var(--radius-pill)', padding: '11px 0', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}
+              >
+                Solicitar cotización
+              </Link>
+              <p style={{ fontSize: 12, color: 'var(--color-text-subtle)', margin: '10px 0 0', lineHeight: 1.6, textAlign: 'center' }}>
+                Esta pieza no tiene precio de lista. Te confirmamos precio y disponibilidad al momento.
+              </p>
+            </div>
+          ) : (
           <div style={{ marginTop: 'auto', display: 'flex', gap: 10, alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-pill)', overflow: 'hidden' }}>
               <button onClick={() => setQty((q) => Math.max(1, q - 1))} style={{ width: 34, height: 38, border: 'none', background: 'var(--color-surface-hover)', color: 'var(--color-text)', fontSize: 16, cursor: 'pointer' }}>−</button>
@@ -131,6 +148,7 @@ export default function QuickViewModal({ producto, subdominio, modoMayoreo, qtyM
               {sinStock ? 'Sin stock' : inCart ? `✓ En carrito (${inCart.qty}) — agregar más` : 'Agregar al carrito'}
             </button>
           </div>
+          )}
 
           <Link href={`/${subdominio}/productos/${slug}`} style={{ marginTop: 12, fontSize: 12, color: 'var(--color-text-muted)', textDecoration: 'none', textAlign: 'center' }}>
             Ver ficha completa →

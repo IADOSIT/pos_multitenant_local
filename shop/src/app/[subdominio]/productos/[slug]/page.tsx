@@ -5,6 +5,8 @@ import { CartProvider } from '@/hooks/useCart'
 import Navbar from '@/components/Navbar'
 import StoreFooter from '@/components/StoreFooter'
 import AddToCartButton from './AddToCartButton'
+import SolicitarCotizacion from './SolicitarCotizacion'
+import { TEXTO_COTIZACION } from '@/lib/cotizacion'
 
 interface PageProps {
   params: { subdominio: string; slug: string }
@@ -25,6 +27,7 @@ export default async function ProductoPage({ params }: PageProps) {
   ]
   const esMayoreo = info.modo_mayoreo && producto.precio_mayoreo != null
   const qtyMin = producto.qty_min_mayoreo ?? info.qty_min_mayoreo
+  const esCotizacion = !!producto.cotizacion
 
   return (
     <CartProvider>
@@ -70,10 +73,10 @@ export default async function ProductoPage({ params }: PageProps) {
 
             {/* Precios */}
             <div style={{ margin: '0 0 20px', padding: '16px', background: 'var(--color-surface-hover)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
-              <p style={{ fontSize: 28, fontWeight: 800, color: 'var(--color-primary)', fontFamily: 'var(--font-display)', margin: '0 0 4px' }}>
-                ${Number(producto.precio_venta).toFixed(2)}
+              <p style={{ fontSize: esCotizacion ? 20 : 28, fontWeight: 800, color: 'var(--color-primary)', fontFamily: 'var(--font-display)', margin: '0 0 4px' }}>
+                {esCotizacion ? TEXTO_COTIZACION : `$${Number(producto.precio_venta).toFixed(2)}`}
               </p>
-              {esMayoreo && (
+              {!esCotizacion && esMayoreo && (
                 <div style={{ marginTop: 8, padding: '8px 12px', background: 'var(--color-mayoreo)', borderRadius: 'var(--radius-sm)', display: 'inline-block' }}>
                   <p style={{ color: 'var(--color-mayoreo-text)', fontSize: 13, fontWeight: 700, margin: 0 }}>
                     💼 ${Number(producto.precio_mayoreo).toFixed(2)} comprando {qtyMin}+ unidades
@@ -87,13 +90,24 @@ export default async function ProductoPage({ params }: PageProps) {
               )}
             </div>
 
-            {/* Add to cart */}
-            <AddToCartButton
-              producto={producto}
-              modoMayoreo={info.modo_mayoreo}
-              qtyMinMayoreoGlobal={info.qty_min_mayoreo}
-              subdominio={subdominio}
-            />
+            {/* Add to cart — o solicitud de cotizacion si la pieza no tiene precio de lista */}
+            {esCotizacion ? (
+              <SolicitarCotizacion
+                producto={producto}
+                contacto={{
+                  telefono: info.empresa?.telefono,
+                  email: info.empresa?.email,
+                  nombre: info.nombre_tienda || info.empresa?.nombre,
+                }}
+              />
+            ) : (
+              <AddToCartButton
+                producto={producto}
+                modoMayoreo={info.modo_mayoreo}
+                qtyMinMayoreoGlobal={info.qty_min_mayoreo}
+                subdominio={subdominio}
+              />
+            )}
 
             {/* Descripción */}
             {(producto.descripcion_larga || producto.descripcion) && (

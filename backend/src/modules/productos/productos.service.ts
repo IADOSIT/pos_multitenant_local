@@ -129,10 +129,13 @@ export class ProductosService {
     return this.findOne(id);
   }
 
+  // La columna precio puede dejarse vacia: esa fila se importa como producto "a cotizar"
+  // (ver importCSV). La tercera fila del ejemplo lo muestra.
   getCSVTemplate(): string {
     return 'sku,nombre,descripcion,precio,costo,categoria,unidad,impuesto_pct,codigo_barras,controla_stock,stock_actual,stock_minimo,imagen_url\n'
       + 'PROD001,Hamburguesa Clásica,Carne 150g con lechuga y tomate,89.00,35.00,Hamburguesas,pza,16,7501234567890,false,0,0,\n'
-      + 'PROD002,Refresco Cola 600ml,Refresco de cola,25.00,12.00,Bebidas,pza,16,,false,0,0,';
+      + 'PROD002,Refresco Cola 600ml,Refresco de cola,25.00,12.00,Bebidas,pza,16,,false,0,0,\n'
+      + 'PROD003,Pieza sin precio de lista,Se deja el precio vacío y se publica como "Solicitar cotización",,0,Especiales,pza,16,,true,1,0,';
   }
 
   private decodeCSV(buffer: Buffer): string {
@@ -222,8 +225,8 @@ export class ProductosService {
     for (let i = 0; i < records.length; i++) {
       const row = records[i];
       try {
-        if (!row.sku || !row.nombre || !row.precio) {
-          results.errors.push({ fila: i + 2, error: 'sku, nombre y precio son obligatorios', datos: row });
+        if (!row.sku || !row.nombre) {
+          results.errors.push({ fila: i + 2, error: 'sku y nombre son obligatorios', datos: row });
           continue;
         }
 
@@ -259,13 +262,23 @@ export class ProductosService {
           }
         }
 
+        // Una fila sin precio ya no es un error: es un producto "a cotizar" (refacciones
+        // usadas, piezas unicas, obra a la medida). Se guarda en 0 con la bandera puesta
+        // para que el catalogo publico muestre "Solicitar cotizacion" y no $0.00.
+        // Un "0" escrito a proposito sigue siendo un precio de 0, no una cotizacion.
+        const precioRaw = String(row.precio ?? '').trim();
+        const precioNum = parseFloat(precioRaw.replace(/[^0-9.]/g, ''));
+        const sinPrecio = precioRaw === '' || !Number.isFinite(precioNum);
+        const cotizacion = sinPrecio || ['true', 'si', 'sí', '1'].includes(String(row.cotizacion ?? '').trim().toLowerCase());
+
         const prodData: Partial<Producto> = {
           tenant_id: scope.tenant_id,
           empresa_id: scope.empresa_id,
           sku: row.sku,
           nombre: row.nombre,
           descripcion: row.descripcion || null,
-          precio: parseFloat(row.precio),
+          precio: sinPrecio ? 0 : precioNum,
+          cotizacion,
           costo: row.costo ? parseFloat(row.costo) : 0,
           unidad: row.unidad || 'pza',
           impuesto_pct: row.impuesto_pct ? parseFloat(row.impuesto_pct) : 0,

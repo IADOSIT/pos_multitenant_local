@@ -26,6 +26,13 @@ export class Producto {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   precio: number;
 
+  // Producto sin precio de lista (refacciones usadas, piezas unicas, obra a la medida):
+  // el catalogo publico muestra "Solicitar cotizacion" en vez del precio y no deja
+  // agregarlo al carrito; en el POS el vendedor captura el precio acordado al venderlo.
+  // El importador de CSV lo activa solo cuando la fila llega sin precio.
+  @Column({ default: false })
+  cotizacion: boolean;
+
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   costo: number;
 
