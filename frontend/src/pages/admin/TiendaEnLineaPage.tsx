@@ -557,10 +557,11 @@ export default function TiendaEnLineaPage() {
                     <label className="text-xs text-slate-400 block mb-1">Altura</label>
                     <select value={form.preferencias?.banners?.altura || 'media'}
                       onChange={e => setPref('banners', { altura: e.target.value })} className={inputCls}>
-                      <option value="baja">Baja (franja)</option>
-                      <option value="media">Media</option>
-                      <option value="alta">Alta (portada)</option>
+                      <option value="baja">Baja (franja, ~110 px)</option>
+                      <option value="media">Media (~160 px)</option>
+                      <option value="alta">Alta (~215 px)</option>
                     </select>
+                    <p className="text-[11px] text-slate-500 mt-1">Usa imágenes anchas (ej. 1600×360). El banner se muestra dentro del ancho de la tienda, no a pantalla completa.</p>
                   </div>
                 </div>
                 <div>
