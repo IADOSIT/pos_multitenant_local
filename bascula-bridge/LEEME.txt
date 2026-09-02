@@ -8,43 +8,65 @@ cuando el cliente confirma en la pantalla del kiosko.
 
 REQUISITOS
 ----------
-1. Windows con la bascula conectada por USB/RS-232 (aparece como
-   puerto COM en el Administrador de dispositivos).
+1. Windows 64 bits con la bascula conectada por USB/RS-232 (aparece
+   como puerto COM en el Administrador de dispositivos). Si es Torrey,
+   instalar antes su driver VCP.
 2. Impresora de etiquetas compatible ZPL (Zebra/GoDEX/TSC) en la
    MISMA RED, con IP fija conocida (puerto 9100 por defecto).
-3. Node.js instalado (https://nodejs.org, version LTS).
 
-INSTALACION
------------
-1. Descomprimir esta carpeta en el disco de la PC (ej. C:\bascula-bridge).
-2. Copiar el archivo ".env.example" y renombrar la copia a ".env".
-3. Abrir el archivo ".env" con el Bloc de notas y completar:
-     BACKEND_URL=https://posapi.iados.online
-     TIENDA_TOKEN=<pegar aqui el token>
-     SCALE_PORT=COM3   (revisar en Administrador de dispositivos)
-     SCALE_BAUD=9600   (revisar manual de la bascula)
-     SCALE_POLL_MS=0   (ver "TIPO DE BASCULA" mas abajo)
-   El token se copia desde el POS: Configuracion -> Bascula de
-   autoservicio -> "Token del bridge".
-4. En el POS, en la misma pantalla de Configuracion, capturar la IP
+INSTALACION (forma normal, con el instalador)
+----------------------------------------------
+1. Descargar el instalador desde el POS: Configuracion -> Bascula de
+   autoservicio -> "Descargar instalador (Windows 64 bits)".
+2. Ejecutarlo. Se instala solo y arranca al terminar; queda un icono
+   en la bandeja de Windows (junto al reloj) llamado
+   "POS-iaDoS Bridge Bascula".
+3. La primera vez se abre sola la ventana de Configuracion. Ahi:
+     - Pegar el token de la tienda. Se copia desde el POS:
+       Configuracion -> Bascula de autoservicio -> "Token del bridge".
+     - Elegir en la lista el puerto COM donde esta la bascula.
+     - Presionar "Detectar automaticamente" (tarda unos segundos).
+     - Presionar "Guardar y reconectar".
+4. Comprobar que el peso en vivo de esa ventana se mueve al poner
+   algo sobre la bascula.
+5. En el POS, en la misma pantalla de Configuracion, capturar la IP
    de la impresora de etiquetas (y el puerto, 9100 por defecto).
-5. Doble click en "start.bat". La primera vez instalara las
-   dependencias (puede tardar 1-2 minutos) y luego dejara el programa
-   corriendo — debe aparecer un icono en la bandeja de Windows
-   (junto al reloj) llamado "POS-iaDoS Bridge Bascula".
+
+El token y el puerto quedan guardados en la PC (config.json en la
+carpeta de datos del usuario). Al reiniciar la PC el bridge levanta
+solo y ya no los vuelve a pedir. Para cambiarlos despues: clic
+derecho en el icono de la bandeja -> "Configuracion...".
+
+Solo puede haber un bridge abierto a la vez: si se abre un segundo,
+este se cierra solo y muestra la configuracion del que ya estaba
+corriendo (dos instancias se pelearian por el puerto COM).
+
+INSTALACION DESDE CODIGO (avanzado)
+------------------------------------
+Alternativa para desarrollo o para PCs donde no se puede instalar.
+Requiere Node.js (https://nodejs.org, version LTS):
+1. Descomprimir la carpeta en el disco (ej. C:\bascula-bridge).
+2. Copiar ".env.example" como ".env" y completar BACKEND_URL,
+   TIENDA_TOKEN, SCALE_PORT, SCALE_BAUD y SCALE_POLL_MS.
+3. Doble click en "start.bat" (la primera vez instala dependencias,
+   1-2 minutos).
+Lo que se guarde despues desde la ventana de Configuracion tiene
+prioridad sobre lo que diga el .env.
 
 USO
 ---
-- Dejar start.bat corriendo siempre que la estacion de autoservicio
-  este disponible (se puede minimizar, no cerrar la ventana).
+- Dejar el bridge corriendo siempre que la estacion de autoservicio
+  este disponible (se puede minimizar a la bandeja, no cerrarlo).
 - El cliente abre la pantalla de bascula desde el menu del POS
   (se abre en una ventana aparte), selecciona el producto, pone la
   fruta/verdura en la bascula, y confirma para imprimir la etiqueta.
 
 TIPO DE BASCULA (importante)
 -----------------------------
-Hay dos familias de bascula y el bridge las soporta a las dos, pero
-hay que decirle cual es en el .env:
+Hay dos familias de bascula y el bridge las soporta a las dos. Lo
+normal es no tocar nada: "Detectar automaticamente" en la ventana de
+Configuracion averigua cual es y llena los campos. Para hacerlo a
+mano:
 
 a) FLUJO CONTINUO — la bascula manda el peso sola, sin que se le pida.
    Dejar SCALE_POLL_MS=0 (es el valor por defecto).
@@ -56,9 +78,9 @@ b) POLLING — la bascula no dice nada hasta que se le pregunta. Es el
      SCALE_POLL_MS=400
    Con SCALE_POLL_MS=0 esta bascula NO leera nada nunca.
 
-Como saber cual es: abrir el bridge y mirar bridge.log. Si dice
-"Conectado — esperando peso" pero el peso nunca se mueve en el kiosko,
-es de polling: poner SCALE_POLL_MS=400 y reiniciar el bridge.
+Como saber cual es: si el bridge conecta bien pero el peso nunca se
+mueve, es de polling. Presionar "Detectar automaticamente" o poner
+SCALE_POLL_MS=400 y guardar.
 
 En las basculas por USB con COM virtual (CDC) el valor de SCALE_BAUD
 es irrelevante; se puede dejar en 9600.
@@ -75,8 +97,9 @@ trama y ajustar la expresion regular PESO_REGEX en main.js.
 
 PROBLEMAS COMUNES
 ------------------
-- Icono no aparece en la bandeja: revisar el archivo bridge.log que
-  se genera en esta misma carpeta despues de correr start.bat.
+- Icono no aparece en la bandeja: revisar bridge.log (clic derecho en
+  el icono -> "Ver bitacora", o el archivo que se genera junto al
+  programa despues de arrancarlo).
 - "Bridge desconectado": revisar que BACKEND_URL sea correcto y que
   la PC tenga internet.
 - "Sin bascula (COMx)": confirmar el puerto COM correcto en
