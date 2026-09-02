@@ -28,6 +28,14 @@ const logFile = path.join(
   app.isPackaged ? path.dirname(process.execPath) : __dirname,
   'bridge.log',
 );
+// El bridge queda encendido semanas; sin rotar, bridge.log crece sin limite y deja
+// de servir para diagnosticar. Al arrancar, si paso de 1 MB se conserva como .old.
+try {
+  if (fs.existsSync(logFile) && fs.statSync(logFile).size > 1024 * 1024) {
+    fs.renameSync(logFile, logFile + '.old');
+  }
+} catch (_) {}
+
 const _origLog = console.log.bind(console);
 const _origWarn = console.warn.bind(console);
 const _origErr = console.error.bind(console);
@@ -114,6 +122,17 @@ let scaleReintento = null;
 // quedarselo sin que nadie lo referencie (eso dejaba COMx tomado para siempre
 // y todos los reintentos posteriores fallaban con "Access denied").
 let scaleGen = 0;
+// Candado de "apertura en vuelo": abrir un puerto serial es asincrono, asi que sin
+// esto arrancar / guardar la configuracion / el reintento de 10s podian solaparse y
+// dejar DOS objetos SerialPort peleandose el mismo COM (en el log se veia cada
+// reintento duplicado). Si llega una peticion mientras abrimos, no se crea otro
+// puerto: se anota en scaleRelanzar y se reintenta una sola vez al terminar.
+let scaleAbriendo = false;
+let scaleRelanzar = false;
+// Ultimo fallo ya reportado (puerto|mensaje). El bridge reintenta cada 10s para
+// siempre; sin esto escribia la misma linea en bridge.log cada 10s toda la noche.
+let ultimoFalloBascula = null;
+let ultimoFalloSocket = null;
 let lastPesoEmitido = null;
 let lastPesoEstable = 0;
 let configWin = null;
@@ -165,6 +184,7 @@ function connectSocket() {
   });
 
   socket.on('connect', () => {
+    ultimoFalloSocket = null; // se recupero: el proximo corte si se registra
     socket.emit('bridge-join', { tienda_token: config.TIENDA_TOKEN });
     console.log('[bridge] Conectado al backend, tienda_token:', config.TIENDA_TOKEN.substring(0, 8) + '...');
   });
@@ -193,7 +213,11 @@ function connectSocket() {
   });
 
   socket.on('connect_error', (err) => {
-    console.warn('[bridge] Error conexion:', err.message);
+    // socket.io reintenta cada 5s: se registra el primero de cada racha, no todos.
+    if (err.message !== ultimoFalloSocket) {
+      ultimoFalloSocket = err.message;
+      console.warn('[bridge] Error conexion:', err.message, '— reintentando cada 5s (no se repite este aviso)');
+    }
     estado.backend = 'Sin conexion (' + err.message + ')';
     pushEstado();
   });
@@ -261,10 +285,26 @@ function cerrarBascula(cb) {
 // uno nuevo y se acumulaban, disparando aperturas en paralelo sobre el mismo COM.
 function programarReintento() {
   if (scaleReintento) clearTimeout(scaleReintento);
-  scaleReintento = setTimeout(abrirBascula, 10000);
+  scaleReintento = setTimeout(() => { scaleReintento = null; abrirBascula(); }, 10000);
+}
+
+// Registra el fallo de apertura una sola vez por racha: el ciclo de reintento es
+// infinito y antes escribia la misma linea en bridge.log cada 10s.
+function reportarFalloApertura(portPath, mensaje) {
+  const clave = `${portPath}|${mensaje}`;
+  if (clave !== ultimoFalloBascula) {
+    ultimoFalloBascula = clave;
+    console.warn(`[bridge] No se pudo abrir ${portPath}: ${mensaje} — reintentando cada 10s (no se repite este aviso)`);
+  }
+  estado.bascula = `No abre ${portPath}: ${mensaje}`;
+  updateTray(`Sin bascula (${portPath})`);
+  pushEstado();
 }
 
 function abrirBascula() {
+  // Ya hay un open() en vuelo: no se crea un segundo puerto, se anota y al terminar
+  // aquel se vuelve a entrar una sola vez.
+  if (scaleAbriendo) { scaleRelanzar = true; return; }
   // Nunca dejar dos objetos SerialPort sobre el mismo COM: si ya hay uno, se
   // cierra y se vuelve a entrar por el callback.
   if (scalePort) { cerrarBascula(abrirBascula); return; }
@@ -287,23 +327,34 @@ function abrirBascula() {
   const port = new SerialPort({ path: portPath, baudRate, autoOpen: false });
   scalePort = port;
 
+  scaleAbriendo = true;
   port.open((err) => {
-    // Se reconfiguro (o se cerro) mientras abriamos: este intento ya no vale.
-    if (gen !== scaleGen) {
+    scaleAbriendo = false;
+
+    // Se reconfiguro/cerro, o pidieron reabrir mientras abriamos: este intento ya no vale.
+    if (gen !== scaleGen || scaleRelanzar) {
+      if (scalePort === port) scalePort = null;
+      port.removeAllListeners();
+      port.on('error', () => {}); // un puerto descartado no debe tumbar el proceso
       if (!err) {
         console.warn('[bridge] Apertura tardia descartada — soltando el puerto');
         port.close(() => {});
       }
+      if (scaleRelanzar) { scaleRelanzar = false; abrirBascula(); }
       return;
     }
     if (err) {
-      console.warn(`[bridge] No se pudo abrir ${portPath}: ${err.message} — reintentando en 10s`);
-      estado.bascula = `No abre ${portPath}: ${err.message}`;
-      updateTray(`Sin bascula (${portPath})`);
-      pushEstado();
+      // El puerto NO quedo abierto: hay que soltar la referencia. Si se dejaba puesta,
+      // el siguiente reintento entraba por cerrarBascula() y podia lanzar una apertura
+      // extra en paralelo — de ahi los reintentos duplicados en el log.
+      if (scalePort === port) scalePort = null;
+      port.removeAllListeners();
+      port.on('error', () => {}); // un puerto descartado no debe tumbar el proceso
+      reportarFalloApertura(portPath, err.message);
       programarReintento();
       return;
     }
+    ultimoFalloBascula = null; // abrio bien: el proximo fallo si se registra
     console.log(`[bridge] Bascula conectada en ${portPath} @ ${baudRate}bps`);
     estado.bascula = `Abierta en ${portPath}`;
     estado.polling = pollMs > 0 && !!pollCmd;
