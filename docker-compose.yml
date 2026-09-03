@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260902-compra-por-lotes"
+        CACHE_BUST: "20260902-menu-digital-cantidades"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
@@ -41,7 +41,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260902-compra-por-lotes"
+        CACHE_BUST: "20260902-menu-digital-cantidades"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

@@ -14,6 +14,8 @@ export declare class MenuDigitalConfig {
     last_published_at: Date;
     last_publish_status: string;
     plantilla: string;
+    cantidades_enabled: boolean;
+    cantidades_rapidas: string;
     last_publish_error: string;
     created_at: Date;
     updated_at: Date;

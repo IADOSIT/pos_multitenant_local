@@ -27,6 +27,13 @@ export class MenuDigitalSnapshot {
   @Column({ default: true })
   is_active: boolean;
 
+  // Copia de la config al publicar: el menu publico solo lee del snapshot.
+  @Column({ default: false })
+  cantidades_enabled: boolean;
+
+  @Column({ length: 100, default: '10,25,50,100' })
+  cantidades_rapidas: string;
+
   @Column({ type: 'longtext', nullable: true })
   tienda_json: string; // { nombre, direccion, telefono, email, logo_url }
 

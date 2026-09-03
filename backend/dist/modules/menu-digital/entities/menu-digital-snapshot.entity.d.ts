@@ -7,6 +7,8 @@ export declare class MenuDigitalSnapshot {
     modo_menu: string;
     plantilla: string;
     is_active: boolean;
+    cantidades_enabled: boolean;
+    cantidades_rapidas: string;
     tienda_json: string;
     categorias_json: string;
     productos_json: string;

@@ -50,6 +50,14 @@ export class MenuDigitalConfig {
   @Column({ length: 20, default: 'oscuro' })
   plantilla: string; // 'oscuro' | 'claro' | 'mar'
 
+  // Pedido por cantidades mayores: al dejar presionado un producto del menu publico
+  // se abre el selector de cantidad, igual que el long-press del POS.
+  @Column({ default: false })
+  cantidades_enabled: boolean;
+
+  @Column({ length: 100, default: '10,25,50,100' })
+  cantidades_rapidas: string; // atajos separados por coma
+
   @Column({ type: 'text', nullable: true })
   last_publish_error: string;
 

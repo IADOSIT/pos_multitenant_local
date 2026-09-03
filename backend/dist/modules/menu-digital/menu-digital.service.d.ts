@@ -52,6 +52,8 @@ export declare class MenuDigitalService {
         slug: string;
         modo_menu: string;
         plantilla: string;
+        cantidades_enabled: boolean;
+        cantidades_rapidas: string;
         tienda: any;
         categorias: any;
         productos: any;

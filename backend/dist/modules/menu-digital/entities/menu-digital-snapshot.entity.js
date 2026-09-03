@@ -47,6 +47,14 @@ __decorate([
     __metadata("design:type", Boolean)
 ], MenuDigitalSnapshot.prototype, "is_active", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ default: false }),
+    __metadata("design:type", Boolean)
+], MenuDigitalSnapshot.prototype, "cantidades_enabled", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ length: 100, default: '10,25,50,100' }),
+    __metadata("design:type", String)
+], MenuDigitalSnapshot.prototype, "cantidades_rapidas", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'longtext', nullable: true }),
     __metadata("design:type", String)
 ], MenuDigitalSnapshot.prototype, "tienda_json", void 0);

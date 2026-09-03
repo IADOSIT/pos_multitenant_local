@@ -97,7 +97,7 @@ export class MenuDigitalService {
         dto.slug = dto.slug + '-' + Date.now().toString(36);
       }
     }
-    const allowed = ['is_active', 'modo_menu', 'sync_mode', 'sync_interval', 'cloud_url', 'worker_url', 'slug', 'plantilla'];
+    const allowed = ['is_active', 'modo_menu', 'sync_mode', 'sync_interval', 'cloud_url', 'worker_url', 'slug', 'plantilla', 'cantidades_enabled', 'cantidades_rapidas'];
     for (const key of allowed) {
       if (dto[key] !== undefined) (cfg as any)[key] = dto[key];
     }
@@ -235,6 +235,8 @@ export class MenuDigitalService {
         slug: cfg.slug, tenant_id: cfg.tenant_id, empresa_id: cfg.empresa_id,
         tienda_id: tiendaId, modo_menu: cfg.modo_menu, is_active: cfg.is_active,
         plantilla: cfg.plantilla || 'oscuro',
+        cantidades_enabled: !!cfg.cantidades_enabled,
+        cantidades_rapidas: cfg.cantidades_rapidas || '10,25,50,100',
         tienda_json:      JSON.stringify(tiendaData),
         categorias_json:  JSON.stringify(categoriasData),
         productos_json:   JSON.stringify(productosData),
@@ -299,6 +301,8 @@ export class MenuDigitalService {
       cfg.api_key   = api_key;   // sync LOCAL api_key so future image uploads validate
       cfg.modo_menu = data.modo_menu;
       cfg.is_active = data.is_active;
+      cfg.cantidades_enabled = !!data.cantidades_enabled;
+      cfg.cantidades_rapidas = data.cantidades_rapidas || '10,25,50,100';
     }
     await this.configRepo.save(cfg);
 
@@ -311,6 +315,8 @@ export class MenuDigitalService {
     snap.modo_menu   = data.modo_menu;
     snap.is_active   = data.is_active;
     snap.plantilla   = data.plantilla || 'oscuro';
+    snap.cantidades_enabled = !!data.cantidades_enabled;
+    snap.cantidades_rapidas = data.cantidades_rapidas || '10,25,50,100';
     snap.tienda_json      = data.tienda_json;
     snap.categorias_json  = data.categorias_json;
     snap.productos_json   = data.productos_json;
@@ -364,6 +370,8 @@ export class MenuDigitalService {
       slug: snap.slug,
       modo_menu: snap.modo_menu,
       plantilla: snap.plantilla || 'oscuro',
+      cantidades_enabled: !!snap.cantidades_enabled,
+      cantidades_rapidas: snap.cantidades_rapidas || '10,25,50,100',
       tienda: JSON.parse(snap.tienda_json || '{}'),
       categorias: JSON.parse(snap.categorias_json || '[]'),
       productos: JSON.parse(snap.productos_json || '[]'),
@@ -471,6 +479,8 @@ export class MenuDigitalService {
       is_active: cfg.is_active,
       modo_menu: cfg.modo_menu,
       plantilla: cfg.plantilla || 'oscuro',
+      cantidades_enabled: !!cfg.cantidades_enabled,
+      cantidades_rapidas: cfg.cantidades_rapidas || '10,25,50,100',
       cloud_url: cfg.cloud_url || null,
       tienda: { ...tienda, logo_url: logoUrl },
       categorias,
@@ -535,6 +545,7 @@ export class MenuDigitalService {
   private async saveSnapshotDirect(data: {
     slug: string; tenant_id: number; empresa_id: number; tienda_id: number;
     modo_menu: string; is_active: boolean; plantilla: string;
+    cantidades_enabled: boolean; cantidades_rapidas: string;
     tienda_json: string; categorias_json: string; productos_json: string;
   }): Promise<void> {
     let snap = await this.snapshotRepo.findOne({ where: { slug: data.slug } });
@@ -545,6 +556,8 @@ export class MenuDigitalService {
     snap.modo_menu       = data.modo_menu;
     snap.is_active       = data.is_active;
     snap.plantilla       = data.plantilla;
+    snap.cantidades_enabled = data.cantidades_enabled;
+    snap.cantidades_rapidas = data.cantidades_rapidas;
     snap.tienda_json     = data.tienda_json;
     snap.categorias_json = data.categorias_json;
     snap.productos_json  = data.productos_json;

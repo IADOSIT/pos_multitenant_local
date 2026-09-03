@@ -710,6 +710,8 @@ export default function ConfiguracionPage() {
         worker_url:    status.config?.worker_url   ?? '',
         slug:          status.config?.slug         ?? '',
         plantilla:     status.config?.plantilla    ?? 'oscuro',
+        cantidades_enabled: status.config?.cantidades_enabled ?? false,
+        cantidades_rapidas: status.config?.cantidades_rapidas ?? '10,25,50,100',
       });
       // Generate QR if has slug + any URL (worker or cloud)
       if (status.config?.slug && (status.config?.worker_url || status.config?.cloud_url)) {
@@ -2211,6 +2213,43 @@ export default function ConfiguracionPage() {
                         <option value={60}>Cada hora</option>
                         <option value={120}>Cada 2 horas</option>
                       </select>
+                    </div>
+                  )}
+
+                  {/* Pedido por cantidades mayores — mismo gesto que el POS: dejar
+                      presionado un producto abre el selector con los atajos. */}
+                  {mdCfgForm.modo_menu === 'pedidos' && (
+                    <div className="rounded-xl border border-slate-700 p-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <h4 className="font-bold text-sm mb-1">Pedir por cantidades mayores</h4>
+                          <p className="text-xs" style={{ color: 'rgb(var(--c-text-sub))' }}>
+                            El cliente deja presionado un producto y elige cuantas piezas quiere, igual que en el POS. Sin esto solo puede sumar de uno en uno.
+                          </p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={mdCfgForm.cantidades_enabled ?? false}
+                            onChange={e => setMdCfgForm({ ...mdCfgForm, cantidades_enabled: e.target.checked })}
+                          />
+                          <div className="w-11 h-6 bg-slate-700 peer-checked:bg-iados-secondary rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all" />
+                        </label>
+                      </div>
+                      {mdCfgForm.cantidades_enabled && (
+                        <div className="mt-3">
+                          <label className="text-xs text-slate-400 mb-1 block">Botones de cantidad rapida</label>
+                          <input
+                            type="text"
+                            value={mdCfgForm.cantidades_rapidas ?? ''}
+                            onChange={e => setMdCfgForm({ ...mdCfgForm, cantidades_rapidas: e.target.value })}
+                            placeholder="10,25,50,100"
+                            className="input-touch text-sm w-full"
+                          />
+                          <p className="text-xs text-slate-500 mt-1">Valores separados por coma. Se aplican al publicar el menu.</p>
+                        </div>
+                      )}
                     </div>
                   )}
 

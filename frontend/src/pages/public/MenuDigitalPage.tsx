@@ -181,14 +181,22 @@ export default function MenuDigitalPage() {
   const [orderToken, setOrderToken]         = useState<string | null>(null);
   const [orderStatus, setOrderStatus]       = useState<'pending' | 'received' | 'completed' | 'cancelled'>('pending');
   const [expandedProduct, setExpandedProduct] = useState<number | null>(null);
+  // Pedido por cantidades mayores (mismo gesto que el POS: dejar presionado el producto)
+  const [cantidadesEnabled, setCantidadesEnabled] = useState(false);
+  const [cantidadesRapidas, setCantidadesRapidas] = useState<number[]>([10, 25, 50, 100]);
+  const [qtyModal, setQtyModal]             = useState<{ producto: Producto; qty: number } | null>(null);
   const catRefs    = useRef<Map<number, HTMLDivElement>>(new Map());
   const pollRef    = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pressRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Resolved theme
   const th = THEMES[plantilla] ?? THEMES.oscuro;
 
   useEffect(() => { loadMenu(); }, [slug]);
-  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+  useEffect(() => () => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    if (pressRef.current) clearTimeout(pressRef.current);
+  }, []);
 
   const startPolling = (token: string) => {
     if (pollRef.current) clearInterval(pollRef.current);
@@ -215,6 +223,13 @@ export default function MenuDigitalPage() {
       setCategorias(data.categorias || []);
       setProductos(data.productos || []);
       setModoMenu(data.modo_menu as any);
+      setCantidadesEnabled(!!data.cantidades_enabled);
+      const cr = String(data.cantidades_rapidas || '10,25,50,100')
+        .split(',')
+        .map((n: string) => parseInt(n.trim(), 10))
+        .filter((n: number) => !isNaN(n) && n > 0)
+        .slice(0, 8);
+      setCantidadesRapidas(cr.length ? cr : [10, 25, 50, 100]);
       if (data.plantilla && (data.plantilla in THEMES)) {
         setPlantilla(data.plantilla as ThemeKey);
       }
@@ -246,12 +261,36 @@ export default function MenuDigitalPage() {
   const cartTotal = cart.reduce((s, i) => s + i.producto.precio * i.cantidad, 0);
   const cartCount = cart.reduce((s, i) => s + i.cantidad, 0);
 
-  const addToCart = (prod: Producto) => {
+  const addToCart = (prod: Producto, cantidad = 1) => {
     setCart(prev => {
       const idx = prev.findIndex(i => i.producto.id === prod.id);
-      if (idx >= 0) { const next = [...prev]; next[idx] = { ...next[idx], cantidad: next[idx].cantidad + 1 }; return next; }
-      return [...prev, { producto: prod, cantidad: 1, notas: '' }];
+      if (idx >= 0) { const next = [...prev]; next[idx] = { ...next[idx], cantidad: next[idx].cantidad + cantidad }; return next; }
+      return [...prev, { producto: prod, cantidad, notas: '' }];
     });
+  };
+
+  // ── Dejar presionado un producto → selector de cantidad ──────────────────
+  // Mismo gesto y mismo tiempo (500 ms) que el long-press del POS, para que el
+  // personal explique igual las dos pantallas. Solo aplica si el admin lo activo.
+  const pedirPorCantidad = modoMenu === 'pedidos' && cantidadesEnabled;
+  const cancelPress = () => { if (pressRef.current) { clearTimeout(pressRef.current); pressRef.current = null; } };
+  const startPress = (prod: Producto) => {
+    if (!pedirPorCantidad) return;
+    cancelPress();
+    pressRef.current = setTimeout(() => setQtyModal({ producto: prod, qty: cantidadesRapidas[0] ?? 10 }), 500);
+  };
+  const pressProps = (prod: Producto) => pedirPorCantidad ? {
+    onTouchStart: () => startPress(prod), onTouchEnd: cancelPress, onTouchCancel: cancelPress, onTouchMove: cancelPress,
+    onMouseDown: () => startPress(prod), onMouseUp: cancelPress, onMouseLeave: cancelPress,
+  } : {};
+  // Los botones dentro de la tarjeta no deben disparar el gesto: quien aprieta "+"
+  // quiere sumar de uno en uno, no abrir el selector.
+  const stopPress = { onTouchStart: (e: any) => e.stopPropagation(), onMouseDown: (e: any) => e.stopPropagation() };
+
+  const confirmQtyModal = () => {
+    if (!qtyModal || qtyModal.qty < 1) return;
+    addToCart(qtyModal.producto, qtyModal.qty);
+    setQtyModal(null);
   };
 
   const removeFromCart = (prodId: number) => {
@@ -431,6 +470,11 @@ export default function MenuDigitalPage() {
               </button>
             )}
           </div>
+          {pedirPorCantidad && (
+            <p className="mt-2 text-center text-[11px]" style={{ color: th.textSub }}>
+              Deja presionado un producto para pedir varias piezas
+            </p>
+          )}
         </div>
       </div>
 
@@ -493,12 +537,14 @@ export default function MenuDigitalPage() {
                 return (
                   <div
                     key={prod.id}
-                    className="rounded-2xl overflow-hidden flex flex-col"
+                    {...pressProps(prod)}
+                    className={`rounded-2xl overflow-hidden flex flex-col ${pedirPorCantidad ? 'select-none' : ''}`}
                     style={{
                       background:   th.cardBg,
                       border:       `1px solid ${qty > 0 ? th.cardBorderOn : th.cardBorder}`,
                       boxShadow:    qty > 0 ? th.cardGlowOn : 'none',
                       transition:   'all 0.2s ease',
+                      WebkitTouchCallout: pedirPorCantidad ? 'none' : undefined,
                     }}
                   >
                     {/* Product image — fixed height for readability on mobile */}
@@ -557,6 +603,7 @@ export default function MenuDigitalPage() {
                         <div className="mt-auto">
                           {qty === 0 ? (
                             <button
+                              {...stopPress}
                               onClick={() => addToCart(prod)}
                               className="w-full py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95"
                               style={{ background: th.accentBg, border: `1px solid ${th.accentBorder}`, color: th.accentFg }}
@@ -566,6 +613,7 @@ export default function MenuDigitalPage() {
                           ) : (
                             <div className="flex items-center justify-between">
                               <button
+                                {...stopPress}
                                 onClick={() => removeFromCart(prod.id)}
                                 className="w-8 h-8 rounded-xl flex items-center justify-center active:scale-90 transition-transform"
                                 style={{ background: th.accentBg, border: `1px solid ${th.accentBorder}`, color: th.accentFg }}
@@ -574,6 +622,7 @@ export default function MenuDigitalPage() {
                               </button>
                               <span className="font-black text-sm" style={{ color: th.text }}>{qty}</span>
                               <button
+                                {...stopPress}
                                 onClick={() => addToCart(prod)}
                                 className="w-8 h-8 rounded-xl flex items-center justify-center active:scale-90 transition-transform"
                                 style={{ background: th.accentBg, border: `1px solid ${th.accentBorder}`, color: th.accentFg }}
@@ -702,6 +751,78 @@ export default function MenuDigitalPage() {
                   : <><Send size={18} /> Enviar Pedido</>}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CANTIDAD (dejar presionado un producto) */}
+      {qtyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onClick={() => setQtyModal(null)}>
+          <div className="w-full max-w-sm rounded-3xl p-5"
+            style={{ background: th.drawerBg, border: th.drawerBorderS }}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 mb-1">
+              <h3 className="text-base font-black leading-tight" style={{ color: th.text }}>{qtyModal.producto.nombre}</h3>
+              <button onClick={() => setQtyModal(null)} className="p-1.5 rounded-lg flex-shrink-0"
+                style={{ background: th.accentBg, color: th.textSub }}>
+                <X size={16} />
+              </button>
+            </div>
+            <p className="text-xs mb-4" style={{ color: th.textSub }}>{fmt(qtyModal.producto.precio)} c/u — ¿cuantas piezas?</p>
+
+            <div className="grid grid-cols-4 gap-2 mb-4">
+              {cantidadesRapidas.map(n => {
+                const on = qtyModal.qty === n;
+                return (
+                  <button
+                    key={n}
+                    onClick={() => setQtyModal(m => m ? { ...m, qty: n } : m)}
+                    className="py-3 rounded-xl font-black text-base active:scale-95 transition-all"
+                    style={on
+                      ? { background: th.accent, color: th.cartColor }
+                      : { background: th.qtyAddBg, border: th.qtyAddBd, color: th.accentFg }}
+                  >
+                    {n}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-2 mb-4">
+              <button
+                onClick={() => setQtyModal(m => m ? { ...m, qty: Math.max(1, m.qty - 1) } : m)}
+                className="w-12 h-12 rounded-xl flex items-center justify-center active:scale-90"
+                style={{ background: th.qtyRemoveBg, color: th.qtyRemoveClr }}>
+                <Minus size={18} />
+              </button>
+              <input
+                type="number"
+                inputMode="numeric"
+                min="1"
+                value={qtyModal.qty}
+                onFocus={e => e.target.select()}
+                onChange={e => {
+                  const v = parseInt(e.target.value, 10);
+                  if (!isNaN(v) && v >= 1) setQtyModal(m => m ? { ...m, qty: v } : m);
+                }}
+                className="flex-1 min-w-0 px-4 py-3 rounded-xl text-center text-2xl font-black outline-none"
+                style={{ background: th.drawerInputBg, border: th.drawerInputBd, color: th.drawerInputClr }}
+              />
+              <button
+                onClick={() => setQtyModal(m => m ? { ...m, qty: m.qty + 1 } : m)}
+                className="w-12 h-12 rounded-xl flex items-center justify-center active:scale-90"
+                style={{ background: th.qtyAddBg, border: th.qtyAddBd, color: th.accentFg }}>
+                <Plus size={18} />
+              </button>
+            </div>
+
+            <button
+              onClick={confirmQtyModal}
+              className="w-full py-4 rounded-2xl font-black flex items-center justify-center gap-2 active:scale-95 transition-all"
+              style={{ background: th.cartBtn, color: th.cartColor, boxShadow: th.cartGlow }}>
+              <Plus size={18} /> Agregar {qtyModal.qty} · {fmt(qtyModal.producto.precio * qtyModal.qty)}
+            </button>
           </div>
         </div>
       )}

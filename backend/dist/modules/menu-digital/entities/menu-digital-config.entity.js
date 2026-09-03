@@ -75,6 +75,14 @@ __decorate([
     __metadata("design:type", String)
 ], MenuDigitalConfig.prototype, "plantilla", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ default: false }),
+    __metadata("design:type", Boolean)
+], MenuDigitalConfig.prototype, "cantidades_enabled", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ length: 100, default: '10,25,50,100' }),
+    __metadata("design:type", String)
+], MenuDigitalConfig.prototype, "cantidades_rapidas", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'text', nullable: true }),
     __metadata("design:type", String)
 ], MenuDigitalConfig.prototype, "last_publish_error", void 0);
