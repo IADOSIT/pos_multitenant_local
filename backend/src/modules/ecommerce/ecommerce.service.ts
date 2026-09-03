@@ -38,6 +38,22 @@ function esModoCotizacion(config: any): boolean {
   return !!config?.preferencias?.cotizaciones?.activo;
 }
 
+// Venta por lotes: la tienda solo acepta cantidades multiplo de `paso` (10, 100...).
+// Tambien vive en preferencias (JSON). La tienda ya lo aplica en el carrito; aqui se
+// vuelve a ajustar porque el endpoint es publico y una pestana vieja (o una llamada
+// directa) podria mandar cantidades sueltas.
+function pasoLote(config: any): number {
+  const l = config?.preferencias?.lotes;
+  if (!l?.activo) return 1;
+  return Math.max(1, Math.floor(Number(l.paso)) || 1);
+}
+
+function alLote(qty: number, paso: number): number {
+  const n = Number(qty) || 0;
+  if (paso <= 1) return n;
+  return Math.max(paso, Math.round(n / paso) * paso);
+}
+
 function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -468,7 +484,9 @@ export class EcommerceService {
     let subtotal = 0;
     let esMayoreo = false;
 
-    for (const item of itemsInput) {
+    const paso = pasoLote(config);
+    for (const itemRaw of itemsInput) {
+      const item = paso > 1 ? { ...itemRaw, qty: alLote(itemRaw.qty, paso) } : itemRaw;
       const [prod] = await dataSource.query(
         `SELECT p.id, p.nombre, p.sku, p.precio, p.cotizacion, p.controla_stock, p.stock_actual,
                 ep.precio_mayoreo, ep.qty_min_mayoreo

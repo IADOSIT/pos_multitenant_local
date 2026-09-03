@@ -7,7 +7,7 @@ import {
   Globe, Store, Palette, Check, X, Copy, ExternalLink, Loader2,
   ShoppingBag, TrendingUp, Package, ToggleLeft, ToggleRight,
   Megaphone, Truck, ClipboardList, FileText, RefreshCw, Phone,
-  Image as Images, Upload, Trash2, ArrowUp, ArrowDown, FileSignature,
+  Image as Images, Upload, Trash2, ArrowUp, ArrowDown, FileSignature, Boxes,
 } from 'lucide-react';
 import TablaPedidos from '../pedidos/TablaPedidos';
 import DetallePedidoWeb from '../pedidos/DetallePedidoWeb';
@@ -105,6 +105,12 @@ const DEFAULT_COTIZACIONES = {
   mensaje: 'Recibimos tu solicitud. Te enviaremos la cotización con los precios y disponibilidad.',
 };
 
+// Venta por lotes: la tienda en linea solo acepta cantidades multiplo de `paso`.
+// Es para quien vende empaques/cajas (de 10 en 10, de 100 en 100) y no piezas sueltas.
+const DEFAULT_LOTES = { activo: false, paso: 10, nota: '' };
+
+const PASOS_LOTE = [10, 20, 50, 100, 500] as const;
+
 function Toggle({ on, onClick, color = 'text-green-400' }: { on: boolean; onClick: () => void; color?: string }) {
   return (
     <button onClick={onClick} className={`transition-colors ${on ? color : 'text-slate-500'}`}>
@@ -130,6 +136,7 @@ export default function TiendaEnLineaPage() {
       contacto: DEFAULT_CONTACTO,
       banners: DEFAULT_BANNERS,
       cotizaciones: DEFAULT_COTIZACIONES,
+      lotes: DEFAULT_LOTES,
     },
   });
   const [subiendoBanner, setSubiendoBanner] = useState(false);
@@ -173,7 +180,7 @@ export default function TiendaEnLineaPage() {
     finally { setAvanzandoKey(null); }
   };
 
-  function setPref(path: 'promociones' | 'envio_gratis' | 'contacto' | 'banners' | 'cotizaciones', patch: any) {
+  function setPref(path: 'promociones' | 'envio_gratis' | 'contacto' | 'banners' | 'cotizaciones' | 'lotes', patch: any) {
     setForm((f: any) => ({ ...f, preferencias: { ...f.preferencias, [path]: { ...f.preferencias?.[path], ...patch } } }));
   }
 
@@ -262,6 +269,7 @@ export default function TiendaEnLineaPage() {
               imagenes: data.preferencias?.banners?.imagenes || [],
             },
             cotizaciones: { ...DEFAULT_COTIZACIONES, ...(data.preferencias?.cotizaciones || {}) },
+            lotes: { ...DEFAULT_LOTES, ...(data.preferencias?.lotes || {}) },
           },
         });
       }
@@ -851,23 +859,76 @@ export default function TiendaEnLineaPage() {
 
       {/* ── MAYOREO ── */}
       {tab === 'mayoreo' && (
-        <div className="bg-slate-800 rounded-xl p-4 space-y-3 max-w-2xl">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-white flex items-center gap-2"><TrendingUp size={14} /> Venta por Mayoreo</p>
-            <Toggle on={form.modo_mayoreo} color="text-purple-400" onClick={() => setForm((f: any) => ({ ...f, modo_mayoreo: !f.modo_mayoreo }))} />
-          </div>
-          {form.modo_mayoreo && (
-            <div className="space-y-2 pt-2 border-t border-slate-700">
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-slate-400 whitespace-nowrap">Cantidad mínima global:</label>
-                <input type="number" min={1} value={form.qty_min_mayoreo} onChange={e => setForm((f: any) => ({ ...f, qty_min_mayoreo: +e.target.value }))}
-                  className="w-20 bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-sm text-white focus:outline-none" />
-                <span className="text-xs text-slate-400">piezas</span>
-              </div>
-              <textarea value={form.mensaje_mayoreo} onChange={e => setForm((f: any) => ({ ...f, mensaje_mayoreo: e.target.value }))}
-                placeholder="Mensaje para compradores mayoreo (aparece en la tienda)" rows={2} className={`${inputCls} resize-none`} />
+        <div className="space-y-4 max-w-2xl">
+          <div className="bg-slate-800 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-white flex items-center gap-2"><TrendingUp size={14} /> Venta por Mayoreo</p>
+              <Toggle on={form.modo_mayoreo} color="text-purple-400" onClick={() => setForm((f: any) => ({ ...f, modo_mayoreo: !f.modo_mayoreo }))} />
             </div>
-          )}
+            {form.modo_mayoreo && (
+              <div className="space-y-2 pt-2 border-t border-slate-700">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-slate-400 whitespace-nowrap">Cantidad mínima global:</label>
+                  <input type="number" min={1} value={form.qty_min_mayoreo} onChange={e => setForm((f: any) => ({ ...f, qty_min_mayoreo: +e.target.value }))}
+                    className="w-20 bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-sm text-white focus:outline-none" />
+                  <span className="text-xs text-slate-400">piezas</span>
+                </div>
+                <textarea value={form.mensaje_mayoreo} onChange={e => setForm((f: any) => ({ ...f, mensaje_mayoreo: e.target.value }))}
+                  placeholder="Mensaje para compradores mayoreo (aparece en la tienda)" rows={2} className={`${inputCls} resize-none`} />
+              </div>
+            )}
+          </div>
+
+          {/* Compra por lotes: cambia el paso del selector de cantidad en toda la tienda. */}
+          <div className="bg-slate-800 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-white flex items-center gap-2"><Boxes size={14} /> Compra por lotes</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  El cliente solo puede pedir cantidades completas: de 10 en 10, de 100 en 100… Aplica a esta tienda.
+                </p>
+              </div>
+              <Toggle on={!!form.preferencias?.lotes?.activo} color="text-amber-400"
+                onClick={() => setPref('lotes', { activo: !form.preferencias?.lotes?.activo })} />
+            </div>
+            {form.preferencias?.lotes?.activo && (
+              <div className="space-y-3 pt-3 border-t border-slate-700">
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1.5">El cliente compra de…</label>
+                  <div className="flex flex-wrap gap-2">
+                    {PASOS_LOTE.map(p => (
+                      <button key={p} onClick={() => setPref('lotes', { paso: p })}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold border transition-colors ${
+                          (form.preferencias?.lotes?.paso ?? 10) === p
+                            ? 'bg-amber-500/20 border-amber-500 text-amber-300'
+                            : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
+                        }`}>
+                        {p} en {p}
+                      </button>
+                    ))}
+                    <div className="flex items-center gap-2 ml-1">
+                      <span className="text-xs text-slate-400">Otro:</span>
+                      <input type="number" min={2} value={form.preferencias?.lotes?.paso ?? 10}
+                        onChange={e => setPref('lotes', { paso: Math.max(2, +e.target.value || 2) })}
+                        className="w-20 bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-sm text-white focus:outline-none" />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Aviso en el carrito (opcional)</label>
+                  <input value={form.preferencias?.lotes?.nota || ''}
+                    onChange={e => setPref('lotes', { nota: e.target.value })}
+                    placeholder={`Esta tienda vende de ${form.preferencias?.lotes?.paso ?? 10} en ${form.preferencias?.lotes?.paso ?? 10} piezas.`}
+                    className={inputCls} />
+                </div>
+                <p className="text-xs text-amber-300 bg-amber-950/30 border border-amber-900 rounded-lg p-3">
+                  Los botones <b>+</b> y <b>−</b> de la tienda avanzan de {form.preferencias?.lotes?.paso ?? 10} en {form.preferencias?.lotes?.paso ?? 10},
+                  y cualquier cantidad escrita a mano se redondea al lote más cercano (nunca a menos de uno completo).
+                  Si un cliente ya tenía piezas sueltas en su carrito, se le ajustan al entrar.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

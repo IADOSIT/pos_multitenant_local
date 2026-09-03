@@ -42,6 +42,18 @@ function esDuplicado(e) {
 function esModoCotizacion(config) {
     return !!config?.preferencias?.cotizaciones?.activo;
 }
+function pasoLote(config) {
+    const l = config?.preferencias?.lotes;
+    if (!l?.activo)
+        return 1;
+    return Math.max(1, Math.floor(Number(l.paso)) || 1);
+}
+function alLote(qty, paso) {
+    const n = Number(qty) || 0;
+    if (paso <= 1)
+        return n;
+    return Math.max(paso, Math.round(n / paso) * paso);
+}
 function slugify(text) {
     return text
         .toLowerCase()
@@ -408,7 +420,9 @@ let EcommerceService = class EcommerceService {
         const items = [];
         let subtotal = 0;
         let esMayoreo = false;
-        for (const item of itemsInput) {
+        const paso = pasoLote(config);
+        for (const itemRaw of itemsInput) {
+            const item = paso > 1 ? { ...itemRaw, qty: alLote(itemRaw.qty, paso) } : itemRaw;
             const [prod] = await dataSource.query(`SELECT p.id, p.nombre, p.sku, p.precio, p.cotizacion, p.controla_stock, p.stock_actual,
                 ep.precio_mayoreo, ep.qty_min_mayoreo
          FROM productos p
