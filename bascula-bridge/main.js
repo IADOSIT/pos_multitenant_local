@@ -431,8 +431,11 @@ function imprimirEtiqueta(payload) {
 }
 
 function construirZpl(payload) {
-  const widthDots = Math.round((payload.label_width_mm || 40) * 8);  // ~8 dots/mm a 203dpi
-  const heightDots = Math.round((payload.label_height_mm || 30) * 8);
+  // Etiqueta horizontal: el lado largo es el ancho (ahi va el EAN-13). Default 50x25 mm.
+  const wMm = payload.label_width_mm || 50;
+  const hMm = payload.label_height_mm || 25;
+  const widthDots = Math.round(Math.max(wMm, hMm) * 8);  // ~8 dots/mm a 203dpi
+  const heightDots = Math.round(Math.min(wMm, hMm) * 8);
   const precio = Number(payload.precio_total).toFixed(2);
   const nombre = String(payload.producto_nombre || '').substring(0, 30);
 

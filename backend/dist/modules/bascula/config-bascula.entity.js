@@ -55,11 +55,11 @@ __decorate([
     __metadata("design:type", Number)
 ], ConfigBascula.prototype, "printer_port", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'int', default: 40 }),
+    (0, typeorm_1.Column)({ type: 'int', default: 50 }),
     __metadata("design:type", Number)
 ], ConfigBascula.prototype, "label_width_mm", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'int', default: 30 }),
+    (0, typeorm_1.Column)({ type: 'int', default: 25 }),
     __metadata("design:type", Number)
 ], ConfigBascula.prototype, "label_height_mm", void 0);
 __decorate([

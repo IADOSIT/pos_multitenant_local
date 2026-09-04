@@ -32,6 +32,18 @@ const PALETTES: { key: PaletteName; name: string; colors: [string, string, strin
   { key: 'oceano', name: 'Oceano', colors: ['#0e7490', '#06b6d4', '#d97706'] },
 ];
 
+// Medidas de rollo de etiqueta adherible mas comunes. La etiqueta de bascula se
+// imprime siempre horizontal (el EAN-13 ocupa el lado largo), asi que el primer
+// numero es el lado largo.
+const MEDIDAS_ETIQUETA: { w: number; h: number; etiqueta: string }[] = [
+  { w: 50, h: 25, etiqueta: '50 x 25 mm (2" x 1") — estandar' },
+  { w: 50, h: 30, etiqueta: '50 x 30 mm' },
+  { w: 57, h: 32, etiqueta: '57 x 32 mm' },
+  { w: 58, h: 40, etiqueta: '58 x 40 mm' },
+  { w: 60, h: 40, etiqueta: '60 x 40 mm' },
+  { w: 40, h: 30, etiqueta: '40 x 30 mm' },
+];
+
 type CampoKey = 'nombre' | 'telefono' | 'email' | 'direccion' | 'empresa' | 'notas';
 const DEFAULT_CAMPOS: Record<CampoKey, CampoFormularioConfig> = {
   nombre:    { activo: true,  requerido: true,  selforder: true,  ecommerce: true,  label: 'Nombre' },
@@ -769,8 +781,8 @@ export default function ConfiguracionPage() {
         printer_modo: cfgRes.data?.printer_modo ?? 'red',
         printer_ip: cfgRes.data?.printer_ip ?? '',
         printer_port: cfgRes.data?.printer_port ?? 9100,
-        label_width_mm: cfgRes.data?.label_width_mm ?? 40,
-        label_height_mm: cfgRes.data?.label_height_mm ?? 30,
+        label_width_mm: cfgRes.data?.label_width_mm ?? 50,
+        label_height_mm: cfgRes.data?.label_height_mm ?? 25,
         scale_port: cfgRes.data?.scale_port ?? '',
         scale_baud_rate: cfgRes.data?.scale_baud_rate ?? 9600,
       });
@@ -2576,8 +2588,8 @@ export default function ConfiguracionPage() {
                   {bsForm.printer_modo === 'navegador' ? (
                     <p className="text-xs text-slate-500">
                       La etiqueta sale por la impresora predeterminada de la PC donde este abierto el kiosko.
-                      Configura ahi el tamano de papel y desactiva encabezados/margenes en el dialogo de impresion
-                      para que quepa completa.
+                      Configura ahi el mismo tamano de papel que elijas abajo, en orientacion horizontal, y
+                      desactiva encabezados/margenes en el dialogo de impresion para que quepa completa.
                     </p>
                   ) : (
                     <div className="grid grid-cols-2 gap-3">
@@ -2602,12 +2614,34 @@ export default function ConfiguracionPage() {
                     </div>
                   )}
 
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1 block">Tamano de etiqueta (rollos estandar, siempre horizontal)</label>
+                    <select
+                      value={
+                        MEDIDAS_ETIQUETA.some((m) => m.w === (bsForm.label_width_mm ?? 50) && m.h === (bsForm.label_height_mm ?? 25))
+                          ? `${bsForm.label_width_mm ?? 50}x${bsForm.label_height_mm ?? 25}`
+                          : 'custom'
+                      }
+                      onChange={(e) => {
+                        if (e.target.value === 'custom') return;
+                        const [w, h] = e.target.value.split('x').map(Number);
+                        setBsForm((f: any) => ({ ...f, label_width_mm: w, label_height_mm: h }));
+                      }}
+                      className="input-touch text-sm"
+                    >
+                      {MEDIDAS_ETIQUETA.map((m) => (
+                        <option key={`${m.w}x${m.h}`} value={`${m.w}x${m.h}`}>{m.etiqueta}</option>
+                      ))}
+                      <option value="custom">Personalizado</option>
+                    </select>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-slate-400 mb-1 block">Ancho de etiqueta (mm)</label>
                       <input
                         type="number"
-                        value={bsForm.label_width_mm ?? 40}
+                        value={bsForm.label_width_mm ?? 50}
                         onChange={(e) => setBsForm((f: any) => ({ ...f, label_width_mm: Number(e.target.value) }))}
                         className="input-touch text-sm"
                       />
@@ -2616,7 +2650,7 @@ export default function ConfiguracionPage() {
                       <label className="text-xs text-slate-400 mb-1 block">Alto de etiqueta (mm)</label>
                       <input
                         type="number"
-                        value={bsForm.label_height_mm ?? 30}
+                        value={bsForm.label_height_mm ?? 25}
                         onChange={(e) => setBsForm((f: any) => ({ ...f, label_height_mm: Number(e.target.value) }))}
                         className="input-touch text-sm"
                       />

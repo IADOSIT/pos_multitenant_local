@@ -29,8 +29,10 @@ export class ConfigBascula {
   // Impresora de etiquetas (recomendado: ZPL en red, socket TCP crudo al puerto 9100)
   @Column({ type: 'varchar', length: 100, nullable: true }) printer_ip: string | null;
   @Column({ type: 'int', default: 9100 }) printer_port: number;
-  @Column({ type: 'int', default: 40 }) label_width_mm: number;
-  @Column({ type: 'int', default: 30 }) label_height_mm: number;
+  // Etiqueta adherible estandar 50 x 25 mm (2" x 1"), horizontal: el lado largo es
+  // el ancho porque el EAN-13 se imprime a lo largo.
+  @Column({ type: 'int', default: 50 }) label_width_mm: number;
+  @Column({ type: 'int', default: 25 }) label_height_mm: number;
 
   // Bascula por serial (RS-232/USB) — el protocolo exacto se ajusta segun el modelo comprado
   @Column({ type: 'varchar', length: 30, nullable: true }) scale_port: string | null;

@@ -27,26 +27,30 @@ function TecladoEnPantalla({ onKey, onBackspace, onSpace, onClose }: {
   onKey: (k: string) => void; onBackspace: () => void; onSpace: () => void; onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 bg-slate-900 border-t border-slate-700 p-3 space-y-2">
-      {FILAS_TECLADO.map((fila, i) => (
-        <div key={i} className="flex justify-center gap-1.5">
-          {fila.map((k) => (
-            <button
-              key={k}
-              onClick={() => onKey(k)}
-              className="w-9 h-11 md:w-11 md:h-12 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm font-bold active:scale-95 transition-transform"
-            >
-              {k}
-            </button>
-          ))}
+    <div className="fixed inset-x-0 bottom-0 z-50 bg-slate-900 border-t border-slate-700 p-3">
+      {/* Las teclas se reparten el ancho disponible (hasta 96 px c/u) para que el
+          teclado se vea grande a lo horizontal; el alto se mantiene igual. */}
+      <div className="mx-auto w-full max-w-[1100px] space-y-2">
+        {FILAS_TECLADO.map((fila, i) => (
+          <div key={i} className="flex justify-center gap-1.5 md:gap-2">
+            {fila.map((k) => (
+              <button
+                key={k}
+                onClick={() => onKey(k)}
+                className="flex-1 basis-0 min-w-0 max-w-[96px] h-11 md:h-12 rounded-lg bg-slate-800 hover:bg-slate-700 text-base md:text-lg font-bold active:scale-95 transition-transform"
+              >
+                {k}
+              </button>
+            ))}
+          </div>
+        ))}
+        <div className="flex justify-center gap-1.5 md:gap-2">
+          <button onClick={onSpace} className="flex-1 basis-0 min-w-0 max-w-[600px] h-11 rounded-lg bg-slate-800 hover:bg-slate-700 text-base font-bold">Espacio</button>
+          <button onClick={onBackspace} className="flex-1 basis-0 min-w-0 max-w-[150px] h-11 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center">
+            <Delete size={20} />
+          </button>
+          <button onClick={onClose} className="flex-1 basis-0 min-w-0 max-w-[200px] h-11 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-base font-bold">Listo</button>
         </div>
-      ))}
-      <div className="flex justify-center gap-1.5">
-        <button onClick={onSpace} className="w-56 h-11 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm font-bold">Espacio</button>
-        <button onClick={onBackspace} className="w-16 h-11 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center">
-          <Delete size={18} />
-        </button>
-        <button onClick={onClose} className="w-24 h-11 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-sm font-bold">Listo</button>
       </div>
     </div>
   );
