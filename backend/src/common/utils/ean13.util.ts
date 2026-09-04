@@ -6,8 +6,8 @@
 // Formato (13 digitos):
 //   [0]      "2"                    prefijo de peso variable
 //   [1-5]    PLU (producto.id)      5 digitos, zero-padded
-//   [6-10]   precio en centavos     5 digitos (hasta $999.99)
-//   [11]     digito verificador EAN-13 estandar (mod 10) sobre los 11 digitos previos
+//   [6-11]   precio en centavos     6 digitos (hasta $9,999.99)
+//   [12]     digito verificador EAN-13 estandar (mod 10) sobre los 12 digitos previos
 
 const PREFIX = '2';
 
@@ -27,9 +27,9 @@ function calcularDigitoVerificador(digitos11: string): string {
 
 export function generarBarcodeEan13(plu: number, precioCentavos: number): string {
   if (plu < 0 || plu > 99999) throw new Error('PLU fuera de rango (0-99999)');
-  if (precioCentavos < 0 || precioCentavos > 99999) throw new Error('Precio fuera de rango (hasta $999.99)');
+  if (precioCentavos < 0 || precioCentavos > 999999) throw new Error('Precio fuera de rango (hasta $9,999.99)');
   const pluStr = String(plu).padStart(5, '0');
-  const precioStr = String(precioCentavos).padStart(5, '0');
+  const precioStr = String(precioCentavos).padStart(6, '0');
   const digitos11 = pluStr + precioStr;
   const check = calcularDigitoVerificador(digitos11);
   return PREFIX + digitos11 + check;
@@ -43,6 +43,6 @@ export function decodeEan13PesoVariable(code: string): { plu: number; precioCent
   if (checkEsperado !== code[12]) return null;
   return {
     plu: Number(code.slice(1, 6)),
-    precioCentavos: Number(code.slice(6, 11)),
+    precioCentavos: Number(code.slice(6, 12)),
   };
 }

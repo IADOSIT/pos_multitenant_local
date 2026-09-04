@@ -17,10 +17,10 @@ function calcularDigitoVerificador(digitos11) {
 function generarBarcodeEan13(plu, precioCentavos) {
     if (plu < 0 || plu > 99999)
         throw new Error('PLU fuera de rango (0-99999)');
-    if (precioCentavos < 0 || precioCentavos > 99999)
-        throw new Error('Precio fuera de rango (hasta $999.99)');
+    if (precioCentavos < 0 || precioCentavos > 999999)
+        throw new Error('Precio fuera de rango (hasta $9,999.99)');
     const pluStr = String(plu).padStart(5, '0');
-    const precioStr = String(precioCentavos).padStart(5, '0');
+    const precioStr = String(precioCentavos).padStart(6, '0');
     const digitos11 = pluStr + precioStr;
     const check = calcularDigitoVerificador(digitos11);
     return PREFIX + digitos11 + check;
@@ -36,7 +36,7 @@ function decodeEan13PesoVariable(code) {
         return null;
     return {
         plu: Number(code.slice(1, 6)),
-        precioCentavos: Number(code.slice(6, 11)),
+        precioCentavos: Number(code.slice(6, 12)),
     };
 }
 //# sourceMappingURL=ean13.util.js.map

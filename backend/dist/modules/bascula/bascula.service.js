@@ -50,7 +50,7 @@ let BasculaService = class BasculaService {
     async updateConfig(tiendaId, dto, scope) {
         const config = await this.getOrCreateConfig(tiendaId, scope);
         const allowed = [
-            'activo', 'usar_en_pos', 'printer_ip', 'printer_port', 'label_width_mm', 'label_height_mm',
+            'activo', 'usar_en_pos', 'printer_modo', 'printer_ip', 'printer_port', 'label_width_mm', 'label_height_mm',
             'scale_port', 'scale_baud_rate', 'scale_protocol',
         ];
         for (const key of allowed) {
@@ -100,18 +100,31 @@ let BasculaService = class BasculaService {
             precio_total: precioTotal,
             barcode,
         }));
-        this.gateway.emitPrintLabel(dto.tienda_id, {
+        const porNavegador = config.printer_modo === 'navegador';
+        if (!porNavegador) {
+            this.gateway.emitPrintLabel(dto.tienda_id, {
+                producto_nombre: producto.nombre,
+                peso_kg: dto.peso_kg,
+                precio_total: precioTotal,
+                barcode,
+                label_width_mm: config.label_width_mm,
+                label_height_mm: config.label_height_mm,
+                printer_ip: config.printer_ip,
+                printer_port: config.printer_port,
+            });
+        }
+        this.logger.log(`Pesaje registrado: ${producto.nombre} ${dto.peso_kg}kg = $${precioTotal} (${barcode})${porNavegador ? ' — imprime el kiosko' : ''}`);
+        return {
             producto_nombre: producto.nombre,
             peso_kg: dto.peso_kg,
             precio_total: precioTotal,
             barcode,
+            log_id: log.id,
+            printer_modo: config.printer_modo || 'red',
+            precio_kg: Number(producto.precio),
             label_width_mm: config.label_width_mm,
             label_height_mm: config.label_height_mm,
-            printer_ip: config.printer_ip,
-            printer_port: config.printer_port,
-        });
-        this.logger.log(`Pesaje registrado: ${producto.nombre} ${dto.peso_kg}kg = $${precioTotal} (${barcode})`);
-        return { producto_nombre: producto.nombre, peso_kg: dto.peso_kg, precio_total: precioTotal, barcode, log_id: log.id };
+        };
     }
 };
 exports.BasculaService = BasculaService;

@@ -6,6 +6,7 @@ export declare class ConfigBascula {
     activo: boolean;
     usar_en_pos: boolean;
     tienda_token: string;
+    printer_modo: string;
     printer_ip: string | null;
     printer_port: number;
     label_width_mm: number;

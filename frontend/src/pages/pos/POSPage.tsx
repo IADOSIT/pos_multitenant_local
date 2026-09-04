@@ -137,7 +137,7 @@ export default function POSPage() {
 
   const { user } = useAuthStore();
   const { tiendaId, empresaId } = useScope();
-  const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, setMesaActiva, tipoServicio, clearCart, notaPedido, clienteNombre, clienteTelefono, clienteDireccion, updateItemPrice, updateItemNotes } = usePOSStore();
+  const { categoriaActiva, setCategoriaActiva, addToCart, cart, getItemCount, getSubtotal, getImpuestos, getTotal, cajaActiva, setCajaActiva, modoServicio, setModoServicio, setTipoCobro, setIvaConfig, mesaActiva, setMesaActiva, tipoServicio, clearCart, notaPedido, clienteNombre, clienteTelefono, clienteDireccion, updateItemPrice, updateItemNotes, updateItemPeso } = usePOSStore();
 
   // Conexion al socket de bascula (peso en vivo) — solo si esta habilitada para el POS.
   useEffect(() => {
@@ -178,6 +178,10 @@ export default function POSPage() {
       if (item) {
         updateItemPrice(item.id, decoded.precio);
         updateItemNotes(item.id, 'Precio de báscula (etiqueta)');
+        // La etiqueta trae el importe, no los kilos: se reconstruyen con el precio por kg
+        // del producto para que el carrito muestre cuanto se esta vendiendo.
+        const precioKg = Number(producto.precio);
+        if (precioKg > 0) updateItemPeso(item.id, decoded.precio / precioKg);
       }
     }, 0);
     toast.success(`${producto.nombre} — $${decoded.precio.toFixed(2)}`, { duration: 1200 });
@@ -454,6 +458,7 @@ export default function POSPage() {
       if (item) {
         updateItemPrice(item.id, precioCalculado);
         updateItemNotes(item.id, `Peso: ${peso.toFixed(3)}kg`);
+        updateItemPeso(item.id, peso);
       }
     }, 0);
     toast.success(`${producto.nombre} — ${peso.toFixed(3)}kg = $${precioCalculado.toFixed(2)}`, { duration: 1200 });

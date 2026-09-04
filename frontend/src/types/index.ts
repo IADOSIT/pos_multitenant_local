@@ -56,6 +56,10 @@ export interface CartItem {
   controla_stock?: boolean;
   apartado_tienda_id?: number;
   apartado_tienda_nombre?: string;
+  // Solo productos vendidos por peso (unidad "kg"): kilos de esta linea, ya sea
+  // pesados en el POS o leidos de la etiqueta de la bascula. La cantidad sigue
+  // siendo 1 (una pieza pesada) y el precio de la linea es el total del peso.
+  peso_kg?: number;
 }
 
 export interface Venta {

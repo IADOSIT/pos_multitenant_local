@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { basculaApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
+import { printEtiquetaBascula } from '../../utils/printEtiquetaBascula';
 import { useAuthStore } from '../../store/auth.store';
 import { ShoppingBasket, Scale, Printer, ArrowLeft, Loader2, CheckCircle, Search, X, Delete } from 'lucide-react';
 
@@ -119,6 +120,19 @@ export default function BasculaKioskoPage() {
         peso_kg: pesoKg,
       });
       setResultado({ barcode: data.barcode, precio_total: data.precio_total });
+      // En modo 'navegador' el backend no manda la etiqueta al bridge: la imprime este
+      // kiosko en la impresora predeterminada de Windows, igual que los tickets del POS.
+      if (data.printer_modo === 'navegador') {
+        printEtiquetaBascula({
+          producto_nombre: data.producto_nombre ?? seleccionado.nombre,
+          peso_kg: Number(data.peso_kg ?? pesoKg),
+          precio_kg: Number(data.precio_kg ?? seleccionado.precio),
+          precio_total: Number(data.precio_total),
+          barcode: data.barcode,
+          label_width_mm: data.label_width_mm,
+          label_height_mm: data.label_height_mm,
+        });
+      }
       setStep('done');
       setTimeout(volverAlGrid, 6000);
     } catch (e: any) {

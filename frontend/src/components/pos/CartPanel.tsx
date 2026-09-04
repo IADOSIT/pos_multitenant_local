@@ -326,6 +326,16 @@ export default function CartPanel({ onPay, onEnviarPedido, onAbrirCuenta, onPreC
               {/* Fila 1: Nombre completo como encabezado */}
               <p className="font-semibold text-sm leading-snug mb-1">{item.nombre}</p>
 
+              {/* Kilos vendidos — solo en productos por peso (bascula o etiqueta escaneada).
+                  Va aparte de las notas a proposito: el peso debe verse aunque el modulo
+                  de notas por item este apagado. */}
+              {item.peso_kg !== undefined && item.peso_kg > 0 && (
+                <p className="text-xs text-amber-400 mb-1 tabular-nums">
+                  {(item.peso_kg * item.cantidad).toFixed(3)} kg
+                  {mostrarPrecios && ` × $${Number(item.precio).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/kg`}
+                </p>
+              )}
+
               {/* Fila 2: precio · controles · subtotal */}
               <div className="flex items-center gap-1.5">
                 {precioManual ? (

@@ -40,6 +40,7 @@ interface POSState {
   updateQuantity: (itemId: string, cantidad: number) => void;
   updateItemPrice: (id: string, price: number) => void;
   updateItemNotes: (itemId: string, notas: string) => void;
+  updateItemPeso: (itemId: string, peso_kg: number) => void;
   setItemApartado: (itemId: string, tienda_id: number | undefined, tienda_nombre?: string) => void;
   clearCart: () => void;
 
@@ -144,6 +145,11 @@ export const usePOSStore = create<POSState>((set, get) => ({
 
   updateItemNotes: (itemId, notas) =>
     set({ cart: get().cart.map((i) => (i.id === itemId ? { ...i, notas } : i)) }),
+
+  // Kilos de una linea vendida por peso — se muestran siempre en el carrito, a
+  // diferencia de las notas, que dependen de que el modulo de notas este activo.
+  updateItemPeso: (itemId, peso_kg) =>
+    set({ cart: get().cart.map((i) => (i.id === itemId ? { ...i, peso_kg } : i)) }),
 
   setItemApartado: (itemId, tienda_id, tienda_nombre) =>
     set({

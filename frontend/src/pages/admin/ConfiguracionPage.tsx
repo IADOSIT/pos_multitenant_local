@@ -766,6 +766,7 @@ export default function ConfiguracionPage() {
       setBsForm({
         activo: cfgRes.data?.activo ?? false,
         usar_en_pos: cfgRes.data?.usar_en_pos ?? false,
+        printer_modo: cfgRes.data?.printer_modo ?? 'red',
         printer_ip: cfgRes.data?.printer_ip ?? '',
         printer_port: cfgRes.data?.printer_port ?? 9100,
         label_width_mm: cfgRes.data?.label_width_mm ?? 40,
@@ -2512,8 +2513,8 @@ export default function ConfiguracionPage() {
                   <p className="text-xs text-slate-400">
                     El cliente pesa su fruta/verdura, la selecciona en pantalla y se imprime una etiqueta con
                     codigo de barras (formato EAN-13 de peso variable, igual que en supermercados) que se
-                    escanea en caja con el lector normal. Requiere bascula con salida serial/USB e impresora
-                    de etiquetas en red — ver <code className="bg-slate-700 px-1 rounded text-blue-300">bascula-bridge/LEEME.txt</code>.
+                    escanea en caja con el lector normal. Requiere bascula con salida serial/USB y una impresora
+                    (de etiquetas en red, o la predeterminada de Windows) — ver <code className="bg-slate-700 px-1 rounded text-blue-300">bascula-bridge/LEEME.txt</code>.
                   </p>
 
                   {/* Dos formas de usar la bascula, independientes entre si */}
@@ -2543,26 +2544,63 @@ export default function ConfiguracionPage() {
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-slate-400 mb-1 block">IP de la impresora de etiquetas</label>
-                      <input
-                        value={bsForm.printer_ip || ''}
-                        onChange={(e) => setBsForm((f: any) => ({ ...f, printer_ip: e.target.value }))}
-                        placeholder="192.168.1.50"
-                        className="input-touch text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-slate-400 mb-1 block">Puerto (ZPL raw, normalmente 9100)</label>
-                      <input
-                        type="number"
-                        value={bsForm.printer_port ?? 9100}
-                        onChange={(e) => setBsForm((f: any) => ({ ...f, printer_port: Number(e.target.value) }))}
-                        className="input-touch text-sm"
-                      />
+                  {/* Como se imprime la etiqueta del kiosko */}
+                  <div className="border-t border-iados-card pt-4">
+                    <h4 className="font-bold text-sm mb-2">Impresora de etiquetas</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setBsForm((f: any) => ({ ...f, printer_modo: 'red' }))}
+                        className={`p-3 rounded-lg text-left border transition-colors ${
+                          (bsForm.printer_modo || 'red') === 'red'
+                            ? 'border-blue-500 bg-blue-500/10'
+                            : 'border-iados-card hover:border-slate-600'
+                        }`}
+                      >
+                        <div className="text-sm font-bold">Impresora de red (IP)</div>
+                        <div className="text-xs text-slate-500 mt-0.5">Etiquetadora ZPL; la manda el bridge local.</div>
+                      </button>
+                      <button
+                        onClick={() => setBsForm((f: any) => ({ ...f, printer_modo: 'navegador' }))}
+                        className={`p-3 rounded-lg text-left border transition-colors ${
+                          bsForm.printer_modo === 'navegador'
+                            ? 'border-blue-500 bg-blue-500/10'
+                            : 'border-iados-card hover:border-slate-600'
+                        }`}
+                      >
+                        <div className="text-sm font-bold">Impresora predeterminada de Windows</div>
+                        <div className="text-xs text-slate-500 mt-0.5">La imprime el kiosko, igual que los tickets.</div>
+                      </button>
                     </div>
                   </div>
+
+                  {bsForm.printer_modo === 'navegador' ? (
+                    <p className="text-xs text-slate-500">
+                      La etiqueta sale por la impresora predeterminada de la PC donde este abierto el kiosko.
+                      Configura ahi el tamano de papel y desactiva encabezados/margenes en el dialogo de impresion
+                      para que quepa completa.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-slate-400 mb-1 block">IP de la impresora de etiquetas</label>
+                        <input
+                          value={bsForm.printer_ip || ''}
+                          onChange={(e) => setBsForm((f: any) => ({ ...f, printer_ip: e.target.value }))}
+                          placeholder="192.168.1.50"
+                          className="input-touch text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400 mb-1 block">Puerto (ZPL raw, normalmente 9100)</label>
+                        <input
+                          type="number"
+                          value={bsForm.printer_port ?? 9100}
+                          onChange={(e) => setBsForm((f: any) => ({ ...f, printer_port: Number(e.target.value) }))}
+                          className="input-touch text-sm"
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>

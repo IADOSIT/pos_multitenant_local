@@ -43,6 +43,10 @@ __decorate([
     __metadata("design:type", String)
 ], ConfigBascula.prototype, "tienda_token", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 20, default: 'red' }),
+    __metadata("design:type", String)
+], ConfigBascula.prototype, "printer_modo", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 100, nullable: true }),
     __metadata("design:type", Object)
 ], ConfigBascula.prototype, "printer_ip", void 0);

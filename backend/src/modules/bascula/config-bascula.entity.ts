@@ -20,6 +20,12 @@ export class ConfigBascula {
   // Token secreto — el bridge local (bascula-bridge) lo usa para autenticarse por Socket.io
   @Column({ length: 100 }) tienda_token: string;
 
+  // Como se imprime la etiqueta del kiosko:
+  //   'red'       → ZPL por TCP a una etiquetadora en red, lo manda el bridge local
+  //   'navegador' → la imprime el propio kiosko en la impresora predeterminada de
+  //                 Windows, igual que los tickets del POS (iframe + window.print)
+  @Column({ type: 'varchar', length: 20, default: 'red' }) printer_modo: string;
+
   // Impresora de etiquetas (recomendado: ZPL en red, socket TCP crudo al puerto 9100)
   @Column({ type: 'varchar', length: 100, nullable: true }) printer_ip: string | null;
   @Column({ type: 'int', default: 9100 }) printer_port: number;

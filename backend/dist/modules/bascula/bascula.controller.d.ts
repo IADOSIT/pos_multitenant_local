@@ -18,5 +18,9 @@ export declare class BasculaController {
         precio_total: number;
         barcode: string;
         log_id: number;
+        printer_modo: string;
+        precio_kg: number;
+        label_width_mm: number;
+        label_height_mm: number;
     }>;
 }
