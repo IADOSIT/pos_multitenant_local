@@ -1,7 +1,7 @@
 import {
   ShoppingCart, LayoutDashboard, ClipboardList, CreditCard, FileBarChart,
   Warehouse, BookOpen, Grid3X3, Users, Store, Settings, Building2, HelpCircle,
-  Activity,
+  Activity, QrCode,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -26,6 +26,7 @@ export const navItems: NavItem[] = [
   { to: '/admin/mesas',           icon: Grid3X3,         label: 'Mesas',      roles: ['superadmin', 'admin'] },
   { to: '/admin/usuarios',        icon: Users,           label: 'Usuarios',   roles: ['superadmin', 'admin'] },
   { to: '/admin/tienda-en-linea', icon: Store,           label: 'Tienda en Línea', roles: ['superadmin', 'admin'] },
+  { to: '/admin/menu-qr',         icon: QrCode,          label: 'Menú QR',    roles: ['superadmin', 'admin'] },
   { to: '/admin/configuracion',   icon: Settings,        label: 'Config',     roles: ['superadmin', 'admin'] },
   { to: '/admin/tenants',         icon: Building2,       label: 'Tenants',    roles: ['superadmin'] },
   { to: '/superadmin/monitor',    icon: Activity,        label: 'Monitor',    roles: ['superadmin'] },

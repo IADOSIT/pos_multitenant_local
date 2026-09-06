@@ -21,6 +21,7 @@ const TicketsConfig = lazy(() => import('./pages/admin/TicketsConfig'));
 const PedidosPage = lazy(() => import('./pages/pedidos/PedidosPage'));
 const ConfiguracionPage = lazy(() => import('./pages/admin/ConfiguracionPage'));
 const TiendaEnLineaPage = lazy(() => import('./pages/admin/TiendaEnLineaPage'));
+const MenuQrPage = lazy(() => import('./pages/admin/MenuQrPage'));
 const ReportesPage = lazy(() => import('./pages/reportes/ReportesPage'));
 const LicenciasAdmin = lazy(() => import('./pages/admin/LicenciasAdmin'));
 const KioscoPage = lazy(() => import('./pages/kiosk/KioscoPage'));
@@ -105,6 +106,9 @@ export default function App() {
           } />
           <Route path="admin/tienda-en-linea" element={
             <PrivateRoute roles={['superadmin', 'admin']}><TiendaEnLineaPage /></PrivateRoute>
+          } />
+          <Route path="admin/menu-qr" element={
+            <PrivateRoute roles={['superadmin', 'admin']}><MenuQrPage /></PrivateRoute>
           } />
           <Route path="admin/mantenimiento" element={
             <PrivateRoute roles={['superadmin', 'admin']}><MantenimientoPage /></PrivateRoute>

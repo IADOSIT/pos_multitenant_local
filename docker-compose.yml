@@ -41,7 +41,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260903-kiosko-teclado-etiqueta"
+        CACHE_BUST: "20260905-menu-qr-pantalla-propia"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

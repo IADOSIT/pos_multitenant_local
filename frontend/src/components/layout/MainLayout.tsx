@@ -34,6 +34,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/admin/mesas': 'Mesas',
   '/admin/usuarios': 'Usuarios',
   '/admin/tienda-en-linea': 'Tienda en Línea',
+  '/admin/menu-qr': 'Menú Digital QR',
   '/admin/configuracion': 'Configuración',
   '/admin/tenants': 'Tenants',
   '/admin/materia-prima': 'Materia Prima',
@@ -53,7 +54,8 @@ const PAGE_TITLES: Record<string, string> = {
 // (Config es justo donde se administran/eligen las tiendas).
 const RUTAS_POR_TIENDA = new Set([
   '/pos', '/dashboard', '/pedidos', '/caja', '/reportes', '/inventario', '/inventario-dual',
-  '/catalogos', '/logistica', '/admin/mesas', '/admin/tienda-en-linea', '/admin/materia-prima',
+  '/catalogos', '/logistica', '/admin/mesas', '/admin/tienda-en-linea', '/admin/menu-qr',
+  '/admin/materia-prima',
   '/admin/productos', '/admin/categorias', '/admin/self-order', '/admin/perfil-negocio',
 ]);
 
