@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260903-kiosko-teclado-etiqueta"
+        CACHE_BUST: "20260906-fotos-autopartes-oviedo"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
