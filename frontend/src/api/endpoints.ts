@@ -124,6 +124,10 @@ export const ecommerceApi = {
   getProductoConfig: (id: number) => api.get(`/ecommerce/productos/${id}/config`),
   saveProductoConfig: (id: number, data: any) => api.put(`/ecommerce/productos/${id}/config`, data),
   bulkVisibilidad: (ids: number[], visible: boolean) => api.post('/ecommerce/productos/bulk-visibilidad', { ids, visible }),
+  // Escaparate: que productos se ven en la tienda en linea y en que orden.
+  listEscaparate: (params?: { buscar?: string; limit?: number }) => api.get('/ecommerce/escaparate', { params }),
+  saveEscaparate: (items: { producto_id: number; visible_ecommerce?: boolean; orden_ecommerce?: number }[]) =>
+    api.put('/ecommerce/escaparate', { items }),
   // Pedidos
   listPedidos: (params?: any) => api.get('/ecommerce/pedidos', { params }),
   getPedido: (id: number) => api.get(`/ecommerce/pedidos/${id}`),

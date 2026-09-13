@@ -36,6 +36,16 @@ export declare class EcommerceController {
         ids: number[];
         visible: boolean;
     }): Promise<void>;
+    listEscaparate(scope: any, query: any): Promise<any>;
+    guardarEscaparate(scope: any, body: {
+        items: {
+            producto_id: number;
+            visible_ecommerce?: boolean;
+            orden_ecommerce?: number;
+        }[];
+    }): Promise<{
+        actualizados: number;
+    }>;
     listPedidos(scope: any, query: any): Promise<{
         data: import("./ecommerce-pedido.entity").EcommercePedido[];
         meta: {

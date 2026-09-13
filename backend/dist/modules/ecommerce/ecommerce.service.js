@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var EcommerceService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EcommerceService = void 0;
 const common_1 = require("@nestjs/common");
@@ -65,7 +66,7 @@ function slugify(text) {
         .replace(/-+/g, '-')
         .slice(0, 63);
 }
-let EcommerceService = class EcommerceService {
+let EcommerceService = EcommerceService_1 = class EcommerceService {
     constructor(configRepo, pedidoRepo, productoConfigRepo, clienteRepo, pedidosService) {
         this.configRepo = configRepo;
         this.pedidoRepo = pedidoRepo;
@@ -77,6 +78,10 @@ let EcommerceService = class EcommerceService {
         return this.configRepo.findOne({ where: { empresa_id: scope.empresa_id } });
     }
     async upsertConfig(scope, data) {
+        for (const campo of EcommerceService_1.CAMPOS_NO_VACIABLES) {
+            if (campo in data && !String(data[campo] ?? '').trim())
+                delete data[campo];
+        }
         let config = await this.configRepo.findOne({ where: { empresa_id: scope.empresa_id } });
         if (!config) {
             config = this.configRepo.create({
@@ -129,6 +134,9 @@ let EcommerceService = class EcommerceService {
         return this.productoConfigRepo.findOne({ where: { producto_id: productoId } });
     }
     async upsertProductoConfig(scope, productoId, data) {
+        const [dueno] = await this.productoConfigRepo.manager.query('SELECT id FROM productos WHERE id = ? AND empresa_id = ? LIMIT 1', [productoId, scope.empresa_id]);
+        if (!dueno)
+            throw new common_1.NotFoundException('Producto no encontrado');
         let pc = await this.productoConfigRepo.findOne({ where: { producto_id: productoId } });
         if (!pc) {
             pc = this.productoConfigRepo.create({
@@ -144,6 +152,48 @@ let EcommerceService = class EcommerceService {
         for (const id of ids) {
             await this.upsertProductoConfig(scope, id, { visible_ecommerce: visible });
         }
+    }
+    async listEscaparate(scope, query) {
+        const { buscar = '', limit = 400 } = query || {};
+        const params = [scope.empresa_id];
+        let sql = `
+      SELECT p.id, p.nombre, p.sku, p.imagen_url, p.precio, p.disponible,
+             p.controla_stock, p.stock_actual, c.nombre AS categoria_nombre,
+             COALESCE(ep.visible_ecommerce, 1) AS visible_ecommerce,
+             COALESCE(ep.orden_ecommerce, 0) AS orden_ecommerce
+      FROM productos p
+      LEFT JOIN categorias c ON c.id = p.categoria_id
+      LEFT JOIN ecommerce_producto_config ep ON ep.producto_id = p.id
+      WHERE p.empresa_id = ? AND p.activo = 1`;
+        if (buscar) {
+            sql += ' AND (p.nombre LIKE ? OR p.sku LIKE ?)';
+            params.push(`%${buscar}%`, `%${buscar}%`);
+        }
+        sql += ` ORDER BY (COALESCE(ep.orden_ecommerce, 0) = 0) ASC,
+                      COALESCE(ep.orden_ecommerce, 0) ASC, p.nombre ASC
+             LIMIT ?`;
+        params.push(+limit);
+        const rows = await this.productoConfigRepo.manager.query(sql, params);
+        return rows.map((r) => ({
+            ...r,
+            visible_ecommerce: !!Number(r.visible_ecommerce),
+            orden_ecommerce: Number(r.orden_ecommerce) || 0,
+        }));
+    }
+    async guardarEscaparate(scope, items) {
+        let actualizados = 0;
+        for (const it of items || []) {
+            const data = {};
+            if (typeof it.visible_ecommerce === 'boolean')
+                data.visible_ecommerce = it.visible_ecommerce;
+            if (typeof it.orden_ecommerce === 'number')
+                data.orden_ecommerce = Math.max(0, Math.trunc(it.orden_ecommerce));
+            if (!Object.keys(data).length)
+                continue;
+            await this.upsertProductoConfig(scope, it.producto_id, data);
+            actualizados++;
+        }
+        return { actualizados };
     }
     async listPedidos(scope, query) {
         const { page = 1, limit = 20, estado, tipo_venta, fecha_desde, fecha_hasta, buscar } = query;
@@ -332,6 +382,7 @@ let EcommerceService = class EcommerceService {
             nombre: 'p.nombre ASC',
             novedad: 'p.created_at DESC',
             orden: 'orden_ecommerce ASC',
+            escaparate: '(orden_ecommerce = 0) ASC, orden_ecommerce ASC, p.created_at DESC',
         };
         sql += ` ORDER BY ${orderMap[ordenar] || 'p.nombre ASC'}`;
         const countSql = `SELECT COUNT(*) as total FROM (${sql}) as sub`;
@@ -571,7 +622,8 @@ let EcommerceService = class EcommerceService {
     }
 };
 exports.EcommerceService = EcommerceService;
-exports.EcommerceService = EcommerceService = __decorate([
+EcommerceService.CAMPOS_NO_VACIABLES = ['nombre_tienda', 'subdominio', 'tema_id'];
+exports.EcommerceService = EcommerceService = EcommerceService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(ecommerce_config_entity_1.EcommerceConfig)),
     __param(1, (0, typeorm_1.InjectRepository)(ecommerce_pedido_entity_1.EcommercePedido)),

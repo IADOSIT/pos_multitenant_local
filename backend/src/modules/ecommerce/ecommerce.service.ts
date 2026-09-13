@@ -86,7 +86,17 @@ export class EcommerceService {
     return this.configRepo.findOne({ where: { empresa_id: scope.empresa_id } });
   }
 
+  // Campos que definen la identidad publica de la tienda. Si llegan vacios NO se
+  // guardan: el panel manda el formulario completo en cada guardado, asi que una
+  // carga fallida (o un guardado antes de que llegara la config) borraba el nombre
+  // y la tienda pasaba a mostrar `empresa.nombre` sola -- el "se cambio solo".
+  private static readonly CAMPOS_NO_VACIABLES = ['nombre_tienda', 'subdominio', 'tema_id'];
+
   async upsertConfig(scope: any, data: Partial<EcommerceConfig>): Promise<EcommerceConfig> {
+    for (const campo of EcommerceService.CAMPOS_NO_VACIABLES) {
+      if (campo in data && !String((data as any)[campo] ?? '').trim()) delete (data as any)[campo];
+    }
+
     let config = await this.configRepo.findOne({ where: { empresa_id: scope.empresa_id } });
 
     if (!config) {
@@ -149,6 +159,12 @@ export class EcommerceService {
   }
 
   async upsertProductoConfig(scope: any, productoId: number, data: Partial<EcommerceProductoConfig>): Promise<EcommerceProductoConfig> {
+    const [dueno] = await this.productoConfigRepo.manager.query(
+      'SELECT id FROM productos WHERE id = ? AND empresa_id = ? LIMIT 1',
+      [productoId, scope.empresa_id],
+    );
+    if (!dueno) throw new NotFoundException('Producto no encontrado');
+
     let pc = await this.productoConfigRepo.findOne({ where: { producto_id: productoId } });
     if (!pc) {
       pc = this.productoConfigRepo.create({
@@ -165,6 +181,58 @@ export class EcommerceService {
     for (const id of ids) {
       await this.upsertProductoConfig(scope, id, { visible_ecommerce: visible });
     }
+  }
+
+  // ─── ESCAPARATE (que se ve y en que orden en la tienda en linea) ──────────────
+
+  /**
+   * Listado para el panel: TODOS los productos de la empresa, incluidos los
+   * ocultos en la tienda (el listado publico los filtra), con su orden y
+   * visibilidad. `orden_ecommerce` 0 = sin acomodar; esos van al final.
+   */
+  async listEscaparate(scope: any, query: any) {
+    const { buscar = '', limit = 400 } = query || {};
+    const params: any[] = [scope.empresa_id];
+    let sql = `
+      SELECT p.id, p.nombre, p.sku, p.imagen_url, p.precio, p.disponible,
+             p.controla_stock, p.stock_actual, c.nombre AS categoria_nombre,
+             COALESCE(ep.visible_ecommerce, 1) AS visible_ecommerce,
+             COALESCE(ep.orden_ecommerce, 0) AS orden_ecommerce
+      FROM productos p
+      LEFT JOIN categorias c ON c.id = p.categoria_id
+      LEFT JOIN ecommerce_producto_config ep ON ep.producto_id = p.id
+      WHERE p.empresa_id = ? AND p.activo = 1`;
+    if (buscar) {
+      sql += ' AND (p.nombre LIKE ? OR p.sku LIKE ?)';
+      params.push(`%${buscar}%`, `%${buscar}%`);
+    }
+    sql += ` ORDER BY (COALESCE(ep.orden_ecommerce, 0) = 0) ASC,
+                      COALESCE(ep.orden_ecommerce, 0) ASC, p.nombre ASC
+             LIMIT ?`;
+    params.push(+limit);
+    const rows = await this.productoConfigRepo.manager.query(sql, params);
+    return rows.map((r: any) => ({
+      ...r,
+      visible_ecommerce: !!Number(r.visible_ecommerce),
+      orden_ecommerce: Number(r.orden_ecommerce) || 0,
+    }));
+  }
+
+  /** Guarda de un jalon los cambios de la pestana Escaparate. */
+  async guardarEscaparate(
+    scope: any,
+    items: { producto_id: number; visible_ecommerce?: boolean; orden_ecommerce?: number }[],
+  ): Promise<{ actualizados: number }> {
+    let actualizados = 0;
+    for (const it of items || []) {
+      const data: Partial<EcommerceProductoConfig> = {};
+      if (typeof it.visible_ecommerce === 'boolean') data.visible_ecommerce = it.visible_ecommerce;
+      if (typeof it.orden_ecommerce === 'number') data.orden_ecommerce = Math.max(0, Math.trunc(it.orden_ecommerce));
+      if (!Object.keys(data).length) continue;
+      await this.upsertProductoConfig(scope, it.producto_id, data);
+      actualizados++;
+    }
+    return { actualizados };
   }
 
   // ─── PEDIDOS ADMIN ────────────────────────────────────────────────────────────
@@ -371,6 +439,9 @@ export class EcommerceService {
       nombre: 'p.nombre ASC',
       novedad: 'p.created_at DESC',
       orden: 'orden_ecommerce ASC',
+      // Portada curada: primero lo que el admin acomodo (orden 1,2,3...) y
+      // despues el resto por novedad, que es como se veia antes de curar nada.
+      escaparate: '(orden_ecommerce = 0) ASC, orden_ecommerce ASC, p.created_at DESC',
     };
     sql += ` ORDER BY ${orderMap[ordenar] || 'p.nombre ASC'}`;
 

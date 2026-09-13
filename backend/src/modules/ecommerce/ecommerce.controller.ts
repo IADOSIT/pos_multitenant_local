@@ -84,6 +84,24 @@ export class EcommerceController {
     return this.service.bulkVisibilidad(scope, body.ids, body.visible);
   }
 
+  // ─── ESCAPARATE ────────────────────────────────────────────────────────────
+  // Que productos salen en la tienda en linea y en que orden. A diferencia de
+  // GET /ecommerce/productos (catalogo publico), aqui si vienen los ocultos.
+
+  @Get('escaparate')
+  listEscaparate(@TenantScope() scope, @Query() query: any) {
+    return this.service.listEscaparate(scope, query);
+  }
+
+  @Put('escaparate')
+  @Roles('superadmin', 'admin')
+  guardarEscaparate(
+    @TenantScope() scope,
+    @Body() body: { items: { producto_id: number; visible_ecommerce?: boolean; orden_ecommerce?: number }[] },
+  ) {
+    return this.service.guardarEscaparate(scope, body?.items || []);
+  }
+
   // ─── PEDIDOS WEB ──────────────────────────────────────────────────────────
 
   @Get('pedidos')

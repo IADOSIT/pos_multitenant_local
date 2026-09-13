@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ecommerceApi, empresasApi } from '../../api/endpoints';
+import { resolveUploadUrl } from '../../api/client';
+import EscaparateTab from './EscaparateTab';
 import { useAuthStore } from '../../store/auth.store';
 import { usePageHeader } from '../../store/pageHeader.store';
 import toast from 'react-hot-toast';
@@ -8,6 +10,7 @@ import {
   ShoppingBag, TrendingUp, Package, ToggleLeft, ToggleRight,
   Megaphone, Truck, ClipboardList, FileText, RefreshCw, Phone,
   Image as Images, Upload, Trash2, ArrowUp, ArrowDown, FileSignature, Boxes,
+  AlertTriangle, LayoutGrid,
 } from 'lucide-react';
 import TablaPedidos from '../pedidos/TablaPedidos';
 import DetallePedidoWeb from '../pedidos/DetallePedidoWeb';
@@ -62,6 +65,7 @@ const TABS = [
   { id: 'general',     label: 'General',     icon: Store },
   { id: 'pedidos',     label: 'Pedidos',     icon: Package },
   { id: 'diseno',      label: 'Diseño',      icon: Palette },
+  { id: 'escaparate',  label: 'Escaparate',  icon: LayoutGrid },
   { id: 'banners',     label: 'Banners',     icon: Images },
   { id: 'contacto',    label: 'Contacto',    icon: Phone },
   { id: 'promociones', label: 'Promociones', icon: Megaphone },
@@ -126,7 +130,7 @@ export default function TiendaEnLineaPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<any>({
-    activo: false, subdominio: '', nombre_tienda: '', descripcion: '',
+    activo: false, subdominio: '', nombre_tienda: '', descripcion: '', banner_url: '',
     color_primario: '#1e40af', color_secundario: '#0f172a',
     modo_mayoreo: false, qty_min_mayoreo: 10, mensaje_mayoreo: '',
     politica_envio: '', terminos: '', tema_id: 'lumina',
@@ -140,6 +144,11 @@ export default function TiendaEnLineaPage() {
     },
   });
   const [subiendoBanner, setSubiendoBanner] = useState(false);
+  const [subiendoPortada, setSubiendoPortada] = useState(false);
+  // Si la config no cargo, el formulario se queda en blanco; guardar asi borraba
+  // el nombre publicado (la tienda cae a `empresa.nombre`). Se bloquea el guardado.
+  const [loadError, setLoadError] = useState(false);
+  const [empresaNombre, setEmpresaNombre] = useState('');
   const [campos, setCampos] = useState<Campos>(DEFAULT_CAMPOS);
   const [autoCancel, setAutoCancel] = useState<number>(0);
   const [subdCheck, setSubdCheck] = useState<'idle' | 'checking' | 'ok' | 'taken'>('idle');
@@ -225,6 +234,24 @@ export default function TiendaEnLineaPage() {
     setSubiendoBanner(false);
   }
 
+  // Imagen de portada del hero (columna `banner_url`). Reusa el mismo endpoint de
+  // subida que los banners: el archivo cae en el volumen de uploads del POS.
+  async function subirPortada(file: File | null | undefined) {
+    if (!file) return;
+    setSubiendoPortada(true);
+    try {
+      const { data } = await ecommerceApi.uploadBanner(file);
+      const url = typeof data === 'string' ? data : data?.url;
+      if (url) {
+        setForm((f: any) => ({ ...f, banner_url: url }));
+        toast.success('Portada lista — guarda los cambios');
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Error al subir la portada');
+    }
+    setSubiendoPortada(false);
+  }
+
   function setContactoRed(red: keyof typeof DEFAULT_CONTACTO.redes, valor: string) {
     setForm((f: any) => ({
       ...f,
@@ -240,6 +267,7 @@ export default function TiendaEnLineaPage() {
 
   async function load() {
     setLoading(true);
+    setLoadError(false);
     try {
       const { data } = await ecommerceApi.getConfig();
       if (data) {
@@ -249,6 +277,7 @@ export default function TiendaEnLineaPage() {
           subdominio: data.subdominio || '',
           nombre_tienda: data.nombre_tienda || '',
           descripcion: data.descripcion || '',
+          banner_url: data.banner_url || '',
           color_primario: data.color_primario || '#1e40af',
           color_secundario: data.color_secundario || '#0f172a',
           modo_mayoreo: data.modo_mayoreo,
@@ -278,10 +307,13 @@ export default function TiendaEnLineaPage() {
       if (user?.empresa_id) {
         const { data: emp } = await empresasApi.get(user.empresa_id);
         const cfg = emp?.config_especial || {};
+        setEmpresaNombre(emp?.nombre || '');
         setCampos(mergeCampos(cfg.campos_formulario));
         setAutoCancel(Number(cfg.auto_cancel_horas) || 0);
       }
-    } catch { /* config vacía */ }
+    } catch {
+      setLoadError(true);
+    }
     setLoading(false);
   }
 
@@ -307,6 +339,7 @@ export default function TiendaEnLineaPage() {
   }
 
   async function guardar() {
+    if (loadError) { toast.error('No se cargó la configuración: recarga antes de guardar'); return; }
     if (form.activo && !form.subdominio) { toast.error('Define el subdominio primero'); return; }
     if (subdCheck === 'taken') { toast.error('El subdominio no está disponible'); return; }
     setSaving(true);
@@ -373,6 +406,19 @@ export default function TiendaEnLineaPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto">
+      {loadError && (
+        <div className="bg-red-900/40 border border-red-700 rounded-xl p-3 flex items-start gap-3">
+          <AlertTriangle size={16} className="text-red-400 mt-0.5 shrink-0" />
+          <div className="flex-1 text-xs text-red-200">
+            <p className="font-semibold">No se pudo cargar la configuración de la tienda.</p>
+            <p className="mt-0.5">El guardado está bloqueado para no publicar un formulario vacío encima de lo que ya está en línea.</p>
+          </div>
+          <button onClick={load} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-800 hover:bg-red-700 text-white text-xs rounded-lg shrink-0">
+            <RefreshCw size={12} /> Reintentar
+          </button>
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="flex gap-1 border-b border-slate-700 overflow-x-auto">
         {TABS.map(({ id, label, icon: Icon }) => (
@@ -416,8 +462,22 @@ export default function TiendaEnLineaPage() {
 
             <div className="bg-slate-800 rounded-xl p-4 space-y-3">
               <p className="text-sm font-semibold text-white flex items-center gap-2"><Store size={14} /> Información de la tienda</p>
-              <input value={form.nombre_tienda} onChange={e => setForm((f: any) => ({ ...f, nombre_tienda: e.target.value }))}
-                placeholder="Nombre de la tienda (usa el de la empresa si se deja vacío)" className={inputCls} />
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Nombre de la tienda</label>
+                <input value={form.nombre_tienda} onChange={e => setForm((f: any) => ({ ...f, nombre_tienda: e.target.value }))}
+                  placeholder="Como quieres que se lea en la tienda"
+                  className={`${inputCls} ${!String(form.nombre_tienda || '').trim() ? 'border-amber-500' : ''}`} />
+                {String(form.nombre_tienda || '').trim() ? (
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Se muestra así en la tienda: <span className="text-slate-300 font-medium">{form.nombre_tienda}</span>
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-amber-400 mt-1 flex items-start gap-1">
+                    <AlertTriangle size={11} className="mt-0.5 shrink-0" />
+                    Vacío: la tienda mostrará el nombre de la empresa{empresaNombre ? ` ("${empresaNombre}")` : ''}. Escríbelo aquí para fijarlo.
+                  </p>
+                )}
+              </div>
               <textarea value={form.descripcion} onChange={e => setForm((f: any) => ({ ...f, descripcion: e.target.value }))}
                 placeholder="Descripción de la tienda" rows={2} className={`${inputCls} resize-none`} />
             </div>
@@ -522,8 +582,56 @@ export default function TiendaEnLineaPage() {
               </button>
             ))}
           </div>
+
+          {/* Imagen de portada: fondo del recuadro grande del inicio (columna banner_url) */}
+          <div className="border-t border-slate-700 pt-4 space-y-3">
+            <p className="text-sm font-semibold text-white flex items-center gap-2"><Images size={14} /> Imagen de portada</p>
+            <p className="text-xs text-slate-400">
+              Es el fondo del recuadro grande del inicio, detrás del nombre de la tienda. Horizontal, mínimo 1600 × 600 px.
+              Si la dejas vacía queda el color del tema, como hasta ahora.
+            </p>
+
+            {form.banner_url ? (
+              <div className="relative rounded-lg overflow-hidden border border-slate-600">
+                <img src={resolveUploadUrl(form.banner_url)} alt="" className="w-full h-44 object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/55 to-transparent flex flex-col justify-end p-4">
+                  <p className="text-[10px] uppercase tracking-widest text-slate-300">Tienda en línea</p>
+                  <p className="text-xl font-bold text-white leading-tight">{form.nombre_tienda || empresaNombre || 'Tu tienda'}</p>
+                  {form.descripcion && <p className="text-[11px] text-slate-300 mt-1 line-clamp-2">{form.descripcion}</p>}
+                </div>
+                <button onClick={() => setForm((f: any) => ({ ...f, banner_url: '' }))} title="Quitar portada"
+                  className="absolute top-2 right-2 p-1.5 bg-slate-900/80 hover:bg-red-600 rounded-lg text-white transition-colors">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ) : (
+              <div className="h-44 rounded-lg border border-dashed border-slate-600 bg-slate-900/40 grid place-items-center text-center px-4">
+                <div>
+                  <Images size={22} className="text-slate-600 mx-auto mb-1" />
+                  <p className="text-xs text-slate-500">Sin portada: el recuadro usa el color del tema</p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-2">
+              <label className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium cursor-pointer shrink-0 transition-colors ${subiendoPortada ? 'bg-slate-700 text-slate-400' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
+                {subiendoPortada ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                {subiendoPortada ? 'Subiendo...' : 'Subir imagen'}
+                <input type="file" accept="image/*" className="hidden" disabled={subiendoPortada}
+                  onChange={e => { subirPortada(e.target.files?.[0]); e.target.value = ''; }} />
+              </label>
+              <input value={form.banner_url || ''} onChange={e => setForm((f: any) => ({ ...f, banner_url: e.target.value }))}
+                placeholder="o pega la URL de una imagen" className={inputCls} />
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Funciona en todas las plantillas menos iaDoS Electrónica, cuya portada muestra un producto destacado en lugar de una foto de fondo.
+            </p>
+          </div>
         </div>
       )}
+
+      {/* ── ESCAPARATE ── */}
+      {tab === 'escaparate' && <EscaparateTab />}
 
       {/* ── BANNERS / FLYERS ── */}
       {tab === 'banners' && (

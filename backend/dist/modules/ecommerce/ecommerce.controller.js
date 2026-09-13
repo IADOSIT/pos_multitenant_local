@@ -60,6 +60,12 @@ let EcommerceController = class EcommerceController {
     bulkVisibilidad(scope, body) {
         return this.service.bulkVisibilidad(scope, body.ids, body.visible);
     }
+    listEscaparate(scope, query) {
+        return this.service.listEscaparate(scope, query);
+    }
+    guardarEscaparate(scope, body) {
+        return this.service.guardarEscaparate(scope, body?.items || []);
+    }
     listPedidos(scope, query) {
         return this.service.listPedidos(scope, query);
     }
@@ -158,6 +164,23 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", void 0)
 ], EcommerceController.prototype, "bulkVisibilidad", null);
+__decorate([
+    (0, common_1.Get)('escaparate'),
+    __param(0, (0, tenant_decorator_1.TenantScope)()),
+    __param(1, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], EcommerceController.prototype, "listEscaparate", null);
+__decorate([
+    (0, common_1.Put)('escaparate'),
+    (0, roles_decorator_1.Roles)('superadmin', 'admin'),
+    __param(0, (0, tenant_decorator_1.TenantScope)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], EcommerceController.prototype, "guardarEscaparate", null);
 __decorate([
     (0, common_1.Get)('pedidos'),
     __param(0, (0, tenant_decorator_1.TenantScope)()),

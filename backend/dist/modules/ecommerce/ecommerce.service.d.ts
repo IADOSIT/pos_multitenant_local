@@ -12,6 +12,7 @@ export declare class EcommerceService {
     private pedidosService;
     constructor(configRepo: Repository<EcommerceConfig>, pedidoRepo: Repository<EcommercePedido>, productoConfigRepo: Repository<EcommerceProductoConfig>, clienteRepo: Repository<Cliente>, pedidosService: PedidosService);
     getConfig(scope: any): Promise<EcommerceConfig | null>;
+    private static readonly CAMPOS_NO_VACIABLES;
     upsertConfig(scope: any, data: Partial<EcommerceConfig>): Promise<EcommerceConfig>;
     verificarSubdominio(subdominio: string, empresaId: number): Promise<{
         disponible: boolean;
@@ -28,6 +29,14 @@ export declare class EcommerceService {
     getProductoConfig(productoId: number): Promise<EcommerceProductoConfig | null>;
     upsertProductoConfig(scope: any, productoId: number, data: Partial<EcommerceProductoConfig>): Promise<EcommerceProductoConfig>;
     bulkVisibilidad(scope: any, ids: number[], visible: boolean): Promise<void>;
+    listEscaparate(scope: any, query: any): Promise<any>;
+    guardarEscaparate(scope: any, items: {
+        producto_id: number;
+        visible_ecommerce?: boolean;
+        orden_ecommerce?: number;
+    }[]): Promise<{
+        actualizados: number;
+    }>;
     listPedidos(scope: any, query: any): Promise<{
         data: EcommercePedido[];
         meta: {
