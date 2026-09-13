@@ -1,4 +1,4 @@
-export type ThemeId = 'lumina' | 'obsidian' | 'zest' | 'iados-abarrotes'
+export type ThemeId = 'lumina' | 'obsidian' | 'zest' | 'iados-abarrotes' | 'iados-boutique'
 
 export interface Theme {
   id: ThemeId
@@ -31,10 +31,10 @@ export interface Theme {
   shadowCard: string
   shadowHover: string
   gridCols: number
-  navbarStyle: 'minimal' | 'bold' | 'warm' | 'fresh'
-  heroStyle: 'gradient-blue' | 'dark-accent' | 'warm-block' | 'produce-market'
-  cardStyle: 'flat' | 'glass-dark' | 'rounded-warm' | 'organic'
-  badgeStyle: 'pill' | 'sharp' | 'pill-fat' | 'leaf'
+  navbarStyle: 'minimal' | 'bold' | 'warm' | 'fresh' | 'boutique'
+  heroStyle: 'gradient-blue' | 'dark-accent' | 'warm-block' | 'produce-market' | 'boutique-brush'
+  cardStyle: 'flat' | 'glass-dark' | 'rounded-warm' | 'organic' | 'editorial'
+  badgeStyle: 'pill' | 'sharp' | 'pill-fat' | 'leaf' | 'ribbon'
   buttonStyle: 'rounded' | 'sharp' | 'pill'
   /** Habilita el botón de "vista rápida" (previsualización sin salir del listado) sobre ProductCard. */
   quickView?: boolean
@@ -106,6 +106,24 @@ export const THEMES: Record<ThemeId, Theme> = {
     shadowHover: '0 12px 28px rgba(47,158,68,.20)',
     gridCols: 4, navbarStyle: 'fresh', heroStyle: 'produce-market',
     cardStyle: 'organic', badgeStyle: 'leaf', buttonStyle: 'pill',
+    quickView: true,
+  },
+  'iados-boutique': {
+    id: 'iados-boutique', nombre: 'iaDoS Boutique', modo: 'light',
+    colorBg: '#fff6fa', colorSurface: '#ffffff', colorSurfaceHover: '#fdeaf2',
+    colorBorder: '#f7d7e5', colorPrimary: '#e8367f', colorPrimaryDark: '#c41f63',
+    colorPrimaryText: '#ffffff', colorAccent: '#a435d6', colorAccentText: '#ffffff',
+    colorText: '#1b1016', colorTextMuted: '#7c6470', colorTextSubtle: '#b8a2ad',
+    colorSuccess: '#3f9d78', colorWarning: '#d97706', colorDanger: '#dc2626',
+    colorMayoreo: '#a435d6', colorMayoreoText: '#ffffff',
+    fontDisplay: "'Bodoni Moda', 'Playfair Display', serif",
+    fontBody: "'Jost', 'Inter', sans-serif",
+    fontMono: "'JetBrains Mono', monospace",
+    radiusSm: '4px', radiusMd: '8px', radiusLg: '18px', radiusPill: '999px',
+    shadowCard: '0 1px 2px rgba(27,16,22,.04)',
+    shadowHover: '0 14px 30px rgba(232,54,127,.16)',
+    gridCols: 4, navbarStyle: 'boutique', heroStyle: 'boutique-brush',
+    cardStyle: 'editorial', badgeStyle: 'ribbon', buttonStyle: 'pill',
     quickView: true,
   },
 }

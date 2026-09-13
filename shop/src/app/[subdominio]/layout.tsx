@@ -40,6 +40,7 @@ export default async function ShopLayout({
     obsidian: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap',
     zest: 'https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap',
     'iados-abarrotes': 'https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap',
+    'iados-boutique': 'https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500;6..96,700;6..96,800&family=Jost:wght@300;400;500;600;700&display=swap',
   }
 
   return (

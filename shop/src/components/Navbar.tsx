@@ -13,6 +13,7 @@ export default function Navbar({ categorias }: { categorias: any[] }) {
   if (theme.navbarStyle === 'bold') return <NavbarObsidian tiendaInfo={tiendaInfo} subdominio={subdominio} categorias={categorias} totalItems={totalItems} />
   if (theme.navbarStyle === 'warm') return <NavbarZest tiendaInfo={tiendaInfo} subdominio={subdominio} categorias={categorias} totalItems={totalItems} />
   if (theme.navbarStyle === 'fresh') return <NavbarAbarrotes tiendaInfo={tiendaInfo} subdominio={subdominio} categorias={categorias} totalItems={totalItems} />
+  if (theme.navbarStyle === 'boutique') return <NavbarBoutique tiendaInfo={tiendaInfo} subdominio={subdominio} categorias={categorias} totalItems={totalItems} />
   return <NavbarLumina tiendaInfo={tiendaInfo} subdominio={subdominio} categorias={categorias} totalItems={totalItems} />
 }
 
@@ -148,6 +149,77 @@ function NavbarAbarrotes({ tiendaInfo, subdominio, categorias, totalItems }: any
             ))}
           </div>
         )}
+      </div>
+    </nav>
+  )
+}
+
+
+function NavbarBoutique({ tiendaInfo, subdominio, categorias, totalItems }: any) {
+  const router = useRouter()
+  const [q, setQ] = useState('')
+  const [hover, setHover] = useState<string | null>(null)
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault()
+    const p = new URLSearchParams()
+    if (q) p.set('buscar', q)
+    router.push(`/${subdominio}/productos${p.toString() ? `?${p.toString()}` : ''}`)
+  }
+
+  const linkBase: React.CSSProperties = {
+    fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, letterSpacing: '.14em',
+    textTransform: 'uppercase', textDecoration: 'none', paddingBottom: 4,
+  }
+
+  return (
+    <nav style={{ background: 'var(--color-surface)', position: 'sticky', top: 0, zIndex: 30 }}>
+      <div style={{ background: 'var(--color-text)', color: '#fff', textAlign: 'center', fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', padding: '7px 16px', fontFamily: 'var(--font-body)', fontWeight: 500 }}>
+        Novedades nuevas cada semana · Envío a todo México
+      </div>
+
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '14px 16px 0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <Link href={`/${subdominio}`} style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 26, color: 'var(--color-text)', textDecoration: 'none', letterSpacing: '.02em', lineHeight: 1, display: 'inline-flex', alignItems: 'baseline', gap: 4 }}>
+            {tiendaInfo?.nombre_tienda || tiendaInfo?.empresa?.nombre}
+            <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-primary)', display: 'inline-block' }} />
+          </Link>
+
+          <form onSubmit={handleSearch} style={{ flex: '1 1 220px', maxWidth: 340, display: 'flex' }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <input
+                value={q}
+                onChange={e => setQ(e.target.value)}
+                placeholder="Buscar en la tienda"
+                aria-label="Buscar productos"
+                style={{ width: '100%', padding: '9px 40px 9px 16px', fontSize: 13, border: '1px solid var(--color-border)', borderRadius: 'var(--radius-pill)', background: 'var(--color-bg)', color: 'var(--color-text)', outline: 'none', fontFamily: 'var(--font-body)', boxSizing: 'border-box' }}
+              />
+              <button type="submit" aria-label="Buscar" style={{ position: 'absolute', right: 5, top: 4, width: 30, height: 30, borderRadius: '50%', border: 'none', background: 'var(--color-surface-hover)', color: 'var(--color-primary)', cursor: 'pointer', fontSize: 13, lineHeight: 1 }}>🔍</button>
+            </div>
+          </form>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexShrink: 0 }}>
+            <Link href={`/${subdominio}/pedidos`} style={{ ...linkBase, color: 'var(--color-text-muted)' }}>Mis pedidos</Link>
+            <Link href={`/${subdominio}/carrito`} style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', padding: '9px 18px', borderRadius: 'var(--radius-pill)', fontSize: 12, fontWeight: 600, letterSpacing: '.08em', textDecoration: 'none', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
+              Bolsa ({totalItems})
+            </Link>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 26, padding: '12px 0 10px', overflowX: 'auto', borderBottom: '1px solid var(--color-border)' }}>
+          {[{ id: 'todo', nombre: 'Todo' }, ...categorias].map((c: any) => {
+            const href = c.id === 'todo' ? `/${subdominio}/productos` : `/${subdominio}/productos?categoria_id=${c.id}`
+            const activo = hover === String(c.id)
+            return (
+              <Link key={c.id} href={href}
+                onMouseEnter={() => setHover(String(c.id))}
+                onMouseLeave={() => setHover(null)}
+                style={{ ...linkBase, color: activo ? 'var(--color-primary)' : 'var(--color-text)', whiteSpace: 'nowrap', borderBottom: `2px solid ${activo ? 'var(--color-primary)' : 'transparent'}` }}>
+                {c.nombre}
+              </Link>
+            )
+          })}
+        </div>
       </div>
     </nav>
   )

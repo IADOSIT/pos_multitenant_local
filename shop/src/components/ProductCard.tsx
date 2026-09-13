@@ -27,6 +27,7 @@ export default function ProductCard({ producto, subdominio, modoMayoreo, qtyMinM
   // donde esta el contacto para pedir la cotizacion.
   const esCotizacion = !!producto.cotizacion
 
+  const editorial = theme.cardStyle === 'editorial'
   const radius = theme.cardStyle === 'rounded-warm' || theme.cardStyle === 'organic' ? 'var(--radius-lg)' : theme.cardStyle === 'glass-dark' ? 'var(--radius-sm)' : 'var(--radius-md)'
   const border = theme.cardStyle === 'glass-dark' ? '1px solid var(--color-border)' : '1px solid var(--color-border)'
 
@@ -58,28 +59,28 @@ export default function ProductCard({ producto, subdominio, modoMayoreo, qtyMinM
     <>
     <Link href={`/${subdominio}/productos/${slug}`} style={{ textDecoration: 'none', display: 'block' }}>
       <div style={{
-        background: 'var(--color-surface)',
-        border,
-        borderRadius: radius,
+        background: editorial ? 'transparent' : 'var(--color-surface)',
+        border: editorial ? 'none' : border,
+        borderRadius: editorial ? 0 : radius,
         overflow: 'hidden',
-        boxShadow: 'var(--shadow-card)',
+        boxShadow: editorial ? 'none' : 'var(--shadow-card)',
         transition: 'box-shadow .2s, transform .2s',
         cursor: 'pointer',
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
       }}
-        onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = 'var(--shadow-hover)'; (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)' }}
-        onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = 'var(--shadow-card)'; (e.currentTarget as HTMLDivElement).style.transform = 'none' }}
+        onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = editorial ? 'none' : 'var(--shadow-hover)'; (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)' }}
+        onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = editorial ? 'none' : 'var(--shadow-card)'; (e.currentTarget as HTMLDivElement).style.transform = 'none' }}
       >
         {/* Imagen */}
-        <div style={{ aspectRatio: '1/1', background: 'var(--color-surface-hover)', overflow: 'hidden', position: 'relative' }}>
+        <div style={{ aspectRatio: editorial ? '3/4' : '1/1', background: 'var(--color-surface-hover)', overflow: 'hidden', position: 'relative', borderRadius: editorial ? 'var(--radius-md)' : 0 }}>
           {imagen
             ? <img src={imagen} alt={producto.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, color: 'var(--color-text-subtle)' }}>📦</div>
           }
           {esMayoreo && (
-            <span style={{ position: 'absolute', top: 8, left: 8, background: 'var(--color-mayoreo)', color: 'var(--color-mayoreo-text)', fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: theme.badgeStyle === 'sharp' ? '2px' : 'var(--radius-pill)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <span style={{ position: 'absolute', top: 8, left: 8, background: 'var(--color-mayoreo)', color: 'var(--color-mayoreo-text)', fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: theme.badgeStyle === 'sharp' || theme.badgeStyle === 'ribbon' ? '2px' : 'var(--radius-pill)', textTransform: 'uppercase', letterSpacing: theme.badgeStyle === 'ribbon' ? '1.2px' : '0.5px' }}>
               Mayoreo
             </span>
           )}
@@ -101,11 +102,11 @@ export default function ProductCard({ producto, subdominio, modoMayoreo, qtyMinM
         </div>
 
         {/* Info */}
-        <div style={{ padding: '12px 14px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: editorial ? '14px 2px 4px' : '12px 14px', flex: 1, display: 'flex', flexDirection: 'column' }}>
           {producto.categoria && (
-            <p style={{ fontSize: 10, color: 'var(--color-primary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 4px' }}>{producto.categoria}</p>
+            <p style={{ fontSize: 10, color: editorial ? 'var(--color-text-subtle)' : 'var(--color-primary)', fontWeight: editorial ? 500 : 700, textTransform: 'uppercase', letterSpacing: editorial ? '0.18em' : '0.5px', margin: '0 0 6px' }}>{producto.categoria}</p>
           )}
-          <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text)', margin: '0 0 4px', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontFamily: 'var(--font-body)' }}>
+          <p style={{ fontSize: 14, fontWeight: editorial ? 400 : 600, color: 'var(--color-text)', margin: '0 0 4px', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontFamily: 'var(--font-body)' }}>
             {producto.nombre}
           </p>
           {producto.sku && <p style={{ fontSize: 11, color: 'var(--color-text-subtle)', margin: '0 0 8px' }}>SKU: {producto.sku}</p>}

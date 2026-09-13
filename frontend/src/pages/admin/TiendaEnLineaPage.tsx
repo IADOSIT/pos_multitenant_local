@@ -35,6 +35,7 @@ const TEMAS_PREVIEW: Record<string, { bg: string; primary: string; secondary: st
   'iados-herramientas': { bg: '#f4f6f9', primary: '#2559c7', secondary: '#16233b', text: '#16233b', border: '#e2e6ec', nombre: 'iaDoS Herramientas', desc: 'Ferretería · Azul + Oswald' },
   'iados-abarrotes': { bg: '#f6faf1', primary: '#2f9e44', secondary: '#1b2b1e', text: '#1b2b1e', border: '#dfeed0', nombre: 'iaDoS Abarrotes', desc: 'Abarrotes · Verde fresco + vista rápida' },
   'iados-albercas':     { bg: '#f2f8f9', primary: '#017a86', secondary: '#0a2a33', text: '#0a2a33', border: '#d3e3e6', nombre: 'iaDoS Albercas',     desc: 'Albercas · Teal + Archivo' },
+  'iados-boutique':     { bg: '#fff6fa', primary: '#e8367f', secondary: '#1b1016', text: '#1b1016', border: '#f7d7e5', nombre: 'iaDoS Boutique',      desc: 'Novedades mujer · Rosa + Bodoni' },
   'iados-movilidad':    { bg: '#12151a', primary: '#ffb020', secondary: '#0b0d11', text: '#e9edf2', border: '#242a33', nombre: 'iaDoS Movilidad',    desc: 'Autopartes · Ámbar + Rajdhani' },
 };
 

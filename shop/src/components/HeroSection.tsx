@@ -107,6 +107,86 @@ export default function HeroSection({ info }: { info: any }) {
     )
   }
 
+  if (theme.heroStyle === 'boutique-brush') {
+    const nombre = info.nombre_tienda || info.empresa?.nombre || 'Boutique'
+    const inicial = nombre.trim().charAt(0).toUpperCase()
+    const servicios = [
+      { icono: '🚚', titulo: 'Envío a todo México', detalle: 'Rastrea tu pedido en línea' },
+      { icono: '💬', titulo: 'Te atendemos por WhatsApp', detalle: 'Resolvemos dudas antes de comprar' },
+      { icono: '🎀', titulo: 'Novedades cada semana', detalle: 'Piezas nuevas en el catálogo' },
+      { icono: '🛍️', titulo: 'Aparta y recoge en tienda', detalle: 'Sin costo de envío' },
+    ]
+
+    return (
+      <>
+        <section style={{ background: 'linear-gradient(180deg, var(--color-surface-hover), var(--color-bg))', padding: '56px 16px 64px', overflow: 'hidden' }}>
+          <div style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 40, alignItems: 'center' }}>
+            <div>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, letterSpacing: '.26em', textTransform: 'uppercase', color: 'var(--color-primary)', margin: '0 0 18px' }}>
+                Novedades para ti
+              </p>
+              {info.logo_url && <img src={info.logo_url} alt="logo" style={{ height: 42, objectFit: 'contain', marginBottom: 18, display: 'block' }} />}
+              <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(38px, 6.5vw, 72px)', fontWeight: 800, color: 'var(--color-text)', margin: '0 0 16px', lineHeight: 1.02, letterSpacing: '-.01em' }}>
+                {nombre}
+              </h1>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, color: 'var(--color-text-muted)', maxWidth: 420, lineHeight: 1.7, margin: '0 0 30px' }}>
+                {info.descripcion || 'Accesorios, bisutería y regalos elegidos pieza por pieza. Lo que ves en el catálogo está disponible hoy.'}
+              </p>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                <Link href={`/${subdominio}/productos`} style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', padding: '14px 34px', borderRadius: 'var(--radius-pill)', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', textDecoration: 'none' }}>
+                  Ver colección
+                </Link>
+                {info.modo_mayoreo && (
+                  <span style={{ border: '1px solid var(--color-mayoreo)', color: 'var(--color-mayoreo)', padding: '13px 24px', borderRadius: 'var(--radius-pill)', fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase' }}>
+                    Precio mayoreo
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Firma del tema: la pincelada. El logo (o la inicial) va montado encima. */}
+            <div style={{ position: 'relative', minHeight: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg viewBox="0 0 420 320" aria-hidden style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+                <defs>
+                  <linearGradient id="brochazo" x1="0" y1="1" x2="1" y2="0">
+                    <stop offset="0%" stopColor="var(--color-primary)" />
+                    <stop offset="55%" stopColor="var(--color-accent)" />
+                    <stop offset="100%" stopColor="#6d28d9" />
+                  </linearGradient>
+                </defs>
+                <g transform="rotate(-8 210 160)">
+                  <path fill="url(#brochazo)" d="M18,250 C82,196 150,152 236,120 C286,101 336,88 382,86 C404,85 412,104 396,118 C372,139 322,152 276,169 C214,192 148,224 92,264 C62,285 30,278 18,250 Z" />
+                  <path fill="url(#brochazo)" opacity=".42" d="M60,290 C130,244 208,206 300,182 C334,173 360,176 356,190 C352,205 318,213 284,226 C224,249 160,278 116,306 C94,319 66,308 60,290 Z" />
+                  <path fill="url(#brochazo)" opacity=".26" d="M228,74 C268,58 314,48 352,48 C370,48 374,60 360,66 C340,74 300,80 264,92 C244,99 218,82 228,74 Z" />
+                </g>
+              </svg>
+              <div style={{ position: 'relative', width: 172, height: 172, borderRadius: '50%', background: 'var(--color-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 18px 44px rgba(27,16,22,.14)', overflow: 'hidden' }}>
+                {info.banner_url
+                  ? <img src={info.banner_url} alt={nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : <span style={{ fontFamily: 'var(--font-display)', fontSize: 76, fontWeight: 800, color: 'var(--color-text)', lineHeight: 1 }}>{inicial}</span>
+                }
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section style={{ background: 'var(--color-surface)', borderTop: '1px solid var(--color-border)', borderBottom: '1px solid var(--color-border)', padding: '22px 16px' }}>
+          <div style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 20 }}>
+            {servicios.map(s => (
+              <div key={s.titulo} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <span aria-hidden style={{ fontSize: 18, lineHeight: 1.2 }}>{s.icono}</span>
+                <div>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: 'var(--color-text)', margin: 0 }}>{s.titulo}</p>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-text-muted)', margin: '2px 0 0' }}>{s.detalle}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </>
+    )
+  }
+
   // gradient-blue (lumina default)
   return (
     <div style={{ background: 'linear-gradient(135deg, #1e3a8a, #1e40af)', padding: '64px 16px', textAlign: 'center' }}>

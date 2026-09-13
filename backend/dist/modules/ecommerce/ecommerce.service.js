@@ -127,6 +127,7 @@ let EcommerceService = EcommerceService_1 = class EcommerceService {
             { id: 'iados-herramientas', nombre: 'iaDoS Herramientas', descripcion: 'Estilo ferretería/industrial: azul corporativo, tipografía Oswald y menú de categorías', modo: 'light', colorPrimary: '#2559c7', colorBg: '#f4f6f9' },
             { id: 'iados-albercas', nombre: 'iaDoS Albercas', descripcion: 'Químicos para alberca: teal de azulejo, tipografía Archivo y comparador de pH que lleva al producto', modo: 'light', colorPrimary: '#017a86', colorBg: '#f2f8f9' },
             { id: 'iados-abarrotes', nombre: 'iaDoS Abarrotes', descripcion: 'Abarrotes/frutas y verduras: verde fresco, tipografía Fredoka, vista rápida y agregar al carrito sin salir del listado', modo: 'light', colorPrimary: '#2f9e44', colorBg: '#f6faf1' },
+            { id: 'iados-boutique', nombre: 'iaDoS Boutique', descripcion: 'Novedades y moda para mujer: rosa fucsia con pincelada morada, tipografía Bodoni Moda + Jost, tarjetas editoriales y vista rápida', modo: 'light', colorPrimary: '#e8367f', colorBg: '#fff6fa' },
             { id: 'iados-movilidad', nombre: 'iaDoS Movilidad', descripcion: 'Autopartes y autos: taller oscuro con ámbar de señalamiento, tipografía Rajdhani y buscador por marca/modelo/año', modo: 'dark', colorPrimary: '#ffb020', colorBg: '#12151a' },
         ];
     }
