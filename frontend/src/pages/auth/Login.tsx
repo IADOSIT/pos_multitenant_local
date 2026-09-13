@@ -5,6 +5,7 @@ import { authApi, tiendasApi } from '../../api/endpoints';
 import toast from 'react-hot-toast';
 import { ChevronLeft, LinkIcon, Store } from 'lucide-react';
 import PinPad from '../../components/ui/PinPad';
+import TecladoPantalla from '../../components/ui/TecladoPantalla';
 
 interface TiendaUser {
   id: number;
@@ -368,6 +369,8 @@ export default function Login() {
           </a>
         </p>
       </div>
+      {/* En una terminal tactil sin teclado fisico tambien hay que poder capturar el acceso */}
+      <TecladoPantalla />
     </div>
   );
 }

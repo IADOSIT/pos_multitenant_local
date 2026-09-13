@@ -11,13 +11,15 @@ import { resolveUploadUrl } from '../../api/client';
 import apiClient from '../../api/client';
 import toast from 'react-hot-toast';
 import {
-  Package, LogOut, Menu, X, Database, Lock, Truck, Scale, Store, PanelLeftClose, PanelLeftOpen
+  Package, LogOut, Menu, X, Database, Lock, Truck, Scale, Store, PanelLeftClose, PanelLeftOpen, Keyboard
 } from 'lucide-react';
 import { logisticaApi, basculaApi, empresasApi } from '../../api/endpoints';
 import StockAlertBanner from '../ui/StockAlertBanner';
 import LicenciaBanner from './LicenciaBanner';
 import ViewAsBanner from './ViewAsBanner';
 import LockScreen from '../ui/LockScreen';
+import TecladoPantalla from '../ui/TecladoPantalla';
+import { useTecladoStore, tecladoHabilitado } from '../../store/teclado.store';
 import PageHeader from './PageHeader';
 import { navItems } from './navItems';
 
@@ -237,6 +239,12 @@ export default function MainLayout() {
     window.open('/bascula-kiosko', 'bascula_kiosko', 'width=1000,height=800,resizable=yes');
   };
 
+  // Teclado en pantalla: el interruptor vive aqui porque aplica a todo el POS.
+  const modoTeclado = useTecladoStore((s) => s.modo);
+  const tecladoFisico = useTecladoStore((s) => s.fisicoDetectado);
+  const toggleTeclado = useTecladoStore((s) => s.toggle);
+  const tecladoActivo = tecladoHabilitado(modoTeclado, tecladoFisico);
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar - Desktop (colapsable a un rail delgado) */}
@@ -334,6 +342,16 @@ export default function MainLayout() {
             </div>
           )}
           {!deskCollapsed && <div className="hidden lg:block text-xs text-slate-500 mb-2 truncate">{user?.nombre}</div>}
+          <button
+            onClick={toggleTeclado}
+            title={tecladoActivo ? 'Teclado en pantalla activado' : 'Teclado en pantalla desactivado'}
+            className={`flex items-center gap-2 w-full py-2 rounded-xl hover:bg-iados-card mb-1 ${
+              tecladoActivo ? 'text-blue-400' : 'text-slate-400 hover:text-white'
+            } ${deskCollapsed ? 'justify-center px-2' : 'px-3'}`}
+          >
+            <Keyboard size={18} />
+            <span className={`text-sm ${deskCollapsed ? 'hidden' : 'hidden lg:block'}`}>Teclado {tecladoActivo ? 'ON' : 'OFF'}</span>
+          </button>
           <button onClick={lock} title="Bloquear" className={`flex items-center gap-2 text-slate-400 hover:text-yellow-400 w-full py-2 rounded-xl hover:bg-iados-card mb-1 ${deskCollapsed ? 'justify-center px-2' : 'px-3'}`}>
             <Lock size={18} /> <span className={`text-sm ${deskCollapsed ? 'hidden' : 'hidden lg:block'}`}>Bloquear</span>
           </button>
@@ -351,6 +369,7 @@ export default function MainLayout() {
           <span className="font-bold text-sm">{brandNombre}</span>
         </div>
         <div className="flex items-center gap-1">
+          <button onClick={toggleTeclado} title="Teclado en pantalla" className={`p-1 ${tecladoActivo ? 'text-blue-400' : 'text-slate-400'}`}><Keyboard size={20} /></button>
           <button onClick={lock} className="p-1 text-slate-400 hover:text-yellow-400"><Lock size={20} /></button>
           <button onClick={handleLogout} className="p-1 text-slate-400 hover:text-red-400"><LogOut size={20} /></button>
         </div>
@@ -419,6 +438,14 @@ export default function MainLayout() {
                 iaDoS - iados.mx
               </div>
               <button
+                onClick={toggleTeclado}
+                className={`flex items-center gap-2 w-full px-3 py-2 rounded-xl hover:bg-iados-card mb-1 text-sm ${
+                  tecladoActivo ? 'text-blue-400' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Keyboard size={16} /> Teclado en pantalla: {tecladoActivo ? 'ON' : 'OFF'}
+              </button>
+              <button
                 onClick={() => { setSidebarOpen(false); lock(); }}
                 className="flex items-center gap-2 text-slate-400 hover:text-yellow-400 w-full px-3 py-2 rounded-xl hover:bg-iados-card mb-1 text-sm"
               >
@@ -457,6 +484,10 @@ export default function MainLayout() {
         {/* Barra de "ver como tienda" (superadmin) al pie, para no robar espacio arriba */}
         <ViewAsBanner />
       </div>
+
+      {/* Teclado en pantalla: unico para todas las pantallas internas del POS
+          (con la sesion bloqueada manda el PIN de LockScreen, que trae el suyo) */}
+      {!isLocked && <TecladoPantalla />}
 
       {/* Lock screen overlay */}
       {isLocked && <LockScreen />}
