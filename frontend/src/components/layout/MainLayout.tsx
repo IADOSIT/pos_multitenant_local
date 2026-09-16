@@ -21,6 +21,7 @@ import LockScreen from '../ui/LockScreen';
 import TecladoPantalla from '../ui/TecladoPantalla';
 import EstadoOffline from '../pos/EstadoOffline';
 import { iniciarSincronizacion } from '../../store/sync.store';
+import { iniciarVigilanciaConexion } from '../../api/conexion';
 import { useTecladoStore, tecladoHabilitado } from '../../store/teclado.store';
 import PageHeader from './PageHeader';
 import { navItems } from './navItems';
@@ -116,7 +117,7 @@ export default function MainLayout() {
   const [mesasMenuEnabled, setMesasMenuEnabled] = useState(true);
 
   // Ventas hechas sin internet: la cola se drena sola en cuanto vuelve la red.
-  useEffect(() => { iniciarSincronizacion(); }, []);
+  useEffect(() => { iniciarVigilanciaConexion(); iniciarSincronizacion(); }, []);
 
   // Fetch DB host from backend health endpoint
   useEffect(() => {

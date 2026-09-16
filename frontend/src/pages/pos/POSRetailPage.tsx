@@ -5,6 +5,7 @@ import { useScope } from '../../hooks/useScope';
 import { useRetailTickets } from '../../store/retailTickets.store';
 import { offlineActions } from '../../store/offline.store';
 import { productosApi, cajaApi, tiendasApi, empresasApi } from '../../api/endpoints';
+import { useConexion } from '../../api/conexion';
 import { Producto } from '../../types';
 import { money } from '../../utils/money';
 import PayModal from '../../components/pos/PayModal';
@@ -50,7 +51,9 @@ export default function POSRetailPage() {
   const [selIdx, setSelIdx] = useState(-1); // fila del ticket seleccionada por teclado (-1 = buscador)
   const [resIdx, setResIdx] = useState(0); // resultado resaltado en la lista de búsqueda
   const [showHelp, setShowHelp] = useState(false);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  // Conexion REAL con el servidor (no `navigator.onLine`, que con el modem prendido
+  // pero sin salida a internet vale true y dejaba al POS intentando cada peticion).
+  const isOnline = useConexion();
   const [cajaManaged, setCajaManaged] = useState(false);
   const [cajaLoaded, setCajaLoaded] = useState(false); // evita el parpadeo de "no hay caja"
   const [mostrarPrecios, setMostrarPrecios] = useState(true);
@@ -81,14 +84,6 @@ export default function POSRetailPage() {
       } else setCajaActiva(null);
     }
   }, [setCajaActiva]);
-
-  useEffect(() => {
-    const onOnline = () => setIsOnline(true);
-    const onOffline = () => setIsOnline(false);
-    window.addEventListener('online', onOnline);
-    window.addEventListener('offline', onOffline);
-    return () => { window.removeEventListener('online', onOnline); window.removeEventListener('offline', onOffline); };
-  }, []);
 
   useEffect(() => {
     // Tras conocer la caja, hidrata los tickets temporales (persistidos) y carga el activo.

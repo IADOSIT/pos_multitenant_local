@@ -5,6 +5,7 @@ import { useAuthStore } from './store/auth.store';
 import Login from './pages/auth/Login';
 import MainLayout from './components/layout/MainLayout';
 import DeployWatermark from './components/DeployWatermark';
+import ErrorBoundary from './components/ErrorBoundary';
 import { useDeployStore } from './store/deploy.store';
 
 // Code-splitting por ruta: cada pantalla es su propio chunk. Así el POS no descarga
@@ -63,6 +64,7 @@ export default function App() {
       <Toaster position="top-right" toastOptions={{
         style: { background: '#334155', color: '#fff', borderRadius: '12px' },
       }} />
+      <ErrorBoundary>
       <Suspense fallback={<div className="h-screen flex items-center justify-center text-slate-400">Cargando…</div>}>
       <Routes>
         <Route path="/login" element={<Login />} />
@@ -153,6 +155,7 @@ export default function App() {
         </Route>
       </Routes>
       </Suspense>
+      </ErrorBoundary>
       {/* Marca de agua: versión autoritativa (BD) + estado de despliegue + sello del build. */}
       <DeployWatermark />
     </>

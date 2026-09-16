@@ -3,6 +3,7 @@ import { CloudOff, UploadCloud, RefreshCw, X, Check, AlertTriangle, Loader2 } fr
 import toast from 'react-hot-toast';
 import { useSyncStore } from '../../store/sync.store';
 import { offlineActions, OfflineVenta } from '../../store/offline.store';
+import { hayConexion } from '../../api/conexion';
 
 /**
  * Semaforo de conexion del POS.
@@ -37,10 +38,12 @@ export default function EstadoOffline() {
     : (sincronizando ? `Subiendo ${pendientes}…` : `${pendientes} venta(s) por subir`);
 
   const reintentar = async () => {
-    const { subidas, fallidas } = await sincronizar();
+    // `false` = no silencioso: pregunta al servidor aunque el cortacircuitos este
+    // abierto, porque el cajero acaba de ver volver el internet.
+    const { subidas, fallidas } = await sincronizar(false);
     if (subidas) toast.success(`${subidas} venta(s) sincronizada(s)`);
     else if (fallidas) toast.error('No se pudieron subir todavía');
-    else if (!navigator.onLine) toast('Sigue sin internet', { icon: '📡' });
+    else if (!hayConexion()) toast('Sigue sin internet', { icon: '📡' });
   };
 
   return (

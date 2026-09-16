@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { hayConexion, marcarExito, marcarFalloRed } from './conexion';
 
 // En Docker: nginx proxea /api -> backend:3000, así que usamos /api (relativo)
 // En dev local: VITE_API_URL=http://localhost:3000/api
@@ -9,7 +10,34 @@ const api = axios.create({
   timeout: 10000,
 });
 
+// Rutas que SIEMPRE salen a la red, aunque el cortacircuitos este abierto: el
+// latido (es quien lo cierra) y el login (el cajero merece su intento real).
+const SIEMPRE_INTENTAR = ['/health', '/auth/login', '/auth/login-pin', '/auth/verify-pin'];
+
+/**
+ * Error que imita a uno de red de axios: sin `response`, que es como el resto de
+ * la app distingue "no hubo internet" de "el servidor dijo que no". Gracias a eso
+ * el cobro sigue cayendo a la cola offline y cada pantalla a su cache.
+ */
+function errorSinConexion(config: any) {
+  const err: any = new Error('Sin conexion con el servidor');
+  err.code = 'ERR_SIN_CONEXION';
+  err.config = config;
+  err.request = {};
+  err.isAxiosError = true;
+  err.toJSON = () => ({ message: err.message, code: err.code });
+  return err;
+}
+
 api.interceptors.request.use((config) => {
+  // Cortacircuitos: con el servidor dado por caido no se espera el timeout de
+  // 10 s por peticion (con ~15 peticiones al arrancar el POS eso dejaba la
+  // pantalla muerta medio minuto). Se falla ya y la pantalla resuelve offline.
+  const url = config.url || '';
+  if (!hayConexion() && !SIEMPRE_INTENTAR.some((r) => url.includes(r))) {
+    return Promise.reject(errorSinConexion(config));
+  }
+
   const token = localStorage.getItem('pos_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
 
@@ -31,9 +59,19 @@ api.interceptors.request.use((config) => {
 });
 
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    marcarExito();
+    return res;
+  },
   (err) => {
     const url = err.config?.url || '';
+    if (err.response) {
+      // Contesto (aunque sea 4xx/5xx de la app): hay camino hasta el servidor.
+      marcarExito();
+    } else if (err.code !== 'ERR_SIN_CONEXION') {
+      // Sin respuesta y no es nuestro propio corte: cuenta como fallo de red.
+      marcarFalloRed();
+    }
     // Excluir endpoints de auth que legítimamente devuelven 401 (no son sesión expirada)
     const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/verify-pin');
     const hasToken = !!localStorage.getItem('pos_token');

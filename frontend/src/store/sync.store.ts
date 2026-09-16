@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { offlineActions, pedirPersistencia } from './offline.store';
 import { ventasApi } from '../api/endpoints';
+import { hayConexion, comprobarConexion } from '../api/conexion';
 
 /**
  * Sincronizacion de las ventas hechas sin internet.
@@ -25,7 +26,7 @@ interface SyncState {
 }
 
 export const useSyncStore = create<SyncState>((set, get) => ({
-  online: typeof navigator === 'undefined' ? true : navigator.onLine,
+  online: hayConexion(),
   pendientes: 0,
   sincronizando: false,
   ultimaSync: null,
@@ -37,10 +38,14 @@ export const useSyncStore = create<SyncState>((set, get) => ({
     return n;
   },
 
-  sincronizar: async () => {
+  sincronizar: async (silencioso = true) => {
     const estado = get();
     if (estado.sincronizando) return { subidas: 0, fallidas: 0 };
-    if (!navigator.onLine) { set({ online: false }); return { subidas: 0, fallidas: 0 }; }
+    // A mano ("Sincronizar ahora") se pregunta al servidor aunque el cortacircuitos
+    // este abierto: el cajero acaba de ver volver el internet y no debe esperar al latido.
+    const enLinea = silencioso ? hayConexion() : await comprobarConexion();
+    set({ online: enLinea });
+    if (!enLinea) return { subidas: 0, fallidas: 0 };
     // Sin sesion no hay a donde subirlas: se quedan en cola hasta el proximo login.
     if (!localStorage.getItem('pos_token')) return { subidas: 0, fallidas: 0 };
 
@@ -106,18 +111,23 @@ export function iniciarSincronizacion() {
   pedirPersistencia();
   refrescarPendientes().then((n) => { if (n) sincronizar(); });
 
-  window.addEventListener('online', () => {
-    useSyncStore.setState({ online: true });
-    sincronizar();
-  });
+  // El cortacircuitos avisa cuando el servidor vuelve de verdad; 'online' del
+  // navegador solo dice que hay wifi, que no es lo mismo en una tienda con mal internet.
+  const alCambiarConexion = () => {
+    const enLinea = hayConexion();
+    useSyncStore.setState({ online: enLinea });
+    if (enLinea) sincronizar();
+  };
+  window.addEventListener('conexion:cambio', alCambiarConexion);
+  window.addEventListener('online', alCambiarConexion);
   window.addEventListener('offline', () => useSyncStore.setState({ online: false }));
 
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && navigator.onLine) sincronizar();
+    if (document.visibilityState === 'visible' && hayConexion()) sincronizar();
   });
 
   setInterval(() => {
-    if (navigator.onLine && useSyncStore.getState().pendientes > 0) sincronizar();
+    if (hayConexion() && useSyncStore.getState().pendientes > 0) sincronizar();
   }, REINTENTO_MS);
 
   // Cerrar el navegador con ventas sin subir es la forma real de perderlas.

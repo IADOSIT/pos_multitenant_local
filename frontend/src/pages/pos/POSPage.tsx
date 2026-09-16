@@ -6,6 +6,7 @@ import { offlineActions } from '../../store/offline.store';
 import { productosApi, categoriasApi, cajaApi, tiendasApi, pedidosApi, ticketsApi, selfOrderApi, empresasApi, basculaApi } from '../../api/endpoints';
 import { io, Socket } from 'socket.io-client';
 import { resolveUploadUrl } from '../../api/client';
+import { useConexion } from '../../api/conexion';
 import { printComanda, printTicket } from '../../utils/printTicket';
 import { decodeEan13PesoVariable } from '../../utils/ean13';
 import { formatMonto, MonedaConfig } from '../../utils/moneda';
@@ -90,7 +91,9 @@ export default function POSPage() {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [busqueda, setBusqueda] = useState('');
   const [showPay, setShowPay] = useState(false);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  // Conexion REAL con el servidor (ver src/api/conexion.ts): `navigator.onLine`
+  // sigue en true con el wifi arriba pero sin internet, que es justo el caso malo.
+  const isOnline = useConexion();
   const [cartVisible, setCartVisible] = useState(false);
   const [cuentasAbiertas, setCuentasAbiertas] = useState<any[]>([]);
   const [showCuentas, setShowCuentas] = useState(false);
@@ -265,21 +268,22 @@ export default function POSPage() {
     loadCaja();
     loadTiendaConfig();
     loadCuentasAbiertas();
-    const onOnline = () => setIsOnline(true);
-    const onOffline = () => setIsOnline(false);
     const onInventarioChanged = () => loadData();
-    window.addEventListener('online', onOnline);
-    window.addEventListener('offline', onOffline);
     window.addEventListener('inventario:changed', onInventarioChanged);
     // Refresco automático cada 30s
     const interval = setInterval(loadCuentasAbiertas, 30000);
     return () => {
-      window.removeEventListener('online', onOnline);
-      window.removeEventListener('offline', onOffline);
       window.removeEventListener('inventario:changed', onInventarioChanged);
       clearInterval(interval);
     };
   }, [loadCuentasAbiertas]);
+
+  // Al volver el internet se refresca lo que se quedo viejo mientras no habia.
+  useEffect(() => {
+    if (!isOnline) return;
+    loadData();
+    loadCaja();
+  }, [isOnline]);
 
   /** Asegura que haya una caja abierta. Si autoOpen=true, la crea con fondo $0 si no hay ninguna. */
   const ensureCajaAbierta = async (autoOpen: boolean) => {
