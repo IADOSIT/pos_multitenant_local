@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260915-conexion-real-sin-congelar"
+        CACHE_BUST: "20260916-pwa-se-actualiza-sola"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
@@ -44,7 +44,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260915-conexion-real-sin-congelar"
+        CACHE_BUST: "20260916-pwa-se-actualiza-sola"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:
