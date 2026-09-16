@@ -44,6 +44,19 @@ export default defineConfig({
         // con index.html cacheado pida un .js que ya no existe y reciba index.html
         // (error de MIME). Seguro porque el build ya no acumula (emptyOutDir:true).
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        runtimeCaching: [
+          {
+            // Fotos de producto: viven en /uploads (bind-mount), no en el build. Sin
+            // esto, una caja sin internet muestra el catalogo con todas las imagenes rotas.
+            urlPattern: ({ url }: any) => /\/uploads(-builtin)?\//.test(url.pathname),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'pos-imagenes',
+              expiration: { maxEntries: 600, maxAgeSeconds: 30 * 24 * 60 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
     }),
   ],

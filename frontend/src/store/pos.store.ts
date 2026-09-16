@@ -50,6 +50,22 @@ interface POSState {
   getItemCount: () => number;
 }
 
+const LS_CAJA = 'pos_ultima_caja_id';
+
+/**
+ * La ultima caja que este equipo vio abierta. Sin internet no se le puede preguntar
+ * al servidor cual es, y una venta offline sin `caja_id` no se podria enganchar a
+ * ningun corte al sincronizar: por eso se recuerda aqui.
+ */
+export function ultimaCajaConocida(): number | null {
+  try {
+    const v = Number(localStorage.getItem(LS_CAJA));
+    return v > 0 ? v : null;
+  } catch {
+    return null;
+  }
+}
+
 export const usePOSStore = create<POSState>((set, get) => ({
   cart: [],
   cajaActiva: null,
@@ -64,7 +80,10 @@ export const usePOSStore = create<POSState>((set, get) => ({
   clienteTelefono: '',
   clienteDireccion: '',
 
-  setCajaActiva: (caja) => set({ cajaActiva: caja }),
+  setCajaActiva: (caja) => {
+    try { if (caja?.id) localStorage.setItem(LS_CAJA, String(caja.id)); } catch { /* modo privado */ }
+    set({ cajaActiva: caja });
+  },
   setCategoriaActiva: (id) => set({ categoriaActiva: id }),
   setMesaActiva: (mesa) => set({ mesaActiva: mesa }),
   setModoServicio: (modo) => set({ modoServicio: modo }),

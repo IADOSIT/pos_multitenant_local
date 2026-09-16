@@ -14,7 +14,10 @@ export declare class VentasService {
     private logger;
     constructor(ventasRepo: Repository<Venta>, auditoriaRepo: Repository<Auditoria>, cajaRepo: Repository<Caja>, dataSource: DataSource, empresasService: EmpresasService, apartadosService: ApartadosService);
     private generateFolio;
-    crear(data: any, scope: any): Promise<Venta>;
+    private resolverCaja;
+    crear(data: any, scope: any, opciones?: {
+        offline?: boolean;
+    }): Promise<Venta>;
     cancelar(id: number, motivo: string, scope: any): Promise<Venta>;
     findAll(scope: any, fecha_inicio?: string, fecha_fin?: string): Promise<Venta[]>;
     findOne(id: number): Promise<Venta | null>;

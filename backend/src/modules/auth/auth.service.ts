@@ -27,6 +27,19 @@ export class AuthService {
     }
   }
 
+  /**
+   * Cuanto dura la sesion.
+   *
+   * Una caja con internet intermitente no puede renovar el token: si vence a media
+   * contingencia, el POS queda inservible aunque el navegador tenga catalogo y cola
+   * offline completos. Por eso quien opera el mostrador recibe un token largo
+   * (JWT_EXPIRES_IN_POS, 30 dias por omision) y el superadmin conserva el corto.
+   */
+  private expiracionPara(rol: string): string {
+    if (rol === 'superadmin') return process.env.JWT_EXPIRES_IN || '8h';
+    return process.env.JWT_EXPIRES_IN_POS || '30d';
+  }
+
   async login(email: string, password: string) {
     let user: User | null;
     try {
@@ -69,7 +82,7 @@ export class AuthService {
     }
 
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token: this.jwtService.sign(payload, { expiresIn: this.expiracionPara(user.rol) }),
       user: {
         id: user.id,
         nombre: user.nombre,
@@ -127,7 +140,7 @@ export class AuthService {
     }
 
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token: this.jwtService.sign(payload, { expiresIn: this.expiracionPara(user.rol) }),
       user: {
         id: user.id,
         nombre: user.nombre,

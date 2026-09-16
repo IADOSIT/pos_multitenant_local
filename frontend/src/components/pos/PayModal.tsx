@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { usePOSStore } from '../../store/pos.store';
+import { usePOSStore, ultimaCajaConocida } from '../../store/pos.store';
 import { useAuthStore } from '../../store/auth.store';
 import { offlineActions } from '../../store/offline.store';
 import { ventasApi, ticketsApi, pedidosApi, pagosGatewayApi, cajaApi, empresasApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
+import { guardarConfigTicket, configTicketCache, ticketOfflineRaw } from '../../utils/ticketOffline';
 import { printTicket } from '../../utils/printTicket';
 import { money } from '../../utils/money';
 import toast from 'react-hot-toast';
@@ -116,7 +117,10 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
   useEffect(() => {
     if (isOnline) {
       pagosGatewayApi.getConfig().then(r => setGwConfig(r.data)).catch(() => {});
-      ticketsApi.getConfig().then(r => setTicketCfg(r.data)).catch(() => {});
+      ticketsApi.getConfig().then(r => { setTicketCfg(r.data); guardarConfigTicket(r.data); }).catch(() => {});
+    } else {
+      // Sin red: la ultima config bajada es la que se usa para imprimir offline.
+      setTicketCfg(configTicketCache());
     }
     return () => stopGwPoll();
   }, [isOnline, stopGwPoll]);
@@ -282,6 +286,24 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
     }
   };
 
+  /**
+   * Ticket de una venta cobrada sin internet: se arma en el propio navegador con la
+   * ultima configuracion bajada, porque el ticket normal lo renderiza el servidor.
+   */
+  const imprimirTicketOffline = (ventaData: any, folioOffline: string) => {
+    try {
+      const cfg = ticketCfg || configTicketCache();
+      const raw = ticketOfflineRaw(ventaData, folioOffline, cfg);
+      ticketRawRef.current = raw;
+      ticketConfigRef.current = cfg;
+      if (cfg?.impresion_enabled !== false) {
+        printTicket(raw, cfg?.ancho_papel, cfg?.fuente_familia, cfg?.fuente_tamano, null, cfg?.logo_posicion, cfg?.copias || 1, cfg?.modo_impresion);
+      }
+    } catch {
+      // Si no se puede imprimir, la venta ya quedo guardada: eso es lo que no se puede perder.
+    }
+  };
+
   const handleReprint = () => {
     if (ticketRawRef.current) {
       const t = ticketConfigRef.current;
@@ -292,7 +314,9 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
   const isGatewayMethod = (m: MetodoPago) => m === 'mp_qr' || m === 'mp_point' || m === 'stripe';
 
   const buildVentaData = () => ({
-    caja_id: cajaActiva?.id,
+    // Sin internet puede no haberse podido consultar la caja activa: se usa la ultima
+    // conocida para que la venta encolada se enganche a un corte al sincronizar.
+    caja_id: cajaActiva?.id ?? ultimaCajaConocida() ?? undefined,
     items: cart.map((i) => ({
       producto_id: i.producto_id,
       sku: i.sku,
@@ -346,8 +370,9 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
     setLoading(true);
 
     try {
-      // Si la caja está gestionada automáticamente y todavía no hay caja activa, intentar abrirla ahora
-      if (!cajaActiva && cajaManaged) {
+      // Si la caja está gestionada automáticamente y todavía no hay caja activa, intentar abrirla ahora.
+      // Sin internet no hay a quien preguntarle: la venta se encola y se engancha al corte al sincronizar.
+      if (!cajaActiva && cajaManaged && isOnline) {
         try {
           let activaCaja: any = null;
           try { const { data } = await cajaApi.activa(); activaCaja = data; } catch {}
@@ -399,6 +424,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
           }
         } else {
           const folio = await offlineActions.saveVentaOffline(ventaData);
+          imprimirTicketOffline(ventaData, folio);
           if (mantenerAbierta) {
             toast.success(`Pago offline ${folio} guardado — puedes agregar más items`);
             onClose();
@@ -417,6 +443,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
         // Error de red real (sin respuesta) — guardar offline
         const ventaData = buildVentaData();
         const folio = await offlineActions.saveVentaOffline(ventaData);
+        imprimirTicketOffline(ventaData, folio);
         if (mantenerAbierta) {
           toast(`Pago offline ${folio} — puedes agregar más items`, { icon: '📡' });
           onClose();

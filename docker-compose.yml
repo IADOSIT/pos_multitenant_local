@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260913-tema-boutique-rosa"
+        CACHE_BUST: "20260915-offline-sincronizacion-ventas"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
@@ -19,6 +19,9 @@
       DB_DATABASE: pos_iados
       JWT_SECRET: iados_jwt_secret_key_production_2024_cambiar
       JWT_EXPIRES_IN: 8h
+      # Sesion larga para quien opera el mostrador: una caja sin internet no puede
+      # renovar el token y no debe quedarse fuera a media contingencia.
+      JWT_EXPIRES_IN_POS: 30d
       FRONTEND_URL: http://localhost,http://localhost:8081,https://pos.iados.online,https://tienda.iados.online
       APP_VERSION: "2.4.1"
       PEXELS_API_KEY: zTTe3zHwLV7IAsqZSwfavWE41iv2ALaGMgrFAtkKitUw1sawGTRSp1wB
@@ -41,7 +44,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260913-tema-boutique-rosa"
+        CACHE_BUST: "20260915-offline-sincronizacion-ventas"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

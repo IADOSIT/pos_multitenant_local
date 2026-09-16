@@ -42,14 +42,24 @@ let VentasService = class VentasService {
             return { folio: `I${initial}${String(newCounter).padStart(8, '0')}`, numero: newCounter };
         });
     }
-    async crear(data, scope) {
-        const caja = await this.cajaRepo.findOne({
-            where: { id: data.caja_id, estado: caja_entity_1.CajaEstado.ABIERTA },
+    async resolverCaja(caja_id, scope, offline) {
+        const abierta = caja_id
+            ? await this.cajaRepo.findOne({ where: { id: caja_id, estado: caja_entity_1.CajaEstado.ABIERTA } })
+            : null;
+        if (abierta || !offline)
+            return abierta;
+        return this.cajaRepo.findOne({
+            where: { tienda_id: scope.tienda_id, estado: caja_entity_1.CajaEstado.ABIERTA },
+            order: { id: 'DESC' },
         });
-        if (!caja)
+    }
+    async crear(data, scope, opciones = {}) {
+        const esOffline = !!opciones.offline;
+        const caja = await this.resolverCaja(data.caja_id, scope, esOffline);
+        if (!caja && !esOffline)
             throw new common_1.BadRequestException('La caja no está abierta');
         const { inventario_compartido } = await this.empresasService.getConfigEspecial(scope.empresa_id);
-        for (const item of data.items || []) {
+        for (const item of esOffline ? [] : data.items || []) {
             if (!item.producto_id || !item.cantidad)
                 continue;
             if (inventario_compartido) {
@@ -76,7 +86,7 @@ let VentasService = class VentasService {
             tenant_id: scope.tenant_id,
             empresa_id: scope.empresa_id,
             tienda_id: scope.tienda_id,
-            caja_id: data.caja_id,
+            caja_id: caja?.id ?? data.caja_id ?? null,
             usuario_id: scope.id || scope.sub,
             folio,
             numero_orden,
@@ -112,8 +122,10 @@ let VentasService = class VentasService {
             pagos: data.pagos || [],
         });
         const saved = await this.ventasRepo.save(venta);
-        caja.total_ventas = Number(caja.total_ventas) + Number(data.total);
-        await this.cajaRepo.save(caja);
+        if (caja) {
+            caja.total_ventas = Number(caja.total_ventas) + Number(data.total);
+            await this.cajaRepo.save(caja);
+        }
         let apartadoIndex = 0;
         for (const item of data.items || []) {
             if (!item.producto_id || !item.cantidad)
@@ -351,14 +363,22 @@ let VentasService = class VentasService {
     }
     async syncOffline(ventas, scope) {
         const results = [];
-        for (const v of ventas) {
-            const existing = await this.ventasRepo.findOne({ where: { folio_offline: v.folio_offline } });
-            if (existing) {
-                results.push({ folio_offline: v.folio_offline, status: 'already_synced', id: existing.id });
-                continue;
+        for (const v of ventas || []) {
+            try {
+                const existing = await this.ventasRepo.findOne({
+                    where: { folio_offline: v.folio_offline, tenant_id: scope.tenant_id },
+                });
+                if (existing) {
+                    results.push({ folio_offline: v.folio_offline, status: 'already_synced', id: existing.id, folio: existing.folio });
+                    continue;
+                }
+                const saved = await this.crear(v, scope, { offline: true });
+                results.push({ folio_offline: v.folio_offline, status: 'synced', id: saved.id, folio: saved.folio });
             }
-            const saved = await this.crear(v, scope);
-            results.push({ folio_offline: v.folio_offline, status: 'synced', id: saved.id, folio: saved.folio });
+            catch (e) {
+                this.logger.error(`Error sincronizando venta offline ${v?.folio_offline}: ${e?.message}`, e?.stack);
+                results.push({ folio_offline: v?.folio_offline, status: 'error', message: e?.message || 'Error al sincronizar' });
+            }
         }
         return results;
     }

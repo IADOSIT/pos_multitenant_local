@@ -41,18 +41,39 @@ export class VentasService {
     });
   }
 
-  async crear(data: any, scope: any) {
-    const caja = await this.cajaRepo.findOne({
-      where: { id: data.caja_id, estado: CajaEstado.ABIERTA },
+  /**
+   * Caja a la que se engancha la venta.
+   *
+   * En una venta normal tiene que estar abierta. Una venta que llega de la cola
+   * offline ya ocurrio fisicamente (el dinero esta en el cajon), asi que nunca se
+   * rechaza: se busca la caja abierta de la tienda y, si el turno ya se cerro, se
+   * registra con la caja que traia sin tocar totales de un corte ya cuadrado.
+   */
+  private async resolverCaja(caja_id: number, scope: any, offline: boolean): Promise<Caja | null> {
+    const abierta = caja_id
+      ? await this.cajaRepo.findOne({ where: { id: caja_id, estado: CajaEstado.ABIERTA } })
+      : null;
+    if (abierta || !offline) return abierta;
+    return this.cajaRepo.findOne({
+      where: { tienda_id: scope.tienda_id, estado: CajaEstado.ABIERTA },
+      order: { id: 'DESC' },
     });
-    if (!caja) throw new BadRequestException('La caja no está abierta');
+  }
+
+  async crear(data: any, scope: any, opciones: { offline?: boolean } = {}) {
+    const esOffline = !!opciones.offline;
+    const caja = await this.resolverCaja(data.caja_id, scope, esOffline);
+    if (!caja && !esOffline) throw new BadRequestException('La caja no está abierta');
 
     // Con "inventario compartido" activo, el stock que manda es el de ESTA tienda
     // (producto_tienda.stock) en vez del acumulado de la empresa (productos.stock_actual).
     const { inventario_compartido } = await this.empresasService.getConfigEspecial(scope.empresa_id);
 
-    // Validate stock before committing the sale
-    for (const item of data.items || []) {
+    // Validate stock before committing the sale.
+    // La venta offline ya salio de la tienda: validar stock aqui solo lograria
+    // rechazarla para siempre, asi que se acepta (el stock puede quedar en negativo
+    // y eso es justamente lo que hay que ver en inventario).
+    for (const item of esOffline ? [] : data.items || []) {
       if (!item.producto_id || !item.cantidad) continue;
       if (inventario_compartido) {
         // apartado_tienda_id: el cashier eligio surtir este renglon desde otra tienda de la
@@ -91,7 +112,7 @@ export class VentasService {
       tenant_id: scope.tenant_id,
       empresa_id: scope.empresa_id,
       tienda_id: scope.tienda_id,
-      caja_id: data.caja_id,
+      caja_id: caja?.id ?? data.caja_id ?? null,
       usuario_id: scope.id || scope.sub,
       folio,
       numero_orden,
@@ -129,9 +150,11 @@ export class VentasService {
 
     const saved = await this.ventasRepo.save(venta);
 
-    // Actualizar totales de caja
-    caja.total_ventas = Number(caja.total_ventas) + Number(data.total);
-    await this.cajaRepo.save(caja);
+    // Actualizar totales de caja (si el turno ya se cerro no se toca: su corte ya cuadro)
+    if (caja) {
+      caja.total_ventas = Number(caja.total_ventas) + Number(data.total);
+      await this.cajaRepo.save(caja);
+    }
 
     // Descontar stock para productos que controlan inventario
     let apartadoIndex = 0;
@@ -416,16 +439,31 @@ export class VentasService {
   }
 
   // Sync offline sales
+  /**
+   * Sube la cola de ventas que el POS cobro sin internet.
+   *
+   * Idempotente por `folio_offline`: reintentar el mismo lote nunca duplica. Una
+   * venta que truene no arrastra al resto del lote — se devuelve su error para que
+   * el navegador la deje pendiente y la muestre en pantalla.
+   */
   async syncOffline(ventas: any[], scope: any) {
     const results: any[] = [];
-    for (const v of ventas) {
-      const existing = await this.ventasRepo.findOne({ where: { folio_offline: v.folio_offline } });
-      if (existing) {
-        results.push({ folio_offline: v.folio_offline, status: 'already_synced', id: existing.id });
-        continue;
+    for (const v of ventas || []) {
+      try {
+        // Acotado al tenant: el folio offline lo genera el navegador, no la base.
+        const existing = await this.ventasRepo.findOne({
+          where: { folio_offline: v.folio_offline, tenant_id: scope.tenant_id },
+        });
+        if (existing) {
+          results.push({ folio_offline: v.folio_offline, status: 'already_synced', id: existing.id, folio: existing.folio });
+          continue;
+        }
+        const saved = await this.crear(v, scope, { offline: true });
+        results.push({ folio_offline: v.folio_offline, status: 'synced', id: saved.id, folio: saved.folio });
+      } catch (e: any) {
+        this.logger.error(`Error sincronizando venta offline ${v?.folio_offline}: ${e?.message}`, e?.stack);
+        results.push({ folio_offline: v?.folio_offline, status: 'error', message: e?.message || 'Error al sincronizar' });
       }
-      const saved = await this.crear(v, scope);
-      results.push({ folio_offline: v.folio_offline, status: 'synced', id: saved.id, folio: saved.folio });
     }
     return results;
   }

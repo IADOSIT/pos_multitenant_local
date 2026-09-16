@@ -13,6 +13,7 @@ import { Producto, Categoria } from '../../types';
 import toast from 'react-hot-toast';
 import CartPanel from '../../components/pos/CartPanel';
 import PayModal from '../../components/pos/PayModal';
+import EstadoOffline from '../../components/pos/EstadoOffline';
 import AbrirCuentaModal from '../../components/pos/AbrirCuentaModal';
 import DevolucionBuscarModal from '../../components/pos/DevolucionBuscarModal';
 import DevolucionModal from '../../components/pos/DevolucionModal';
@@ -285,7 +286,10 @@ export default function POSPage() {
     try {
       const { data } = await cajaApi.activa();
       setCajaActiva(data);
-    } catch {
+    } catch (e: any) {
+      // Sin respuesta del servidor = sin internet: se conserva la caja que ya se conocia,
+      // porque el turno sigue abierto fisicamente y la venta se va a encolar con ese id.
+      if (!e?.response) return;
       if (autoOpen) {
         try {
           const diaNatural = new Date().toLocaleDateString('es-MX');
@@ -800,6 +804,7 @@ export default function POSPage() {
 
           <div className="flex items-center gap-1 text-xs text-slate-400">
             {isOnline ? <Wifi size={16} className="text-green-400" /> : <WifiOff size={16} className="text-red-400" />}
+            <EstadoOffline />
             {modoServicio === 'mesa' && (
               <span className="ml-1 px-2 py-0.5 bg-iados-primary/30 text-iados-accent rounded text-xs">Mesa</span>
             )}

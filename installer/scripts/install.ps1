@@ -273,6 +273,7 @@ DB_PASSWORD=$DB_PASS
 DB_DATABASE=$DB_NAME
 JWT_SECRET=$jwtSecret
 JWT_EXPIRES_IN=8h
+JWT_EXPIRES_IN_POS=30d
 FRONTEND_URL=http://localhost:$BackendPort
 "@
 $envContent | Set-Content "$InstallDir\backend\.env"

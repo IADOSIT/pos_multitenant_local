@@ -53,7 +53,7 @@ const RUBROS: RubroInfo[] = [
       { icon: Store, titulo: 'Tienda en Línea', detalle: 'Catálogo público opcional para que tus clientes vean tus productos.', ruta: '/admin/tienda-en-linea' },
     ],
     tips: [
-      'El sistema funciona offline: si se pierde internet las ventas se guardan localmente y se sincronizan al reconectar.',
+      'Si se pierde el internet el POS sigue cobrando: la venta se guarda en el equipo (con su ticket) y sube sola al volver la señal. El indicador de la barra muestra cuántas están en cola; no cierres el navegador ni borres los datos del sitio mientras haya pendientes.',
       'Puedes personalizar qué opciones del menú ve cada rol desde Configuración.',
     ],
   },

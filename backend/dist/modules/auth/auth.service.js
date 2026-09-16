@@ -39,6 +39,11 @@ let AuthService = class AuthService {
             return await repo.findOne(opts);
         }
     }
+    expiracionPara(rol) {
+        if (rol === 'superadmin')
+            return process.env.JWT_EXPIRES_IN || '8h';
+        return process.env.JWT_EXPIRES_IN_POS || '30d';
+    }
     async login(email, password) {
         let user;
         try {
@@ -80,7 +85,7 @@ let AuthService = class AuthService {
             this.logger.error(`[login] DB error en findOne empresa(id=${user.empresa_id}): ${err.message}`, err.stack);
         }
         return {
-            access_token: this.jwtService.sign(payload),
+            access_token: this.jwtService.sign(payload, { expiresIn: this.expiracionPara(user.rol) }),
             user: {
                 id: user.id,
                 nombre: user.nombre,
@@ -137,7 +142,7 @@ let AuthService = class AuthService {
             this.logger.error(`[loginPin] DB error findOne empresa: ${err.message}`);
         }
         return {
-            access_token: this.jwtService.sign(payload),
+            access_token: this.jwtService.sign(payload, { expiresIn: this.expiracionPara(user.rol) }),
             user: {
                 id: user.id,
                 nombre: user.nombre,

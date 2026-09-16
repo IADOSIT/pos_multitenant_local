@@ -19,6 +19,8 @@ import LicenciaBanner from './LicenciaBanner';
 import ViewAsBanner from './ViewAsBanner';
 import LockScreen from '../ui/LockScreen';
 import TecladoPantalla from '../ui/TecladoPantalla';
+import EstadoOffline from '../pos/EstadoOffline';
+import { iniciarSincronizacion } from '../../store/sync.store';
 import { useTecladoStore, tecladoHabilitado } from '../../store/teclado.store';
 import PageHeader from './PageHeader';
 import { navItems } from './navItems';
@@ -112,6 +114,9 @@ export default function MainLayout() {
   const [logisticaEnabled, setLogisticaEnabled] = useState(false);
   const [basculaEnabled, setBasculaEnabled] = useState(false);
   const [mesasMenuEnabled, setMesasMenuEnabled] = useState(true);
+
+  // Ventas hechas sin internet: la cola se drena sola en cuanto vuelve la red.
+  useEffect(() => { iniciarSincronizacion(); }, []);
 
   // Fetch DB host from backend health endpoint
   useEffect(() => {
@@ -369,6 +374,7 @@ export default function MainLayout() {
           <span className="font-bold text-sm">{brandNombre}</span>
         </div>
         <div className="flex items-center gap-1">
+          <EstadoOffline />
           <button onClick={toggleTeclado} title="Teclado en pantalla" className={`p-1 ${tecladoActivo ? 'text-blue-400' : 'text-slate-400'}`}><Keyboard size={20} /></button>
           <button onClick={lock} className="p-1 text-slate-400 hover:text-yellow-400"><Lock size={20} /></button>
           <button onClick={handleLogout} className="p-1 text-slate-400 hover:text-red-400"><LogOut size={20} /></button>

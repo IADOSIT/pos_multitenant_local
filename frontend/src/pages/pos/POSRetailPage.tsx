@@ -3,10 +3,12 @@ import { usePOSStore } from '../../store/pos.store';
 import { useAuthStore } from '../../store/auth.store';
 import { useScope } from '../../hooks/useScope';
 import { useRetailTickets } from '../../store/retailTickets.store';
+import { offlineActions } from '../../store/offline.store';
 import { productosApi, cajaApi, tiendasApi, empresasApi } from '../../api/endpoints';
 import { Producto } from '../../types';
 import { money } from '../../utils/money';
 import PayModal from '../../components/pos/PayModal';
+import EstadoOffline from '../../components/pos/EstadoOffline';
 import { Minus, Plus, Trash2, ShoppingCart, ScanLine, HelpCircle, Keyboard, X, FilePlus } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -98,7 +100,13 @@ export default function POSRetailPage() {
       setCajaLoaded(true);
       hydratedRef.current = true; // desde aquí sí se puede persistir
     };
-    productosApi.list().then(({ data }) => setProductos(data || [])).catch(() => {});
+    productosApi.list()
+      .then(({ data }) => { setProductos(data || []); offlineActions.cacheProductos(data || []).catch(() => { }); })
+      .catch(async () => {
+        // Sin internet se trabaja con el ultimo catalogo que alcanzo a bajar este equipo.
+        const cache = await offlineActions.getCachedProductos().catch(() => []);
+        if (cache.length) { setProductos(cache); toast('Modo offline — catálogo en caché', { icon: '📡' }); }
+      });
     if (empresaId) {
       empresasApi.get(empresaId)
         .then((r) => setMostrarPrecios(r.data?.config_especial?.mostrar_precios !== false))
@@ -340,6 +348,7 @@ export default function POSRetailPage() {
               </div>
             )}
           </div>
+          <EstadoOffline />
           <button onClick={() => setShowHelp(true)} title="Atajos de teclado (Alt+H)"
             className="shrink-0 w-11 h-11 rounded-xl bg-iados-card border border-slate-600 text-slate-300 hover:text-white hover:border-iados-primary flex items-center justify-center">
             <HelpCircle size={20} />

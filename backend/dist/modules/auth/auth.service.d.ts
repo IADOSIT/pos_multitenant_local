@@ -9,6 +9,7 @@ export declare class AuthService {
     private readonly logger;
     constructor(usersRepo: Repository<User>, empresaRepo: Repository<Empresa>, jwtService: JwtService);
     private findOneWithRetry;
+    private expiracionPara;
     login(email: string, password: string): Promise<{
         access_token: string;
         user: {
