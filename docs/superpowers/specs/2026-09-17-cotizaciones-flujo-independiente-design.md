@@ -34,6 +34,30 @@ De ahí salen tres fallas concretas:
 | Canal de respuesta del cliente | **Enlace con token HMAC en la tienda** (`/cotizacion/:numero?t=…`), sin cuenta. |
 | Negociación | **Aceptar, o rechazar con motivo.** El rechazo no cierra: se re-cotiza y nace una versión nueva. |
 | Al aceptar | **Nace el pedido de mostrador listo para cobrar**, con el flujo normal de caja. |
+| Quién crea el pedido | **El backend del POS**, avisado por la tienda vía endpoint interno con secreto compartido. |
+
+### 2.1 Por qué el pedido lo crea el POS y no la tienda
+
+La tienda Angular no habla con el backend del POS: habla con `POS_STORE_API`, que lee la **misma
+base `pos_iados`** en SQL crudo con `synchronize: false` y no tiene cliente HTTP. (El
+`ecommerce-public.controller.ts` del repo del POS sirve al despliegue local, no a `iados.store`.)
+
+Crear un pedido de mostrador no es un `INSERT`: `pedidosService.crear()` (`pedidos.service.ts:42`)
+toma el folio dentro de una transacción con `SELECT … FOR UPDATE` sobre `tiendas.folio_pedido_counter`,
+escribe pedido y detalles, y **emite el SSE `nuevo_pedido`** que hace sonar las pantallas del POS.
+Ese emisor es in-process: la tienda no puede dispararlo desde otro contenedor.
+
+Por eso la aceptación se parte en dos:
+
+1. `POS_STORE_API` marca la cotización como `aceptada` en la base. **Esto nunca falla ni se pierde.**
+2. Acto seguido llama `POST http://pos-iados-api:3000/internal/cotizaciones/:id/pedido` con el
+   header `X-Internal-Secret`. El POS crea el pedido, escribe `pedido_id` en la cotización y emite
+   el SSE.
+
+Ambos contenedores ya viven en la red externa `web_network`. Si el paso 2 falla (POS caído,
+timeout), la respuesta al cliente **igual confirma la aceptación**; un job de reintento en el POS
+recoge las cotizaciones `aceptada` con `pedido_id IS NULL` y las materializa al revivir. El paso 2
+es idempotente: si la cotización ya tiene `pedido_id`, responde ese pedido sin crear otro.
 
 ## 3. Modelo conceptual
 
@@ -97,12 +121,13 @@ cotizaciones
   estado            ENUM('solicitada','enviada','aceptada','rechazada','vencida','cerrada')
                     NOT NULL DEFAULT 'solicitada'
   version_actual    INT NOT NULL DEFAULT 0        -- 0 = solicitada, sin cotizar
+  tienda_id         INT NULL                      -- sucursal que cobrará; se fija al cotizar
   pedido_id         INT NULL                      -- pedido de mostrador, al aceptar
   notas_internas    TEXT NULL
   motivo_cierre     TEXT NULL
   created_at, updated_at
   UNIQUE (empresa_id, numero)
-  INDEX (empresa_id, estado), INDEX (created_at)
+  INDEX (empresa_id, estado), INDEX (created_at), INDEX (estado, pedido_id)
 
 cotizacion_versiones
   id                INT PK AUTO_INCREMENT
@@ -143,6 +168,10 @@ la versión enviada debe seguir siendo legible aunque el producto cambie o se bo
 ```
 
 `vigencia_dias` default 15 si falta. Sin columnas nuevas en `ecommerce_config`.
+
+Variable de entorno nueva en ambos servicios (`docker-compose.yml` de cada repo):
+`INTERNAL_API_SECRET`, con el mismo valor. El POS además necesita `POS_API_URL` del lado de la
+tienda: `http://pos-iados-api:3000`.
 
 ## 7. API
 
@@ -189,14 +218,36 @@ PATCH  /cotizaciones/:id/notas      body: { notas_internas }
 
 `/cotizar` es el mismo verbo para la v1 y para la re-cotización: si ya hay versiones, crea la
 siguiente e incrementa `version_actual`. Validaciones: al menos un precio > 0, ningún precio
-negativo, estado en `('solicitada','rechazada','vencida')`.
+negativo, estado en `('solicitada','rechazada','vencida')`. `tienda_id` es obligatorio en la v1 y se
+guarda en la cotización: es la sucursal que cobrará cuando el cliente acepte, y para entonces ya no
+habrá un operador en sesión de quien deducirla.
+
+### 7.2.1 Endpoint interno (POS ← tienda)
+
+```
+POST /internal/cotizaciones/:id/pedido
+     header: X-Internal-Secret: <INTERNAL_API_SECRET>
+     → { pedido_id, folio }
+```
+
+Sin JWT: un guard propio (`internal-secret.guard.ts`) compara el header contra
+`process.env.INTERNAL_API_SECRET` en tiempo constante y rechaza con 401 si no coincide o si la
+variable no está configurada. El scope (`tenant_id`, `empresa_id`, `tienda_id`) se deriva de la
+cotización, no del token; el pedido se registra con `usuario_nombre: 'Tienda en línea'`.
+
+Idempotente: si la cotización ya tiene `pedido_id`, devuelve ese pedido sin crear otro.
+Solo acepta cotizaciones en estado `aceptada`.
+
+**Job de reintento** (`@Cron(EVERY_MINUTE)` en el POS): materializa las cotizaciones `aceptada` con
+`pedido_id IS NULL` que la llamada directa no alcanzó a procesar. Es la red de seguridad de la
+partición de red, no el camino normal.
 
 ### 7.3 El cambio de fondo
 
 La creación del pedido de mostrador se **mueve** de `cotizarPedido()` (hoy ocurre cuando el negocio
-fija precios) al endpoint público de **aceptar**. La lógica en sí se conserva tal cual: se reusa
-`pedidosService.crear()` con `estado: PedidoEstado.LISTO_PARA_ENTREGA`, exactamente como en
-`ecommerce.service.ts:307-332`.
+fija precios) al momento en que el cliente **acepta** — materializada por el endpoint interno de
+7.2.1. La lógica en sí se conserva tal cual: se reusa `pedidosService.crear()` con
+`estado: PedidoEstado.LISTO_PARA_ENTREGA`, exactamente como en `ecommerce.service.ts:307-332`.
 
 Lo único que cambia es el vínculo. `pedido.entity.ts` gana una columna `cotizacion_id` (nullable)
 **junto a** la ya existente `ecommerce_pedido_id`, que se conserva sin tocar para los pedidos web
@@ -303,6 +354,10 @@ Unitarias (Vitest en la tienda, Jest en el POS):
 - Rechazar sin motivo → 400.
 - `carrito.component` en modo cotización: no renderiza total, subtotal ni ahorro.
 - Migración: un `por_cobrar` con pedido ligado conserva su `pedido_id` y queda en `aceptada`.
+- Endpoint interno: sin header → 401; con secreto correcto → crea el pedido; llamado dos veces →
+  un solo pedido.
+- Aceptación con el POS caído: la cotización queda `aceptada` sin `pedido_id`, y el job de reintento
+  la materializa en la siguiente corrida.
 
 Manual, de punta a punta: solicitar → cotizar → rechazar con motivo → re-cotizar v2 → aceptar →
 cobrar en caja → ver la cotización cerrada con su historial.
@@ -312,7 +367,7 @@ cobrar en caja → ver la cotización cerrada con su historial.
 1. Tablas y migración de datos, con los estados viejos todavía operando en paralelo.
 2. Backend de cotizaciones en el POS: listar, cotizar/re-cotizar, cerrar.
 3. API pública y pantalla `/cotizacion/:numero`: aceptar, rechazar, historial.
-4. Aceptar → pedido: mover ahí la creación del pedido de mostrador.
+4. Endpoint interno del POS + job de reintento, y mover ahí la creación del pedido de mostrador.
 5. Modo cotización en la tienda: carrito, navbar, checkout, "Mis cotizaciones", y el producto sin
    precio en tiendas de venta.
 6. Sección Cotizaciones en el POS.
