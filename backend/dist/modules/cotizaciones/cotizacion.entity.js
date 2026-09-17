@@ -43,7 +43,7 @@ __decorate([
     __metadata("design:type", String)
 ], Cotizacion.prototype, "cliente_email", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ length: 20, nullable: true }),
+    (0, typeorm_1.Column)({ type: 'varchar', length: 20, nullable: true }),
     __metadata("design:type", Object)
 ], Cotizacion.prototype, "cliente_tel", void 0);
 __decorate([

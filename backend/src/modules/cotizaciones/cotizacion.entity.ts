@@ -38,7 +38,11 @@ export class Cotizacion {
   @Column({ length: 255, default: '' })
   cliente_email: string;
 
-  @Column({ length: 20, nullable: true })
+  // `type` explicito a proposito: con un tipo TS union (string | null) el
+  // metadato que emite TypeScript es Object, TypeORM no lo puede mapear y el
+  // backend NO ARRANCA (DataTypeNotSupportedError). Toda columna nullable de
+  // esta entidad declara su type por la misma razon.
+  @Column({ type: 'varchar', length: 20, nullable: true })
   cliente_tel: string | null;
 
   @Column({ type: 'varchar', length: 200, nullable: true })
