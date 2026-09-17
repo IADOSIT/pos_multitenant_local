@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { Like, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
 import { CotizacionesService } from '../src/modules/cotizaciones/cotizaciones.service';
 
 let fallos = 0;
@@ -33,13 +34,31 @@ function cotizacionFake(over: any = {}) {
   };
 }
 
+// Manager falso de la transaccion: registra cada save() en el mismo array
+// `guardadas` que ya usaban los repos sueltos, distinguiendo la tabla por el
+// nombre de la clase de entidad con la que el servicio llama a manager.save(...).
+function fakeManager(guardadas: any[]) {
+  return {
+    save: async (entidad: any, data: any) => {
+      const nombre = typeof entidad === 'function' ? entidad.name : String(entidad);
+      const tabla = nombre === 'CotizacionVersion' ? 'versiones' : 'cotizaciones';
+      guardadas.push({ tabla, ...data });
+      return tabla === 'versiones' ? { id: 99, ...data } : data;
+    },
+  };
+}
+
 // Repos falsos: guardan lo ultimo que se les mando para poder afirmarlo.
 function repos(cot: any, versiones: any[] = []) {
   const guardadas: any[] = [];
+  let ultimoWhere: any = null;
   const cotRepo = {
     findOne: async () => cot,
     save: async (c: any) => { guardadas.push({ tabla: 'cotizaciones', ...c }); return c; },
-    find: async () => [cot],
+    find: async (opts: any) => { ultimoWhere = opts?.where; return [cot]; },
+    // El servicio ya no guarda version+cotizacion por separado: ambas van dentro
+    // de una sola transaccion para que no pueda quedar una version huerfana.
+    manager: { transaction: async (cb: any) => cb(fakeManager(guardadas)) },
   };
   const verRepo = {
     find: async () => versiones,
@@ -50,7 +69,7 @@ function repos(cot: any, versiones: any[] = []) {
   const configRepo = {
     findOne: async () => ({ empresa_id: 7, preferencias: { cotizaciones: { activo: true, vigencia_dias: 15 } } }),
   };
-  return { cotRepo, verRepo, configRepo, guardadas };
+  return { cotRepo, verRepo, configRepo, guardadas, ultimoWhere: () => ultimoWhere };
 }
 
 function servicio(cot: any, versiones: any[] = []) {
@@ -65,6 +84,44 @@ const ITEMS_SOLICITADOS = [
 ];
 
 (async () => {
+  console.log('--- listar ---');
+  {
+    const { svc, ultimoWhere } = servicio(cotizacionFake());
+    await svc.listar(SCOPE, {});
+    check('sin filtros: solo el scope, sin texto ni fechas', ultimoWhere(), {
+      empresa_id: 7, tenant_id: 1,
+    });
+  }
+  {
+    const { svc, ultimoWhere } = servicio(cotizacionFake());
+    await svc.listar(SCOPE, { q: 'ana' });
+    check('q arma un OR numero/cliente_nombre, ambas ramas con el scope completo', ultimoWhere(), [
+      { empresa_id: 7, tenant_id: 1, numero: Like('%ana%') },
+      { empresa_id: 7, tenant_id: 1, cliente_nombre: Like('%ana%') },
+    ]);
+  }
+  {
+    const { svc, ultimoWhere } = servicio(cotizacionFake());
+    await svc.listar(SCOPE, { desde: '2026-01-01' });
+    check('desde solo: MoreThanOrEqual', ultimoWhere(), {
+      empresa_id: 7, tenant_id: 1, created_at: MoreThanOrEqual('2026-01-01'),
+    });
+  }
+  {
+    const { svc, ultimoWhere } = servicio(cotizacionFake());
+    await svc.listar(SCOPE, { hasta: '2026-12-31' });
+    check('hasta solo: LessThanOrEqual', ultimoWhere(), {
+      empresa_id: 7, tenant_id: 1, created_at: LessThanOrEqual('2026-12-31'),
+    });
+  }
+  {
+    const { svc, ultimoWhere } = servicio(cotizacionFake());
+    await svc.listar(SCOPE, { desde: '2026-01-01', hasta: '2026-12-31' });
+    check('desde y hasta juntos: Between', ultimoWhere(), {
+      empresa_id: 7, tenant_id: 1, created_at: Between('2026-01-01', '2026-12-31'),
+    });
+  }
+
   console.log('--- cotizar (v1) ---');
   {
     const { svc, guardadas } = servicio(

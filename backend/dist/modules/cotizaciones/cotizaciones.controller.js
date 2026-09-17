@@ -24,7 +24,12 @@ let CotizacionesController = class CotizacionesController {
         this.service = service;
     }
     listar(scope, query) {
-        return this.service.listar(scope, { estado: query.estado, q: query.q });
+        return this.service.listar(scope, {
+            estado: query.estado,
+            q: query.q,
+            desde: query.desde,
+            hasta: query.hasta,
+        });
     }
     detalle(scope, id) {
         return this.service.detalle(scope, id);

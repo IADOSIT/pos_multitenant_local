@@ -12,7 +12,12 @@ export class CotizacionesController {
 
   @Get()
   listar(@TenantScope() scope: any, @Query() query: any) {
-    return this.service.listar(scope, { estado: query.estado, q: query.q });
+    return this.service.listar(scope, {
+      estado: query.estado,
+      q: query.q,
+      desde: query.desde,
+      hasta: query.hasta,
+    });
   }
 
   @Get(':id')

@@ -28,10 +28,28 @@ let CotizacionesService = class CotizacionesService {
         this.configRepo = configRepo;
     }
     async listar(scope, filtros = {}) {
-        const where = { empresa_id: scope.empresa_id, tenant_id: scope.tenant_id };
+        const base = { empresa_id: scope.empresa_id, tenant_id: scope.tenant_id };
         if (filtros.estado)
-            where.estado = filtros.estado;
+            base.estado = filtros.estado;
+        const rango = this.rangoFechas(filtros.desde, filtros.hasta);
+        if (rango)
+            base.created_at = rango;
+        const where = filtros.q
+            ? [
+                { ...base, numero: (0, typeorm_2.Like)(`%${filtros.q}%`) },
+                { ...base, cliente_nombre: (0, typeorm_2.Like)(`%${filtros.q}%`) },
+            ]
+            : base;
         return this.cotRepo.find({ where, order: { created_at: 'DESC' }, take: 200 });
+    }
+    rangoFechas(desde, hasta) {
+        if (desde && hasta)
+            return (0, typeorm_2.Between)(desde, hasta);
+        if (desde)
+            return (0, typeorm_2.MoreThanOrEqual)(desde);
+        if (hasta)
+            return (0, typeorm_2.LessThanOrEqual)(hasta);
+        return null;
     }
     async buscar(scope, id) {
         const c = await this.cotRepo.findOne({
@@ -75,26 +93,29 @@ let CotizacionesService = class CotizacionesService {
             throw new common_1.BadRequestException('Captura al menos un precio mayor a cero');
         const dias = Number(dto.vigencia_dias || (await this.vigenciaDeTienda(cotizacion)) || VIGENCIA_DEFAULT);
         const ahora = new Date();
-        const version = await this.verRepo.save(this.verRepo.create({
-            cotizacion_id: cotizacion.id,
-            version: cotizacion.version_actual + 1,
-            items,
-            subtotal,
-            descuento,
-            total,
-            vigencia_hasta: (0, cotizacion_logic_1.vigenciaHasta)(ahora, dias),
-            mensaje_cliente: dto.mensaje_cliente || null,
-            enviada_at: ahora,
-            respuesta: null,
-            respuesta_motivo: null,
-            respondida_at: null,
-            respondida_ip: null,
-        }));
-        cotizacion.estado = 'enviada';
-        cotizacion.version_actual = version.version;
-        cotizacion.tienda_id = tienda_id;
-        await this.cotRepo.save(cotizacion);
-        return { cotizacion, version };
+        const { cotizacion: cotizacionGuardada, version } = await this.cotRepo.manager.transaction(async (manager) => {
+            const version = await manager.save(cotizacion_version_entity_1.CotizacionVersion, {
+                cotizacion_id: cotizacion.id,
+                version: cotizacion.version_actual + 1,
+                items,
+                subtotal,
+                descuento,
+                total,
+                vigencia_hasta: (0, cotizacion_logic_1.vigenciaHasta)(ahora, dias),
+                mensaje_cliente: dto.mensaje_cliente || null,
+                enviada_at: ahora,
+                respuesta: null,
+                respuesta_motivo: null,
+                respondida_at: null,
+                respondida_ip: null,
+            });
+            cotizacion.estado = 'enviada';
+            cotizacion.version_actual = version.version;
+            cotizacion.tienda_id = tienda_id;
+            const cotizacionGuardada = await manager.save(cotizacion_entity_1.Cotizacion, cotizacion);
+            return { cotizacion: cotizacionGuardada, version };
+        });
+        return { cotizacion: cotizacionGuardada, version };
     }
     async itemsBase(c) {
         const ultima = await this.verRepo.findOne({

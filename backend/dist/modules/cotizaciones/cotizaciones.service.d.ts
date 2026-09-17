@@ -1,6 +1,6 @@
 import { Repository } from 'typeorm';
 import { Cotizacion } from './cotizacion.entity';
-import { CotizacionVersion } from './cotizacion-version.entity';
+import { CotizacionVersion, CotizacionItem } from './cotizacion-version.entity';
 import { EcommerceConfig } from '../ecommerce/ecommerce-config.entity';
 export interface CotizarDto {
     items: {
@@ -20,7 +20,10 @@ export declare class CotizacionesService {
     listar(scope: any, filtros?: {
         estado?: string;
         q?: string;
+        desde?: string;
+        hasta?: string;
     }): Promise<Cotizacion[]>;
+    private rangoFechas;
     private buscar;
     detalle(scope: any, id: number): Promise<{
         cotizacion: Cotizacion;
@@ -28,7 +31,21 @@ export declare class CotizacionesService {
     }>;
     cotizar(scope: any, id: number, dto: CotizarDto): Promise<{
         cotizacion: Cotizacion;
-        version: CotizacionVersion;
+        version: {
+            cotizacion_id: number;
+            version: number;
+            items: CotizacionItem[];
+            subtotal: number;
+            descuento: number;
+            total: number;
+            vigencia_hasta: string;
+            mensaje_cliente: string | null;
+            enviada_at: Date;
+            respuesta: null;
+            respuesta_motivo: null;
+            respondida_at: null;
+            respondida_ip: null;
+        } & CotizacionVersion;
     }>;
     private itemsBase;
     private vigenciaDeTienda;
