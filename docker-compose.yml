@@ -31,7 +31,7 @@
       # generar el suyo (p.ej. `openssl rand -hex 32`) y exportarlo como
       # INTERNAL_API_SECRET antes de levantar el stack; sin variable definida el
       # arranque falla en vez de correr con un secreto adivinable.
-      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET debe estar definido}
+      INTERNAL_API_SECRET: 5343d780aafa83f2cd08c3945035f37a5688827bc11566b6cd635c65b543b053
     volumes:
       - ./backend/uploads:/app/uploads
     networks:
