@@ -7,6 +7,7 @@ import { PedidosModule } from '../pedidos/pedidos.module';
 import { CotizacionesController } from './cotizaciones.controller';
 import { CotizacionesInternalController } from './cotizaciones-internal.controller';
 import { CotizacionesService } from './cotizaciones.service';
+import { CotizacionesJobs } from './cotizaciones.jobs';
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { CotizacionesService } from './cotizaciones.service';
     PedidosModule,
   ],
   controllers: [CotizacionesController, CotizacionesInternalController],
-  providers: [CotizacionesService],
+  providers: [CotizacionesService, CotizacionesJobs],
   exports: [CotizacionesService],
 })
 export class CotizacionesModule {}

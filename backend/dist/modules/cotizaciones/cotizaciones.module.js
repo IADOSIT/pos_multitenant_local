@@ -16,6 +16,7 @@ const pedidos_module_1 = require("../pedidos/pedidos.module");
 const cotizaciones_controller_1 = require("./cotizaciones.controller");
 const cotizaciones_internal_controller_1 = require("./cotizaciones-internal.controller");
 const cotizaciones_service_1 = require("./cotizaciones.service");
+const cotizaciones_jobs_1 = require("./cotizaciones.jobs");
 let CotizacionesModule = class CotizacionesModule {
 };
 exports.CotizacionesModule = CotizacionesModule;
@@ -26,7 +27,7 @@ exports.CotizacionesModule = CotizacionesModule = __decorate([
             pedidos_module_1.PedidosModule,
         ],
         controllers: [cotizaciones_controller_1.CotizacionesController, cotizaciones_internal_controller_1.CotizacionesInternalController],
-        providers: [cotizaciones_service_1.CotizacionesService],
+        providers: [cotizaciones_service_1.CotizacionesService, cotizaciones_jobs_1.CotizacionesJobs],
         exports: [cotizaciones_service_1.CotizacionesService],
     })
 ], CotizacionesModule);
