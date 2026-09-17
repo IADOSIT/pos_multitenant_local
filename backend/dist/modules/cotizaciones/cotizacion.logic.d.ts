@@ -10,3 +10,4 @@ export declare function calcularTotales(items: CotizacionItem[], precios: Map<nu
 };
 export declare function vigenciaHasta(desde: Date, dias: number): string;
 export declare function estaVigente(vigencia_hasta: string, hoy: Date): boolean;
+export declare function direccionPlana(dir: any): string | null;

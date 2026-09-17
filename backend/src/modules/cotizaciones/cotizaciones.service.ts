@@ -4,7 +4,9 @@ import { Repository, Like, And, MoreThanOrEqual, LessThan } from 'typeorm';
 import { Cotizacion } from './cotizacion.entity';
 import { CotizacionVersion, CotizacionItem } from './cotizacion-version.entity';
 import { EcommerceConfig } from '../ecommerce/ecommerce-config.entity';
-import { puedeCotizar, calcularTotales, vigenciaHasta } from './cotizacion.logic';
+import { puedeCotizar, calcularTotales, vigenciaHasta, direccionPlana } from './cotizacion.logic';
+import { PedidosService } from '../pedidos/pedidos.service';
+import { PedidoEstado } from '../pedidos/pedido.entity';
 
 export interface CotizarDto {
   items: { producto_id: number; precio_unitario: number }[];
@@ -22,6 +24,7 @@ export class CotizacionesService {
     @InjectRepository(Cotizacion) private cotRepo: Repository<Cotizacion>,
     @InjectRepository(CotizacionVersion) private verRepo: Repository<CotizacionVersion>,
     @InjectRepository(EcommerceConfig) private configRepo: Repository<EcommerceConfig>,
+    private pedidosService: PedidosService,
   ) {}
 
   async listar(scope: any, filtros: { estado?: string; q?: string; desde?: string; hasta?: string } = {}) {
@@ -179,5 +182,63 @@ export class CotizacionesService {
     const c = await this.buscar(scope, id);
     c.notas_internas = notas_internas;
     return this.cotRepo.save(c);
+  }
+
+  // Convierte una cotizacion aceptada en el pedido de mostrador que se cobra en
+  // caja. Lo llama el endpoint interno cuando el cliente acepta en la tienda, y
+  // el job de reintento si esa llamada no llego. Idempotente por `pedido_id`.
+  async materializarPedido(id: number): Promise<{ pedido_id: number; folio: string }> {
+    const c = await this.cotRepo.findOne({ where: { id } });
+    if (!c) throw new NotFoundException('Cotización no encontrada');
+    if (c.pedido_id) {
+      return { pedido_id: c.pedido_id, folio: '' };
+    }
+    if (c.estado !== 'aceptada') {
+      throw new BadRequestException('Solo se materializa una cotización aceptada');
+    }
+    if (!c.tienda_id) {
+      throw new BadRequestException('La cotización no tiene tienda asignada');
+    }
+
+    const version = await this.verRepo.findOne({
+      where: { cotizacion_id: c.id, version: c.version_actual },
+    });
+    if (!version) throw new BadRequestException('La cotización no tiene versión vigente');
+
+    const pedido = await this.pedidosService.crear(
+      {
+        mesa: 0,
+        subtotal: version.subtotal,
+        descuento: version.descuento,
+        impuestos: 0,
+        total: version.total,
+        notas: `Cotización ${c.numero}${c.notas_cliente ? ' | ' + c.notas_cliente : ''}`,
+        cliente_nombre: c.cliente_nombre,
+        cliente_telefono: c.cliente_tel,
+        cliente_direccion: direccionPlana(c.direccion_envio),
+        cliente_email: c.cliente_email,
+        cliente_empresa: c.cliente_empresa,
+        tipo_servicio: 'para_llevar',
+        estado: PedidoEstado.LISTO_PARA_ENTREGA,
+        cotizacion_id: c.id,
+        items: (version.items || []).map((it) => ({
+          producto_id: it.producto_id,
+          nombre: it.nombre,
+          sku: it.sku,
+          cantidad: Number(it.qty || 0),
+          precio: Number(it.precio_unitario || 0),
+        })),
+      },
+      {
+        tenant_id: c.tenant_id,
+        empresa_id: c.empresa_id,
+        tienda_id: c.tienda_id,
+        nombre: 'Tienda en línea',
+      },
+    );
+
+    c.pedido_id = pedido!.id;
+    await this.cotRepo.save(c);
+    return { pedido_id: pedido!.id, folio: pedido!.folio };
   }
 }

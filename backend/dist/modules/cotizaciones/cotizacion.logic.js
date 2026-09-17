@@ -6,6 +6,7 @@ exports.folioCotizacion = folioCotizacion;
 exports.calcularTotales = calcularTotales;
 exports.vigenciaHasta = vigenciaHasta;
 exports.estaVigente = estaVigente;
+exports.direccionPlana = direccionPlana;
 const COTIZABLES = ['solicitada', 'rechazada', 'vencida'];
 function puedeCotizar(estado) {
     return COTIZABLES.includes(estado);
@@ -36,5 +37,15 @@ function vigenciaHasta(desde, dias) {
 }
 function estaVigente(vigencia_hasta, hoy) {
     return hoy.toISOString().slice(0, 10) <= vigencia_hasta;
+}
+function direccionPlana(dir) {
+    if (!dir)
+        return null;
+    if (typeof dir === 'string')
+        return dir.slice(0, 300);
+    const partes = ['calle', 'numero', 'colonia', 'ciudad', 'estado', 'cp', 'referencias']
+        .map((k) => dir[k])
+        .filter((v) => typeof v === 'string' && v.trim());
+    return partes.length ? partes.join(', ').slice(0, 300) : null;
 }
 //# sourceMappingURL=cotizacion.logic.js.map

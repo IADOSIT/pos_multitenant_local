@@ -2,6 +2,7 @@ import { Repository } from 'typeorm';
 import { Cotizacion } from './cotizacion.entity';
 import { CotizacionVersion, CotizacionItem } from './cotizacion-version.entity';
 import { EcommerceConfig } from '../ecommerce/ecommerce-config.entity';
+import { PedidosService } from '../pedidos/pedidos.service';
 export interface CotizarDto {
     items: {
         producto_id: number;
@@ -16,7 +17,8 @@ export declare class CotizacionesService {
     private cotRepo;
     private verRepo;
     private configRepo;
-    constructor(cotRepo: Repository<Cotizacion>, verRepo: Repository<CotizacionVersion>, configRepo: Repository<EcommerceConfig>);
+    private pedidosService;
+    constructor(cotRepo: Repository<Cotizacion>, verRepo: Repository<CotizacionVersion>, configRepo: Repository<EcommerceConfig>, pedidosService: PedidosService);
     listar(scope: any, filtros?: {
         estado?: string;
         q?: string;
@@ -52,4 +54,8 @@ export declare class CotizacionesService {
     private vigenciaDeTienda;
     cerrar(scope: any, id: number, motivo: string): Promise<Cotizacion>;
     actualizarNotas(scope: any, id: number, notas_internas: string): Promise<Cotizacion>;
+    materializarPedido(id: number): Promise<{
+        pedido_id: number;
+        folio: string;
+    }>;
 }

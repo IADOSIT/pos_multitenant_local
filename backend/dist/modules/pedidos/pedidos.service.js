@@ -65,6 +65,7 @@ let PedidosService = class PedidosService {
             tipo_servicio: data.tipo_servicio || 'en_sitio',
             estado: data.estado || pedido_entity_1.PedidoEstado.RECIBIDO,
             ecommerce_pedido_id: data.ecommerce_pedido_id ?? null,
+            cotizacion_id: data.cotizacion_id ?? null,
             detalles: data.items.map((item) => ({
                 producto_id: item.producto_id,
                 producto_nombre: item.nombre,

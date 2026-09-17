@@ -26,6 +26,9 @@
       APP_VERSION: "2.4.1"
       PEXELS_API_KEY: zTTe3zHwLV7IAsqZSwfavWE41iv2ALaGMgrFAtkKitUw1sawGTRSp1wB
       NODE_OPTIONS: "--max-old-space-size=512"
+      # Secreto compartido con POS_STORE_API para /internal/* (aceptacion de
+      # cotizaciones). Debe ser IDENTICO en los dos stacks.
+      INTERNAL_API_SECRET: cambiar_este_valor_en_produccion
     volumes:
       - ./backend/uploads:/app/uploads
     networks:

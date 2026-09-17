@@ -48,3 +48,15 @@ export function vigenciaHasta(desde: Date, dias: number): string {
 export function estaVigente(vigencia_hasta: string, hoy: Date): boolean {
   return hoy.toISOString().slice(0, 10) <= vigencia_hasta;
 }
+
+// La direccion del ecommerce (y la de una cotizacion web) es un JSON
+// ({calle, colonia, ciudad...}); el pedido de mostrador guarda una sola linea de
+// texto. Compartida por ecommerce.service.ts y cotizaciones.service.ts.
+export function direccionPlana(dir: any): string | null {
+  if (!dir) return null;
+  if (typeof dir === 'string') return dir.slice(0, 300);
+  const partes = ['calle', 'numero', 'colonia', 'ciudad', 'estado', 'cp', 'referencias']
+    .map((k) => dir[k])
+    .filter((v) => typeof v === 'string' && v.trim());
+  return partes.length ? partes.join(', ').slice(0, 300) : null;
+}

@@ -20,12 +20,15 @@ const cotizacion_entity_1 = require("./cotizacion.entity");
 const cotizacion_version_entity_1 = require("./cotizacion-version.entity");
 const ecommerce_config_entity_1 = require("../ecommerce/ecommerce-config.entity");
 const cotizacion_logic_1 = require("./cotizacion.logic");
+const pedidos_service_1 = require("../pedidos/pedidos.service");
+const pedido_entity_1 = require("../pedidos/pedido.entity");
 const VIGENCIA_DEFAULT = 15;
 let CotizacionesService = class CotizacionesService {
-    constructor(cotRepo, verRepo, configRepo) {
+    constructor(cotRepo, verRepo, configRepo, pedidosService) {
         this.cotRepo = cotRepo;
         this.verRepo = verRepo;
         this.configRepo = configRepo;
+        this.pedidosService = pedidosService;
     }
     async listar(scope, filtros = {}) {
         const base = { empresa_id: scope.empresa_id, tenant_id: scope.tenant_id };
@@ -149,6 +152,56 @@ let CotizacionesService = class CotizacionesService {
         c.notas_internas = notas_internas;
         return this.cotRepo.save(c);
     }
+    async materializarPedido(id) {
+        const c = await this.cotRepo.findOne({ where: { id } });
+        if (!c)
+            throw new common_1.NotFoundException('Cotización no encontrada');
+        if (c.pedido_id) {
+            return { pedido_id: c.pedido_id, folio: '' };
+        }
+        if (c.estado !== 'aceptada') {
+            throw new common_1.BadRequestException('Solo se materializa una cotización aceptada');
+        }
+        if (!c.tienda_id) {
+            throw new common_1.BadRequestException('La cotización no tiene tienda asignada');
+        }
+        const version = await this.verRepo.findOne({
+            where: { cotizacion_id: c.id, version: c.version_actual },
+        });
+        if (!version)
+            throw new common_1.BadRequestException('La cotización no tiene versión vigente');
+        const pedido = await this.pedidosService.crear({
+            mesa: 0,
+            subtotal: version.subtotal,
+            descuento: version.descuento,
+            impuestos: 0,
+            total: version.total,
+            notas: `Cotización ${c.numero}${c.notas_cliente ? ' | ' + c.notas_cliente : ''}`,
+            cliente_nombre: c.cliente_nombre,
+            cliente_telefono: c.cliente_tel,
+            cliente_direccion: (0, cotizacion_logic_1.direccionPlana)(c.direccion_envio),
+            cliente_email: c.cliente_email,
+            cliente_empresa: c.cliente_empresa,
+            tipo_servicio: 'para_llevar',
+            estado: pedido_entity_1.PedidoEstado.LISTO_PARA_ENTREGA,
+            cotizacion_id: c.id,
+            items: (version.items || []).map((it) => ({
+                producto_id: it.producto_id,
+                nombre: it.nombre,
+                sku: it.sku,
+                cantidad: Number(it.qty || 0),
+                precio: Number(it.precio_unitario || 0),
+            })),
+        }, {
+            tenant_id: c.tenant_id,
+            empresa_id: c.empresa_id,
+            tienda_id: c.tienda_id,
+            nombre: 'Tienda en línea',
+        });
+        c.pedido_id = pedido.id;
+        await this.cotRepo.save(c);
+        return { pedido_id: pedido.id, folio: pedido.folio };
+    }
 };
 exports.CotizacionesService = CotizacionesService;
 exports.CotizacionesService = CotizacionesService = __decorate([
@@ -158,6 +211,7 @@ exports.CotizacionesService = CotizacionesService = __decorate([
     __param(2, (0, typeorm_1.InjectRepository)(ecommerce_config_entity_1.EcommerceConfig)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
         typeorm_2.Repository,
-        typeorm_2.Repository])
+        typeorm_2.Repository,
+        pedidos_service_1.PedidosService])
 ], CotizacionesService);
 //# sourceMappingURL=cotizaciones.service.js.map

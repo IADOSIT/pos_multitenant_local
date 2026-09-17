@@ -5,6 +5,7 @@ import { CotizacionVersion } from './cotizacion-version.entity';
 import { EcommerceConfig } from '../ecommerce/ecommerce-config.entity';
 import { PedidosModule } from '../pedidos/pedidos.module';
 import { CotizacionesController } from './cotizaciones.controller';
+import { CotizacionesInternalController } from './cotizaciones-internal.controller';
 import { CotizacionesService } from './cotizaciones.service';
 
 @Module({
@@ -13,7 +14,7 @@ import { CotizacionesService } from './cotizaciones.service';
     // Al aceptar el cliente se materializa el pedido de mostrador.
     PedidosModule,
   ],
-  controllers: [CotizacionesController],
+  controllers: [CotizacionesController, CotizacionesInternalController],
   providers: [CotizacionesService],
   exports: [CotizacionesService],
 })

@@ -86,7 +86,7 @@ function repos(cot: any, versiones: any[] = []) {
 
 function servicio(cot: any, versiones: any[] = []) {
   const r = repos(cot, versiones);
-  const svc = new CotizacionesService(r.cotRepo as any, r.verRepo as any, r.configRepo as any);
+  const svc = new CotizacionesService(r.cotRepo as any, r.verRepo as any, r.configRepo as any, {} as any);
   return { svc, ...r };
 }
 
