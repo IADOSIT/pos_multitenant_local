@@ -13,6 +13,8 @@ const cotizacion_entity_1 = require("./cotizacion.entity");
 const cotizacion_version_entity_1 = require("./cotizacion-version.entity");
 const ecommerce_config_entity_1 = require("../ecommerce/ecommerce-config.entity");
 const pedidos_module_1 = require("../pedidos/pedidos.module");
+const cotizaciones_controller_1 = require("./cotizaciones.controller");
+const cotizaciones_service_1 = require("./cotizaciones.service");
 let CotizacionesModule = class CotizacionesModule {
 };
 exports.CotizacionesModule = CotizacionesModule;
@@ -22,9 +24,9 @@ exports.CotizacionesModule = CotizacionesModule = __decorate([
             typeorm_1.TypeOrmModule.forFeature([cotizacion_entity_1.Cotizacion, cotizacion_version_entity_1.CotizacionVersion, ecommerce_config_entity_1.EcommerceConfig]),
             pedidos_module_1.PedidosModule,
         ],
-        controllers: [],
-        providers: [],
-        exports: [],
+        controllers: [cotizaciones_controller_1.CotizacionesController],
+        providers: [cotizaciones_service_1.CotizacionesService],
+        exports: [cotizaciones_service_1.CotizacionesService],
     })
 ], CotizacionesModule);
 //# sourceMappingURL=cotizaciones.module.js.map
