@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260916-pwa-se-actualiza-sola"
+        CACHE_BUST: "20260917-cotizaciones-entidad-propia"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
@@ -50,7 +50,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260916-pwa-se-actualiza-sola"
+        CACHE_BUST: "20260917-cotizaciones-entidad-propia"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:
