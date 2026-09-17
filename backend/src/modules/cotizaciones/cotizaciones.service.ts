@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
+import { Repository, Like, And, MoreThanOrEqual, LessThan } from 'typeorm';
 import { Cotizacion } from './cotizacion.entity';
 import { CotizacionVersion, CotizacionItem } from './cotizacion-version.entity';
 import { EcommerceConfig } from '../ecommerce/ecommerce-config.entity';
@@ -45,10 +45,21 @@ export class CotizacionesService {
   }
 
   private rangoFechas(desde?: string, hasta?: string) {
-    if (desde && hasta) return Between(desde, hasta);
+    // created_at es datetime completo: 'hasta' es una fecha (dia), no un instante, asi
+    // que el limite superior tiene que ser el INICIO DEL DIA SIGUIENTE comparado con
+    // LessThan (estricto) - comparar contra 'hasta 00:00:00' con LessThanOrEqual
+    // dejaria fuera casi todo lo creado ese mismo dia.
+    const hastaExclusivo = hasta ? this.finDelDia(hasta) : null;
+    if (desde && hastaExclusivo) return And(MoreThanOrEqual(desde), LessThan(hastaExclusivo));
     if (desde) return MoreThanOrEqual(desde);
-    if (hasta) return LessThanOrEqual(hasta);
+    if (hastaExclusivo) return LessThan(hastaExclusivo);
     return null;
+  }
+
+  private finDelDia(fecha: string): string {
+    const d = new Date(`${fecha}T00:00:00.000Z`);
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString().slice(0, 10);
   }
 
   private async buscar(scope: any, id: number): Promise<Cotizacion> {

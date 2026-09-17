@@ -24,6 +24,7 @@ export declare class CotizacionesService {
         hasta?: string;
     }): Promise<Cotizacion[]>;
     private rangoFechas;
+    private finDelDia;
     private buscar;
     detalle(scope: any, id: number): Promise<{
         cotizacion: Cotizacion;

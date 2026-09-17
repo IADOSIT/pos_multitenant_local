@@ -43,13 +43,19 @@ let CotizacionesService = class CotizacionesService {
         return this.cotRepo.find({ where, order: { created_at: 'DESC' }, take: 200 });
     }
     rangoFechas(desde, hasta) {
-        if (desde && hasta)
-            return (0, typeorm_2.Between)(desde, hasta);
+        const hastaExclusivo = hasta ? this.finDelDia(hasta) : null;
+        if (desde && hastaExclusivo)
+            return (0, typeorm_2.And)((0, typeorm_2.MoreThanOrEqual)(desde), (0, typeorm_2.LessThan)(hastaExclusivo));
         if (desde)
             return (0, typeorm_2.MoreThanOrEqual)(desde);
-        if (hasta)
-            return (0, typeorm_2.LessThanOrEqual)(hasta);
+        if (hastaExclusivo)
+            return (0, typeorm_2.LessThan)(hastaExclusivo);
         return null;
+    }
+    finDelDia(fecha) {
+        const d = new Date(`${fecha}T00:00:00.000Z`);
+        d.setUTCDate(d.getUTCDate() + 1);
+        return d.toISOString().slice(0, 10);
     }
     async buscar(scope, id) {
         const c = await this.cotRepo.findOne({
