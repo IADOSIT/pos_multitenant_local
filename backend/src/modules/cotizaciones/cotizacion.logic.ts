@@ -10,13 +10,11 @@ export function puedeCotizar(estado: CotizacionEstado): boolean {
   return COTIZABLES.includes(estado);
 }
 
-// Solo hay algo que responder cuando hay una version con precios en la mesa.
-export function puedeResponder(estado: CotizacionEstado): boolean {
-  return estado === 'enviada';
-}
-
-export function folioCotizacion(yy: string, consecutivo: number): string {
-  return `COT-${yy}-${String(consecutivo).padStart(4, '0')}`;
+// Redondea a centavos: evita que 10.1 * 3 se guarde/sirva como
+// 30.299999999999997 en el snapshot JSON de `items` (las columnas DECIMAL
+// redondean solo, pero el JSON no).
+function round2(n: number): number {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
 export function calcularTotales(
@@ -30,23 +28,12 @@ export function calcularTotales(
       ? Number(precios.get(Number(it.producto_id)))
       : Number(it.precio_unitario || 0);
     const qty = Number(it.qty || 0);
-    const sub = precio_unitario * qty;
+    const sub = round2(precio_unitario * qty);
     subtotal += sub;
     return { ...it, precio_unitario, subtotal: sub };
   });
-  return { items: conPrecio, subtotal, total: Math.max(0, subtotal - Number(descuento || 0)) };
-}
-
-// Fecha, no timestamp: la vigencia se comunica como dia ("valida hasta el 2 de
-// octubre") y vence al terminar ese dia, no a la hora exacta en que se envio.
-export function vigenciaHasta(desde: Date, dias: number): string {
-  const d = new Date(desde.getTime());
-  d.setUTCDate(d.getUTCDate() + dias);
-  return d.toISOString().slice(0, 10);
-}
-
-export function estaVigente(vigencia_hasta: string, hoy: Date): boolean {
-  return hoy.toISOString().slice(0, 10) <= vigencia_hasta;
+  subtotal = round2(subtotal);
+  return { items: conPrecio, subtotal, total: round2(Math.max(0, subtotal - Number(descuento || 0))) };
 }
 
 // La direccion del ecommerce (y la de una cotizacion web) es un JSON

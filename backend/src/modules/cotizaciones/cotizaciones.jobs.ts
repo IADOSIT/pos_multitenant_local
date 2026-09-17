@@ -46,6 +46,17 @@ export class CotizacionesJobs {
         this.log.log(`Cotización ${f.id} materializada como pedido ${r.folio || r.pedido_id}`);
       } catch (e: any) {
         this.log.error(`Cotización ${f.id} no se pudo materializar: ${e.message}`);
+        // Una fila que siempre falla (p.ej. una cotizacion sin tienda_id
+        // derivable) no puede quedarse permanentemente a la cabeza de la cola:
+        // el SELECT de arriba ordena por updated_at ASC, y sin esto la misma
+        // fila rota volveria a ganar los 20 lugares del LIMIT en cada corrida,
+        // bloqueando para siempre a las aceptaciones reales que llegan detras.
+        // Tocar updated_at la manda al fondo, dejando avanzar al resto; ella
+        // misma se reintenta igual, una vez por vuelta completa a la cola en
+        // vez de una vez por minuto.
+        await this.ds
+          .query(`UPDATE cotizaciones SET updated_at = NOW() WHERE id = ?`, [f.id])
+          .catch(() => {});
       }
     }
   }

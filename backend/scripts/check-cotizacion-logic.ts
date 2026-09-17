@@ -1,10 +1,6 @@
 import {
   puedeCotizar,
-  puedeResponder,
-  folioCotizacion,
   calcularTotales,
-  vigenciaHasta,
-  estaVigente,
   direccionPlana,
 } from '../src/modules/cotizaciones/cotizacion.logic';
 
@@ -25,17 +21,6 @@ check('vencida si (re-cotizar)', puedeCotizar('vencida'), true);
 check('enviada no', puedeCotizar('enviada'), false);
 check('aceptada no', puedeCotizar('aceptada'), false);
 check('cerrada no', puedeCotizar('cerrada'), false);
-
-console.log('--- puedeResponder ---');
-check('enviada si', puedeResponder('enviada'), true);
-check('solicitada no', puedeResponder('solicitada'), false);
-check('aceptada no', puedeResponder('aceptada'), false);
-check('vencida no', puedeResponder('vencida'), false);
-
-console.log('--- folioCotizacion ---');
-check('primero', folioCotizacion('26', 1), 'COT-26-0001');
-check('cuatro digitos', folioCotizacion('26', 42), 'COT-26-0042');
-check('no trunca arriba de 9999', folioCotizacion('26', 12345), 'COT-26-12345');
 
 console.log('--- calcularTotales ---');
 const ITEMS = [
@@ -73,12 +58,32 @@ check(
   ).subtotal,
   14,
 );
-
-console.log('--- vigencia ---');
-check('15 dias', vigenciaHasta(new Date('2026-09-17T10:00:00Z'), 15), '2026-10-02');
-check('fin de mes', vigenciaHasta(new Date('2026-01-20T10:00:00Z'), 15), '2026-02-04');
-check('vigente el mismo dia', estaVigente('2026-10-02', new Date('2026-10-02T23:00:00Z')), true);
-check('vencida al dia siguiente', estaVigente('2026-10-02', new Date('2026-10-03T00:01:00Z')), false);
+// 10.1 * 3 = 30.299999999999997 en punto flotante: el snapshot JSON de `items`
+// no pasa por una columna DECIMAL que lo redondee sola, asi que calcularTotales
+// tiene que redondear el explicitamente o ver() acaba sirviendole ese numero
+// crudo al cliente.
+check(
+  'redondea el renglon a centavos (no arrastra el error de punto flotante)',
+  calcularTotales(
+    [{ producto_id: 1, nombre: 'X', sku: 'X', qty: 3, precio_unitario: 0, subtotal: 0 }],
+    new Map([[1, 10.1]]),
+    0,
+  ).items[0].subtotal,
+  30.3,
+);
+check(
+  'redondea el subtotal y el total a centavos',
+  calcularTotales(
+    [{ producto_id: 1, nombre: 'X', sku: 'X', qty: 3, precio_unitario: 0, subtotal: 0 }],
+    new Map([[1, 10.1]]),
+    0,
+  ),
+  {
+    items: [{ producto_id: 1, nombre: 'X', sku: 'X', qty: 3, precio_unitario: 10.1, subtotal: 30.3 }],
+    subtotal: 30.3,
+    total: 30.3,
+  },
+);
 
 console.log('--- direccionPlana ---');
 check('null no truena', direccionPlana(null), null);

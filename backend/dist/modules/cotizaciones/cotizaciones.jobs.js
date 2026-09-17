@@ -47,6 +47,9 @@ let CotizacionesJobs = class CotizacionesJobs {
             }
             catch (e) {
                 this.log.error(`Cotización ${f.id} no se pudo materializar: ${e.message}`);
+                await this.ds
+                    .query(`UPDATE cotizaciones SET updated_at = NOW() WHERE id = ?`, [f.id])
+                    .catch(() => { });
             }
         }
     }

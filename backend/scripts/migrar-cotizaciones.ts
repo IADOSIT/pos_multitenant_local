@@ -61,7 +61,7 @@ function folio(yy: string, n: number) {
   console.log(`${origen.length} registros por migrar${DRY ? ' (dry-run)' : ''}`);
 
   const consecutivos = new Map<string, number>();
-  let migrados = 0, saltados = 0, sinPedido = 0, fallidos = 0;
+  let migrados = 0, saltados = 0, sinTiendaSaltados = 0, fallidos = 0;
 
   for (const p of origen) {
     const marca = `migrado-de:${p.numero_pedido};`;
@@ -89,16 +89,30 @@ function folio(yy: string, n: number) {
     const estado = aceptada ? 'aceptada' : 'solicitada';
     const version_actual = aceptada ? 1 : 0;
 
-    console.log(`  ${p.numero_pedido} (${p.estado}) -> ${numero} (${estado})`);
-
-    // El invariante de mas riesgo de toda la migracion: una fila por_cobrar sin
-    // pedido_id es una cotizacion ya aceptada sin pedido de mostrador esperando
-    // cobro. Se migra igual (no se salta), pero se grita y se cuenta aparte para
-    // que nadie corra esto sin notarlo.
-    if (aceptada && !p.pedido_id) {
-      console.warn(`    ADVERTENCIA: ${p.numero_pedido} es por_cobrar pero no tiene pedido_id - se migra sin vinculo a pedidos`);
-      sinPedido++;
+    // `ecommerce_pedidos` no tiene columna tienda_id (nunca la tuvo: la sucursal
+    // se deducia del operador en sesion al cotizar). El pedido de mostrador
+    // ligado si la tiene, asi que para una fila 'aceptada' se deriva de ahi.
+    // Sin eso, `materializarPendientes` (cotizaciones.jobs.ts) nunca puede
+    // materializarla: `materializarPedido` (cotizaciones.service.ts) exige
+    // `tienda_id` y lanza cada minuto, para siempre, bloqueando en la cabeza de
+    // la cola (ORDER BY updated_at ASC) a las aceptaciones reales que si llegan
+    // con tienda_id. Mejor no migrar esa fila a un estado que nadie puede resolver.
+    let tienda_id: number | null = null;
+    if (aceptada && p.pedido_id) {
+      const [pedidoLigado] = await ds.query('SELECT tienda_id FROM pedidos WHERE id = ? LIMIT 1', [p.pedido_id]);
+      tienda_id = pedidoLigado?.tienda_id ?? null;
     }
+
+    if (aceptada && !tienda_id) {
+      console.warn(
+        `    SALTADO: ${p.numero_pedido} es por_cobrar sin pedido_id (o sin tienda_id derivable en el pedido ` +
+          `ligado) - migrarla dejaria una cotizacion 'aceptada' que el job de reintento nunca puede materializar`,
+      );
+      sinTiendaSaltados++;
+      continue;
+    }
+
+    console.log(`  ${p.numero_pedido} (${p.estado}) -> ${numero} (${estado})`);
 
     if (DRY) { migrados++; continue; }
 
@@ -118,12 +132,12 @@ function folio(yy: string, n: number) {
         `INSERT INTO cotizaciones
            (empresa_id, tenant_id, numero, cliente_nombre, cliente_email, cliente_tel,
             cliente_empresa, direccion_envio, notas_cliente, estado, version_actual,
-            pedido_id, notas_internas, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            tienda_id, pedido_id, notas_internas, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           p.empresa_id, p.tenant_id, numero, p.cliente_nombre, p.cliente_email, p.cliente_tel,
           p.cliente_empresa, p.direccion_envio, p.notas_cliente, estado, version_actual,
-          p.pedido_id, `${marca}${p.notas_internas ? ' | ' + p.notas_internas : ''}`,
+          tienda_id, p.pedido_id, `${marca}${p.notas_internas ? ' | ' + p.notas_internas : ''}`,
           p.created_at, p.updated_at,
         ],
       );
@@ -173,7 +187,10 @@ function folio(yy: string, n: number) {
     }
   }
 
-  console.log(`\nMigrados: ${migrados} | Ya existian: ${saltados} | Sin pedido ligado: ${sinPedido} | Fallidos: ${fallidos}`);
+  console.log(
+    `\nMigrados: ${migrados} | Ya existian: ${saltados} | ` +
+      `Saltados por_cobrar sin tienda_id derivable: ${sinTiendaSaltados} | Fallidos: ${fallidos}`,
+  );
   await ds.destroy();
   if (fallidos > 0) process.exitCode = 1;
 })().catch((e) => { console.error(e); process.exit(1); });

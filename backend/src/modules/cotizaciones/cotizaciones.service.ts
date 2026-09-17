@@ -4,7 +4,7 @@ import { Repository, Like, And, MoreThanOrEqual, LessThan } from 'typeorm';
 import { Cotizacion } from './cotizacion.entity';
 import { CotizacionVersion, CotizacionItem } from './cotizacion-version.entity';
 import { EcommerceConfig } from '../ecommerce/ecommerce-config.entity';
-import { puedeCotizar, calcularTotales, vigenciaHasta, direccionPlana } from './cotizacion.logic';
+import { puedeCotizar, calcularTotales, direccionPlana } from './cotizacion.logic';
 import { PedidosService } from '../pedidos/pedidos.service';
 import { PedidoEstado } from '../pedidos/pedido.entity';
 
@@ -111,12 +111,18 @@ export class CotizacionesService {
     // cantidades, el negocio solo pone precios.
     const base = await this.itemsBase(cotizacion);
     const descuento = Number(dto.descuento || 0);
+    if (!Number.isFinite(descuento) || descuento < 0) {
+      throw new BadRequestException('El descuento no puede ser negativo');
+    }
     const { items, subtotal, total } = calcularTotales(base, precios, descuento);
 
     if (!items.length) throw new BadRequestException('La cotización no tiene productos');
     if (subtotal <= 0) throw new BadRequestException('Captura al menos un precio mayor a cero');
 
-    const dias = Number(dto.vigencia_dias || (await this.vigenciaDeTienda(cotizacion)) || VIGENCIA_DEFAULT);
+    const dias = Math.floor(Number(dto.vigencia_dias || (await this.vigenciaDeTienda(cotizacion)) || VIGENCIA_DEFAULT));
+    if (!Number.isFinite(dias) || dias <= 0) {
+      throw new BadRequestException('Vigencia inválida');
+    }
     const ahora = new Date();
 
     // La version nueva y el avance de la cotizacion (estado + version_actual +
@@ -126,14 +132,21 @@ export class CotizacionesService {
     // mostrando todavia la version (y los precios) anteriores.
     const { cotizacion: cotizacionGuardada, version } = await this.cotRepo.manager.transaction(
       async (manager) => {
-        const version = await manager.save(CotizacionVersion, {
+        let version = await manager.save(CotizacionVersion, {
           cotizacion_id: cotizacion.id,
           version: cotizacion.version_actual + 1,
           items,
           subtotal,
           descuento,
           total,
-          vigencia_hasta: vigenciaHasta(ahora, dias),
+          // Placeholder temporal solo para satisfacer el NOT NULL: se sobreescribe
+          // dos lineas abajo con CURDATE()+dias, el mismo reloj (MySQL) que evalua
+          // la vigencia en marcarVencidas() y en el enlace publico de la tienda. Si
+          // se calculara aqui en JS (Date.setUTCDate) el resultado dependeria del
+          // huso horario del contenedor de Node y podria divergir de SQL (ver
+          // finding 3 del review: el build on-premise en Windows ya corre en hora
+          // local de Mexico, no en UTC).
+          vigencia_hasta: ahora.toISOString().slice(0, 10),
           mensaje_cliente: dto.mensaje_cliente || null,
           enviada_at: ahora,
           respuesta: null,
@@ -141,6 +154,16 @@ export class CotizacionesService {
           respondida_at: null,
           respondida_ip: null,
         });
+
+        await manager.query(
+          `UPDATE cotizacion_versiones SET vigencia_hasta = DATE_ADD(CURDATE(), INTERVAL ? DAY) WHERE id = ?`,
+          [dias, version.id],
+        );
+        const [fila] = await manager.query(
+          `SELECT vigencia_hasta FROM cotizacion_versiones WHERE id = ?`,
+          [version.id],
+        );
+        if (fila?.vigencia_hasta) version = { ...version, vigencia_hasta: fila.vigencia_hasta };
 
         cotizacion.estado = 'enviada';
         cotizacion.version_actual = version.version;

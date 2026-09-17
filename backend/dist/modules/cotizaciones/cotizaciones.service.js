@@ -95,22 +95,28 @@ let CotizacionesService = class CotizacionesService {
         }
         const base = await this.itemsBase(cotizacion);
         const descuento = Number(dto.descuento || 0);
+        if (!Number.isFinite(descuento) || descuento < 0) {
+            throw new common_1.BadRequestException('El descuento no puede ser negativo');
+        }
         const { items, subtotal, total } = (0, cotizacion_logic_1.calcularTotales)(base, precios, descuento);
         if (!items.length)
             throw new common_1.BadRequestException('La cotización no tiene productos');
         if (subtotal <= 0)
             throw new common_1.BadRequestException('Captura al menos un precio mayor a cero');
-        const dias = Number(dto.vigencia_dias || (await this.vigenciaDeTienda(cotizacion)) || VIGENCIA_DEFAULT);
+        const dias = Math.floor(Number(dto.vigencia_dias || (await this.vigenciaDeTienda(cotizacion)) || VIGENCIA_DEFAULT));
+        if (!Number.isFinite(dias) || dias <= 0) {
+            throw new common_1.BadRequestException('Vigencia inválida');
+        }
         const ahora = new Date();
         const { cotizacion: cotizacionGuardada, version } = await this.cotRepo.manager.transaction(async (manager) => {
-            const version = await manager.save(cotizacion_version_entity_1.CotizacionVersion, {
+            let version = await manager.save(cotizacion_version_entity_1.CotizacionVersion, {
                 cotizacion_id: cotizacion.id,
                 version: cotizacion.version_actual + 1,
                 items,
                 subtotal,
                 descuento,
                 total,
-                vigencia_hasta: (0, cotizacion_logic_1.vigenciaHasta)(ahora, dias),
+                vigencia_hasta: ahora.toISOString().slice(0, 10),
                 mensaje_cliente: dto.mensaje_cliente || null,
                 enviada_at: ahora,
                 respuesta: null,
@@ -118,6 +124,10 @@ let CotizacionesService = class CotizacionesService {
                 respondida_at: null,
                 respondida_ip: null,
             });
+            await manager.query(`UPDATE cotizacion_versiones SET vigencia_hasta = DATE_ADD(CURDATE(), INTERVAL ? DAY) WHERE id = ?`, [dias, version.id]);
+            const [fila] = await manager.query(`SELECT vigencia_hasta FROM cotizacion_versiones WHERE id = ?`, [version.id]);
+            if (fila?.vigencia_hasta)
+                version = { ...version, vigencia_hasta: fila.vigencia_hasta };
             cotizacion.estado = 'enviada';
             cotizacion.version_actual = version.version;
             cotizacion.tienda_id = tienda_id;

@@ -48,6 +48,12 @@ function fakeManager(guardadas: any[]) {
       guardadas.push({ tabla, via: 'manager', ...data });
       return tabla === 'versiones' ? { id: 99, ...data } : data;
     },
+    // cotizar() ya no calcula vigencia_hasta en JS (finding 3): el UPDATE con
+    // DATE_ADD(CURDATE(), ...) y el SELECT que la relee pasan por aqui.
+    query: async (sql: string, _params: any[] = []) => {
+      if (sql.includes('SELECT vigencia_hasta')) return [{ vigencia_hasta: '2026-10-02' }];
+      return [];
+    },
   };
 }
 
@@ -205,6 +211,12 @@ const ITEMS_SOLICITADOS = [
     () => servicio(cotizacionFake(), [{ version: 0, items: ITEMS_SOLICITADOS }])
       .svc.cotizar({ tenant_id: 1, empresa_id: 7 }, 10, { items: [{ producto_id: 1, precio_unitario: 10 }] }),
     'tienda',
+  );
+  await checkThrows(
+    'descuento negativo se rechaza (no se vuelve un recargo)',
+    () => servicio(cotizacionFake(), [{ version: 0, items: ITEMS_SOLICITADOS }])
+      .svc.cotizar(SCOPE, 10, { items: [{ producto_id: 1, precio_unitario: 10 }], descuento: -5 }),
+    'descuento',
   );
 
   console.log('--- cerrar ---');
