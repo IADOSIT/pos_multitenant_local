@@ -2,7 +2,9 @@ import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@
 import { LicenciasService } from '../../modules/licencias/licencias.service';
 
 // Routes that bypass license check
-const BYPASS_PATHS = ['/api/auth', '/api/licencias', '/api/health', '/api/deploy', '/api/notificaciones', '/api/uploads', '/api/menu-digital/view', '/api/menu-digital/receive', '/api/public/logistica', '/api/public/biometrico'];
+// Llamadas servicio-a-servicio: ya van autenticadas por InternalSecretGuard y
+// no representan a un usuario cuya licencia se pueda evaluar.
+const BYPASS_PATHS = ['/api/auth', '/api/licencias', '/api/health', '/api/deploy', '/api/notificaciones', '/api/uploads', '/api/menu-digital/view', '/api/menu-digital/receive', '/api/public/logistica', '/api/public/biometrico', '/api/internal/'];
 
 @Injectable()
 export class LicenciaGuard implements CanActivate {

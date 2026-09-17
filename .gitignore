@@ -21,3 +21,6 @@ coverage/
 .nyc_output/
 *.tsbuildinfo
 .claude/settings.local.json
+
+# Espacio de trabajo de subagent-driven-development (scratch, no versionado)
+.superpowers/

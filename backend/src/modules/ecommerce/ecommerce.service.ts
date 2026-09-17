@@ -8,17 +8,7 @@ import { Cliente } from './cliente.entity';
 import { resolveCamposFormulario } from '../empresas/campos-formulario.helper';
 import { PedidosService } from '../pedidos/pedidos.service';
 import { PedidoEstado } from '../pedidos/pedido.entity';
-
-// La direccion del ecommerce es un JSON ({calle, colonia, ciudad...}); el pedido de
-// mostrador guarda una sola linea de texto.
-function direccionPlana(dir: any): string | null {
-  if (!dir) return null;
-  if (typeof dir === 'string') return dir.slice(0, 300);
-  const partes = ['calle', 'numero', 'colonia', 'ciudad', 'estado', 'cp', 'referencias']
-    .map((k) => dir[k])
-    .filter((v) => typeof v === 'string' && v.trim());
-  return partes.length ? partes.join(', ').slice(0, 300) : null;
-}
+import { direccionPlana } from '../cotizaciones/cotizacion.logic';
 
 // Reintentos al generar el consecutivo del pedido cuando otro pedido concurrente
 // de la misma tienda se adelanto y tomo el mismo numero.

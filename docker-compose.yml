@@ -26,6 +26,12 @@
       APP_VERSION: "2.4.1"
       PEXELS_API_KEY: zTTe3zHwLV7IAsqZSwfavWE41iv2ALaGMgrFAtkKitUw1sawGTRSp1wB
       NODE_OPTIONS: "--max-old-space-size=512"
+      # Secreto compartido con POS_STORE_API para /internal/* (aceptacion de
+      # cotizaciones). Debe ser IDENTICO en los dos stacks. Cada despliegue debe
+      # generar el suyo (p.ej. `openssl rand -hex 32`) y exportarlo como
+      # INTERNAL_API_SECRET antes de levantar el stack; sin variable definida el
+      # arranque falla en vez de correr con un secreto adivinable.
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET debe estar definido}
     volumes:
       - ./backend/uploads:/app/uploads
     networks:

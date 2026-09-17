@@ -11,6 +11,12 @@ export enum PedidoEstado {
 @Entity('pedidos')
 @Index(['tenant_id', 'empresa_id', 'tienda_id'])
 @Index(['tienda_id', 'estado'])
+// Segunda capa contra el pedido duplicado: InnoDB permite muchos NULL en un
+// indice UNIQUE, asi que todo pedido normal de mostrador (cotizacion_id NULL)
+// no se ve afectado; solo un segundo pedido para la MISMA cotizacion choca.
+// Solo a nivel de clase: combinarlo con `unique: true` en la columna hace que
+// TypeORM intente dos constraints UNIQUE al sincronizar y el backend no arranca.
+@Index(['cotizacion_id'], { unique: true })
 export class Pedido {
   @PrimaryGeneratedColumn()
   id: number;
@@ -104,6 +110,12 @@ export class Pedido {
   // cobra, la cotizacion se cierra sola. Null en los pedidos normales de mostrador.
   @Column({ type: 'int', nullable: true })
   ecommerce_pedido_id: number | null;
+
+  // Cotizacion de origen (tabla `cotizaciones`). Un pedido lleva `cotizacion_id`
+  // o `ecommerce_pedido_id`, nunca las dos: son dos caminos distintos de entrada
+  // desde la tienda. Null en los pedidos normales de mostrador.
+  @Column({ type: 'int', nullable: true })
+  cotizacion_id: number | null;
 
   @CreateDateColumn()
   created_at: Date;

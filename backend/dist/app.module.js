@@ -45,6 +45,7 @@ const pagos_gateway_module_1 = require("./modules/pagos-gateway/pagos-gateway.mo
 const perfiles_module_1 = require("./modules/perfiles/perfiles.module");
 const devoluciones_module_1 = require("./modules/devoluciones/devoluciones.module");
 const ecommerce_module_1 = require("./modules/ecommerce/ecommerce.module");
+const cotizaciones_module_1 = require("./modules/cotizaciones/cotizaciones.module");
 const logistica_module_1 = require("./modules/logistica/logistica.module");
 const empleados_module_1 = require("./modules/empleados/empleados.module");
 const bascula_module_1 = require("./modules/bascula/bascula.module");
@@ -103,6 +104,7 @@ exports.AppModule = AppModule = __decorate([
             perfiles_module_1.PerfilesModule,
             devoluciones_module_1.DevolucionesModule,
             ecommerce_module_1.EcommerceModule,
+            cotizaciones_module_1.CotizacionesModule,
             logistica_module_1.LogisticaModule,
             empleados_module_1.EmpleadosModule,
             bascula_module_1.BasculaModule,
