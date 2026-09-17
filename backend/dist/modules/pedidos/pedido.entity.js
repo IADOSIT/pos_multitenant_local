@@ -157,7 +157,8 @@ __decorate([
 exports.Pedido = Pedido = __decorate([
     (0, typeorm_1.Entity)('pedidos'),
     (0, typeorm_1.Index)(['tenant_id', 'empresa_id', 'tienda_id']),
-    (0, typeorm_1.Index)(['tienda_id', 'estado'])
+    (0, typeorm_1.Index)(['tienda_id', 'estado']),
+    (0, typeorm_1.Index)(['cotizacion_id'], { unique: true })
 ], Pedido);
 let PedidoDetalle = class PedidoDetalle {
 };

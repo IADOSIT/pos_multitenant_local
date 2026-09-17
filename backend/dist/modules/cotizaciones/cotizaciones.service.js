@@ -165,6 +165,14 @@ let CotizacionesService = class CotizacionesService {
         if (!c.tienda_id) {
             throw new common_1.BadRequestException('La cotización no tiene tienda asignada');
         }
+        const existente = await this.cotRepo.manager
+            .getRepository('Pedido')
+            .findOne({ where: { cotizacion_id: c.id } });
+        if (existente) {
+            c.pedido_id = existente.id;
+            await this.cotRepo.save(c);
+            return { pedido_id: existente.id, folio: existente.folio };
+        }
         const version = await this.verRepo.findOne({
             where: { cotizacion_id: c.id, version: c.version_actual },
         });

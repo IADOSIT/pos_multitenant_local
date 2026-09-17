@@ -102,7 +102,11 @@ check(
   'Hidalgo 10, Saltillo',
 );
 check('objeto sin ningun campo util da null', direccionPlana({}), null);
-check('string se respeta tal cual (recortado a 300)', direccionPlana('Una linea de texto libre'), 'Una linea de texto libre');
+check('string corto se respeta tal cual', direccionPlana('Una linea de texto libre'), 'Una linea de texto libre');
+{
+  const larga = 'X'.repeat(350);
+  check('string largo se recorta a 300 caracteres', direccionPlana(larga), 'X'.repeat(300));
+}
 
 console.log(fallos === 0 ? '\nTODO OK' : `\n${fallos} FALLAS`);
 process.exit(fallos === 0 ? 0 : 1);

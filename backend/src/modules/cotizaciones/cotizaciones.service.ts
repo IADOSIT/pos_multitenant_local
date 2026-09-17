@@ -200,6 +200,22 @@ export class CotizacionesService {
       throw new BadRequestException('La cotización no tiene tienda asignada');
     }
 
+    // Capa 1 contra el pedido duplicado: si `pedidosService.crear` ya tuvo exito
+    // en una llamada anterior pero el `cotRepo.save(c)` de abajo fallo (o el
+    // reintento llego entre medio), `c.pedido_id` sigue null aunque el pedido ya
+    // exista. Buscarlo por `cotizacion_id` antes de crear cierra esa ventana:
+    // se adopta el pedido que ya esta, no se crea uno nuevo. Mismo patron que
+    // `pedidos.service.ts` usa con `manager.getRepository('Venta')` para no
+    // inyectar un repo nuevo ni ensanchar la API de `PedidosService`.
+    const existente = await this.cotRepo.manager
+      .getRepository('Pedido')
+      .findOne({ where: { cotizacion_id: c.id } });
+    if (existente) {
+      c.pedido_id = (existente as any).id;
+      await this.cotRepo.save(c);
+      return { pedido_id: (existente as any).id, folio: (existente as any).folio };
+    }
+
     const version = await this.verRepo.findOne({
       where: { cotizacion_id: c.id, version: c.version_actual },
     });

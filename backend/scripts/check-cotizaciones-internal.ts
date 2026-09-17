@@ -35,9 +35,25 @@ const ITEMS = [
   { producto_id: 2, nombre: 'Encendedor', sku: 'B2', qty: 2, precio_unitario: 25, subtotal: 50 },
 ];
 
-function servicio(cot: any) {
+// ordenExistente simula lo que encontraria manager.getRepository('Pedido').findOne():
+// un pedido que ya quedo ligado a esta cotizacion (crear() tuvo exito antes, pero
+// el cotRepo.save(c) que persiste pedido_id fallo o el reintento llego entre medio).
+function servicio(cot: any, ordenExistente: any = null) {
   const creados: any[] = [];
-  const cotRepo = { findOne: async () => cot, save: async (c: any) => c, find: async () => [cot] };
+  const pedidoRepoLookups: any[] = [];
+  const cotRepo = {
+    findOne: async () => cot,
+    save: async (c: any) => c,
+    find: async () => [cot],
+    manager: {
+      getRepository: (_entidad: any) => ({
+        findOne: async (opts: any) => {
+          pedidoRepoLookups.push(opts);
+          return ordenExistente;
+        },
+      }),
+    },
+  };
   const verRepo = {
     findOne: async () => ({ version: 1, items: ITEMS, subtotal: 80, descuento: 0, total: 80 }),
     find: async () => [{ version: 1, items: ITEMS, subtotal: 80, descuento: 0, total: 80 }],
@@ -51,7 +67,7 @@ function servicio(cot: any) {
     },
   };
   const svc = new CotizacionesService(cotRepo as any, verRepo as any, configRepo as any, pedidosService as any);
-  return { svc, creados };
+  return { svc, creados, pedidoRepoLookups };
 }
 
 (async () => {
@@ -65,6 +81,7 @@ function servicio(cot: any) {
     const r = await svc.materializarPedido(10);
     check('devuelve el pedido creado', r, { pedido_id: 555, folio: 'IF00000042' });
     check('escribe pedido_id en la cotizacion', cot.pedido_id, 555);
+    check('camino ordinario: llama a crear exactamente una vez', creados.length, 1);
     check('el pedido nace listo para entrega', creados[0].data.estado, 'listo_para_entrega');
     check('el pedido queda ligado a la cotizacion', creados[0].data.cotizacion_id, 10);
     check('usa la tienda guardada al cotizar', creados[0].scope.tienda_id, 3);
@@ -83,6 +100,23 @@ function servicio(cot: any) {
     const r = await svc.materializarPedido(10);
     check('no crea un segundo pedido', creados.length, 0);
     check('devuelve el pedido que ya existia', r.pedido_id, 555);
+  }
+
+  {
+    // Capa 1 contra el pedido duplicado: pedido_id sigue null (el save previo
+    // fallo, o el reintento llego entre medio) pero YA existe un pedido con este
+    // cotizacion_id. No debe llamar a crear: debe adoptar el que ya esta.
+    const cot = {
+      id: 10, empresa_id: 7, tenant_id: 1, tienda_id: 3, estado: 'aceptada', pedido_id: null,
+      numero: 'COT-26-0001', version_actual: 1,
+    };
+    const ordenExistente = { id: 777, folio: 'IF00000099', cotizacion_id: 10 };
+    const { svc, creados, pedidoRepoLookups } = servicio(cot, ordenExistente);
+    const r = await svc.materializarPedido(10);
+    check('no llama a crear cuando ya existe un pedido para la cotizacion', creados.length, 0);
+    check('consulta el pedido existente por cotizacion_id', pedidoRepoLookups.length, 1);
+    check('adopta el pedido existente', r, { pedido_id: 777, folio: 'IF00000099' });
+    check('persiste el pedido_id adoptado en la cotizacion', cot.pedido_id, 777);
   }
 
   {
