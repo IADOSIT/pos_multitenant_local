@@ -105,6 +105,12 @@ export class Pedido {
   @Column({ type: 'int', nullable: true })
   ecommerce_pedido_id: number | null;
 
+  // Cotizacion de origen (tabla `cotizaciones`). Un pedido lleva `cotizacion_id`
+  // o `ecommerce_pedido_id`, nunca las dos: son dos caminos distintos de entrada
+  // desde la tienda. Null en los pedidos normales de mostrador.
+  @Column({ type: 'int', nullable: true })
+  cotizacion_id: number | null;
+
   @CreateDateColumn()
   created_at: Date;
 

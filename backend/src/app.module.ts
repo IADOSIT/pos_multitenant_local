@@ -36,6 +36,7 @@ import { PagosGatewayModule } from './modules/pagos-gateway/pagos-gateway.module
 import { PerfilesModule } from './modules/perfiles/perfiles.module';
 import { DevolucionesModule } from './modules/devoluciones/devoluciones.module';
 import { EcommerceModule } from './modules/ecommerce/ecommerce.module';
+import { CotizacionesModule } from './modules/cotizaciones/cotizaciones.module';
 import { LogisticaModule } from './modules/logistica/logistica.module';
 import { EmpleadosModule } from './modules/empleados/empleados.module';
 import { BasculaModule } from './modules/bascula/bascula.module';
@@ -94,6 +95,7 @@ const _serveStatic = existsSync(_staticRoot);
     PerfilesModule,
     DevolucionesModule,
     EcommerceModule,
+    CotizacionesModule,
     LogisticaModule,
     EmpleadosModule,
     BasculaModule,
