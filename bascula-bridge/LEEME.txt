@@ -17,20 +17,59 @@ REQUISITOS
 INSTALACION (forma normal, con el instalador)
 ----------------------------------------------
 1. Descargar el instalador desde el POS: Configuracion -> Bascula de
-   autoservicio -> "Descargar instalador (Windows 64 bits)".
+   autoservicio -> "Descargar instalador ya configurado para esta
+   tienda".
+   IMPORTANTE: no cambiarle el nombre al archivo descargado. El token
+   de la tienda viaja en el nombre (...__TKN-xxxx.exe) y el instalador
+   lo lee solo, asi que no hay nada que copiar ni pegar.
 2. Ejecutarlo. Se instala solo y arranca al terminar; queda un icono
    en la bandeja de Windows (junto al reloj) llamado
    "POS-iaDoS Bridge Bascula".
-3. La primera vez se abre sola la ventana de Configuracion. Ahi:
-     - Pegar el token de la tienda. Se copia desde el POS:
-       Configuracion -> Bascula de autoservicio -> "Token del bridge".
-     - Elegir en la lista el puerto COM donde esta la bascula.
-     - Presionar "Detectar automaticamente" (tarda unos segundos).
-     - Presionar "Guardar y reconectar".
-4. Comprobar que el peso en vivo de esa ventana se mueve al poner
-   algo sobre la bascula.
+3. Si el nombre traia el token, el bridge ya quedo apuntando a su
+   tienda. (Si el archivo se renombro y el token se perdio, se abre la
+   ventana de Configuracion pidiendolo: se copia desde el POS, en
+   Configuracion -> Bascula de autoservicio -> "Token del bridge".)
+4. En la ventana de Configuracion:
+     - Bascula: elegir su puerto COM en la lista, presionar "Detectar
+       automaticamente" (tarda unos segundos) y luego "Guardar y
+       reconectar". El peso en vivo debe moverse al poner algo encima.
+     - Cajon de dinero: elegir su puerto COM y presionar "Abrir cajon
+       (prueba)". Si no abre, presionar "Probar todos los comandos":
+       va probando las secuencias conocidas una por una hasta que el
+       cajon suene.
 5. En el POS, en la misma pantalla de Configuracion, capturar la IP
    de la impresora de etiquetas (y el puerto, 9100 por defecto).
+
+PUENTE LOCAL: FUNCIONA SIN INTERNET
+------------------------------------
+El bridge levanta un servidor en http://127.0.0.1:9333 de la misma PC.
+El POS abierto en esa computadora le habla directo, sin pasar por el
+servidor, asi que la bascula y el cajon de dinero siguen funcionando
+con el internet caido. Rutas:
+
+    GET  /estado          estado del bridge
+    GET  /peso            ultima lectura de la bascula
+    GET  /eventos         peso en vivo (SSE)
+    POST /cajon/abrir     pulso al cajon
+    POST /etiqueta        imprime una etiqueta
+
+Solo responde a 127.0.0.1 y a los origenes del POS. Si el POS corre en
+OTRA computadora de la tienda, esa no tiene puente: ahi el cajon se
+abre por el servidor, y eso si necesita internet.
+
+CAJON DE DINERO
+----------------
+El cajon se conecta por su cable RJ11, ya sea a un adaptador RJ11-USB
+con chip serial (aparece como puerto COM) o al puerto RJ11 de la
+impresora de tickets. Se activa por tienda desde el POS:
+Configuracion -> Cajon de dinero.
+
+Un cajon SOLO SE PUEDE ABRIR por software. Cerrarlo es empujarlo con
+la mano: es un resorte, no tiene motor. Ningun sistema puede cerrarlo.
+
+Si el adaptador RJ11-USB es pasivo (sin chip), no aparece ningun
+puerto COM y no hay forma de dispararlo: se necesita uno con chip
+serial, o conectarlo a la impresora de tickets.
 
 El token y el puerto quedan guardados en la PC (config.json en la
 carpeta de datos del usuario). Al reiniciar la PC el bridge levanta

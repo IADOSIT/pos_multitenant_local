@@ -5,6 +5,7 @@ import { offlineActions } from '../../store/offline.store';
 import { ventasApi, ticketsApi, pedidosApi, pagosGatewayApi, cajaApi, empresasApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
 import { guardarConfigTicket, configTicketCache, ticketOfflineRaw } from '../../utils/ticketOffline';
+import { abrirCajon, debeAbrirPorVenta } from '../../api/puenteLocal';
 import { printTicket } from '../../utils/printTicket';
 import { money } from '../../utils/money';
 import toast from 'react-hot-toast';
@@ -273,7 +274,23 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
 
   const ticketConfigRef = useRef<any>(null);
 
+  /**
+   * Pulso al cajon de dinero al cerrar la venta.
+   *
+   * Va por el puente local (127.0.0.1), asi que abre igual con el internet caido; si
+   * el POS corre en otra computadora, cae al respaldo por la nube. Nunca se espera su
+   * resultado ni se avisa de un fallo: el cobro ya se hizo y el cajon siempre se puede
+   * abrir con la llave. El cajon solo abre — cerrarlo es a mano, no hay forma de
+   * hacerlo por software.
+   */
+  const pulsoCajon = () => {
+    const huboEfectivo = Number(pagoEfectivo || 0) > 0;
+    if (!debeAbrirPorVenta(metodo, huboEfectivo)) return;
+    abrirCajon(Number(localStorage.getItem('pos_tienda_id')) || undefined).catch(() => {});
+  };
+
   const generarEImprimir = async (ventaData: any) => {
+    pulsoCajon();
     try {
       const { data: ticket } = await ticketsApi.preview(ventaData);
       ticketRawRef.current = ticket.raw;
@@ -291,6 +308,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
    * ultima configuracion bajada, porque el ticket normal lo renderiza el servidor.
    */
   const imprimirTicketOffline = (ventaData: any, folioOffline: string) => {
+    pulsoCajon();
     try {
       const cfg = ticketCfg || configTicketCache();
       const raw = ticketOfflineRaw(ventaData, folioOffline, cfg);

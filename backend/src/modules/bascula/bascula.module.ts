@@ -5,10 +5,11 @@ import { PesajeLog } from './pesaje-log.entity';
 import { BasculaService } from './bascula.service';
 import { BasculaGateway } from './bascula.gateway';
 import { BasculaController } from './bascula.controller';
+import { BridgeDescargaController } from './bridge-descarga.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([ConfigBascula, PesajeLog])],
-  controllers: [BasculaController],
+  controllers: [BasculaController, BridgeDescargaController],
   providers: [BasculaService, BasculaGateway],
   exports: [BasculaService],
 })

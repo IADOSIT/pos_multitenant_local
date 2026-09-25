@@ -5,11 +5,20 @@
  *  2. Retransmite el peso al backend via Socket.io (namespace /bascula)
  *  3. Recibe la orden de imprimir etiqueta y envia el ZPL por socket TCP crudo
  *     al puerto 9100 de una impresora de etiquetas en red (Zebra/GoDEX/TSC compatible)
+ *  4. Abre el cajon de dinero mandando un pulso por un adaptador serial/USB
+ *  5. Levanta un PUENTE LOCAL en 127.0.0.1 para que el POS del navegador hable
+ *     directo con este equipo SIN pasar por internet (ver "Puente local" abajo)
+ *
+ * Por que el puente local: la bascula, el cajon y el navegador estan en la MISMA
+ * computadora, pero hasta la v1.2 el peso viajaba a la nube y regresaba. En una
+ * tienda con internet intermitente eso significaba quedarse sin peso y sin cajon
+ * justo cuando mas se necesitan. Ahora la nube es el respaldo, no el camino.
  */
 
 const { app, Tray, Menu, nativeImage, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const net = require('net');
+const http = require('http');
 const fs = require('fs');
 const { io } = require('socket.io-client');
 const { SerialPort } = require('serialport');
@@ -63,6 +72,18 @@ const DEFAULTS = {
   // pedirles el peso. SCALE_POLL_MS=0 deja el comportamiento de flujo continuo.
   SCALE_POLL_CMD: 'P\\r\\n',
   SCALE_POLL_MS: '0',
+  // ── Cajon de dinero ──
+  // Puerto del adaptador serial/USB conectado al RJ11 del cajon. Vacio = sin cajon,
+  // y entonces todo se comporta igual que en las instalaciones que solo traen bascula.
+  CAJON_PORT: '',
+  CAJON_BAUD: '9600',
+  // Secuencia que dispara el pulso: una clave de SECUENCIAS_CAJON, o "hex:1B700019FA"
+  // para un adaptador raro, sin tener que tocar el codigo.
+  CAJON_CMD: 'escpos_pin2',
+  // ── Puente local ──
+  // Puerto en 127.0.0.1 donde el POS del navegador encuentra a este bridge sin
+  // salir a internet.
+  PUENTE_PORT: '9333',
 };
 
 const appDir = () => (app.isPackaged ? path.dirname(process.execPath) : __dirname);
@@ -136,6 +157,13 @@ let ultimoFalloSocket = null;
 let lastPesoEmitido = null;
 let lastPesoEstable = 0;
 let configWin = null;
+// Cajon: un pulso a la vez. Dos aperturas encimadas abririan el mismo COM dos
+// veces y la segunda fallaria con "Access denied".
+let cajonOcupado = false;
+// Puente local
+let servidorLocal = null;
+let puenteEscuchandoEn = null;
+const sseClientes = new Set();
 
 // Estado que se pinta en la ventana de Configuracion y en el menu de la bandeja.
 const estado = {
@@ -146,6 +174,8 @@ const estado = {
   polling: false,
   peso: null,
   ultimaTrama: '',
+  cajon: 'Sin configurar',
+  puente: 'Iniciando...',
 };
 
 function pushEstado() {
@@ -163,6 +193,10 @@ function configPublica() {
     SCALE_BAUD: config.SCALE_BAUD,
     SCALE_POLL_CMD: config.SCALE_POLL_CMD,
     SCALE_POLL_MS: config.SCALE_POLL_MS,
+    CAJON_PORT: config.CAJON_PORT,
+    CAJON_BAUD: config.CAJON_BAUD,
+    CAJON_CMD: config.CAJON_CMD,
+    PUENTE_PORT: config.PUENTE_PORT,
   };
 }
 
@@ -222,6 +256,16 @@ function connectSocket() {
     pushEstado();
   });
 
+  // Camino de respaldo para el cajon: si el navegador no logra hablar con el
+  // puente local (otro equipo, puerto ocupado), el POS pide la apertura por la
+  // nube y llega hasta aca. Con internet caido este camino no existe y el local si.
+  socket.on('open-drawer', (payload = {}) => {
+    console.log('[bridge] open-drawer recibido por la nube');
+    abrirCajon({ cmd: payload.cmd }).then((r) => {
+      if (!r.ok) console.warn('[bridge] open-drawer:', r.mensaje);
+    });
+  });
+
   socket.on('print-label', (payload) => {
     console.log('[bridge] print-label recibido:', JSON.stringify(payload));
     imprimirEtiqueta(payload).catch((err) => console.error('[bridge] Error al imprimir:', err.message));
@@ -260,6 +304,9 @@ function procesarLectura(linea) {
     lastPesoEmitido = pesoRedondeado;
     estado.peso = pesoRedondeado;
     if (socket?.connected) socket.emit('bridge-weight', { peso_kg: pesoRedondeado, estable });
+    // El navegador de esta misma computadora lo recibe por el puente local, sin
+    // depender de que haya internet.
+    emitirSse('peso', { peso_kg: pesoRedondeado, estable });
     pushEstado();
   }
 }
@@ -407,6 +454,10 @@ function abrirBascula() {
 function reiniciarConexiones() {
   cerrarBascula(() => abrirBascula());
   connectSocket();
+  // Solo si de verdad cambio el puerto: relanzar el servidor corta las conexiones
+  // SSE vivas y el POS se quedaria un instante sin peso sin necesidad.
+  const deseado = parseInt(config.PUENTE_PORT, 10) || 9333;
+  if (deseado !== puenteEscuchandoEn) iniciarServidorLocal();
 }
 
 // ── Impresora de etiquetas (ZPL por TCP crudo, puerto 9100) ───────────────────
@@ -452,6 +503,293 @@ function construirZpl(payload) {
     `^FD${payload.barcode}^FS`,
     '^XZ',
   ].join('\n');
+}
+
+// ── Cajon de dinero ───────────────────────────────────────────────────────────
+// Fisica del aparato: un solenoide de 12/24 V destraba el cajon y un resorte lo
+// empuja hacia afuera. El software SOLO puede abrirlo (un pulso); cerrarlo es a
+// mano. Por eso aqui no existe ningun "cerrar-cajon": no hay POS en el mundo que
+// lo haga, y prometerlo en la interfaz seria mentirle al usuario.
+//
+// Cada adaptador RJ11->USB entiende su propio comando, asi que en vez de apostar
+// a uno estan todos y CAJON_CMD elige. "hex:1B700019FA" cubre el adaptador raro
+// sin tener que volver a compilar.
+const SECUENCIAS_CAJON = {
+  escpos_pin2:  { etiqueta: 'ESC/POS pin 2 (el estandar)', bytes: [0x1B, 0x70, 0x00, 0x19, 0xFA] },
+  escpos_pin5:  { etiqueta: 'ESC/POS pin 5',               bytes: [0x1B, 0x70, 0x01, 0x19, 0xFA] },
+  escpos_largo: { etiqueta: 'ESC/POS pulso largo',         bytes: [0x1B, 0x70, 0x00, 0x40, 0x50] },
+  dle_dc4:      { etiqueta: 'DLE DC4',                     bytes: [0x10, 0x14, 0x01, 0x00, 0x01] },
+  bel:          { etiqueta: 'BEL (campana)',               bytes: [0x07] },
+  texto_open:   { etiqueta: 'Texto OPEN',                  bytes: [0x4F, 0x50, 0x45, 0x4E, 0x0D, 0x0A] },
+  dtr:          { etiqueta: 'Pulso por DTR/RTS',           bytes: null },
+};
+
+function bytesCajon(nombre) {
+  const clave = String(nombre || '').trim();
+  if (clave.toLowerCase().startsWith('hex:')) {
+    const hex = clave.slice(4).replace(/[^0-9a-fA-F]/g, '');
+    if (hex.length < 2) return null;
+    return Buffer.from(hex.slice(0, hex.length - (hex.length % 2)), 'hex');
+  }
+  const seq = SECUENCIAS_CAJON[clave];
+  return seq && seq.bytes ? Buffer.from(seq.bytes) : null;
+}
+
+/**
+ * Dispara el pulso de apertura.
+ *
+ * Abre el puerto, escribe y lo cierra en el mismo acto: el cajon se usa unas
+ * cuantas veces por hora y dejar el COM tomado impediria diagnosticarlo con
+ * cualquier otra herramienta (y pelearia con la bascula si comparten adaptador).
+ */
+function abrirCajon({ puerto, baud, cmd } = {}) {
+  return new Promise((resolve) => {
+    const portPath = (puerto || config.CAJON_PORT || '').trim();
+    if (!portPath) return resolve({ ok: false, mensaje: 'No hay puerto configurado para el cajon.' });
+    if (cajonOcupado) return resolve({ ok: false, mensaje: 'El cajon ya esta recibiendo un pulso, espera un momento.' });
+    // Caso raro pero posible: alguien apunta el cajon al mismo COM de la bascula.
+    // Mejor un mensaje claro que un "Access denied" del driver.
+    if (scalePort && portPath === config.SCALE_PORT) {
+      return resolve({ ok: false, mensaje: `${portPath} lo esta usando la bascula. Conecta el cajon a otro puerto.` });
+    }
+
+    const nombreCmd = cmd || config.CAJON_CMD || 'escpos_pin2';
+    const baudRate = parseInt(baud || config.CAJON_BAUD, 10) || 9600;
+    const datos = bytesCajon(nombreCmd);
+
+    cajonOcupado = true;
+    const sp = new SerialPort({ path: portPath, baudRate, autoOpen: false });
+    sp.on('error', () => {}); // un puerto que se desconecta no debe tumbar el proceso
+
+    const terminar = (res) => {
+      cajonOcupado = false;
+      estado.cajon = res.ok ? `Pulso enviado (${nombreCmd})` : `Error: ${res.mensaje}`;
+      pushEstado();
+      resolve(res);
+    };
+
+    sp.open((err) => {
+      if (err) return terminar({ ok: false, mensaje: `No se pudo abrir ${portPath}: ${err.message}` });
+      const cerrar = (res) => { try { sp.close(() => terminar(res)); } catch (_) { terminar(res); } };
+
+      // Adaptadores "tontos": no entienden comandos, cierran el circuito cuando
+      // las lineas de control se levantan.
+      if (!datos) {
+        try {
+          sp.set({ dtr: true, rts: true }, () => {
+            setTimeout(() => {
+              try { sp.set({ dtr: false, rts: false }, () => cerrar({ ok: true, via: 'dtr' })); }
+              catch (_) { cerrar({ ok: true, via: 'dtr' }); }
+            }, 400);
+          });
+        } catch (e) { cerrar({ ok: false, mensaje: e.message }); }
+        return;
+      }
+
+      sp.write(datos, (e) => {
+        if (e) return cerrar({ ok: false, mensaje: e.message });
+        // drain + respiro: cerrar el puerto antes de que los bytes salgan del
+        // buffer del driver deja el cajon sin abrir y sin error visible.
+        sp.drain(() => setTimeout(() => cerrar({ ok: true, via: nombreCmd }), 250));
+      });
+    });
+  });
+}
+
+/**
+ * Prueba TODAS las secuencias con pausa entre cada una, para que quien instala vea
+ * en cual salta el cajon. Es el diagnostico manual, pero desde la ventana de
+ * configuracion y sin PowerShell.
+ */
+async function probarCajon(puerto, baud) {
+  const intentados = [];
+  for (const clave of Object.keys(SECUENCIAS_CAJON)) {
+    const r = await abrirCajon({ puerto, baud, cmd: clave });
+    intentados.push({ clave, etiqueta: SECUENCIAS_CAJON[clave].etiqueta, ok: r.ok, mensaje: r.mensaje || '' });
+    // Si el puerto ni siquiera abre, repetirlo 7 veces solo alarga la espera.
+    if (!r.ok && /No se pudo abrir/.test(r.mensaje || '')) break;
+    await new Promise((seguir) => setTimeout(seguir, 2200));
+  }
+  return { ok: intentados.some((i) => i.ok), intentados };
+}
+
+// ── Puente local (127.0.0.1) ──────────────────────────────────────────────────
+// El POS corre en el navegador de ESTA misma computadora, pero hasta ahora el peso
+// y el cajon viajaban a la nube y regresaban. Sin internet la tienda se quedaba sin
+// bascula y sin cajon. Este servidor los pone a un salto:
+//
+//   navegador (https://pos.iados.online)  ->  http://127.0.0.1:9333  ->  hardware
+//
+// Cuatro detalles que no son opcionales:
+//  · Solo escucha en 127.0.0.1, nunca en 0.0.0.0: el cajon no se abre desde la red.
+//  · CORS explicito: el POS es una pagina de otro origen y el navegador exige que
+//    este servidor lo autorice por nombre.
+//  · Private Network Access (Chrome): una pagina publica que llama a 127.0.0.1 manda
+//    un preflight con Access-Control-Request-Private-Network y solo continua si le
+//    contestamos Access-Control-Allow-Private-Network: true.
+//  · http://127.0.0.1 es "potentially trustworthy" para el navegador, asi que la
+//    pagina https puede llamarlo sin que cuente como contenido mixto.
+const ORIGENES_FIJOS = [
+  'https://pos.iados.online',
+  'https://www.pos.iados.online',
+];
+
+function origenPermitido(origin) {
+  if (!origin) return true; // sin Origin no hay navegador que autorizar (curl, la propia app)
+  if (ORIGENES_FIJOS.includes(origin)) return true;
+  // Instalacion on-premise: el POS se sirve desde la propia red de la tienda.
+  if (/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(origin)) return true;
+  // El backend configurado, y el front que le corresponde (posapi.x -> pos.x).
+  try {
+    const b = new URL(config.BACKEND_URL);
+    if (origin === b.origin) return true;
+    if (origin === `${b.protocol}//${b.host.replace(/^posapi\./, 'pos.')}`) return true;
+  } catch (_) {}
+  return false;
+}
+
+function cabecerasCors(req, res) {
+  const origin = req.headers.origin;
+  if (!origenPermitido(origin)) return false;
+  res.setHeader('Access-Control-Allow-Origin', origin || '*');
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  if (req.headers['access-control-request-private-network']) {
+    res.setHeader('Access-Control-Allow-Private-Network', 'true');
+  }
+  return true;
+}
+
+function leerCuerpo(req) {
+  return new Promise((resolve) => {
+    let raw = '';
+    req.on('data', (c) => { raw += c; if (raw.length > 8192) raw = raw.slice(0, 8192); });
+    req.on('end', () => { try { resolve(raw ? JSON.parse(raw) : {}); } catch (_) { resolve({}); } });
+    req.on('error', () => resolve({}));
+  });
+}
+
+function estadoPuente() {
+  return {
+    ok: true,
+    app: 'pos-iados-bridge',
+    version: app.getVersion(),
+    tienda_id: estado.tienda_id,
+    backend: estado.backend,
+    bascula: {
+      estado: estado.bascula,
+      puerto: estado.puerto,
+      polling: estado.polling,
+      abierta: !!(scalePort && scalePort.isOpen),
+    },
+    cajon: {
+      configurado: !!config.CAJON_PORT,
+      puerto: config.CAJON_PORT,
+      cmd: config.CAJON_CMD,
+      estado: estado.cajon,
+    },
+    peso: estado.peso,
+    ultima_trama: estado.ultimaTrama,
+  };
+}
+
+// Peso en vivo por SSE: una conexion abierta en lugar de que el POS pregunte cada
+// 200 ms. Cuando el navegador se va, el 'close' lo saca de la lista.
+function abrirSse(req, res) {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+  res.write('retry: 3000\n\n');
+  res.write('event: estado\ndata: ' + JSON.stringify(estadoPuente()) + '\n\n');
+  sseClientes.add(res);
+  // Latido: sin trafico, un proxy o el propio navegador dan por muerta la conexion.
+  const latido = setInterval(() => { try { res.write(': ping\n\n'); } catch (_) {} }, 25000);
+  const cerrar = () => { clearInterval(latido); sseClientes.delete(res); };
+  req.on('close', cerrar);
+  req.on('error', cerrar);
+  res.on('error', cerrar);
+}
+
+function emitirSse(evento, dato) {
+  if (!sseClientes.size) return;
+  const linea = 'event: ' + evento + '\ndata: ' + JSON.stringify(dato) + '\n\n';
+  for (const res of [...sseClientes]) {
+    try { res.write(linea); } catch (_) { sseClientes.delete(res); }
+  }
+}
+
+function iniciarServidorLocal() {
+  if (servidorLocal) { try { servidorLocal.close(); } catch (_) {} servidorLocal = null; }
+  puenteEscuchandoEn = null;
+  const puerto = parseInt(config.PUENTE_PORT, 10) || 9333;
+
+  servidorLocal = http.createServer(async (req, res) => {
+    const responder = (code, body) => {
+      res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(body));
+    };
+
+    if (!cabecerasCors(req, res)) { responder(403, { ok: false, mensaje: 'Origen no autorizado' }); return; }
+    if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
+    const ruta = ((req.url || '/').split('?')[0].replace(/\/+$/, '')) || '/';
+
+    try {
+      if (req.method === 'GET' && (ruta === '/' || ruta === '/estado')) {
+        return responder(200, estadoPuente());
+      }
+
+      if (req.method === 'GET' && ruta === '/peso') {
+        return responder(200, {
+          ok: true,
+          peso_kg: estado.peso,
+          estable: estado.peso !== null && estado.peso === lastPesoEstable,
+          bascula: estado.bascula,
+        });
+      }
+
+      if (req.method === 'GET' && ruta === '/eventos') { abrirSse(req, res); return; }
+
+      if (req.method === 'POST' && ruta === '/cajon/abrir') {
+        const body = await leerCuerpo(req);
+        const r = await abrirCajon({ cmd: body.cmd });
+        console.log('[puente] cajon/abrir ->', r.ok ? 'abierto' : r.mensaje);
+        return responder(r.ok ? 200 : 409, r);
+      }
+
+      if (req.method === 'POST' && ruta === '/etiqueta') {
+        const body = await leerCuerpo(req);
+        await imprimirEtiqueta(body);
+        return responder(200, { ok: true });
+      }
+
+      responder(404, { ok: false, mensaje: 'Ruta no encontrada' });
+    } catch (e) {
+      responder(500, { ok: false, mensaje: e.message });
+    }
+  });
+
+  // Que el puente no levante NO es fatal: el POS sigue funcionando por la nube.
+  // Lo que no se vale es tumbar el bridge y dejar tambien la bascula muerta.
+  servidorLocal.on('error', (err) => {
+    console.warn(`[puente] No se pudo escuchar en 127.0.0.1:${puerto}: ${err.message} — el POS seguira usando la nube`);
+    estado.puente = `No disponible (${err.code || err.message})`;
+    updateTray(estado.backend);
+    pushEstado();
+  });
+
+  servidorLocal.listen(puerto, '127.0.0.1', () => {
+    puenteEscuchandoEn = puerto;
+    console.log(`[puente] Escuchando en http://127.0.0.1:${puerto}`);
+    estado.puente = `Activo en 127.0.0.1:${puerto}`;
+    updateTray(estado.backend);
+    pushEstado();
+  });
 }
 
 // ── Ventana de configuracion ──────────────────────────────────────────────────
@@ -545,13 +883,25 @@ ipcMain.handle('detectar', async (_e, { puerto, baud }) => {
 
 ipcMain.handle('guardar', async (_e, patch) => {
   const limpio = {};
-  for (const k of ['BACKEND_URL', 'TIENDA_TOKEN', 'SCALE_PORT', 'SCALE_BAUD', 'SCALE_POLL_CMD', 'SCALE_POLL_MS']) {
+  for (const k of ['BACKEND_URL', 'TIENDA_TOKEN', 'SCALE_PORT', 'SCALE_BAUD', 'SCALE_POLL_CMD', 'SCALE_POLL_MS',
+                   'CAJON_PORT', 'CAJON_BAUD', 'CAJON_CMD', 'PUENTE_PORT']) {
     if (patch[k] !== undefined) limpio[k] = String(patch[k]).trim();
   }
   saveConfig(limpio);
   console.log('[bridge] Configuracion guardada:', JSON.stringify({ ...limpio, TIENDA_TOKEN: limpio.TIENDA_TOKEN ? limpio.TIENDA_TOKEN.slice(0, 8) + '...' : '' }));
   reiniciarConexiones();
   return { ok: true, config: configPublica() };
+});
+
+// Catalogo para el desplegable de la ventana de configuracion.
+ipcMain.handle('secuencias-cajon', () =>
+  Object.entries(SECUENCIAS_CAJON).map(([clave, v]) => ({ clave, etiqueta: v.etiqueta })));
+
+ipcMain.handle('abrir-cajon', async (_e, opts = {}) => abrirCajon(opts));
+
+ipcMain.handle('probar-cajon', async (_e, { puerto, baud } = {}) => {
+  if (!puerto) return { ok: false, mensaje: 'Elige primero el puerto COM del cajon.' };
+  return probarCajon(puerto, baud);
 });
 
 ipcMain.handle('abrir-log', () => { shell.showItemInFolder(logFile); });
@@ -584,9 +934,11 @@ app.whenReady().then(() => {
 
   connectSocket();
   abrirBascula();
+  iniciarServidorLocal();
 
-  // Primera vez (sin token o sin puerto): no dejamos al usuario adivinando.
-  if (!config.TIENDA_TOKEN || !config.SCALE_PORT) abrirConfig();
+  // Primera vez: no dejamos al usuario adivinando. Basta con que tenga token y al
+  // menos un aparato configurado — hay tiendas que solo quieren el cajon.
+  if (!config.TIENDA_TOKEN || (!config.SCALE_PORT && !config.CAJON_PORT)) abrirConfig();
 });
 
 function updateTray(status) {
@@ -597,7 +949,12 @@ function updateTray(status) {
     { label: status, enabled: false },
     { label: `Backend: ${config.BACKEND_URL}`, enabled: false },
     { label: `Puerto bascula: ${config.SCALE_PORT || '(sin configurar)'}`, enabled: false },
+    { label: `Cajon: ${config.CAJON_PORT || '(sin configurar)'}`, enabled: false },
+    { label: `Puente local: ${estado.puente}`, enabled: false },
     { type: 'separator' },
+    { label: 'Abrir cajon (prueba)', enabled: !!config.CAJON_PORT, click: () => {
+      abrirCajon().then((r) => { if (!r.ok) console.warn('[bridge] Abrir cajon:', r.mensaje); });
+    } },
     { label: 'Configuracion...', click: abrirConfig },
     { label: 'Ver bitacora (bridge.log)', click: () => shell.showItemInFolder(logFile) },
     { type: 'separator' },
@@ -607,6 +964,9 @@ function updateTray(status) {
 
 app.on('window-all-closed', (e) => e.preventDefault());
 app.on('will-quit', () => {
+  for (const res of [...sseClientes]) { try { res.end(); } catch (_) {} }
+  sseClientes.clear();
+  if (servidorLocal) { try { servidorLocal.close(); } catch (_) {} servidorLocal = null; }
   if (socket) socket.disconnect();
   if (scaleReintento) { clearTimeout(scaleReintento); scaleReintento = null; }
   if (scalePoller) { clearInterval(scalePoller); scalePoller = null; }

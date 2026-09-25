@@ -11,6 +11,9 @@ export declare class ConfigBascula {
     printer_port: number;
     label_width_mm: number;
     label_height_mm: number;
+    cajon_activo: boolean;
+    cajon_abrir_en: string;
+    cajon_pedir_pin: boolean;
     scale_port: string | null;
     scale_baud_rate: number;
     scale_protocol: string;

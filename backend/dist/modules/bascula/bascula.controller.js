@@ -34,6 +34,12 @@ let BasculaController = class BasculaController {
     getProductos(tiendaId, req) {
         return this.service.getProductosPorPeso(tiendaId, req.user);
     }
+    abrirCajon(tiendaId, req) {
+        return this.service.abrirCajon(tiendaId, req.user);
+    }
+    bridgeDisponible() {
+        return { disponible: !!this.service.rutaInstalador() };
+    }
     registrarPesaje(dto, req) {
         return this.service.registrarPesaje(dto, req.user);
     }
@@ -76,6 +82,22 @@ __decorate([
     __metadata("design:paramtypes", [Number, Object]),
     __metadata("design:returntype", void 0)
 ], BasculaController.prototype, "getProductos", null);
+__decorate([
+    (0, common_1.Post)('cajon/:tienda_id/abrir'),
+    (0, roles_decorator_1.Roles)('superadmin', 'admin', 'manager', 'cajero'),
+    __param(0, (0, common_1.Param)('tienda_id', common_1.ParseIntPipe)),
+    __param(1, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Number, Object]),
+    __metadata("design:returntype", void 0)
+], BasculaController.prototype, "abrirCajon", null);
+__decorate([
+    (0, common_1.Get)('bridge/disponible'),
+    (0, roles_decorator_1.Roles)('superadmin', 'admin'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], BasculaController.prototype, "bridgeDisponible", null);
 __decorate([
     (0, common_1.Post)('pesaje'),
     (0, roles_decorator_1.Roles)('superadmin', 'admin', 'manager', 'cajero', 'mesero'),

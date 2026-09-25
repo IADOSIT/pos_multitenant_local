@@ -28,8 +28,9 @@ let BasculaGateway = class BasculaGateway {
     }
     async handleBridgeJoin(client, data) {
         const config = await this.configRepo.findOne({ where: { tienda_token: data.tienda_token } });
-        if (!config || !config.activo) {
-            client.emit('bridge-error', { message: 'Token invalido o bascula inactiva' });
+        const habilitado = !!config && (config.activo || config.usar_en_pos || config.cajon_activo);
+        if (!habilitado) {
+            client.emit('bridge-error', { message: 'Token invalido o hardware local desactivado' });
             return;
         }
         client.join(`tienda:${config.tienda_id}`);
@@ -45,6 +46,9 @@ let BasculaGateway = class BasculaGateway {
         if (!info)
             return;
         this.server.to(`tienda:${info.tienda_id}`).emit('weight-update', data);
+    }
+    emitOpenDrawer(tiendaId, payload = {}) {
+        this.server.to(`tienda:${tiendaId}`).emit('open-drawer', payload);
     }
     emitPrintLabel(tiendaId, payload) {
         this.server.to(`tienda:${tiendaId}`).emit('print-label', payload);

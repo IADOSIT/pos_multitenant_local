@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { basculaApi } from '../../api/endpoints';
+import { suscribirPeso } from '../../api/puenteLocal';
 import { resolveUploadUrl } from '../../api/client';
 import { printEtiquetaBascula } from '../../utils/printEtiquetaBascula';
 import { useAuthStore } from '../../store/auth.store';
@@ -92,6 +93,13 @@ export default function BasculaKioskoPage() {
     sock.on('weight-update', (data: { peso_kg: number }) => setPesoKg(data.peso_kg || 0));
     return () => { sock.disconnect(); };
   }, [tiendaId]);
+
+  // Peso tambien por el puente local (127.0.0.1) del bridge de esta misma PC: llega
+  // sin pasar por internet y sin el retardo del ida y vuelta al servidor. Convive con
+  // el socket de arriba — los dos traen la misma lectura del mismo bridge.
+  useEffect(() => suscribirPeso(
+    (p) => { setPesoKg(p.peso_kg || 0); setConnected(true); },
+  ), []);
 
   const productosFiltrados = useMemo(() => {
     if (!busqueda.trim()) return productos;

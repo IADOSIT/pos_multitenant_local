@@ -63,6 +63,18 @@ __decorate([
     __metadata("design:type", Number)
 ], ConfigBascula.prototype, "label_height_mm", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ default: false }),
+    __metadata("design:type", Boolean)
+], ConfigBascula.prototype, "cajon_activo", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 20, default: 'efectivo' }),
+    __metadata("design:type", String)
+], ConfigBascula.prototype, "cajon_abrir_en", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ default: false }),
+    __metadata("design:type", Boolean)
+], ConfigBascula.prototype, "cajon_pedir_pin", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 30, nullable: true }),
     __metadata("design:type", Object)
 ], ConfigBascula.prototype, "scale_port", void 0);

@@ -33,6 +33,22 @@ export class BasculaController {
     return this.service.getProductosPorPeso(tiendaId, req.user);
   }
 
+  // ── Cajon de dinero (respaldo por la nube; el camino normal es el puente local) ──
+  @Post('cajon/:tienda_id/abrir')
+  @Roles('superadmin', 'admin', 'manager', 'cajero')
+  abrirCajon(@Param('tienda_id', ParseIntPipe) tiendaId: number, @Request() req: any) {
+    return this.service.abrirCajon(tiendaId, req.user);
+  }
+
+  // La descarga del instalador vive en GET /api/bridge/descargar/:token
+  // (bridge-descarga.controller.ts), sin JWT: se baja desde la computadora de la caja,
+  // donde casi nunca hay una sesion de administrador abierta.
+  @Get('bridge/disponible')
+  @Roles('superadmin', 'admin')
+  bridgeDisponible() {
+    return { disponible: !!this.service.rutaInstalador() };
+  }
+
   @Post('pesaje')
   @Roles('superadmin', 'admin', 'manager', 'cajero', 'mesero')
   registrarPesaje(@Body() dto: { tienda_id: number; producto_id: number; peso_kg: number }, @Request() req: any) {

@@ -18,6 +18,9 @@ export declare class BasculaGateway implements OnGatewayDisconnect {
         peso_kg: number;
         estable: boolean;
     }): void;
+    emitOpenDrawer(tiendaId: number, payload?: {
+        cmd?: string;
+    }): void;
     emitPrintLabel(tiendaId: number, payload: {
         producto_nombre: string;
         peso_kg: number;

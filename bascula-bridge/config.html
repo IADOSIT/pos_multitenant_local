@@ -46,7 +46,7 @@
 </style>
 </head>
 <body>
-  <h1>Bridge de bascula — Configuracion</h1>
+  <h1>Bridge POS-iaDoS — Configuracion</h1>
 
   <div class="panel">
     <h2 style="margin-top:0">Estado actual</h2>
@@ -55,6 +55,8 @@
       <dt>Tienda</dt><dd id="e-tienda">—</dd>
       <dt>Bascula</dt><dd id="e-bascula">—</dd>
       <dt>Modo</dt><dd id="e-modo">—</dd>
+      <dt>Cajon</dt><dd id="e-cajon">—</dd>
+      <dt>Puente local</dt><dd id="e-puente">—</dd>
       <dt>Ultima trama</dt><dd id="e-trama">—</dd>
     </dl>
     <div style="margin-top:10px">Peso en vivo: <span class="peso" id="e-peso">—</span></div>
@@ -100,6 +102,54 @@
     <div class="aviso" id="aviso"></div>
   </div>
 
+  <h2>Cajon de dinero</h2>
+  <div class="panel">
+    <label for="cajon-puerto">Puerto del adaptador del cajon</label>
+    <div class="fila">
+      <select id="cajon-puerto"></select>
+      <button id="btn-refrescar-cajon" type="button">Refrescar</button>
+    </div>
+    <div class="ayuda">
+      Es el COM que aparece al conectar el adaptador RJ11&rarr;USB. Si al conectarlo no
+      aparece ningun puerto nuevo, el cable es pasivo y no puede abrir el cajon.
+    </div>
+
+    <div class="fila" style="margin-top:10px">
+      <div>
+        <label for="cajon-baud">Velocidad (baud)</label>
+        <input id="cajon-baud" type="text" spellcheck="false" />
+      </div>
+      <div>
+        <label for="cajon-cmd">Comando de apertura</label>
+        <select id="cajon-cmd"></select>
+      </div>
+      <div>
+        <label for="cajon-hex">O bytes a la medida (hex)</label>
+        <input id="cajon-hex" type="text" spellcheck="false" placeholder="1B700019FA" />
+      </div>
+    </div>
+    <div class="ayuda">
+      Si escribes bytes en hex, esos ganan sobre el comando de la lista. El cajon solo
+      se puede <b>abrir</b> por software: cerrarlo es a mano, lo empuja un resorte.
+    </div>
+
+    <div class="pie">
+      <button id="btn-cajon-abrir" type="button">Abrir ahora</button>
+      <button id="btn-cajon-probar" type="button">Probar todos los comandos</button>
+    </div>
+    <div class="aviso" id="cajon-aviso"></div>
+  </div>
+
+  <h2>Puente local</h2>
+  <div class="panel">
+    <label for="puente">Puerto en 127.0.0.1</label>
+    <input id="puente" type="text" spellcheck="false" />
+    <div class="ayuda">
+      Es por donde el POS de este mismo equipo habla con la bascula y el cajon
+      <b>sin pasar por internet</b>. Solo cambialo si otro programa ya usa el 9333.
+    </div>
+  </div>
+
   <div class="pie">
     <button class="primario" id="btn-guardar" type="button">Guardar y reconectar</button>
     <button id="btn-log" type="button">Ver bitacora</button>
@@ -118,6 +168,8 @@
     $('e-tienda').textContent = s.tienda_id ? ('#' + s.tienda_id) : '—';
     $('e-bascula').innerHTML = pill(s.bascula, /^Abierta/.test(s.bascula));
     $('e-modo').textContent = s.polling ? 'Polling (se le pregunta el peso)' : 'Flujo continuo';
+    $('e-cajon').innerHTML = pill(s.cajon || '—', /^Pulso enviado/.test(s.cajon || ''));
+    $('e-puente').innerHTML = pill(s.puente || '—', /^Activo/.test(s.puente || ''));
     $('e-trama').textContent = s.ultimaTrama ? JSON.stringify(s.ultimaTrama) : '—';
     $('e-peso').textContent = (s.peso === null || s.peso === undefined) ? '—' : (s.peso.toFixed(3) + ' kg');
   }
@@ -128,13 +180,34 @@
     if (document.activeElement !== $('baud')) $('baud').value = c.SCALE_BAUD || '9600';
     if (document.activeElement !== $('pollms')) $('pollms').value = c.SCALE_POLL_MS || '0';
     if (document.activeElement !== $('pollcmd')) $('pollcmd').value = c.SCALE_POLL_CMD || '';
-    seleccionarPuerto(c.SCALE_PORT);
+    if (document.activeElement !== $('cajon-baud')) $('cajon-baud').value = c.CAJON_BAUD || '9600';
+    if (document.activeElement !== $('puente')) $('puente').value = c.PUENTE_PORT || '9333';
+
+    // "hex:1B70..." se muestra en el campo libre; cualquier otra cosa es de la lista.
+    const cmd = c.CAJON_CMD || 'escpos_pin2';
+    if (document.activeElement !== $('cajon-hex') && document.activeElement !== $('cajon-cmd')) {
+      if (/^hex:/i.test(cmd)) {
+        $('cajon-hex').value = cmd.slice(4);
+      } else {
+        $('cajon-hex').value = '';
+        if ([...$('cajon-cmd').options].some((o) => o.value === cmd)) $('cajon-cmd').value = cmd;
+      }
+    }
+
+    seleccionarPuerto('puerto', c.SCALE_PORT);
+    seleccionarPuerto('cajon-puerto', c.CAJON_PORT);
   }
 
-  function seleccionarPuerto(valor) {
-    const sel = $('puerto');
+  // El comando que se va a guardar: los bytes a la medida mandan sobre la lista.
+  function cmdCajonElegido() {
+    const hex = $('cajon-hex').value.replace(/[^0-9a-fA-F]/g, '');
+    return hex.length >= 2 ? ('hex:' + hex) : $('cajon-cmd').value;
+  }
+
+  function seleccionarPuerto(selId, valor) {
+    const sel = $(selId);
     if (!valor) return;
-    // Si el puerto guardado no esta en la lista (bascula desconectada), lo agregamos
+    // Si el puerto guardado no esta en la lista (aparato desconectado), lo agregamos
     // igual para no perder el valor al guardar.
     if (!puertosCargados.some((p) => p.path === valor)) {
       const o = document.createElement('option');
@@ -145,17 +218,14 @@
     sel.value = valor;
   }
 
-  async function cargarPuertos(mantener) {
-    const previo = mantener || $('puerto').value;
-    puertosCargados = await window.bridge.listarPuertos();
-    const sel = $('puerto');
+  function llenarSelect(selId, previo, opcionVacia) {
+    const sel = $(selId);
     sel.innerHTML = '';
-    if (!puertosCargados.length) {
+    if (opcionVacia) {
       const o = document.createElement('option');
       o.value = '';
-      o.textContent = 'No se detecto ningun puerto COM';
+      o.textContent = opcionVacia;
       sel.appendChild(o);
-      return;
     }
     for (const p of puertosCargados) {
       const o = document.createElement('option');
@@ -163,7 +233,22 @@
       o.textContent = p.etiqueta;
       sel.appendChild(o);
     }
-    seleccionarPuerto(previo);
+    if (!puertosCargados.length && !opcionVacia) {
+      const o = document.createElement('option');
+      o.value = '';
+      o.textContent = 'No se detecto ningun puerto COM';
+      sel.appendChild(o);
+    }
+    seleccionarPuerto(selId, previo);
+  }
+
+  async function cargarPuertos(previoBascula, previoCajon) {
+    const antesB = previoBascula !== undefined ? previoBascula : $('puerto').value;
+    const antesC = previoCajon !== undefined ? previoCajon : $('cajon-puerto').value;
+    puertosCargados = await window.bridge.listarPuertos();
+    llenarSelect('puerto', antesB, '');
+    // El cajon es opcional: tiene que poder quedarse en "ninguno".
+    llenarSelect('cajon-puerto', antesC, 'Sin cajon de dinero');
   }
 
   function aviso(texto, ok) {
@@ -172,7 +257,50 @@
     a.className = 'aviso ' + (ok ? 'ok' : 'mal');
   }
 
+  function avisoCajon(html, ok) {
+    const a = $('cajon-aviso');
+    a.innerHTML = html;
+    a.className = 'aviso ' + (ok ? 'ok' : 'mal');
+  }
+
   $('btn-refrescar').addEventListener('click', () => cargarPuertos());
+  $('btn-refrescar-cajon').addEventListener('click', () => cargarPuertos());
+
+  $('btn-cajon-abrir').addEventListener('click', async () => {
+    const btn = $('btn-cajon-abrir');
+    const puerto = $('cajon-puerto').value;
+    if (!puerto) { avisoCajon('Elige primero el puerto del adaptador del cajon.', false); return; }
+    btn.disabled = true;
+    const r = await window.bridge.abrirCajon({ puerto, baud: $('cajon-baud').value, cmd: cmdCajonElegido() });
+    avisoCajon(r.ok ? 'Pulso enviado. Si el cajon no salto, prueba otro comando.' : r.mensaje, r.ok);
+    btn.disabled = false;
+  });
+
+  $('btn-cajon-probar').addEventListener('click', async () => {
+    const btn = $('btn-cajon-probar');
+    const puerto = $('cajon-puerto').value;
+    if (!puerto) { avisoCajon('Elige primero el puerto del adaptador del cajon.', false); return; }
+    btn.disabled = true;
+    btn.textContent = 'Probando (~15s)...';
+    avisoCajon('Mira y escucha el cajon: se van a mandar todos los comandos, uno cada 2 segundos.', true);
+    try {
+      const r = await window.bridge.probarCajon({ puerto, baud: $('cajon-baud').value });
+      if (r.intentados && r.intentados.length) {
+        const filas = r.intentados
+          .map((i) => '<div>' + (i.ok ? '&#10003;' : '&#10007;') + ' <b>' + i.etiqueta + '</b>'
+            + ' <span style="opacity:.7">(' + i.clave + ')</span>'
+            + (i.mensaje ? ' — ' + i.mensaje : '') + '</div>')
+          .join('');
+        avisoCajon('Se enviaron estos comandos. Elige arriba el que hizo saltar el cajon:<br>' + filas, r.ok);
+      } else {
+        avisoCajon(r.mensaje || 'No se pudo probar.', false);
+      }
+    } catch (e) {
+      avisoCajon('Error al probar: ' + e.message, false);
+    }
+    btn.disabled = false;
+    btn.textContent = 'Probar todos los comandos';
+  });
 
   $('btn-detectar').addEventListener('click', async () => {
     const btn = $('btn-detectar');
@@ -204,6 +332,10 @@
         SCALE_BAUD: $('baud').value,
         SCALE_POLL_MS: $('pollms').value,
         SCALE_POLL_CMD: $('pollcmd').value,
+        CAJON_PORT: $('cajon-puerto').value,
+        CAJON_BAUD: $('cajon-baud').value,
+        CAJON_CMD: cmdCajonElegido(),
+        PUENTE_PORT: $('puente').value,
       });
       aviso('Guardado. Reconectando con la nueva configuracion...', true);
     } catch (e) {
@@ -218,7 +350,18 @@
 
   (async () => {
     const s = await window.bridge.obtenerEstado();
-    await cargarPuertos(s.config && s.config.SCALE_PORT);
+    const secuencias = await window.bridge.secuenciasCajon();
+    const selCmd = $('cajon-cmd');
+    for (const sec of secuencias) {
+      const o = document.createElement('option');
+      o.value = sec.clave;
+      o.textContent = sec.etiqueta;
+      selCmd.appendChild(o);
+    }
+    await cargarPuertos(
+      s.config ? s.config.SCALE_PORT : '',
+      s.config ? s.config.CAJON_PORT : '',
+    );
     pintarEstado(s);
     pintarConfig(s.config);
   })();

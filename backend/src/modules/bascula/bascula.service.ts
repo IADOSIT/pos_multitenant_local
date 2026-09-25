@@ -2,6 +2,8 @@ import { Injectable, Logger, NotFoundException, BadRequestException } from '@nes
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { randomBytes } from 'crypto';
+import { existsSync, readdirSync, statSync } from 'fs';
+import { join } from 'path';
 import { ConfigBascula } from './config-bascula.entity';
 import { PesajeLog } from './pesaje-log.entity';
 import { generarBarcodeEan13 } from '../../common/utils/ean13.util';
@@ -46,11 +48,56 @@ export class BasculaService {
     const allowed = [
       'activo', 'usar_en_pos', 'printer_modo', 'printer_ip', 'printer_port', 'label_width_mm', 'label_height_mm',
       'scale_port', 'scale_baud_rate', 'scale_protocol',
+      'cajon_activo', 'cajon_abrir_en', 'cajon_pedir_pin',
     ];
     for (const key of allowed) {
       if ((dto as any)[key] !== undefined) (config as any)[key] = (dto as any)[key];
     }
     return this.configRepo.save(config);
+  }
+
+  /**
+   * Pide al bridge de esa tienda que mande el pulso al cajon (camino por la nube).
+   * El camino preferido es el puente local del propio equipo; este es el respaldo.
+   */
+  async abrirCajon(tiendaId: number, scope: any): Promise<{ ok: boolean; via: string }> {
+    const config = await this.getOrCreateConfig(tiendaId, scope);
+    if (!config.cajon_activo) {
+      throw new BadRequestException('El cajon de dinero no esta activado para esta tienda');
+    }
+    this.gateway.emitOpenDrawer(tiendaId);
+    this.logger.log(`Cajon: pulso solicitado por la nube para tienda ${tiendaId}`);
+    return { ok: true, via: 'nube' };
+  }
+
+  /**
+   * Instalador del bridge listo para bajar.
+   *
+   * Se guarda UN solo .exe (subido una vez por el superadmin) y se entrega renombrado
+   * con el token de la tienda: `...__TKN-<token>.exe`. El instalador lee su propio
+   * nombre y deja la tienda configurada sola — ver bascula-bridge/installer.nsh.
+   */
+  rutaInstalador(): string | null {
+    // uploads/downloads/ es donde ya vivia el instalador del bridge (el link viejo de
+    // Configuracion apuntaba ahi). Se respeta esa carpeta para no pedirle al usuario
+    // que mueva nada; uploads/bridge/ se acepta como alternativa por si se sube ahi.
+    const dirs = [
+      join(process.cwd(), 'uploads', 'downloads'),
+      join(process.cwd(), 'uploads', 'bridge'),
+    ];
+    for (const dir of dirs) {
+      if (!existsSync(dir)) continue;
+      // Nombre historico primero: si existe, es el que el usuario acaba de subir.
+      const preferido = join(dir, 'bascula-bridge-setup.exe');
+      if (existsSync(preferido)) return preferido;
+      // Si no, el .exe mas reciente: subir una version nueva no obliga a borrar la vieja.
+      const exes = readdirSync(dir)
+        .filter((f) => f.toLowerCase().endsWith('.exe'))
+        .map((f) => ({ f, t: statSync(join(dir, f)).mtimeMs }))
+        .sort((a, b) => b.t - a.t);
+      if (exes.length) return join(dir, exes[0].f);
+    }
+    return null;
   }
 
   async regenerateToken(tiendaId: number, scope: any): Promise<{ tienda_token: string }> {

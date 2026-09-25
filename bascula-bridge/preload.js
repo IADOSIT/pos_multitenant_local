@@ -8,6 +8,9 @@ contextBridge.exposeInMainWorld('bridge', {
   obtenerEstado: () => ipcRenderer.invoke('obtener-estado'),
   detectar: (datos) => ipcRenderer.invoke('detectar', datos),
   guardar: (datos) => ipcRenderer.invoke('guardar', datos),
+  secuenciasCajon: () => ipcRenderer.invoke('secuencias-cajon'),
+  abrirCajon: (opts) => ipcRenderer.invoke('abrir-cajon', opts || {}),
+  probarCajon: (datos) => ipcRenderer.invoke('probar-cajon', datos),
   abrirLog: () => ipcRenderer.invoke('abrir-log'),
   onEstado: (cb) => ipcRenderer.on('estado', (_e, data) => cb(data)),
 });

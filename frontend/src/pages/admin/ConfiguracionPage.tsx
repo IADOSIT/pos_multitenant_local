@@ -6,7 +6,7 @@ import { useAuthStore } from '../../store/auth.store';
 import TicketsConfig from './TicketsConfig';
 import { useThemeStore, ThemeName, PaletteName } from '../../store/theme.store';
 import toast from 'react-hot-toast';
-import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Download, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers, TrendingUp, DollarSign, Truck, X, Scale, Search, Sparkles } from 'lucide-react';
+import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Download, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers, TrendingUp, DollarSign, Truck, X, Scale, Search, Sparkles, Banknote } from 'lucide-react';
 import MantenimientoPage from './MantenimientoPage';
 import LicenciasAdmin from './LicenciasAdmin';
 import PerfilNegocioPage from './PerfilNegocioPage';
@@ -711,6 +711,9 @@ export default function ConfiguracionPage() {
         label_height_mm: cfgRes.data?.label_height_mm ?? 25,
         scale_port: cfgRes.data?.scale_port ?? '',
         scale_baud_rate: cfgRes.data?.scale_baud_rate ?? 9600,
+        cajon_activo: cfgRes.data?.cajon_activo ?? false,
+        cajon_abrir_en: cfgRes.data?.cajon_abrir_en ?? 'efectivo',
+        cajon_pedir_pin: cfgRes.data?.cajon_pedir_pin ?? false,
       });
       setBsProductos(prodRes.data || []);
     } catch { /* silencioso: seccion opcional */ }
@@ -2142,24 +2145,39 @@ export default function ConfiguracionPage() {
 
                   {/* Guia de instalacion del bridge fisico */}
                   <div className="border-t border-iados-card pt-4 space-y-3">
-                    <h5 className="text-xs font-bold text-slate-400">Instalar en la PC con la bascula conectada</h5>
+                    <h5 className="text-xs font-bold text-slate-400">Instalar en la PC de la caja (bascula y/o cajon de dinero)</h5>
                     <ol className="text-xs text-slate-400 space-y-1.5 list-decimal list-inside">
-                      <li>Instalar el driver de puerto serial (VCP) de la bascula Torrey en la PC Windows que va a estar conectada por USB.</li>
-                      <li>Conectar el cable USB de la bascula y encenderla.</li>
-                      <li>Descargar el instalador de abajo y ejecutarlo. Se instala solo y arranca al terminar (queda un icono en la bandeja de Windows, junto al reloj).</li>
-                      <li>La primera vez se abre sola la ventana <b className="text-slate-300">Configuracion</b>. Pegar ahi el token de esta tienda (el de arriba) y elegir en la lista el puerto COM de la bascula.</li>
-                      <li>Presionar <b className="text-slate-300">Detectar automaticamente</b>: el bridge averigua solo si la bascula manda el peso sola o hay que preguntarselo, y llena el resto de los campos.</li>
-                      <li>Presionar <b className="text-slate-300">Guardar y reconectar</b>. El peso en vivo debe empezar a moverse en esa misma ventana al poner algo sobre la bascula.</li>
+                      <li>Si va bascula: instalar primero el driver de puerto serial (VCP) de la bascula Torrey y conectarla por USB, encendida.</li>
+                      <li>Si va cajon de dinero: conectar su cable (RJ11 a USB con chip serial, o al puerto RJ11 de la impresora de tickets).</li>
+                      <li>Descargar el instalador de abajo <b className="text-slate-300">desde esta pagina</b> y ejecutarlo. <b className="text-slate-300">No cambiarle el nombre al archivo</b>: el token de esta tienda viaja en el nombre y el instalador lo lee solo.</li>
+                      <li>Se instala solo y arranca al terminar (queda un icono en la bandeja de Windows, junto al reloj). Ya viene apuntando a esta tienda: no hay que pegar nada.</li>
+                      <li>En la ventana <b className="text-slate-300">Configuracion</b> elegir en la lista el puerto COM de la bascula y/o el del cajon (los puertos se detectan solos).</li>
+                      <li>Para la bascula: <b className="text-slate-300">Detectar automaticamente</b> y luego <b className="text-slate-300">Guardar y reconectar</b>. Para el cajon: <b className="text-slate-300">Abrir cajon (prueba)</b>, y si no abre, <b className="text-slate-300">Probar todos los comandos</b> para encontrar el que le sirve a ese modelo.</li>
                     </ol>
                     <p className="text-xs text-slate-500">
-                      El token y el puerto quedan guardados en la PC: al reiniciar, el bridge levanta solo y ya no vuelve a pedirlos.
-                      Para cambiarlos despues, clic derecho en el icono de la bandeja → <b className="text-slate-400">Configuracion</b>.
+                      Todo queda guardado en esa PC: al reiniciar, el bridge levanta solo. Para cambiar algo despues,
+                      clic derecho en el icono de la bandeja → <b className="text-slate-400">Configuracion</b>.
                     </p>
+                    <p className="text-xs text-slate-500">
+                      El bridge tambien levanta un puente en <code className="bg-slate-700 px-1 rounded text-blue-300">127.0.0.1:9333</code> de esa misma PC.
+                      Gracias a eso <b className="text-slate-300">la bascula y el cajon siguen funcionando con el internet caido</b>: el POS le habla
+                      directo a la maquina, sin pasar por el servidor. Si el POS corre en otra computadora de la tienda, se usa el
+                      servidor como respaldo (eso si necesita internet).
+                    </p>
+                    {!bsConfig?.tienda_token && (
+                      <p className="text-xs text-amber-400">Guarda la configuracion una vez para generar el token de esta tienda y habilitar la descarga.</p>
+                    )}
                     <div className="flex items-center gap-3 flex-wrap pt-1">
-                      <a href={resolveUploadUrl('/api/uploads/downloads/bascula-bridge-setup.exe')} download
-                        className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 border border-blue-800 rounded-lg px-3 py-1.5">
-                        <Download size={12} /> Descargar instalador (Windows 64 bits)
-                      </a>
+                      {bsConfig?.tienda_token ? (
+                        <a href={resolveUploadUrl(`/api/bridge/descargar/${bsConfig.tienda_token}`)} download
+                          className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 border border-blue-800 rounded-lg px-3 py-1.5">
+                          <Download size={12} /> Descargar instalador ya configurado para esta tienda
+                        </a>
+                      ) : (
+                        <span className="flex items-center gap-1 text-xs text-slate-600 border border-slate-800 rounded-lg px-3 py-1.5">
+                          <Download size={12} /> Descargar instalador (guarda la configuracion primero)
+                        </span>
+                      )}
                       <a href="https://redtorrey.com/software/vcp_v1-5-0_setup_w8_x64_64bits.zip" target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-300 border border-slate-700 rounded-lg px-3 py-1.5">
                         <ExternalLink size={12} /> Driver Torrey (Windows)
@@ -2191,6 +2209,88 @@ export default function ConfiguracionPage() {
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Seccion: Cajon de dinero */}
+          {selected && (
+            <>
+              <SectionHeader id="cajon" icon={Banknote} title="Cajon de dinero" />
+              {expandedSection === 'cajon' && (
+                <div className="card space-y-5">
+                  <p className="text-xs text-slate-400">
+                    El cajon se conecta al mismo bridge de esta tienda (por su cable RJ11 a USB, o al puerto RJ11
+                    de la impresora de tickets) y se abre con un pulso al cerrar la venta. Como el pulso sale por el
+                    puente local de esa PC, <b className="text-slate-300">el cajon abre aunque no haya internet</b>.
+                    El instalador y la guia estan en la seccion <b className="text-slate-300">Bascula de autoservicio</b> — es el mismo programa.
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Ojo: un cajon solo se puede <b className="text-slate-400">abrir</b> por software. Cerrarlo es empujarlo con la
+                    mano — es un resorte, no tiene motor. Ningun sistema puede cerrarlo, ni este ni otro.
+                  </p>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-sm mb-0.5">Activar cajon de dinero</h4>
+                      <p className="text-xs text-slate-500">Apagado no cambia nada: no aparece el boton en el POS ni se manda ningun pulso.</p>
+                    </div>
+                    <button
+                      onClick={() => setBsForm((f: any) => ({ ...f, cajon_activo: !f.cajon_activo }))}
+                      className={`relative w-14 h-7 rounded-full transition-colors shrink-0 ml-3 ${bsForm.cajon_activo ? 'bg-green-600' : 'bg-slate-600'}`}
+                    >
+                      <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${bsForm.cajon_activo ? 'translate-x-7' : 'translate-x-0.5'}`} />
+                    </button>
+                  </div>
+
+                  {bsForm.cajon_activo && (
+                    <>
+                      <div className="border-t border-iados-card pt-4">
+                        <h4 className="font-bold text-sm mb-2">Cuando se abre solo</h4>
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { v: 'efectivo', t: 'Solo con efectivo', d: 'Lo normal: abre cuando el cobro incluyo billetes.' },
+                            { v: 'siempre', t: 'En toda venta', d: 'Abre tambien con tarjeta o transferencia.' },
+                            { v: 'manual', t: 'Nunca solo', d: 'Solo con el boton "Cajon" del POS.' },
+                          ].map((o) => (
+                            <button
+                              key={o.v}
+                              onClick={() => setBsForm((f: any) => ({ ...f, cajon_abrir_en: o.v }))}
+                              className={`p-3 rounded-lg text-left border transition-colors ${
+                                (bsForm.cajon_abrir_en || 'efectivo') === o.v
+                                  ? 'border-blue-500 bg-blue-500/10'
+                                  : 'border-iados-card hover:border-slate-600'
+                              }`}
+                            >
+                              <div className="text-sm font-bold">{o.t}</div>
+                              <div className="text-xs text-slate-500 mt-0.5">{o.d}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between border-t border-iados-card pt-4">
+                        <div>
+                          <h4 className="font-bold text-sm mb-0.5">Pedir PIN para abrirlo a mano</h4>
+                          <p className="text-xs text-slate-500">
+                            Abrir el cajon fuera de una venta mueve dinero sin comprobante. Con esto encendido, el boton
+                            del POS pide el PIN del usuario. Requiere internet para validarlo: sin red, el boton no abre.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setBsForm((f: any) => ({ ...f, cajon_pedir_pin: !f.cajon_pedir_pin }))}
+                          className={`relative w-14 h-7 rounded-full transition-colors shrink-0 ml-3 ${bsForm.cajon_pedir_pin ? 'bg-green-600' : 'bg-slate-600'}`}
+                        >
+                          <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${bsForm.cajon_pedir_pin ? 'translate-x-7' : 'translate-x-0.5'}`} />
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  <button onClick={saveBsConfig} disabled={bsSaving} className="btn-secondary text-xs flex items-center justify-center gap-1">
+                    <Save size={14} /> {bsSaving ? 'Guardando...' : 'Guardar configuracion'}
+                  </button>
                 </div>
               )}
             </>

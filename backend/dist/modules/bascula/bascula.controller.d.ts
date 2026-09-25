@@ -8,6 +8,13 @@ export declare class BasculaController {
         tienda_token: string;
     }>;
     getProductos(tiendaId: number, req: any): Promise<any>;
+    abrirCajon(tiendaId: number, req: any): Promise<{
+        ok: boolean;
+        via: string;
+    }>;
+    bridgeDisponible(): {
+        disponible: boolean;
+    };
     registrarPesaje(dto: {
         tienda_id: number;
         producto_id: number;

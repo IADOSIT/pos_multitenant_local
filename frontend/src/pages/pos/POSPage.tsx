@@ -9,6 +9,7 @@ import { resolveUploadUrl } from '../../api/client';
 import { useConexion } from '../../api/conexion';
 import { printComanda, printTicket } from '../../utils/printTicket';
 import { decodeEan13PesoVariable } from '../../utils/ean13';
+import { abrirCajon, guardarCajonCfg, cajonCfgCache, suscribirPeso, type CajonCfg } from '../../api/puenteLocal';
 import { formatMonto, MonedaConfig } from '../../utils/moneda';
 import { Producto, Categoria } from '../../types';
 import toast from 'react-hot-toast';
@@ -19,7 +20,8 @@ import AbrirCuentaModal from '../../components/pos/AbrirCuentaModal';
 import DevolucionBuscarModal from '../../components/pos/DevolucionBuscarModal';
 import DevolucionModal from '../../components/pos/DevolucionModal';
 import ApartadosPanel from '../../components/pos/ApartadosPanel';
-import { Search, ShoppingBag, Wifi, WifiOff, CreditCard, X, Clock, RefreshCw, Trash2, Minus, Plus, FileText, RotateCcw, PackageSearch } from 'lucide-react';
+import { Search, ShoppingBag, Wifi, WifiOff, CreditCard, X, Clock, RefreshCw, Trash2, Minus, Plus, FileText, RotateCcw, PackageSearch, Banknote } from 'lucide-react';
+import PinConfirmModal from '../../components/ui/PinConfirmModal';
 
 // El catalogo captura `unidad` como texto libre, asi que llega escrito de varias
 // formas ("kg", "Kg", "KG", "kg "). El kiosko y el panel de configuracion no lo
@@ -138,6 +140,10 @@ export default function POSPage() {
   const [pesoRecibido, setPesoRecibido] = useState(false);
   const [pesoManualInput, setPesoManualInput] = useState('');
   const basculaSockRef = useRef<Socket | null>(null);
+  // Cajon de dinero: apagado salvo que la tienda lo prenda. Se arranca con lo ultimo
+  // guardado para que una caja que abre sin internet siga teniendo su boton.
+  const [cajonCfg, setCajonCfg] = useState<CajonCfg>(() => cajonCfgCache());
+  const [cajonPin, setCajonPin] = useState(false);
 
   const { user } = useAuthStore();
   const { tiendaId, empresaId } = useScope();
@@ -160,6 +166,48 @@ export default function POSPage() {
     });
     return () => { sock.disconnect(); };
   }, [basculaEnPos, tiendaId]);
+
+  // Peso por el puente local (127.0.0.1): es el mismo bridge, pero por un camino que
+  // no pasa por internet. Convive con el socket de arriba a proposito — los dos
+  // escriben el mismo peso, y asi la bascula sigue viva si se cae cualquiera de los
+  // dos caminos, sin cambiar el comportamiento que ya tenian las tiendas.
+  useEffect(() => {
+    if (!basculaEnPos) return;
+    return suscribirPeso(
+      (p) => {
+        setPesoEnVivo(p.peso_kg || 0);
+        setPesoRecibido(true);
+        setBasculaConectada(true);
+      },
+    );
+  }, [basculaEnPos]);
+
+  /**
+   * Abrir el cajon fuera de una venta (para dar cambio, retirar, etc).
+   *
+   * Queda asentado como movimiento de caja en $0 cuando hay caja abierta y red: el
+   * cajon se abrio sin que entrara ni saliera dinero por una venta, y eso tiene que
+   * verse en el corte. Si no hay red, el cajon abre igual y no se registra — se
+   * prefiere que el cajero pueda trabajar.
+   *
+   * Solo abre. Cerrarlo es a mano: el cajon es un resorte, no hay comando para cerrar.
+   */
+  const abrirCajonManual = async () => {
+    const r = await abrirCajon(tiendaId || undefined);
+    if (!r.ok) {
+      toast.error('No se pudo abrir el cajon. Revisa que el bridge este corriendo en esta caja.');
+      return;
+    }
+    toast.success('Cajon abierto');
+    if (cajaActiva?.id) {
+      cajaApi.movimiento(cajaActiva.id, {
+        tipo: 'entrada',
+        monto: 0,
+        concepto: 'Apertura manual de cajon',
+        notas: `Usuario: ${user?.nombre || ''}`,
+      }).catch(() => {});
+    }
+  };
 
   // Etiqueta de bascula de autoservicio: codigo EAN-13 de peso variable (prefijo "2").
   // El lector de barras "teclea" el codigo completo casi instantaneo — se detecta apenas
@@ -354,7 +402,13 @@ export default function POSPage() {
     try {
       const { data } = await basculaApi.getConfig(tiendaId);
       setBasculaEnPos(data?.usar_en_pos || false);
-    } catch { setBasculaEnPos(false); }
+      // El cajon se guarda en localStorage porque el cobro sin internet tiene que
+      // saber si abrirlo sin poder preguntarle al servidor.
+      setCajonCfg(guardarCajonCfg(data));
+    } catch {
+      setBasculaEnPos(false);
+      setCajonCfg(cajonCfgCache());
+    }
 
     // Cargar config_especial de empresa
     if (empresaId) {
@@ -806,6 +860,17 @@ export default function POSPage() {
             )}
           </button>}
 
+          {cajonCfg.activo && (
+            <button
+              onClick={() => (cajonCfg.pedir_pin ? setCajonPin(true) : abrirCajonManual())}
+              title="Abrir el cajon de dinero"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-iados-card border border-slate-600 hover:border-iados-secondary text-sm font-medium transition-colors shrink-0"
+            >
+              <Banknote size={16} />
+              <span className="hidden sm:inline">Cajon</span>
+            </button>
+          )}
+
           <div className="flex items-center gap-1 text-xs text-slate-400">
             {isOnline ? <Wifi size={16} className="text-green-400" /> : <WifiOff size={16} className="text-red-400" />}
             <EstadoOffline />
@@ -1242,6 +1307,16 @@ export default function POSPage() {
           </div>
         </div>
       )}
+
+      {/* Abrir el cajon fuera de una venta mueve dinero sin comprobante: si la tienda
+          lo pidio, se exige PIN. (Esto si necesita internet para validar el PIN.) */}
+      <PinConfirmModal
+        open={cajonPin}
+        title="Abrir cajon de dinero"
+        description="Confirma con tu PIN para abrir el cajon sin una venta."
+        onConfirm={() => { setCajonPin(false); abrirCajonManual(); }}
+        onCancel={() => setCajonPin(false)}
+      />
     </div>
   );
 }

@@ -11,6 +11,11 @@ export declare class BasculaService {
     constructor(configRepo: Repository<ConfigBascula>, logRepo: Repository<PesajeLog>, dataSource: DataSource, gateway: BasculaGateway);
     getOrCreateConfig(tiendaId: number, scope: any): Promise<ConfigBascula>;
     updateConfig(tiendaId: number, dto: Partial<ConfigBascula>, scope: any): Promise<ConfigBascula>;
+    abrirCajon(tiendaId: number, scope: any): Promise<{
+        ok: boolean;
+        via: string;
+    }>;
+    rutaInstalador(): string | null;
     regenerateToken(tiendaId: number, scope: any): Promise<{
         tienda_token: string;
     }>;

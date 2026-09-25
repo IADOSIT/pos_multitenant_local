@@ -414,6 +414,9 @@ export const basculaApi = {
   getProductos: (tiendaId: number) => api.get(`/bascula/productos/${tiendaId}`),
   registrarPesaje: (data: { tienda_id: number; producto_id: number; peso_kg: number }) =>
     api.post('/bascula/pesaje', data),
+  // Cajon de dinero por la nube (respaldo; el camino normal es el puente local)
+  abrirCajon: (tiendaId: number) => api.post(`/bascula/cajon/${tiendaId}/abrir`),
+  bridgeDisponible: () => api.get('/bascula/bridge/disponible'),
 };
 
 // Perfiles de Negocio

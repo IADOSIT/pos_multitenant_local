@@ -17,6 +17,8 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const crypto_1 = require("crypto");
+const fs_1 = require("fs");
+const path_1 = require("path");
 const config_bascula_entity_1 = require("./config-bascula.entity");
 const pesaje_log_entity_1 = require("./pesaje-log.entity");
 const ean13_util_1 = require("../../common/utils/ean13.util");
@@ -52,12 +54,42 @@ let BasculaService = class BasculaService {
         const allowed = [
             'activo', 'usar_en_pos', 'printer_modo', 'printer_ip', 'printer_port', 'label_width_mm', 'label_height_mm',
             'scale_port', 'scale_baud_rate', 'scale_protocol',
+            'cajon_activo', 'cajon_abrir_en', 'cajon_pedir_pin',
         ];
         for (const key of allowed) {
             if (dto[key] !== undefined)
                 config[key] = dto[key];
         }
         return this.configRepo.save(config);
+    }
+    async abrirCajon(tiendaId, scope) {
+        const config = await this.getOrCreateConfig(tiendaId, scope);
+        if (!config.cajon_activo) {
+            throw new common_1.BadRequestException('El cajon de dinero no esta activado para esta tienda');
+        }
+        this.gateway.emitOpenDrawer(tiendaId);
+        this.logger.log(`Cajon: pulso solicitado por la nube para tienda ${tiendaId}`);
+        return { ok: true, via: 'nube' };
+    }
+    rutaInstalador() {
+        const dirs = [
+            (0, path_1.join)(process.cwd(), 'uploads', 'downloads'),
+            (0, path_1.join)(process.cwd(), 'uploads', 'bridge'),
+        ];
+        for (const dir of dirs) {
+            if (!(0, fs_1.existsSync)(dir))
+                continue;
+            const preferido = (0, path_1.join)(dir, 'bascula-bridge-setup.exe');
+            if ((0, fs_1.existsSync)(preferido))
+                return preferido;
+            const exes = (0, fs_1.readdirSync)(dir)
+                .filter((f) => f.toLowerCase().endsWith('.exe'))
+                .map((f) => ({ f, t: (0, fs_1.statSync)((0, path_1.join)(dir, f)).mtimeMs }))
+                .sort((a, b) => b.t - a.t);
+            if (exes.length)
+                return (0, path_1.join)(dir, exes[0].f);
+        }
+        return null;
     }
     async regenerateToken(tiendaId, scope) {
         const config = await this.getOrCreateConfig(tiendaId, scope);

@@ -34,6 +34,23 @@ export class ConfigBascula {
   @Column({ type: 'int', default: 50 }) label_width_mm: number;
   @Column({ type: 'int', default: 25 }) label_height_mm: number;
 
+  // ── Cajon de dinero ──
+  // Vive aqui y no en una tabla nueva porque esta tabla ya es "la configuracion del
+  // hardware local de la tienda": el mismo bridge que lee la bascula es el que manda
+  // el pulso al cajon, y se autentica con el mismo tienda_token.
+  // Apagado por defecto: ninguna tienda existente cambia de comportamiento.
+  @Column({ default: false }) cajon_activo: boolean;
+
+  // Cuando se abre solo:
+  //   'efectivo' → solo si el cobro incluyo efectivo (lo normal)
+  //   'siempre'  → en todo cobro, sin importar la forma de pago
+  //   'manual'   → nunca solo; unicamente con el boton del POS
+  @Column({ type: 'varchar', length: 20, default: 'efectivo' }) cajon_abrir_en: string;
+
+  // Abrir el cajon fuera de una venta mueve dinero sin registro. Con esto encendido,
+  // el boton manual del POS pide el PIN del usuario antes de mandar el pulso.
+  @Column({ default: false }) cajon_pedir_pin: boolean;
+
   // Bascula por serial (RS-232/USB) — el protocolo exacto se ajusta segun el modelo comprado
   @Column({ type: 'varchar', length: 30, nullable: true }) scale_port: string | null;
   @Column({ type: 'int', default: 9600 }) scale_baud_rate: number;

@@ -28,8 +28,12 @@ export class BasculaGateway implements OnGatewayDisconnect {
   @SubscribeMessage('bridge-join')
   async handleBridgeJoin(@ConnectedSocket() client: Socket, @MessageBody() data: { tienda_token: string }) {
     const config = await this.configRepo.findOne({ where: { tienda_token: data.tienda_token } });
-    if (!config || !config.activo) {
-      client.emit('bridge-error', { message: 'Token invalido o bascula inactiva' });
+    // El bridge ya no sirve solo al kiosko: tambien alimenta la bascula dentro del POS
+    // y abre el cajon de dinero. Exigir `activo` dejaba fuera a una tienda que solo
+    // quiere el cajon, que es justo el caso de la fruteria.
+    const habilitado = !!config && (config.activo || config.usar_en_pos || config.cajon_activo);
+    if (!habilitado) {
+      client.emit('bridge-error', { message: 'Token invalido o hardware local desactivado' });
       return;
     }
     client.join(`tienda:${config.tienda_id}`);
@@ -53,6 +57,19 @@ export class BasculaGateway implements OnGatewayDisconnect {
   }
 
   // ── Backend pide al bridge que imprima la etiqueta (llamado desde BasculaService) ──
+  /**
+   * Camino de RESPALDO para abrir el cajon.
+   *
+   * El camino bueno es el puente local (el navegador llama a 127.0.0.1 y no depende
+   * de internet). Esto existe para cuando el POS corre en otra computadora de la
+   * tienda, o el puente no levanto: entonces se pide por la nube y el bridge la
+   * recibe. Si no hay internet, este camino simplemente no esta — por eso no es el
+   * principal.
+   */
+  emitOpenDrawer(tiendaId: number, payload: { cmd?: string } = {}) {
+    this.server.to(`tienda:${tiendaId}`).emit('open-drawer', payload);
+  }
+
   emitPrintLabel(tiendaId: number, payload: {
     producto_nombre: string; peso_kg: number; precio_total: number; barcode: string;
     label_width_mm: number; label_height_mm: number;
