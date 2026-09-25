@@ -85,19 +85,22 @@ export class BasculaService {
       join(process.cwd(), 'uploads', 'downloads'),
       join(process.cwd(), 'uploads', 'bridge'),
     ];
+    // Gana el .exe mas reciente de las dos carpetas. A proposito no se prefiere el
+    // nombre historico (bascula-bridge-setup.exe): en los servidores que ya existen
+    // ese archivo es la version vieja, sin cajon y sin el token en el nombre, y
+    // preferirlo entregaria justo el instalador equivocado.
+    const exes: { ruta: string; t: number }[] = [];
     for (const dir of dirs) {
       if (!existsSync(dir)) continue;
-      // Nombre historico primero: si existe, es el que el usuario acaba de subir.
-      const preferido = join(dir, 'bascula-bridge-setup.exe');
-      if (existsSync(preferido)) return preferido;
-      // Si no, el .exe mas reciente: subir una version nueva no obliga a borrar la vieja.
-      const exes = readdirSync(dir)
-        .filter((f) => f.toLowerCase().endsWith('.exe'))
-        .map((f) => ({ f, t: statSync(join(dir, f)).mtimeMs }))
-        .sort((a, b) => b.t - a.t);
-      if (exes.length) return join(dir, exes[0].f);
+      for (const f of readdirSync(dir)) {
+        if (!f.toLowerCase().endsWith('.exe')) continue;
+        const ruta = join(dir, f);
+        exes.push({ ruta, t: statSync(ruta).mtimeMs });
+      }
     }
-    return null;
+    if (!exes.length) return null;
+    exes.sort((a, b) => b.t - a.t);
+    return exes[0].ruta;
   }
 
   async regenerateToken(tiendaId: number, scope: any): Promise<{ tienda_token: string }> {

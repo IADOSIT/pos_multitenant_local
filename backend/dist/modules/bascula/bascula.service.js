@@ -76,20 +76,21 @@ let BasculaService = class BasculaService {
             (0, path_1.join)(process.cwd(), 'uploads', 'downloads'),
             (0, path_1.join)(process.cwd(), 'uploads', 'bridge'),
         ];
+        const exes = [];
         for (const dir of dirs) {
             if (!(0, fs_1.existsSync)(dir))
                 continue;
-            const preferido = (0, path_1.join)(dir, 'bascula-bridge-setup.exe');
-            if ((0, fs_1.existsSync)(preferido))
-                return preferido;
-            const exes = (0, fs_1.readdirSync)(dir)
-                .filter((f) => f.toLowerCase().endsWith('.exe'))
-                .map((f) => ({ f, t: (0, fs_1.statSync)((0, path_1.join)(dir, f)).mtimeMs }))
-                .sort((a, b) => b.t - a.t);
-            if (exes.length)
-                return (0, path_1.join)(dir, exes[0].f);
+            for (const f of (0, fs_1.readdirSync)(dir)) {
+                if (!f.toLowerCase().endsWith('.exe'))
+                    continue;
+                const ruta = (0, path_1.join)(dir, f);
+                exes.push({ ruta, t: (0, fs_1.statSync)(ruta).mtimeMs });
+            }
         }
-        return null;
+        if (!exes.length)
+            return null;
+        exes.sort((a, b) => b.t - a.t);
+        return exes[0].ruta;
     }
     async regenerateToken(tiendaId, scope) {
         const config = await this.getOrCreateConfig(tiendaId, scope);
