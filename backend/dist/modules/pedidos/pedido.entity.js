@@ -139,6 +139,10 @@ __decorate([
     __metadata("design:type", Object)
 ], Pedido.prototype, "ecommerce_pedido_id", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'int', nullable: true }),
+    __metadata("design:type", Object)
+], Pedido.prototype, "cotizacion_id", void 0);
+__decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)
 ], Pedido.prototype, "created_at", void 0);
@@ -153,7 +157,8 @@ __decorate([
 exports.Pedido = Pedido = __decorate([
     (0, typeorm_1.Entity)('pedidos'),
     (0, typeorm_1.Index)(['tenant_id', 'empresa_id', 'tienda_id']),
-    (0, typeorm_1.Index)(['tienda_id', 'estado'])
+    (0, typeorm_1.Index)(['tienda_id', 'estado']),
+    (0, typeorm_1.Index)(['cotizacion_id'], { unique: true })
 ], Pedido);
 let PedidoDetalle = class PedidoDetalle {
 };

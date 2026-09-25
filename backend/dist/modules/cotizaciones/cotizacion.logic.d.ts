@@ -1,0 +1,9 @@
+import { CotizacionEstado } from './cotizacion.entity';
+import { CotizacionItem } from './cotizacion-version.entity';
+export declare function puedeCotizar(estado: CotizacionEstado): boolean;
+export declare function calcularTotales(items: CotizacionItem[], precios: Map<number, number>, descuento: number): {
+    items: CotizacionItem[];
+    subtotal: number;
+    total: number;
+};
+export declare function direccionPlana(dir: any): string | null;

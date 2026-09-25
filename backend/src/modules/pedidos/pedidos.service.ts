@@ -67,6 +67,7 @@ export class PedidosService {
       // sigue naciendo en 'recibido' y sin origen ligado.
       estado: data.estado || PedidoEstado.RECIBIDO,
       ecommerce_pedido_id: data.ecommerce_pedido_id ?? null,
+      cotizacion_id: data.cotizacion_id ?? null,
       detalles: data.items.map((item: any) => ({
         producto_id: item.producto_id,
         producto_nombre: item.nombre,

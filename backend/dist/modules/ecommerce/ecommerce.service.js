@@ -24,16 +24,7 @@ const cliente_entity_1 = require("./cliente.entity");
 const campos_formulario_helper_1 = require("../empresas/campos-formulario.helper");
 const pedidos_service_1 = require("../pedidos/pedidos.service");
 const pedido_entity_1 = require("../pedidos/pedido.entity");
-function direccionPlana(dir) {
-    if (!dir)
-        return null;
-    if (typeof dir === 'string')
-        return dir.slice(0, 300);
-    const partes = ['calle', 'numero', 'colonia', 'ciudad', 'estado', 'cp', 'referencias']
-        .map((k) => dir[k])
-        .filter((v) => typeof v === 'string' && v.trim());
-    return partes.length ? partes.join(', ').slice(0, 300) : null;
-}
+const cotizacion_logic_1 = require("../cotizaciones/cotizacion.logic");
 const MAX_REINTENTOS_NUMERO = 4;
 function esDuplicado(e) {
     const code = e?.code ?? e?.driverError?.code;
@@ -270,7 +261,7 @@ let EcommerceService = EcommerceService_1 = class EcommerceService {
             notas: `Cotización web ${p.numero_pedido}${p.notas_cliente ? ' | ' + p.notas_cliente : ''}`,
             cliente_nombre: p.cliente_nombre,
             cliente_telefono: p.cliente_tel,
-            cliente_direccion: direccionPlana(p.direccion_envio),
+            cliente_direccion: (0, cotizacion_logic_1.direccionPlana)(p.direccion_envio),
             cliente_email: p.cliente_email,
             cliente_empresa: p.cliente_empresa,
             tipo_servicio: 'para_llevar',
