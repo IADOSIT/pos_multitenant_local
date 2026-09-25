@@ -81,9 +81,13 @@ OPCION B - colgado de la impresora de tickets
   En la ventana del bridge: modo "Opcion B" + elegir la impresora de
   la lista (la misma con la que salen los tickets).
   Aqui no hay puerto COM: el pulso viaja como trabajo "crudo" por la
-  cola de impresion de Windows, no sale papel. La primera vez de cada
-  sesion tarda uno o dos segundos mas (Windows carga el ayudante).
+  cola de impresion de Windows, no sale papel.
   El "Pulso por DTR/RTS" no existe en esta opcion; se desactiva solo.
+  En la lista solo se pueden elegir impresoras fisicas: las virtuales
+  (PDF, XPS, OneNote, Fax) salen en gris porque no abren ningun cajon.
+  Si la impresora esta apagada o su cola en pausa, Windows acepta el
+  pulso igual y no pasa nada; por eso el boton "Abrir ahora" revisa la
+  cola despues de mandarlo y avisa si el trabajo se quedo detenido.
 
 En las dos, si el cajon no salta, el boton "Probar todos los comandos"
 manda las secuencias una por una cada 2 segundos: se mira cual lo hace
@@ -167,6 +171,13 @@ PROBLEMAS COMUNES
   abierto.
 - Conecta bien pero el peso siempre marca 0 o no se mueve: es una
   bascula de polling, ver "TIPO DE BASCULA" arriba (SCALE_POLL_MS=400).
+- Cajon por impresora (opcion B) y dice "pulso enviado" pero no abre:
+  revisar que la impresora este encendida y en linea (en Windows no
+  debe decir "Sin conexion"), que la cola no este en pausa y que no
+  haya trabajos atorados; y que el cable RJ11 este en el puerto
+  DK / DRAWER / CASH, no en el de red. Si el mensaje dice que el
+  driver no acepta comandos crudos, en Propiedades de impresora ->
+  Opciones avanzadas activar "Imprimir directamente en la impresora".
 - La etiqueta no imprime: confirmar que la impresora esta en la
   misma red, que la IP configurada es correcta, y que el puerto 9100
   (o el que corresponda) no esta bloqueado por firewall.

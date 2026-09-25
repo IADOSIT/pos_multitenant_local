@@ -137,9 +137,10 @@
       </div>
       <div class="ayuda">
         La misma impresora con la que se imprimen los tickets. El pulso sale como
-        trabajo crudo por la cola de Windows, no imprime papel. Tarda uno o dos
-        segundos la primera vez de cada sesion.
+        trabajo crudo por la cola de Windows, no imprime papel. Las impresoras
+        virtuales (PDF, XPS, OneNote, Fax) aparecen en gris: no pueden abrir un cajon.
       </div>
+      <div class="ayuda" id="cajon-impresora-nota" style="color:#fca5a5"></div>
     </div>
 
     <div class="fila" style="margin-top:10px">
@@ -273,12 +274,20 @@
     vacia.value = '';
     vacia.textContent = lista.length ? 'Sin impresora elegida' : 'No se encontraron impresoras';
     sel.appendChild(vacia);
+    let fisicas = 0;
     for (const imp of lista) {
       const o = document.createElement('option');
       o.value = imp.nombre;
-      o.textContent = imp.etiqueta + (imp.predeterminada ? ' (predeterminada)' : '');
+      o.textContent = imp.etiqueta
+        + (imp.virtual ? ' \u2014 virtual, no sirve para el cajon' : '')
+        + (imp.predeterminada ? ' (predeterminada)' : '');
+      o.disabled = !!imp.virtual;
+      if (!imp.virtual) fisicas += 1;
       sel.appendChild(o);
     }
+    $('cajon-impresora-nota').textContent = (lista.length && !fisicas)
+      ? 'Solo hay impresoras virtuales (PDF/XPS/OneNote). Conecta e instala la impresora de tickets y presiona Refrescar.'
+      : '';
     seleccionarImpresora(antes);
   }
 
@@ -372,7 +381,8 @@
     if (!datos) return;
     btn.disabled = true;
     const r = await window.bridge.abrirCajon(datos);
-    avisoCajon(r.ok ? 'Pulso enviado. Si el cajon no salto, prueba otro comando.' : r.mensaje, r.ok);
+    if (r.ok && r.aviso) avisoCajon('Pulso enviado, pero: ' + r.aviso, false);
+    else avisoCajon(r.ok ? 'Pulso enviado. Si el cajon no salto, prueba otro comando.' : r.mensaje, r.ok);
     btn.disabled = false;
   });
 

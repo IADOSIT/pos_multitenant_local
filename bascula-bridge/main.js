@@ -23,6 +23,7 @@ const fs = require('fs');
 const { io } = require('socket.io-client');
 const { SerialPort } = require('serialport');
 const { execFile } = require('child_process');
+const crypto = require('crypto');
 
 // ── Instancia unica ───────────────────────────────────────────────────────────
 // Dos bridges a la vez se pelean por el puerto COM: el segundo no puede abrirlo y
@@ -469,6 +470,10 @@ function reiniciarConexiones() {
   // SSE vivas y el POS se quedaria un instante sin peso sin necesidad.
   const deseado = parseInt(config.PUENTE_PORT, 10) || 9333;
   if (deseado !== puenteEscuchandoEn) iniciarServidorLocal();
+  // Si acaban de cambiar a la opcion B, dejar listo el ayudante y confirmar que
+  // la impresora elegida existe, sin esperar al primer cobro.
+  calentarImpresion();
+  vigilarImpresora();
 }
 
 // ── Impresora de etiquetas (ZPL por TCP crudo, puerto 9100) ───────────────────
@@ -571,7 +576,14 @@ function descripcionCajon() {
 // asi el estado que ve la ventana y la bandeja siempre dice lo mismo.
 function finCajon(nombreCmd, res) {
   cajonOcupado = false;
-  estado.cajon = res.ok ? `Pulso enviado (${nombreCmd})` : `Error: ${res.mensaje}`;
+  if (res.ok) {
+    estado.cajon = res.aviso
+      ? `Pulso enviado con avisos (${nombreCmd})`
+      : `Pulso enviado (${nombreCmd})`;
+    if (res.aviso) console.warn('[cajon]', res.aviso);
+  } else {
+    estado.cajon = `Error: ${res.mensaje}`;
+  }
   pushEstado();
   return res;
 }
@@ -588,11 +600,15 @@ function finCajon(nombreCmd, res) {
 //    node-gyp en cada version de Electron: justo lo que rompe instalaciones.
 //  - Imprimir con el driver mandaria un ticket en blanco, no el pulso.
 const PS_RAW_PRINT = `param(
-  [Parameter(Mandatory=$true)][string]$Printer,
-  [Parameter(Mandatory=$true)][string]$Ruta
+  [string]$Printer = '',
+  [string]$Ruta = '',
+  [string]$Dll = '',
+  [switch]$Verificar,
+  [switch]$SoloCompilar
 )
 $ErrorActionPreference = 'Stop'
-Add-Type -TypeDefinition @'
+
+$codigo = @'
 using System;
 using System.Runtime.InteropServices;
 public class PosRawPrinter {
@@ -620,14 +636,23 @@ public class PosRawPrinter {
   public static string Enviar(string impresora, byte[] datos) {
     IntPtr h = IntPtr.Zero;
     if (!OpenPrinter(impresora, out h, IntPtr.Zero)) {
-      return "Windows no encontro la impresora (error " + Marshal.GetLastWin32Error() + ")";
+      int e = Marshal.GetLastWin32Error();
+      if (e == 1801) return "Windows no tiene ninguna impresora con ese nombre exacto. Refresca la lista y vuelve a elegirla.";
+      if (e == 5) return "Windows nego el acceso a esa impresora (error 5). Si es una impresora de red o compartida, abrela una vez desde Windows con este mismo usuario.";
+      return "No se pudo abrir la impresora (error " + e + ")";
     }
     try {
       DOCINFOW di = new DOCINFOW();
       di.pDocName = "POS-iaDoS cajon";
       di.pDataType = "RAW";
       if (!StartDocPrinter(h, 1, di)) {
-        return "La impresora no acepto un trabajo RAW (error " + Marshal.GetLastWin32Error() + ")";
+        int e1 = Marshal.GetLastWin32Error();
+        // Algunos drivers rechazan la palabra "RAW" pero si aceptan su tipo por
+        // omision. Cuesta nada reintentar antes de darlo por perdido.
+        di.pDataType = null;
+        if (!StartDocPrinter(h, 1, di)) {
+          return "El driver de esa impresora no acepta comandos crudos (error " + e1 + "). En Windows: Propiedades de impresora -> Opciones avanzadas -> 'Imprimir directamente en la impresora'; si aun asi falla, instala el driver del fabricante en modo ESC/POS.";
+        }
       }
       try {
         if (!StartPagePrinter(h)) {
@@ -657,9 +682,83 @@ public class PosRawPrinter {
   }
 }
 '@
+
+# Compilar una sola vez y guardar el DLL: Add-Type -TypeDefinition invoca al
+# compilador de C# y cuesta 1-2 segundos EN CADA PULSO. Con el ensamblado ya
+# compilado en disco la carga baja a milisegundos, que es la diferencia entre
+# que el cajon salte al cobrar o que el cajero se quede esperando.
+function Cargar-Ayudante {
+  if ($Dll -ne '') {
+    if (Test-Path -LiteralPath $Dll) {
+      try { Add-Type -Path $Dll; return } catch { }
+    }
+    try {
+      $dir = Split-Path -Parent $Dll
+      if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+      $tmp = Join-Path $dir ([System.IO.Path]::GetRandomFileName() + '.dll')
+      Add-Type -TypeDefinition $codigo -OutputAssembly $tmp -OutputType Library
+      # Si otro proceso gano la carrera y ya dejo el DLL bueno, se usa ese.
+      try { Move-Item -LiteralPath $tmp -Destination $Dll -Force } catch { }
+      if (Test-Path -LiteralPath $Dll) {
+        try {
+          Add-Type -Path $Dll
+          Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+          return
+        } catch { }
+      }
+      Add-Type -Path $tmp
+      return
+    } catch { }
+  }
+  Add-Type -TypeDefinition $codigo
+}
+Cargar-Ayudante
+
+# El bridge llama con -SoloCompilar al arrancar: deja el DLL listo para que el
+# primer pulso real no pague la compilacion.
+if ($SoloCompilar) { exit 0 }
+if ($Printer -eq '' -or $Ruta -eq '') { Write-Output 'Faltan datos para mandar el pulso.'; exit 1 }
+
+$avisos = @()
+
+# -Verificar solo lo mandan las pruebas manuales de la ventana. Durante una venta
+# no se hace nada de esto: ahi lo que importa son los milisegundos.
+if ($Verificar) {
+  $imp = $null
+  try { $imp = Get-CimInstance Win32_Printer -ErrorAction Stop | Where-Object { $_.Name -eq $Printer } | Select-Object -First 1 } catch { }
+  if ($null -eq $imp) {
+    Write-Output ('Windows ya no tiene una impresora llamada "' + $Printer + '". Refresca la lista y vuelve a elegirla.')
+    exit 1
+  }
+  if ($imp.WorkOffline) { $avisos += 'La impresora esta marcada "Usar sin conexion" en Windows: el pulso se queda en la cola. Enciendela, revisa el cable USB y quita esa opcion.' }
+  elseif ($imp.PrinterStatus -eq 7) { $avisos += 'Windows reporta la impresora fuera de linea.' }
+  if (($imp.PrinterState -band 1) -ne 0) { $avisos += 'La cola de impresion esta EN PAUSA: reanudala o el pulso nunca saldra.' }
+}
+
 $bytes = [System.IO.File]::ReadAllBytes($Ruta)
 $msg = [PosRawPrinter]::Enviar($Printer, $bytes)
-if ($msg -ne '') { Write-Output $msg; exit 1 }
+if ($msg -ne '') {
+  if ($avisos.Count -gt 0) { $msg = $msg + ' ' + ($avisos -join ' ') }
+  Write-Output $msg
+  exit 1
+}
+
+# El spooler acepta el trabajo aunque la impresora este apagada: sin esto el
+# bridge diria "pulso enviado" con el cajon cerrado y nadie sabria por que.
+if ($Verificar) {
+  $limite = (Get-Date).AddSeconds(5)
+  $atorado = $false
+  while ((Get-Date) -lt $limite) {
+    Start-Sleep -Milliseconds 350
+    $t = @()
+    try { $t = @(Get-CimInstance Win32_PrintJob -ErrorAction Stop | Where-Object { $_.Document -eq 'POS-iaDoS cajon' }) } catch { break }
+    if ($t.Count -eq 0) { $atorado = $false; break }
+    $atorado = $true
+  }
+  if ($atorado) { $avisos += 'El pulso se quedo detenido en la cola: Windows lo acepto pero la impresora no lo consumio. Revisa que este encendida, con papel, con la tapa cerrada y sin la cola en pausa.' }
+}
+
+if ($avisos.Count -gt 0) { Write-Output ($avisos -join ' ') }
 exit 0
 `;
 
@@ -681,7 +780,42 @@ function rutaScriptRaw() {
   }
 }
 
-function enviarRawImpresora(impresora, datos) {
+// El nombre del DLL lleva la huella del script: si una actualizacion del bridge
+// cambia el C#, el ensamblado viejo simplemente deja de usarse y se compila el
+// nuevo, sin depender de borrar nada a mano.
+function rutaDllRaw() {
+  const huella = crypto.createHash('sha1').update(PS_RAW_PRINT).digest('hex').slice(0, 10);
+  return path.join(app.getPath('userData'), 'bin', `PosRawPrinter-${huella}.dll`);
+}
+
+function argsPowerShell(ps1, extra) {
+  return ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ps1].concat(extra);
+}
+
+/**
+ * Deja el ayudante compilado ANTES de que se necesite. Se llama al arrancar y al
+ * guardar configuracion, en segundo plano: si falla no pasa nada, el primer pulso
+ * lo compilara (solo que tardara un par de segundos).
+ */
+function calentarImpresion() {
+  if (modoCajon() !== 'impresora') return;
+  const ps1 = rutaScriptRaw();
+  if (!ps1) return;
+  const dll = rutaDllRaw();
+  if (fs.existsSync(dll)) return;
+  const t0 = Date.now();
+  execFile(
+    'powershell.exe',
+    argsPowerShell(ps1, ['-Dll', dll, '-SoloCompilar']),
+    { windowsHide: true, timeout: 60000 },
+    (err) => {
+      if (err) console.warn('[cajon] No se pudo precompilar el ayudante:', err.message);
+      else console.log(`[cajon] Ayudante de impresion listo en ${Date.now() - t0} ms`);
+    },
+  );
+}
+
+function enviarRawImpresora(impresora, datos, { verificar = false } = {}) {
   return new Promise((resolve) => {
     const nombre = String(impresora || '').trim();
     if (!nombre) return resolve({ ok: false, mensaje: 'No hay impresora elegida para el cajon.' });
@@ -699,19 +833,45 @@ function enviarRawImpresora(impresora, datos) {
 
     // Los argumentos van como parametros, nunca interpolados en el comando: el
     // nombre de la impresora lo escribe el usuario y puede traer comillas.
+    const extra = ['-Printer', nombre, '-Ruta', bin, '-Dll', rutaDllRaw()];
+    if (verificar) extra.push('-Verificar');
+
+    // La verificacion espera a que la cola consuma el trabajo, por eso su tope es
+    // mas alto. En venta no se verifica y 20 s es de sobra.
     execFile(
       'powershell.exe',
-      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ps1,
-        '-Printer', nombre, '-Ruta', bin],
-      { windowsHide: true, timeout: 20000 },
+      argsPowerShell(ps1, extra),
+      { windowsHide: true, timeout: verificar ? 45000 : 20000 },
       (err, stdout, stderr) => {
         try { fs.unlinkSync(bin); } catch (_) {}
         const salida = String(stdout || '').trim() || String(stderr || '').trim();
+        if (err && err.killed) {
+          return resolve({
+            ok: false,
+            mensaje: 'Windows no contesto a tiempo. Suele ser la cola de impresion atorada: '
+              + 'cancela los trabajos pendientes de esa impresora y vuelve a intentar.',
+          });
+        }
         if (err) return resolve({ ok: false, mensaje: salida || err.message });
-        resolve({ ok: true, via: 'impresora' });
+        // Salio bien, pero el ayudante puede traer avisos (cola en pausa, etc.).
+        resolve({ ok: true, via: 'impresora', aviso: salida || '' });
       },
     );
   });
+}
+
+// Casi toda PC trae impresoras que no son impresoras: mandarles el pulso abre un
+// dialogo modal de "guardar como" que congela la caja. Se marcan para que la
+// ventana no deje elegirlas por error.
+const IMPRESORAS_VIRTUALES = [
+  'microsoft print to pdf', 'microsoft xps document writer', 'onenote', 'fax',
+  'adobe pdf', 'pdfcreator', 'foxit', 'cutepdf', 'print to pdf', 'xps document writer',
+  'anydesk', 'quickbooks pdf', 'bullzip',
+];
+
+function esImpresoraVirtual(nombre) {
+  const n = String(nombre || '').toLowerCase();
+  return IMPRESORAS_VIRTUALES.some((v) => n.includes(v));
 }
 
 /**
@@ -727,6 +887,7 @@ async function listarImpresoras(sender) {
           nombre: p.name,
           etiqueta: p.displayName || p.description || p.name,
           predeterminada: !!p.isDefault,
+          virtual: esImpresoraVirtual(p.name) || esImpresoraVirtual(p.displayName),
         }));
       }
     }
@@ -745,17 +906,61 @@ async function listarImpresoras(sender) {
           if (!Array.isArray(datos)) datos = [datos];
           resolve(datos
             .filter((p) => p && p.Name)
-            .map((p) => ({ nombre: p.Name, etiqueta: p.Name, predeterminada: !!p.Default })));
+            .map((p) => ({
+              nombre: p.Name,
+              etiqueta: p.Name,
+              predeterminada: !!p.Default,
+              virtual: esImpresoraVirtual(p.Name),
+            })));
         } catch (_) { resolve([]); }
       },
     );
   });
 }
 
-async function abrirCajonPorImpresora({ impresora, cmd } = {}) {
+// Una impresora se puede desinstalar, renombrar o quedarse sin driver despues de
+// configurada. Se revisa de vez en cuando (no en cada /estado: enumerar impresoras
+// cuesta un proceso de PowerShell) para poder avisar antes de que falle una venta.
+let impresoraPresente = null;
+let vigilanciaImpresora = null;
+
+async function revisarImpresoraGuardada() {
+  if (modoCajon() !== 'impresora') { impresoraPresente = null; return; }
+  const nombre = String(config.CAJON_IMPRESORA || '').trim();
+  if (!nombre) { impresoraPresente = null; return; }
+  let hay;
+  try {
+    const lista = await listarImpresoras(null);
+    if (!lista.length) return; // no se pudo enumerar: mejor no cambiar el estado
+    hay = lista.some((i) => i.nombre === nombre);
+  } catch (_) { return; }
+  if (hay === impresoraPresente) return;
+  impresoraPresente = hay;
+  console.warn(`[cajon] Impresora "${nombre}": ${hay ? 'detectada' : 'YA NO esta instalada en Windows'}`);
+  if (!hay) estado.cajon = `La impresora "${nombre}" ya no esta en Windows`;
+  pushEstado();
+  updateTray(estado.bascula);
+}
+
+function vigilarImpresora() {
+  if (vigilanciaImpresora) clearInterval(vigilanciaImpresora);
+  revisarImpresoraGuardada();
+  if (modoCajon() !== 'impresora') return;
+  vigilanciaImpresora = setInterval(revisarImpresoraGuardada, 5 * 60 * 1000);
+}
+
+async function abrirCajonPorImpresora({ impresora, cmd, diagnostico = false } = {}) {
   const nombreCmd = cmd || config.CAJON_CMD || 'escpos_pin2';
   const nombre = (impresora || config.CAJON_IMPRESORA || '').trim();
   if (!nombre) return finCajon(nombreCmd, { ok: false, mensaje: 'No hay impresora elegida para el cajon.' });
+  // Mandarle bytes crudos a "Microsoft Print to PDF" abre un dialogo de guardado
+  // que bloquea la caja entera. Se corta aqui, antes de tocar el spooler.
+  if (esImpresoraVirtual(nombre)) {
+    return finCajon(nombreCmd, {
+      ok: false,
+      mensaje: `"${nombre}" es una impresora virtual (PDF/XPS/OneNote), no fisica: no puede abrir el cajon. Elige la impresora de tickets real.`,
+    });
+  }
   if (cajonOcupado) return { ok: false, mensaje: 'El cajon ya esta recibiendo un pulso, espera un momento.' };
 
   const datos = bytesCajon(nombreCmd);
@@ -769,7 +974,7 @@ async function abrirCajonPorImpresora({ impresora, cmd } = {}) {
   }
 
   cajonOcupado = true;
-  const r = await enviarRawImpresora(nombre, datos);
+  const r = await enviarRawImpresora(nombre, datos, { verificar: diagnostico });
   return finCajon(nombreCmd, r);
 }
 
@@ -852,11 +1057,11 @@ async function probarCajon(opts = {}) {
     // ensuciar la lista con un fallo que no dice nada.
     if (modo === 'impresora' && !seq.bytes) continue;
 
-    const r = await abrirCajon({ ...opts, modo, cmd: clave });
-    intentados.push({ clave, etiqueta: seq.etiqueta, ok: r.ok, mensaje: r.mensaje || '' });
+    const r = await abrirCajon({ ...opts, modo, cmd: clave, diagnostico: true });
+    intentados.push({ clave, etiqueta: seq.etiqueta, ok: r.ok, mensaje: r.mensaje || r.aviso || '' });
     // Si ni siquiera se puede hablar con el aparato, repetirlo 7 veces solo alarga
     // la espera sin aportar nada.
-    if (!r.ok && /No se pudo abrir|no encontro la impresora|no acepto un trabajo/i.test(r.mensaje || '')) break;
+    if (!r.ok && /No se pudo abrir|ninguna impresora|ya no tiene una impresora|no acepta comandos crudos|impresora virtual|nego el acceso|no contesto a tiempo/i.test(r.mensaje || '')) break;
     await new Promise((seguir) => setTimeout(seguir, 2200));
   }
   return { ok: intentados.some((i) => i.ok), intentados };
@@ -938,6 +1143,9 @@ function estadoPuente() {
       modo: modoCajon(),
       puerto: config.CAJON_PORT,
       impresora: config.CAJON_IMPRESORA,
+      // Para que el POS pueda avisar "la impresora del cajon ya no esta" sin
+      // tener que mandar un pulso de prueba a ciegas.
+      impresora_presente: modoCajon() === 'impresora' ? impresoraPresente : null,
       cmd: config.CAJON_CMD,
       estado: estado.cajon,
     },
@@ -1155,7 +1363,7 @@ ipcMain.handle('listar-impresoras', async (e) => {
   catch (err) { console.warn('[cajon] No se pudieron listar impresoras:', err.message); return []; }
 });
 
-ipcMain.handle('abrir-cajon', async (_e, opts = {}) => abrirCajon(opts));
+ipcMain.handle('abrir-cajon', async (_e, opts = {}) => abrirCajon({ ...opts, diagnostico: true }));
 
 ipcMain.handle('probar-cajon', async (_e, opts = {}) => {
   if (modoCajon(opts.modo) === 'impresora') {
@@ -1197,6 +1405,8 @@ app.whenReady().then(() => {
   connectSocket();
   abrirBascula();
   iniciarServidorLocal();
+  calentarImpresion();
+  vigilarImpresora();
 
   // Primera vez: no dejamos al usuario adivinando. Basta con que tenga token y al
   // menos un aparato configurado — hay tiendas que solo quieren el cajon.
@@ -1211,11 +1421,12 @@ function updateTray(status) {
     { label: status, enabled: false },
     { label: `Backend: ${config.BACKEND_URL}`, enabled: false },
     { label: `Puerto bascula: ${config.SCALE_PORT || '(sin configurar)'}`, enabled: false },
-    { label: `Cajon (${modoCajon() === 'impresora' ? 'por impresora' : 'adaptador USB'}): ${descripcionCajon()}`, enabled: false },
+    { label: `Cajon (${modoCajon() === 'impresora' ? 'por impresora' : 'adaptador USB'}): ${descripcionCajon()}`
+        + (modoCajon() === 'impresora' && impresoraPresente === false ? '  [no instalada]' : ''), enabled: false },
     { label: `Puente local: ${estado.puente}`, enabled: false },
     { type: 'separator' },
     { label: 'Abrir cajon (prueba)', enabled: cajonConfigurado(), click: () => {
-      abrirCajon().then((r) => { if (!r.ok) console.warn('[bridge] Abrir cajon:', r.mensaje); });
+      abrirCajon({ diagnostico: true }).then((r) => { if (!r.ok) console.warn('[bridge] Abrir cajon:', r.mensaje); });
     } },
     { label: 'Configuracion...', click: abrirConfig },
     { label: 'Ver bitacora (bridge.log)', click: () => shell.showItemInFolder(logFile) },
