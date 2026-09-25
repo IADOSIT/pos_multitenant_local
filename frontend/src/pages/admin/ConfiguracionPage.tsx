@@ -2148,11 +2148,11 @@ export default function ConfiguracionPage() {
                     <h5 className="text-xs font-bold text-slate-400">Instalar en la PC de la caja (bascula y/o cajon de dinero)</h5>
                     <ol className="text-xs text-slate-400 space-y-1.5 list-decimal list-inside">
                       <li>Si va bascula: instalar primero el driver de puerto serial (VCP) de la bascula Torrey y conectarla por USB, encendida.</li>
-                      <li>Si va cajon de dinero: conectar su cable (RJ11 a USB con chip serial, o al puerto RJ11 de la impresora de tickets).</li>
+                      <li>Si va cajon de dinero, hay dos formas de conectarlo y el bridge soporta las dos: <b className="text-slate-300">(A)</b> su cable RJ11 a un adaptador RJ11→USB <i>con chip serial</i>, o <b className="text-slate-300">(B)</b> ese mismo cable al puerto <b className="text-slate-300">DK / DRAWER</b> de la impresora de tickets, con la impresora conectada por USB a la PC.</li>
                       <li>Descargar el instalador de abajo <b className="text-slate-300">desde esta pagina</b> y ejecutarlo. <b className="text-slate-300">No cambiarle el nombre al archivo</b>: el token de esta tienda viaja en el nombre y el instalador lo lee solo.</li>
                       <li>Se instala solo y arranca al terminar (queda un icono en la bandeja de Windows, junto al reloj). Ya viene apuntando a esta tienda: no hay que pegar nada.</li>
-                      <li>En la ventana <b className="text-slate-300">Configuracion</b> elegir en la lista el puerto COM de la bascula y/o el del cajon (los puertos se detectan solos).</li>
-                      <li>Para la bascula: <b className="text-slate-300">Detectar automaticamente</b> y luego <b className="text-slate-300">Guardar y reconectar</b>. Para el cajon: <b className="text-slate-300">Abrir cajon (prueba)</b>, y si no abre, <b className="text-slate-300">Probar todos los comandos</b> para encontrar el que le sirve a ese modelo.</li>
+                      <li>En la ventana <b className="text-slate-300">Configuracion</b> elegir el puerto COM de la bascula (se detectan solos) y, en Cajon de dinero, <b className="text-slate-300">como esta conectado</b>: opcion A (puerto COM del adaptador) u opcion B (elegir la impresora de tickets de la lista).</li>
+                      <li>Para la bascula: <b className="text-slate-300">Detectar automaticamente</b> y luego <b className="text-slate-300">Guardar y reconectar</b>. Para el cajon: <b className="text-slate-300">Abrir ahora</b>, y si no abre, <b className="text-slate-300">Probar todos los comandos</b> para encontrar el que le sirve a ese modelo.</li>
                     </ol>
                     <p className="text-xs text-slate-500">
                       Todo queda guardado en esa PC: al reiniciar, el bridge levanta solo. Para cambiar algo despues,
@@ -2221,11 +2221,26 @@ export default function ConfiguracionPage() {
               {expandedSection === 'cajon' && (
                 <div className="card space-y-5">
                   <p className="text-xs text-slate-400">
-                    El cajon se conecta al mismo bridge de esta tienda (por su cable RJ11 a USB, o al puerto RJ11
-                    de la impresora de tickets) y se abre con un pulso al cerrar la venta. Como el pulso sale por el
-                    puente local de esa PC, <b className="text-slate-300">el cajon abre aunque no haya internet</b>.
-                    El instalador y la guia estan en la seccion <b className="text-slate-300">Bascula de autoservicio</b> — es el mismo programa.
+                    El cajon se abre con un pulso al cerrar la venta. Como el pulso sale por el puente local de esa
+                    PC, <b className="text-slate-300">el cajon abre aunque no haya internet</b>. El instalador y la
+                    guia estan en la seccion <b className="text-slate-300">Bascula de autoservicio</b> — es el mismo programa.
                   </p>
+                  <div className="text-xs text-slate-400 bg-iados-dark/50 rounded-lg p-3 space-y-2">
+                    <p className="font-bold text-slate-300">Hay dos formas de cablearlo. Se elige en la ventana del bridge, en esa PC:</p>
+                    <p>
+                      <b className="text-slate-300">Opcion A — adaptador RJ11 → USB.</b> El cable del cajon entra a un adaptador
+                      conectado a la PC y Windows le da su propio puerto COM. El adaptador tiene que traer chip serial: si al
+                      conectarlo no aparece ningun puerto COM nuevo, es pasivo y no sirve.
+                    </p>
+                    <p>
+                      <b className="text-slate-300">Opcion B — colgado de la impresora de tickets.</b> El cable del cajon entra al
+                      puerto <b className="text-slate-300">DK / DRAWER / CASH</b> de la impresora, y la impresora va por USB a la PC.
+                      Ahi no hay puerto COM: se elige la impresora de una lista y el pulso sale por la cola de impresion de Windows.
+                    </p>
+                    <p className="text-slate-500">
+                      Si una no funciona con tu hardware, se cambia a la otra desde la misma ventana, sin reinstalar nada.
+                    </p>
+                  </div>
                   <p className="text-xs text-slate-500">
                     Ojo: un cajon solo se puede <b className="text-slate-400">abrir</b> por software. Cerrarlo es empujarlo con la
                     mano — es un resorte, no tiene motor. Ningun sistema puede cerrarlo, ni este ni otro.

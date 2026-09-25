@@ -104,21 +104,45 @@
 
   <h2>Cajon de dinero</h2>
   <div class="panel">
-    <label for="cajon-puerto">Puerto del adaptador del cajon</label>
-    <div class="fila">
-      <select id="cajon-puerto"></select>
-      <button id="btn-refrescar-cajon" type="button">Refrescar</button>
+    <label for="cajon-modo">Como esta conectado el cajon</label>
+    <select id="cajon-modo">
+      <option value="com">Opcion A &mdash; adaptador RJ11 a USB (el cajon entra solo a la PC)</option>
+      <option value="impresora">Opcion B &mdash; al puerto RJ11 de la impresora de tickets (la impresora va por USB a la PC)</option>
+    </select>
+    <div class="ayuda" id="cajon-modo-ayuda"></div>
+
+    <div id="bloque-cajon-com" style="margin-top:12px">
+      <label for="cajon-puerto">Puerto del adaptador del cajon</label>
+      <div class="fila">
+        <select id="cajon-puerto"></select>
+        <button id="btn-refrescar-cajon" type="button">Refrescar</button>
+      </div>
+      <div class="ayuda">
+        Es el COM que aparece al conectar el adaptador RJ11&rarr;USB. Si al conectarlo no
+        aparece ningun puerto nuevo, el cable es pasivo y no puede abrir el cajon.
+      </div>
+      <div class="fila" style="margin-top:10px">
+        <div>
+          <label for="cajon-baud">Velocidad (baud)</label>
+          <input id="cajon-baud" type="text" spellcheck="false" />
+        </div>
+      </div>
     </div>
-    <div class="ayuda">
-      Es el COM que aparece al conectar el adaptador RJ11&rarr;USB. Si al conectarlo no
-      aparece ningun puerto nuevo, el cable es pasivo y no puede abrir el cajon.
+
+    <div id="bloque-cajon-impresora" style="margin-top:12px">
+      <label for="cajon-impresora">Impresora de tickets</label>
+      <div class="fila">
+        <select id="cajon-impresora"></select>
+        <button id="btn-refrescar-impresoras" type="button">Refrescar</button>
+      </div>
+      <div class="ayuda">
+        La misma impresora con la que se imprimen los tickets. El pulso sale como
+        trabajo crudo por la cola de Windows, no imprime papel. Tarda uno o dos
+        segundos la primera vez de cada sesion.
+      </div>
     </div>
 
     <div class="fila" style="margin-top:10px">
-      <div>
-        <label for="cajon-baud">Velocidad (baud)</label>
-        <input id="cajon-baud" type="text" spellcheck="false" />
-      </div>
       <div>
         <label for="cajon-cmd">Comando de apertura</label>
         <select id="cajon-cmd"></select>
@@ -194,8 +218,68 @@
       }
     }
 
+    $('cajon-modo').value = (c.CAJON_MODO === 'impresora') ? 'impresora' : 'com';
+    aplicarModoCajon();
+    seleccionarImpresora(c.CAJON_IMPRESORA);
+
     seleccionarPuerto('puerto', c.SCALE_PORT);
     seleccionarPuerto('cajon-puerto', c.CAJON_PORT);
+  }
+
+  // Las dos opciones son excluyentes: se ve solo la que se eligio, para que nadie
+  // configure un COM que no existe creyendo que asi va a salir por la impresora.
+  const AYUDA_MODO = {
+    com: 'El cajon trae un cable RJ11 que va a un adaptador RJ11&rarr;USB conectado a la PC. '
+       + 'Windows le da su propio puerto COM y el pulso sale por ahi.',
+    impresora: 'El cable RJ11 del cajon va al puerto marcado DK / DRAWER / CASH de la impresora '
+       + 'de tickets, y la impresora va por USB a la PC. La impresora es la que suelta los 24 V; '
+       + 'el bridge solo le manda el comando.',
+  };
+
+  function aplicarModoCajon() {
+    const modo = $('cajon-modo').value === 'impresora' ? 'impresora' : 'com';
+    $('bloque-cajon-com').style.display = modo === 'com' ? '' : 'none';
+    $('bloque-cajon-impresora').style.display = modo === 'impresora' ? '' : 'none';
+    $('cajon-modo-ayuda').innerHTML = AYUDA_MODO[modo];
+
+    // El pulso por DTR/RTS levanta lineas fisicas del serial: por la cola de
+    // impresion no existe. Se desactiva en vez de dejar que falle sin explicacion.
+    const opDtr = [...$('cajon-cmd').options].find((o) => o.value === 'dtr');
+    if (opDtr) {
+      opDtr.disabled = modo === 'impresora';
+      if (opDtr.disabled && $('cajon-cmd').value === 'dtr') $('cajon-cmd').value = 'escpos_pin2';
+    }
+  }
+
+  function seleccionarImpresora(valor) {
+    const sel = $('cajon-impresora');
+    if (document.activeElement === sel || !valor) return;
+    if (![...sel.options].some((o) => o.value === valor)) {
+      const o = document.createElement('option');
+      o.value = valor;
+      o.textContent = valor + ' \u2014 (no detectada ahora)';
+      sel.appendChild(o);
+    }
+    sel.value = valor;
+  }
+
+  async function cargarImpresoras(previo) {
+    const antes = previo !== undefined ? previo : $('cajon-impresora').value;
+    const sel = $('cajon-impresora');
+    let lista = [];
+    try { lista = await window.bridge.listarImpresoras(); } catch (_) { lista = []; }
+    sel.innerHTML = '';
+    const vacia = document.createElement('option');
+    vacia.value = '';
+    vacia.textContent = lista.length ? 'Sin impresora elegida' : 'No se encontraron impresoras';
+    sel.appendChild(vacia);
+    for (const imp of lista) {
+      const o = document.createElement('option');
+      o.value = imp.nombre;
+      o.textContent = imp.etiqueta + (imp.predeterminada ? ' (predeterminada)' : '');
+      sel.appendChild(o);
+    }
+    seleccionarImpresora(antes);
   }
 
   // El comando que se va a guardar: los bytes a la medida mandan sobre la lista.
@@ -265,26 +349,42 @@
 
   $('btn-refrescar').addEventListener('click', () => cargarPuertos());
   $('btn-refrescar-cajon').addEventListener('click', () => cargarPuertos());
+  $('btn-refrescar-impresoras').addEventListener('click', () => cargarImpresoras());
+  $('cajon-modo').addEventListener('change', aplicarModoCajon);
+
+  // Lo que hay que mandarle al bridge para probar, segun como este cableado.
+  // Devuelve null (y ya aviso) si falta lo minimo.
+  function datosCajon() {
+    const modo = $('cajon-modo').value === 'impresora' ? 'impresora' : 'com';
+    if (modo === 'impresora') {
+      const impresora = $('cajon-impresora').value;
+      if (!impresora) { avisoCajon('Elige primero la impresora de tickets.', false); return null; }
+      return { modo, impresora, cmd: cmdCajonElegido() };
+    }
+    const puerto = $('cajon-puerto').value;
+    if (!puerto) { avisoCajon('Elige primero el puerto del adaptador del cajon.', false); return null; }
+    return { modo, puerto, baud: $('cajon-baud').value, cmd: cmdCajonElegido() };
+  }
 
   $('btn-cajon-abrir').addEventListener('click', async () => {
     const btn = $('btn-cajon-abrir');
-    const puerto = $('cajon-puerto').value;
-    if (!puerto) { avisoCajon('Elige primero el puerto del adaptador del cajon.', false); return; }
+    const datos = datosCajon();
+    if (!datos) return;
     btn.disabled = true;
-    const r = await window.bridge.abrirCajon({ puerto, baud: $('cajon-baud').value, cmd: cmdCajonElegido() });
+    const r = await window.bridge.abrirCajon(datos);
     avisoCajon(r.ok ? 'Pulso enviado. Si el cajon no salto, prueba otro comando.' : r.mensaje, r.ok);
     btn.disabled = false;
   });
 
   $('btn-cajon-probar').addEventListener('click', async () => {
     const btn = $('btn-cajon-probar');
-    const puerto = $('cajon-puerto').value;
-    if (!puerto) { avisoCajon('Elige primero el puerto del adaptador del cajon.', false); return; }
+    const datos = datosCajon();
+    if (!datos) return;
     btn.disabled = true;
     btn.textContent = 'Probando (~15s)...';
     avisoCajon('Mira y escucha el cajon: se van a mandar todos los comandos, uno cada 2 segundos.', true);
     try {
-      const r = await window.bridge.probarCajon({ puerto, baud: $('cajon-baud').value });
+      const r = await window.bridge.probarCajon(datos);
       if (r.intentados && r.intentados.length) {
         const filas = r.intentados
           .map((i) => '<div>' + (i.ok ? '&#10003;' : '&#10007;') + ' <b>' + i.etiqueta + '</b>'
@@ -332,8 +432,10 @@
         SCALE_BAUD: $('baud').value,
         SCALE_POLL_MS: $('pollms').value,
         SCALE_POLL_CMD: $('pollcmd').value,
+        CAJON_MODO: $('cajon-modo').value,
         CAJON_PORT: $('cajon-puerto').value,
         CAJON_BAUD: $('cajon-baud').value,
+        CAJON_IMPRESORA: $('cajon-impresora').value,
         CAJON_CMD: cmdCajonElegido(),
         PUENTE_PORT: $('puente').value,
       });
@@ -362,6 +464,7 @@
       s.config ? s.config.SCALE_PORT : '',
       s.config ? s.config.CAJON_PORT : '',
     );
+    await cargarImpresoras(s.config ? s.config.CAJON_IMPRESORA : '');
     pintarEstado(s);
     pintarConfig(s.config);
   })();

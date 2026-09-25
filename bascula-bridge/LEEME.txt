@@ -33,10 +33,12 @@ INSTALACION (forma normal, con el instalador)
      - Bascula: elegir su puerto COM en la lista, presionar "Detectar
        automaticamente" (tarda unos segundos) y luego "Guardar y
        reconectar". El peso en vivo debe moverse al poner algo encima.
-     - Cajon de dinero: elegir su puerto COM y presionar "Abrir cajon
-       (prueba)". Si no abre, presionar "Probar todos los comandos":
-       va probando las secuencias conocidas una por una hasta que el
-       cajon suene.
+     - Cajon de dinero: elegir COMO esta conectado (opcion A, por
+       adaptador RJ11-USB; u opcion B, colgado de la impresora de
+       tickets — ver mas abajo), elegir el puerto COM o la impresora
+       segun el caso, y presionar "Abrir ahora". Si no abre, presionar
+       "Probar todos los comandos": va probando las secuencias
+       conocidas una por una hasta que el cajon suene.
 5. En el POS, en la misma pantalla de Configuracion, capturar la IP
    de la impresora de etiquetas (y el puerto, 9100 por defecto).
 
@@ -59,20 +61,39 @@ abre por el servidor, y eso si necesita internet.
 
 CAJON DE DINERO
 ----------------
-El cajon se conecta por su cable RJ11, ya sea a un adaptador RJ11-USB
-con chip serial (aparece como puerto COM) o al puerto RJ11 de la
-impresora de tickets. Se activa por tienda desde el POS:
-Configuracion -> Cajon de dinero.
+El cajon se activa por tienda desde el POS: Configuracion -> Cajon de
+dinero. Y aqui, en la ventana del bridge, se elige COMO esta cableado.
+Hay dos maneras y solo dos; se prueba una, y si no funciona, la otra.
+
+OPCION A - adaptador RJ11 a USB
+  El cable RJ11 del cajon entra a un adaptador que se conecta a la PC.
+  Windows le da su propio puerto COM y el pulso sale por ahi.
+  En la ventana del bridge: modo "Opcion A" + elegir el puerto COM.
+  ATENCION: el adaptador tiene que traer chip serial. Si al conectarlo
+  NO aparece ningun puerto COM nuevo, el cable es pasivo y no sirve
+  para esto por mas que encaje; se necesita uno con chip, o la opcion B.
+
+OPCION B - colgado de la impresora de tickets
+  El cable RJ11 del cajon entra al puerto marcado DK / DRAWER / CASH
+  de la impresora de tickets (NO al de red ni al del telefono), y la
+  impresora va por USB a la PC. Quien suelta los 24 V que destraban el
+  cajon es la impresora; el bridge solo le manda el comando.
+  En la ventana del bridge: modo "Opcion B" + elegir la impresora de
+  la lista (la misma con la que salen los tickets).
+  Aqui no hay puerto COM: el pulso viaja como trabajo "crudo" por la
+  cola de impresion de Windows, no sale papel. La primera vez de cada
+  sesion tarda uno o dos segundos mas (Windows carga el ayudante).
+  El "Pulso por DTR/RTS" no existe en esta opcion; se desactiva solo.
+
+En las dos, si el cajon no salta, el boton "Probar todos los comandos"
+manda las secuencias una por una cada 2 segundos: se mira cual lo hace
+saltar y esa se deja elegida arriba.
 
 Un cajon SOLO SE PUEDE ABRIR por software. Cerrarlo es empujarlo con
 la mano: es un resorte, no tiene motor. Ningun sistema puede cerrarlo.
 
-Si el adaptador RJ11-USB es pasivo (sin chip), no aparece ningun
-puerto COM y no hay forma de dispararlo: se necesita uno con chip
-serial, o conectarlo a la impresora de tickets.
-
-El token y el puerto quedan guardados en la PC (config.json en la
-carpeta de datos del usuario). Al reiniciar la PC el bridge levanta
+El token y como este cableado el cajon quedan guardados en la PC
+(config.json en la carpeta de datos del usuario). Al reiniciar la PC el bridge levanta
 solo y ya no los vuelve a pedir. Para cambiarlos despues: clic
 derecho en el icono de la bandeja -> "Configuracion...".
 

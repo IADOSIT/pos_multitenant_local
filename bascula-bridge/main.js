@@ -22,6 +22,7 @@ const http = require('http');
 const fs = require('fs');
 const { io } = require('socket.io-client');
 const { SerialPort } = require('serialport');
+const { execFile } = require('child_process');
 
 // ── Instancia unica ───────────────────────────────────────────────────────────
 // Dos bridges a la vez se pelean por el puerto COM: el segundo no puede abrirlo y
@@ -75,8 +76,16 @@ const DEFAULTS = {
   // ── Cajon de dinero ──
   // Puerto del adaptador serial/USB conectado al RJ11 del cajon. Vacio = sin cajon,
   // y entonces todo se comporta igual que en las instalaciones que solo traen bascula.
+  // Como esta conectado el cajon. Son los dos unicos cableados que existen:
+  //   'com'       → adaptador RJ11->USB: el cajon trae su propio puerto COM.
+  //   'impresora' → el RJ11 del cajon va al puerto DK de la impresora de tickets,
+  //                 y la impresora va por USB a la PC. Ahi no hay COM que abrir:
+  //                 el pulso viaja como trabajo RAW por la cola de Windows.
+  CAJON_MODO: 'com',
   CAJON_PORT: '',
   CAJON_BAUD: '9600',
+  // Nombre EXACTO de la impresora en Windows (solo aplica con CAJON_MODO=impresora)
+  CAJON_IMPRESORA: '',
   // Secuencia que dispara el pulso: una clave de SECUENCIAS_CAJON, o "hex:1B700019FA"
   // para un adaptador raro, sin tener que tocar el codigo.
   CAJON_CMD: 'escpos_pin2',
@@ -193,8 +202,10 @@ function configPublica() {
     SCALE_BAUD: config.SCALE_BAUD,
     SCALE_POLL_CMD: config.SCALE_POLL_CMD,
     SCALE_POLL_MS: config.SCALE_POLL_MS,
+    CAJON_MODO: config.CAJON_MODO,
     CAJON_PORT: config.CAJON_PORT,
     CAJON_BAUD: config.CAJON_BAUD,
+    CAJON_IMPRESORA: config.CAJON_IMPRESORA,
     CAJON_CMD: config.CAJON_CMD,
     PUENTE_PORT: config.PUENTE_PORT,
   };
@@ -535,14 +546,241 @@ function bytesCajon(nombre) {
   return seq && seq.bytes ? Buffer.from(seq.bytes) : null;
 }
 
+function modoCajon(modo) {
+  return String(modo || config.CAJON_MODO || 'com').trim().toLowerCase() === 'impresora'
+    ? 'impresora'
+    : 'com';
+}
+
+/** Hay cajon utilizable con la configuracion actual? Depende del modo. */
+function cajonConfigurado() {
+  return modoCajon() === 'impresora'
+    ? !!String(config.CAJON_IMPRESORA || '').trim()
+    : !!String(config.CAJON_PORT || '').trim();
+}
+
+/** Como se describe el cajon en la bandeja y en la ventana. */
+function descripcionCajon() {
+  if (modoCajon() === 'impresora') {
+    return config.CAJON_IMPRESORA ? `Impresora "${config.CAJON_IMPRESORA}"` : '(sin configurar)';
+  }
+  return config.CAJON_PORT || '(sin configurar)';
+}
+
+// Un solo lugar donde termina cualquier pulso, venga por COM o por impresora:
+// asi el estado que ve la ventana y la bandeja siempre dice lo mismo.
+function finCajon(nombreCmd, res) {
+  cajonOcupado = false;
+  estado.cajon = res.ok ? `Pulso enviado (${nombreCmd})` : `Error: ${res.mensaje}`;
+  pushEstado();
+  return res;
+}
+
+// -- Opcion B: el cajon cuelga de la impresora de tickets ----------------------
+// La impresora conectada por USB NO aparece como COM: Windows la expone como cola
+// de impresion. El pulso tiene que entrar como un trabajo "RAW" (bytes crudos, sin
+// que el driver los interprete), que es exactamente lo que hace WritePrinter de
+// winspool. Node no lo expone, asi que se llama por PowerShell con P/Invoke.
+//
+// Se eligio esto en vez de otras salidas por buenas razones:
+//  - Compartir la impresora y copiar a \\PC\recurso exige activar el compartido.
+//  - Un modulo nativo (printer / node-thermal-printer) obliga a compilar con
+//    node-gyp en cada version de Electron: justo lo que rompe instalaciones.
+//  - Imprimir con el driver mandaria un ticket en blanco, no el pulso.
+const PS_RAW_PRINT = `param(
+  [Parameter(Mandatory=$true)][string]$Printer,
+  [Parameter(Mandatory=$true)][string]$Ruta
+)
+$ErrorActionPreference = 'Stop'
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public class PosRawPrinter {
+  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+  public class DOCINFOW {
+    [MarshalAs(UnmanagedType.LPWStr)] public string pDocName;
+    [MarshalAs(UnmanagedType.LPWStr)] public string pOutputFile;
+    [MarshalAs(UnmanagedType.LPWStr)] public string pDataType;
+  }
+  [DllImport("winspool.drv", EntryPoint="OpenPrinterW", CharSet=CharSet.Unicode, SetLastError=true)]
+  public static extern bool OpenPrinter(string pPrinterName, out IntPtr hPrinter, IntPtr pDefault);
+  [DllImport("winspool.drv", EntryPoint="ClosePrinter", SetLastError=true)]
+  public static extern bool ClosePrinter(IntPtr hPrinter);
+  [DllImport("winspool.drv", EntryPoint="StartDocPrinterW", CharSet=CharSet.Unicode, SetLastError=true)]
+  public static extern bool StartDocPrinter(IntPtr hPrinter, int level, [In, MarshalAs(UnmanagedType.LPStruct)] DOCINFOW di);
+  [DllImport("winspool.drv", EntryPoint="EndDocPrinter", SetLastError=true)]
+  public static extern bool EndDocPrinter(IntPtr hPrinter);
+  [DllImport("winspool.drv", EntryPoint="StartPagePrinter", SetLastError=true)]
+  public static extern bool StartPagePrinter(IntPtr hPrinter);
+  [DllImport("winspool.drv", EntryPoint="EndPagePrinter", SetLastError=true)]
+  public static extern bool EndPagePrinter(IntPtr hPrinter);
+  [DllImport("winspool.drv", EntryPoint="WritePrinter", SetLastError=true)]
+  public static extern bool WritePrinter(IntPtr hPrinter, IntPtr pBytes, int dwCount, out int dwWritten);
+
+  public static string Enviar(string impresora, byte[] datos) {
+    IntPtr h = IntPtr.Zero;
+    if (!OpenPrinter(impresora, out h, IntPtr.Zero)) {
+      return "Windows no encontro la impresora (error " + Marshal.GetLastWin32Error() + ")";
+    }
+    try {
+      DOCINFOW di = new DOCINFOW();
+      di.pDocName = "POS-iaDoS cajon";
+      di.pDataType = "RAW";
+      if (!StartDocPrinter(h, 1, di)) {
+        return "La impresora no acepto un trabajo RAW (error " + Marshal.GetLastWin32Error() + ")";
+      }
+      try {
+        if (!StartPagePrinter(h)) {
+          return "StartPagePrinter fallo (error " + Marshal.GetLastWin32Error() + ")";
+        }
+        IntPtr p = Marshal.AllocCoTaskMem(datos.Length);
+        try {
+          Marshal.Copy(datos, 0, p, datos.Length);
+          int escritos = 0;
+          if (!WritePrinter(h, p, datos.Length, out escritos)) {
+            return "WritePrinter fallo (error " + Marshal.GetLastWin32Error() + ")";
+          }
+          if (escritos != datos.Length) {
+            return "Solo salieron " + escritos + " de " + datos.Length + " bytes";
+          }
+        } finally {
+          Marshal.FreeCoTaskMem(p);
+          EndPagePrinter(h);
+        }
+      } finally {
+        EndDocPrinter(h);
+      }
+    } finally {
+      ClosePrinter(h);
+    }
+    return "";
+  }
+}
+'@
+$bytes = [System.IO.File]::ReadAllBytes($Ruta)
+$msg = [PosRawPrinter]::Enviar($Printer, $bytes)
+if ($msg -ne '') { Write-Output $msg; exit 1 }
+exit 0
+`;
+
+// El .ps1 se deja en userData (NO junto al .exe: eso es Program Files, sin permiso
+// de escritura). Se reescribe si cambio, para que una actualizacion del bridge no
+// se quede usando el ayudante viejo.
+function rutaScriptRaw() {
+  try {
+    const dir = path.join(app.getPath('userData'), 'bin');
+    const f = path.join(dir, 'raw-print.ps1');
+    fs.mkdirSync(dir, { recursive: true });
+    let actual = null;
+    try { actual = fs.readFileSync(f, 'utf8'); } catch (_) {}
+    if (actual !== PS_RAW_PRINT) fs.writeFileSync(f, PS_RAW_PRINT, 'utf8');
+    return f;
+  } catch (e) {
+    console.warn('[cajon] No se pudo preparar raw-print.ps1:', e.message);
+    return null;
+  }
+}
+
+function enviarRawImpresora(impresora, datos) {
+  return new Promise((resolve) => {
+    const nombre = String(impresora || '').trim();
+    if (!nombre) return resolve({ ok: false, mensaje: 'No hay impresora elegida para el cajon.' });
+
+    const ps1 = rutaScriptRaw();
+    if (!ps1) return resolve({ ok: false, mensaje: 'No se pudo preparar el ayudante de impresion.' });
+
+    let bin;
+    try {
+      bin = path.join(app.getPath('temp'), `pos-cajon-${Date.now()}.bin`);
+      fs.writeFileSync(bin, datos);
+    } catch (e) {
+      return resolve({ ok: false, mensaje: 'No se pudo escribir el archivo temporal: ' + e.message });
+    }
+
+    // Los argumentos van como parametros, nunca interpolados en el comando: el
+    // nombre de la impresora lo escribe el usuario y puede traer comillas.
+    execFile(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ps1,
+        '-Printer', nombre, '-Ruta', bin],
+      { windowsHide: true, timeout: 20000 },
+      (err, stdout, stderr) => {
+        try { fs.unlinkSync(bin); } catch (_) {}
+        const salida = String(stdout || '').trim() || String(stderr || '').trim();
+        if (err) return resolve({ ok: false, mensaje: salida || err.message });
+        resolve({ ok: true, via: 'impresora' });
+      },
+    );
+  });
+}
+
 /**
- * Dispara el pulso de apertura.
+ * Impresoras instaladas en Windows, para el desplegable de la ventana.
+ * Primero por Electron (instantaneo); si no da nada, por PowerShell.
+ */
+async function listarImpresoras(sender) {
+  try {
+    if (sender && !sender.isDestroyed() && typeof sender.getPrintersAsync === 'function') {
+      const lista = await sender.getPrintersAsync();
+      if (lista && lista.length) {
+        return lista.map((p) => ({
+          nombre: p.name,
+          etiqueta: p.displayName || p.description || p.name,
+          predeterminada: !!p.isDefault,
+        }));
+      }
+    }
+  } catch (e) { console.warn('[cajon] getPrintersAsync fallo, se usa PowerShell:', e.message); }
+
+  return new Promise((resolve) => {
+    execFile(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-Command',
+        'Get-CimInstance Win32_Printer | Select-Object Name,Default | ConvertTo-Json -Compress'],
+      { windowsHide: true, timeout: 20000 },
+      (err, stdout) => {
+        if (err) return resolve([]);
+        try {
+          let datos = JSON.parse(String(stdout).trim() || '[]');
+          if (!Array.isArray(datos)) datos = [datos];
+          resolve(datos
+            .filter((p) => p && p.Name)
+            .map((p) => ({ nombre: p.Name, etiqueta: p.Name, predeterminada: !!p.Default })));
+        } catch (_) { resolve([]); }
+      },
+    );
+  });
+}
+
+async function abrirCajonPorImpresora({ impresora, cmd } = {}) {
+  const nombreCmd = cmd || config.CAJON_CMD || 'escpos_pin2';
+  const nombre = (impresora || config.CAJON_IMPRESORA || '').trim();
+  if (!nombre) return finCajon(nombreCmd, { ok: false, mensaje: 'No hay impresora elegida para el cajon.' });
+  if (cajonOcupado) return { ok: false, mensaje: 'El cajon ya esta recibiendo un pulso, espera un momento.' };
+
+  const datos = bytesCajon(nombreCmd);
+  if (!datos) {
+    // 'dtr' levanta lineas fisicas del puerto serial; por la cola de impresion no
+    // existe eso. Mejor decirlo que mandar un trabajo vacio y fingir que funciono.
+    return finCajon(nombreCmd, {
+      ok: false,
+      mensaje: 'El pulso por DTR/RTS solo sirve con el adaptador serial. Por impresora elige un comando ESC/POS.',
+    });
+  }
+
+  cajonOcupado = true;
+  const r = await enviarRawImpresora(nombre, datos);
+  return finCajon(nombreCmd, r);
+}
+
+/**
+ * Dispara el pulso de apertura por el puerto COM del adaptador (opcion A).
  *
  * Abre el puerto, escribe y lo cierra en el mismo acto: el cajon se usa unas
  * cuantas veces por hora y dejar el COM tomado impediria diagnosticarlo con
  * cualquier otra herramienta (y pelearia con la bascula si comparten adaptador).
  */
-function abrirCajon({ puerto, baud, cmd } = {}) {
+function abrirCajonPorCom({ puerto, baud, cmd } = {}) {
   return new Promise((resolve) => {
     const portPath = (puerto || config.CAJON_PORT || '').trim();
     if (!portPath) return resolve({ ok: false, mensaje: 'No hay puerto configurado para el cajon.' });
@@ -561,12 +799,7 @@ function abrirCajon({ puerto, baud, cmd } = {}) {
     const sp = new SerialPort({ path: portPath, baudRate, autoOpen: false });
     sp.on('error', () => {}); // un puerto que se desconecta no debe tumbar el proceso
 
-    const terminar = (res) => {
-      cajonOcupado = false;
-      estado.cajon = res.ok ? `Pulso enviado (${nombreCmd})` : `Error: ${res.mensaje}`;
-      pushEstado();
-      resolve(res);
-    };
+    const terminar = (res) => resolve(finCajon(nombreCmd, res));
 
     sp.open((err) => {
       if (err) return terminar({ ok: false, mensaje: `No se pudo abrir ${portPath}: ${err.message}` });
@@ -597,17 +830,33 @@ function abrirCajon({ puerto, baud, cmd } = {}) {
 }
 
 /**
+ * Punto unico de entrada: elige el camino segun como este cableado el cajon.
+ * Todo lo demas del bridge (POS, nube, bandeja) llama solo a esto.
+ */
+function abrirCajon(opts = {}) {
+  return modoCajon(opts.modo) === 'impresora'
+    ? abrirCajonPorImpresora(opts)
+    : abrirCajonPorCom(opts);
+}
+
+/**
  * Prueba TODAS las secuencias con pausa entre cada una, para que quien instala vea
  * en cual salta el cajon. Es el diagnostico manual, pero desde la ventana de
  * configuracion y sin PowerShell.
  */
-async function probarCajon(puerto, baud) {
+async function probarCajon(opts = {}) {
+  const modo = modoCajon(opts.modo);
   const intentados = [];
-  for (const clave of Object.keys(SECUENCIAS_CAJON)) {
-    const r = await abrirCajon({ puerto, baud, cmd: clave });
-    intentados.push({ clave, etiqueta: SECUENCIAS_CAJON[clave].etiqueta, ok: r.ok, mensaje: r.mensaje || '' });
-    // Si el puerto ni siquiera abre, repetirlo 7 veces solo alarga la espera.
-    if (!r.ok && /No se pudo abrir/.test(r.mensaje || '')) break;
+  for (const [clave, seq] of Object.entries(SECUENCIAS_CAJON)) {
+    // Por impresora no hay lineas de control que levantar: se salta en vez de
+    // ensuciar la lista con un fallo que no dice nada.
+    if (modo === 'impresora' && !seq.bytes) continue;
+
+    const r = await abrirCajon({ ...opts, modo, cmd: clave });
+    intentados.push({ clave, etiqueta: seq.etiqueta, ok: r.ok, mensaje: r.mensaje || '' });
+    // Si ni siquiera se puede hablar con el aparato, repetirlo 7 veces solo alarga
+    // la espera sin aportar nada.
+    if (!r.ok && /No se pudo abrir|no encontro la impresora|no acepto un trabajo/i.test(r.mensaje || '')) break;
     await new Promise((seguir) => setTimeout(seguir, 2200));
   }
   return { ok: intentados.some((i) => i.ok), intentados };
@@ -685,8 +934,10 @@ function estadoPuente() {
       abierta: !!(scalePort && scalePort.isOpen),
     },
     cajon: {
-      configurado: !!config.CAJON_PORT,
+      configurado: cajonConfigurado(),
+      modo: modoCajon(),
       puerto: config.CAJON_PORT,
+      impresora: config.CAJON_IMPRESORA,
       cmd: config.CAJON_CMD,
       estado: estado.cajon,
     },
@@ -884,7 +1135,8 @@ ipcMain.handle('detectar', async (_e, { puerto, baud }) => {
 ipcMain.handle('guardar', async (_e, patch) => {
   const limpio = {};
   for (const k of ['BACKEND_URL', 'TIENDA_TOKEN', 'SCALE_PORT', 'SCALE_BAUD', 'SCALE_POLL_CMD', 'SCALE_POLL_MS',
-                   'CAJON_PORT', 'CAJON_BAUD', 'CAJON_CMD', 'PUENTE_PORT']) {
+                   'CAJON_MODO', 'CAJON_PORT', 'CAJON_BAUD', 'CAJON_IMPRESORA', 'CAJON_CMD',
+                   'PUENTE_PORT']) {
     if (patch[k] !== undefined) limpio[k] = String(patch[k]).trim();
   }
   saveConfig(limpio);
@@ -897,11 +1149,21 @@ ipcMain.handle('guardar', async (_e, patch) => {
 ipcMain.handle('secuencias-cajon', () =>
   Object.entries(SECUENCIAS_CAJON).map(([clave, v]) => ({ clave, etiqueta: v.etiqueta })));
 
+// Impresoras de Windows, para el cajon conectado a la impresora de tickets.
+ipcMain.handle('listar-impresoras', async (e) => {
+  try { return await listarImpresoras(e.sender); }
+  catch (err) { console.warn('[cajon] No se pudieron listar impresoras:', err.message); return []; }
+});
+
 ipcMain.handle('abrir-cajon', async (_e, opts = {}) => abrirCajon(opts));
 
-ipcMain.handle('probar-cajon', async (_e, { puerto, baud } = {}) => {
-  if (!puerto) return { ok: false, mensaje: 'Elige primero el puerto COM del cajon.' };
-  return probarCajon(puerto, baud);
+ipcMain.handle('probar-cajon', async (_e, opts = {}) => {
+  if (modoCajon(opts.modo) === 'impresora') {
+    if (!opts.impresora) return { ok: false, mensaje: 'Elige primero la impresora de tickets.' };
+  } else if (!opts.puerto) {
+    return { ok: false, mensaje: 'Elige primero el puerto COM del cajon.' };
+  }
+  return probarCajon(opts);
 });
 
 ipcMain.handle('abrir-log', () => { shell.showItemInFolder(logFile); });
@@ -938,7 +1200,7 @@ app.whenReady().then(() => {
 
   // Primera vez: no dejamos al usuario adivinando. Basta con que tenga token y al
   // menos un aparato configurado — hay tiendas que solo quieren el cajon.
-  if (!config.TIENDA_TOKEN || (!config.SCALE_PORT && !config.CAJON_PORT)) abrirConfig();
+  if (!config.TIENDA_TOKEN || (!config.SCALE_PORT && !cajonConfigurado())) abrirConfig();
 });
 
 function updateTray(status) {
@@ -949,10 +1211,10 @@ function updateTray(status) {
     { label: status, enabled: false },
     { label: `Backend: ${config.BACKEND_URL}`, enabled: false },
     { label: `Puerto bascula: ${config.SCALE_PORT || '(sin configurar)'}`, enabled: false },
-    { label: `Cajon: ${config.CAJON_PORT || '(sin configurar)'}`, enabled: false },
+    { label: `Cajon (${modoCajon() === 'impresora' ? 'por impresora' : 'adaptador USB'}): ${descripcionCajon()}`, enabled: false },
     { label: `Puente local: ${estado.puente}`, enabled: false },
     { type: 'separator' },
-    { label: 'Abrir cajon (prueba)', enabled: !!config.CAJON_PORT, click: () => {
+    { label: 'Abrir cajon (prueba)', enabled: cajonConfigurado(), click: () => {
       abrirCajon().then((r) => { if (!r.ok) console.warn('[bridge] Abrir cajon:', r.mensaje); });
     } },
     { label: 'Configuracion...', click: abrirConfig },
