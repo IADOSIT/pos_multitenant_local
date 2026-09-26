@@ -72,25 +72,39 @@ let BasculaService = class BasculaService {
         return { ok: true, via: 'nube' };
     }
     rutaInstalador() {
-        const dirs = [
+        const preferidas = [
             (0, path_1.join)(process.cwd(), 'uploads', 'downloads'),
             (0, path_1.join)(process.cwd(), 'uploads', 'bridge'),
         ];
-        const exes = [];
-        for (const dir of dirs) {
-            if (!(0, fs_1.existsSync)(dir))
-                continue;
-            for (const f of (0, fs_1.readdirSync)(dir)) {
-                if (!f.toLowerCase().endsWith('.exe'))
+        const respaldo = [
+            (0, path_1.join)(process.cwd(), 'uploads-builtin', 'downloads'),
+            (0, path_1.join)(process.cwd(), 'uploads-builtin', 'bridge'),
+        ];
+        const buscar = (dirs) => {
+            const exes = [];
+            for (const dir of dirs) {
+                if (!(0, fs_1.existsSync)(dir))
                     continue;
-                const ruta = (0, path_1.join)(dir, f);
-                exes.push({ ruta, t: (0, fs_1.statSync)(ruta).mtimeMs });
+                for (const f of (0, fs_1.readdirSync)(dir)) {
+                    if (!f.toLowerCase().endsWith('.exe'))
+                        continue;
+                    const ruta = (0, path_1.join)(dir, f);
+                    exes.push({ ruta, t: (0, fs_1.statSync)(ruta).mtimeMs });
+                }
             }
+            if (!exes.length)
+                return null;
+            exes.sort((a, b) => b.t - a.t);
+            return exes[0].ruta;
+        };
+        const ruta = buscar(preferidas) || buscar(respaldo);
+        if (!ruta) {
+            const detalle = [...preferidas, ...respaldo]
+                .map((d) => `${d}: ${(0, fs_1.existsSync)(d) ? (0, fs_1.readdirSync)(d).join('|') || '(vacia)' : 'no existe'}`)
+                .join(' || ');
+            console.warn('[bridge] No hay instalador .exe publicado. ' + detalle);
         }
-        if (!exes.length)
-            return null;
-        exes.sort((a, b) => b.t - a.t);
-        return exes[0].ruta;
+        return ruta;
     }
     async regenerateToken(tiendaId, scope) {
         const config = await this.getOrCreateConfig(tiendaId, scope);

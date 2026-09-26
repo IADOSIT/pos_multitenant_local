@@ -78,29 +78,54 @@ export class BasculaService {
    * nombre y deja la tienda configurada sola — ver bascula-bridge/installer.nsh.
    */
   rutaInstalador(): string | null {
-    // uploads/downloads/ es donde ya vivia el instalador del bridge (el link viejo de
-    // Configuracion apuntaba ahi). Se respeta esa carpeta para no pedirle al usuario
-    // que mueva nada; uploads/bridge/ se acepta como alternativa por si se sube ahi.
-    const dirs = [
+    // uploads/ es la carpeta autoritativa (bind mount del host: ahi puede quedar un
+    // .exe subido a mano, mas nuevo que el del repo). uploads/downloads es la
+    // historica — el link viejo de Configuracion apuntaba ahi — y uploads/bridge se
+    // acepta como alternativa por si alguien lo deja en esa.
+    const preferidas = [
       join(process.cwd(), 'uploads', 'downloads'),
       join(process.cwd(), 'uploads', 'bridge'),
     ];
-    // Gana el .exe mas reciente de las dos carpetas. A proposito no se prefiere el
-    // nombre historico (bascula-bridge-setup.exe): en los servidores que ya existen
-    // ese archivo es la version vieja, sin cajon y sin el token en el nombre, y
-    // preferirlo entregaria justo el instalador equivocado.
-    const exes: { ruta: string; t: number }[] = [];
-    for (const dir of dirs) {
-      if (!existsSync(dir)) continue;
-      for (const f of readdirSync(dir)) {
-        if (!f.toLowerCase().endsWith('.exe')) continue;
-        const ruta = join(dir, f);
-        exes.push({ ruta, t: statSync(ruta).mtimeMs });
+    // uploads-builtin es la copia que el Dockerfile hornea DENTRO de la imagen desde
+    // el repo (COPY uploads ./uploads-builtin). Es el respaldo que salva el caso real
+    // que se vio en produccion: el .exe se servia por /api/uploads (existia en la
+    // imagen) pero el bind mount del host no lo tenia, asi que esto devolvia null y
+    // la descarga daba 404 con el archivo ya publicado. Va al final, nunca antes que
+    // uploads/, para no tapar un instalador subido a mano.
+    const respaldo = [
+      join(process.cwd(), 'uploads-builtin', 'downloads'),
+      join(process.cwd(), 'uploads-builtin', 'bridge'),
+    ];
+
+    // Gana el .exe mas reciente. A proposito no se prefiere el nombre historico
+    // (bascula-bridge-setup.exe): en los servidores que ya existen ese archivo es la
+    // version vieja, sin cajon y sin el token en el nombre, y preferirlo entregaria
+    // justo el instalador equivocado.
+    const buscar = (dirs: string[]): string | null => {
+      const exes: { ruta: string; t: number }[] = [];
+      for (const dir of dirs) {
+        if (!existsSync(dir)) continue;
+        for (const f of readdirSync(dir)) {
+          if (!f.toLowerCase().endsWith('.exe')) continue;
+          const ruta = join(dir, f);
+          exes.push({ ruta, t: statSync(ruta).mtimeMs });
+        }
       }
+      if (!exes.length) return null;
+      exes.sort((a, b) => b.t - a.t);
+      return exes[0].ruta;
+    };
+
+    const ruta = buscar(preferidas) || buscar(respaldo);
+    if (!ruta) {
+      // Sin esto, un 404 no distingue "no se subio" de "se subio y no lo encuentra".
+      // Queda en los logs del contenedor (Portainer), que es lo unico visible sin SSH.
+      const detalle = [...preferidas, ...respaldo]
+        .map((d) => `${d}: ${existsSync(d) ? readdirSync(d).join('|') || '(vacia)' : 'no existe'}`)
+        .join(' || ');
+      console.warn('[bridge] No hay instalador .exe publicado. ' + detalle);
     }
-    if (!exes.length) return null;
-    exes.sort((a, b) => b.t - a.t);
-    return exes[0].ruta;
+    return ruta;
   }
 
   async regenerateToken(tiendaId: number, scope: any): Promise<{ tienda_token: string }> {
