@@ -69,6 +69,12 @@ console.error = (...a) => { _origErr(...a); writeLog('ERR ', a); };
 const DEFAULTS = {
   BACKEND_URL: 'https://posapi.iados.online',
   TIENDA_TOKEN: '',
+  // Nombre de ESTA computadora dentro de la tienda: "Caja 1", "Kiosko",
+  // "Salchichoneria". Una tienda puede tener varias basculas, una por PC, y todas
+  // comparten el mismo TIENDA_TOKEN; esto es lo unico que las distingue cuando el
+  // peso sale a la nube. Vacio = "Principal", que es como se comportaban las
+  // instalaciones anteriores.
+  ESTACION: '',
   SCALE_PORT: '',
   SCALE_BAUD: '9600',
   // Basculas de polling (p.ej. Torrey por USB CDC): no transmiten solas, hay que
@@ -206,6 +212,7 @@ function configPublica() {
   return {
     BACKEND_URL: config.BACKEND_URL,
     TIENDA_TOKEN: config.TIENDA_TOKEN,
+    ESTACION: config.ESTACION,
     SCALE_PORT: config.SCALE_PORT,
     SCALE_BAUD: config.SCALE_BAUD,
     SCALE_POLL_CMD: config.SCALE_POLL_CMD,
@@ -239,7 +246,10 @@ function connectSocket() {
 
   socket.on('connect', () => {
     ultimoFalloSocket = null; // se recupero: el proximo corte si se registra
-    socket.emit('bridge-join', { tienda_token: config.TIENDA_TOKEN });
+    socket.emit('bridge-join', {
+      tienda_token: config.TIENDA_TOKEN,
+      estacion: config.ESTACION,
+    });
     console.log('[bridge] Conectado al backend, tienda_token:', config.TIENDA_TOKEN.substring(0, 8) + '...');
   });
 
@@ -1344,6 +1354,7 @@ function estadoPuente() {
     app: 'pos-iados-bridge',
     version: app.getVersion(),
     tienda_id: estado.tienda_id,
+    estacion: config.ESTACION || 'Principal',
     backend: estado.backend,
     bascula: {
       estado: estado.bascula,
@@ -1555,7 +1566,7 @@ ipcMain.handle('detectar', async (_e, { puerto, baud }) => {
 
 ipcMain.handle('guardar', async (_e, patch) => {
   const limpio = {};
-  for (const k of ['BACKEND_URL', 'TIENDA_TOKEN', 'SCALE_PORT', 'SCALE_BAUD', 'SCALE_POLL_CMD', 'SCALE_POLL_MS',
+  for (const k of ['BACKEND_URL', 'TIENDA_TOKEN', 'ESTACION', 'SCALE_PORT', 'SCALE_BAUD', 'SCALE_POLL_CMD', 'SCALE_POLL_MS',
                    'CAJON_MODO', 'CAJON_PORT', 'CAJON_BAUD', 'CAJON_IMPRESORA', 'CAJON_CMD',
                    'ETIQUETA_IMPRESORA', 'PUENTE_PORT']) {
     if (patch[k] !== undefined) limpio[k] = String(patch[k]).trim();

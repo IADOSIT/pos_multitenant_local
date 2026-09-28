@@ -67,6 +67,26 @@ Solo responde a 127.0.0.1 y a los origenes del POS. Si el POS corre en
 OTRA computadora de la tienda, esa no tiene puente: ahi el cajon se
 abre por el servidor, y eso si necesita internet.
 
+VARIAS BASCULAS EN LA MISMA TIENDA
+-----------------------------------
+Una tienda puede tener mas de una bascula, cada una por USB a su propia
+computadora: la caja de cobro, el kiosko de autoservicio, el mostrador
+de salchichoneria. Todas se instalan con el MISMO token de la tienda.
+
+Para que el POS no confunda una con otra, cada computadora se nombra en
+la ventana del bridge, campo "Nombre de esta computadora en la tienda":
+por ejemplo "Caja 1", "Kiosko", "Salchichoneria". Si se deja vacio, esa
+bascula aparece como "Principal".
+
+Ese nombre NO cambia nada de como pesa ni de como imprime. Solo sirve
+para que, desde el POS, se pueda decir de cual bascula lee cada maquina
+(Configuracion -> Bascula -> "Bascula que lee ESTA computadora").
+
+Lo normal es no tener que tocar nada: cada PC lee la bascula que tiene
+conectada, porque el peso local no pasa por internet y siempre gana. El
+nombre importa cuando se quiere ver, desde otra maquina, lo que se esta
+pesando en una bascula distinta.
+
 IMPRESORA DE ETIQUETAS
 -----------------------
 Se elige por tienda desde el POS: Configuracion -> Bascula ->
@@ -217,6 +237,10 @@ PROBLEMAS COMUNES
   DK / DRAWER / CASH, no en el de red. Si el mensaje dice que el
   driver no acepta comandos crudos, en Propiedades de impresora ->
   Opciones avanzadas activar "Imprimir directamente en la impresora".
+- El peso brinca o muestra lecturas que no son de esta bascula: la tienda
+  tiene mas de una bascula y esta maquina las esta oyendo todas. Nombrar
+  cada computadora (arriba) y, en el POS, Configuracion -> Bascula, dejar
+  esta maquina en "Automatico" o en "Solo la de esta PC".
 - La etiqueta no imprime (impresora de RED): confirmar que la
   impresora esta en la misma red, que la IP configurada es correcta, y
   que el puerto 9100 (o el que corresponda) no esta bloqueado por

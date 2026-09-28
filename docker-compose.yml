@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260927-etiquetadora-usb-brother-ql"
+        CACHE_BUST: "20260928-basculas-por-estacion"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
@@ -50,7 +50,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260927-etiquetadora-usb-brother-ql"
+        CACHE_BUST: "20260928-basculas-por-estacion"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

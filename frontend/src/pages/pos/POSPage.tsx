@@ -10,6 +10,7 @@ import { useConexion } from '../../api/conexion';
 import { printComanda, printTicket } from '../../utils/printTicket';
 import { decodeEan13PesoVariable } from '../../utils/ean13';
 import { abrirCajon, guardarCajonCfg, cajonCfgCache, suscribirPeso, type CajonCfg } from '../../api/puenteLocal';
+import { leerOrigen, aceptaLocal, aceptaNube, describirOrigen, type OrigenBascula } from '../../utils/basculaOrigen';
 import { formatMonto, MonedaConfig } from '../../utils/moneda';
 import { Producto, Categoria } from '../../types';
 import toast from 'react-hot-toast';
@@ -140,6 +141,12 @@ export default function POSPage() {
   const [pesoRecibido, setPesoRecibido] = useState(false);
   const [pesoManualInput, setPesoManualInput] = useState('');
   const basculaSockRef = useRef<Socket | null>(null);
+  // De cual bascula lee ESTA computadora. Se relee al abrir el modal para que un
+  // cambio en Configuracion aplique sin recargar el POS.
+  const [origen, setOrigen] = useState<OrigenBascula>(() => leerOrigen());
+  // El puente local vivo es lo que hace sobrar a la nube en modo 'auto'. Va en un ref
+  // porque lo consulta el handler del socket, que no se vuelve a crear en cada render.
+  const hayPuenteRef = useRef(false);
   // Cajon de dinero: apagado salvo que la tienda lo prenda. Se arranca con lo ultimo
   // guardado para que una caja que abre sin internet siga teniendo su boton.
   const [cajonCfg, setCajonCfg] = useState<CajonCfg>(() => cajonCfgCache());
@@ -151,7 +158,8 @@ export default function POSPage() {
 
   // Conexion al socket de bascula (peso en vivo) — solo si esta habilitada para el POS.
   useEffect(() => {
-    if (!basculaEnPos || !tiendaId) return;
+    // Con la bascula apagada no se abre ni el socket: esta PC captura el peso a mano.
+    if (!basculaEnPos || !tiendaId || origen.modo === 'apagado') return;
     const base = import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://posapi.iados.online';
     const sock = io(`${base}/bascula`, { transports: ['websocket'] });
     basculaSockRef.current = sock;
@@ -160,27 +168,32 @@ export default function POSPage() {
       sock.emit('kiosk-join', { tienda_id: tiendaId });
     });
     sock.on('disconnect', () => setBasculaConectada(false));
-    sock.on('weight-update', (data: { peso_kg: number }) => {
+    sock.on('weight-update', (data: { peso_kg: number; estacion?: string }) => {
+      // Una tienda puede tener varias basculas publicando aqui. Sin este filtro el
+      // peso brinca entre la caja, el kiosko y el mostrador.
+      if (!aceptaNube(origen, data.estacion, hayPuenteRef.current)) return;
       setPesoEnVivo(data.peso_kg || 0);
       setPesoRecibido(true);
     });
     return () => { sock.disconnect(); };
-  }, [basculaEnPos, tiendaId]);
+  }, [basculaEnPos, tiendaId, origen]);
 
   // Peso por el puente local (127.0.0.1): es el mismo bridge, pero por un camino que
   // no pasa por internet. Convive con el socket de arriba a proposito — los dos
   // escriben el mismo peso, y asi la bascula sigue viva si se cae cualquiera de los
   // dos caminos, sin cambiar el comportamiento que ya tenian las tiendas.
   useEffect(() => {
-    if (!basculaEnPos) return;
+    if (!basculaEnPos || !aceptaLocal(origen)) { hayPuenteRef.current = false; return; }
     return suscribirPeso(
       (p) => {
+        if (!aceptaLocal(origen)) return;
         setPesoEnVivo(p.peso_kg || 0);
         setPesoRecibido(true);
         setBasculaConectada(true);
       },
+      (vivo) => { hayPuenteRef.current = vivo; },
     );
-  }, [basculaEnPos]);
+  }, [basculaEnPos, origen]);
 
   /**
    * Abrir el cajon fuera de una venta (para dar cambio, retirar, etc).
@@ -471,6 +484,7 @@ export default function POSPage() {
       setPesoEnVivo(0);
       setPesoRecibido(false);
       setPesoManualInput('');
+      setOrigen(leerOrigen());
       setPesoModal({ producto });
       return;
     }
@@ -491,6 +505,7 @@ export default function POSPage() {
       setPesoEnVivo(0);
       setPesoRecibido(false);
       setPesoManualInput('');
+      setOrigen(leerOrigen());
       setPesoModal({ producto });
       return;
     }
@@ -1076,13 +1091,17 @@ export default function POSPage() {
               <button onClick={() => setPesoModal(null)} className="text-slate-400 hover:text-white"><X size={20} /></button>
             </div>
             <div className="flex items-center gap-1.5 mb-4">
-              <div className={`w-2 h-2 rounded-full ${pesoRecibido ? 'bg-green-500' : 'bg-yellow-500 animate-pulse'}`} />
+              <div className={`w-2 h-2 rounded-full ${
+                origen.modo === 'apagado' ? 'bg-slate-600'
+                  : pesoRecibido ? 'bg-green-500' : 'bg-yellow-500 animate-pulse'}`} />
               <span className="text-xs text-slate-500">
-                {pesoRecibido
-                  ? 'Báscula conectada'
-                  : basculaConectada
-                    ? 'Esperando lectura de la báscula — puedes capturar el peso manual'
-                    : 'Sin conexión — puedes capturar el peso manual'}
+                {origen.modo === 'apagado'
+                  ? 'Báscula apagada en esta computadora — captura el peso a mano'
+                  : pesoRecibido
+                    ? describirOrigen(origen)
+                    : basculaConectada
+                      ? 'Esperando lectura de la báscula — puedes capturar el peso manual'
+                      : 'Sin conexión — puedes capturar el peso manual'}
               </span>
             </div>
 

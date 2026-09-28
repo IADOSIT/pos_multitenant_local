@@ -24,7 +24,21 @@ let BasculaGateway = class BasculaGateway {
         this.bridgeMap = new Map();
     }
     handleDisconnect(client) {
+        const info = this.bridgeMap.get(client.id);
         this.bridgeMap.delete(client.id);
+        if (info)
+            this.difundirBasculas(info.tienda_id);
+    }
+    basculasDe(tiendaId) {
+        const out = [];
+        for (const [socketId, info] of this.bridgeMap) {
+            if (info.tienda_id === tiendaId)
+                out.push({ bridge_id: socketId, estacion: info.estacion });
+        }
+        return out.sort((a, b) => a.estacion.localeCompare(b.estacion));
+    }
+    difundirBasculas(tiendaId) {
+        this.server.to(`tienda:${tiendaId}`).emit('basculas-update', { basculas: this.basculasDe(tiendaId) });
     }
     async handleBridgeJoin(client, data) {
         const config = await this.configRepo.findOne({ where: { tienda_token: data.tienda_token } });
@@ -33,19 +47,29 @@ let BasculaGateway = class BasculaGateway {
             client.emit('bridge-error', { message: 'Token invalido o hardware local desactivado' });
             return;
         }
+        const estacion = (data.estacion || '').toString().trim().slice(0, 40) || 'Principal';
         client.join(`tienda:${config.tienda_id}`);
-        this.bridgeMap.set(client.id, { tienda_id: config.tienda_id });
-        client.emit('bridge-welcome', { tienda_id: config.tienda_id });
+        this.bridgeMap.set(client.id, { tienda_id: config.tienda_id, estacion });
+        client.emit('bridge-welcome', { tienda_id: config.tienda_id, estacion });
+        this.difundirBasculas(config.tienda_id);
     }
     handleKioskJoin(client, data) {
         client.join(`tienda:${data.tienda_id}`);
         client.emit('kiosk-welcome', { tienda_id: data.tienda_id });
+        client.emit('basculas-update', { basculas: this.basculasDe(data.tienda_id) });
+    }
+    handleBasculasListar(client, data) {
+        client.emit('basculas-update', { basculas: this.basculasDe(data.tienda_id) });
     }
     handleBridgeWeight(client, data) {
         const info = this.bridgeMap.get(client.id);
         if (!info)
             return;
-        this.server.to(`tienda:${info.tienda_id}`).emit('weight-update', data);
+        this.server.to(`tienda:${info.tienda_id}`).emit('weight-update', {
+            ...data,
+            estacion: info.estacion,
+            bridge_id: client.id,
+        });
     }
     emitOpenDrawer(tiendaId, payload = {}) {
         this.server.to(`tienda:${tiendaId}`).emit('open-drawer', payload);
@@ -75,6 +99,14 @@ __decorate([
     __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
     __metadata("design:returntype", void 0)
 ], BasculaGateway.prototype, "handleKioskJoin", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)('basculas-listar'),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:returntype", void 0)
+], BasculaGateway.prototype, "handleBasculasListar", null);
 __decorate([
     (0, websockets_1.SubscribeMessage)('bridge-weight'),
     __param(0, (0, websockets_1.ConnectedSocket)()),

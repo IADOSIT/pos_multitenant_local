@@ -8,10 +8,16 @@ export declare class BasculaGateway implements OnGatewayDisconnect {
     private bridgeMap;
     constructor(configRepo: Repository<ConfigBascula>);
     handleDisconnect(client: Socket): void;
+    private basculasDe;
+    private difundirBasculas;
     handleBridgeJoin(client: Socket, data: {
         tienda_token: string;
+        estacion?: string;
     }): Promise<void>;
     handleKioskJoin(client: Socket, data: {
+        tienda_id: number;
+    }): void;
+    handleBasculasListar(client: Socket, data: {
         tienda_id: number;
     }): void;
     handleBridgeWeight(client: Socket, data: {

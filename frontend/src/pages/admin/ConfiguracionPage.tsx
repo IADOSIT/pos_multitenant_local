@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { tiendasApi, empresasApi, tenantsApi, menuDigitalApi, pagosGatewayApi, mesasApi, basculaApi, productosApi } from '../../api/endpoints';
 import api, { resolveUploadUrl } from '../../api/client';
+import { io } from 'socket.io-client';
+import { leerOrigen, guardarOrigen, type OrigenBascula } from '../../utils/basculaOrigen';
 import { useAuthStore } from '../../store/auth.store';
 import TicketsConfig from './TicketsConfig';
 import { useThemeStore, ThemeName, PaletteName } from '../../store/theme.store';
@@ -190,6 +192,12 @@ export default function ConfiguracionPage() {
   const [mdWorkerUrl, setMdWorkerUrl] = useState<string>('');
 
   // Bascula de autoservicio (frutas y verduras)
+  // De cual bascula lee ESTA computadora. No es configuracion de la tienda: es de la
+  // maquina, y por eso vive en localStorage y no viaja al backend (ver basculaOrigen).
+  const [bsOrigen, setBsOrigen]       = useState<OrigenBascula>(() => leerOrigen());
+  // Basculas prendidas ahora mismo en la tienda. Es una lista en vivo, no un catalogo:
+  // el backend la arma con los bridges que tiene conectados en este momento.
+  const [bsBasculas, setBsBasculas]   = useState<{ bridge_id: string; estacion: string }[]>([]);
   const [bsConfig, setBsConfig]       = useState<any>(null);
   const [bsForm, setBsForm]           = useState<any>({});
   const [bsProductos, setBsProductos] = useState<any[]>([]);
@@ -696,6 +704,20 @@ export default function ConfiguracionPage() {
       toast.error('Error al guardar apariencia en servidor');
     }
   };
+
+  // Escucha las basculas prendidas de la tienda seleccionada. Es el mismo socket que
+  // usa el POS, solo para oir: aqui no se pesa nada, se arma la lista para elegir.
+  useEffect(() => {
+    const tiendaId = bsConfig?.tienda_id;
+    if (!tiendaId) { setBsBasculas([]); return; }
+    const base = import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://posapi.iados.online';
+    const sock = io(`${base}/bascula`, { transports: ['websocket'] });
+    sock.on('connect', () => sock.emit('kiosk-join', { tienda_id: tiendaId }));
+    sock.on('basculas-update', (d: { basculas: { bridge_id: string; estacion: string }[] }) => {
+      setBsBasculas(d?.basculas || []);
+    });
+    return () => { sock.disconnect(); };
+  }, [bsConfig?.tienda_id]);
 
   const loadBascula = async (tiendaId: number) => {
     try {
@@ -2177,6 +2199,73 @@ export default function ConfiguracionPage() {
                       <code className="text-xs text-slate-600 break-all block">{bsConfig.tienda_token}</code>
                     </div>
                   )}
+
+                  {/* De cual bascula lee ESTA computadora */}
+                  <div className="border-t border-iados-card pt-4 space-y-2">
+                    <h5 className="text-xs font-bold text-slate-400 flex items-center gap-1">
+                      <Monitor size={11} /> Bascula que lee ESTA computadora
+                    </h5>
+                    <p className="text-xs text-slate-500">
+                      Esto <b className="text-slate-400">no</b> es configuracion de la tienda: se guarda solo en esta
+                      computadora y no afecta a las demas cajas. Una tienda puede tener varias basculas &mdash; la de
+                      cobro, la del kiosko, la del mostrador &mdash; y cada maquina elige aqui cual de ellas lee.
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                      {[
+                        { modo: 'auto' as const, titulo: 'Automatico (recomendado)', ayuda: 'La bascula conectada a esta PC; si no hay, la que llegue por la red.' },
+                        { modo: 'local' as const, titulo: 'Solo la de esta PC', ayuda: 'Nunca lee basculas de otras computadoras, ni con internet.' },
+                        { modo: 'apagado' as const, titulo: 'Apagada', ayuda: 'No lee ninguna bascula: el peso se captura a mano.' },
+                      ].map((op) => (
+                        <button
+                          key={op.modo}
+                          onClick={() => { const v = { modo: op.modo, estacion: '' }; setBsOrigen(v); guardarOrigen(v); toast.success('Guardado en esta computadora'); }}
+                          className={`p-3 rounded-lg text-left border transition-colors ${
+                            bsOrigen.modo === op.modo ? 'border-blue-500 bg-blue-500/10' : 'border-iados-card hover:border-slate-600'}`}
+                        >
+                          <div className="text-sm font-bold">{op.titulo}</div>
+                          <div className="text-xs text-slate-500 mt-0.5">{op.ayuda}</div>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="pt-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs text-slate-400">
+                          O leer una bascula de la red ({bsBasculas.length} prendida{bsBasculas.length === 1 ? '' : 's'} ahora)
+                        </label>
+                        {bsOrigen.modo === 'red' && (
+                          <span className="text-xs text-blue-400">Leyendo: {bsOrigen.estacion}</span>
+                        )}
+                      </div>
+                      {bsBasculas.length === 0 ? (
+                        <p className="text-xs text-slate-600">
+                          Ningun bridge conectado en esta tienda. Cada computadora con bascula se nombra en la ventana
+                          del bridge, campo <b className="text-slate-500">"Nombre de esta computadora en la tienda"</b>.
+                        </p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {bsBasculas.map((b) => (
+                            <button
+                              key={b.bridge_id}
+                              onClick={() => { const v = { modo: 'red' as const, estacion: b.estacion }; setBsOrigen(v); guardarOrigen(v); toast.success(`Esta PC leera la bascula "${b.estacion}"`); }}
+                              className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                                bsOrigen.modo === 'red' && bsOrigen.estacion === b.estacion
+                                  ? 'border-blue-500 bg-blue-500/10 text-blue-300'
+                                  : 'border-slate-700 text-slate-400 hover:border-slate-600'}`}
+                            >
+                              <Scale size={11} className="inline mr-1" /> {b.estacion}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <p className="text-xs text-slate-600 mt-2">
+                        Leer una bascula de la red <b className="text-slate-500">necesita internet</b> y sirve para
+                        supervisar o para una caja sin bascula propia. Para pesar y cobrar en la misma maquina, lo
+                        correcto es "Automatico".
+                      </p>
+                    </div>
+                  </div>
 
                   {/* Guia de instalacion del bridge fisico */}
                   <div className="border-t border-iados-card pt-4 space-y-3">

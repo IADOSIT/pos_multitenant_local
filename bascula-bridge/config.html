@@ -70,6 +70,15 @@
 
     <label for="backend">URL del backend</label>
     <input id="backend" type="text" spellcheck="false" />
+
+    <label for="estacion">Nombre de esta computadora en la tienda</label>
+    <input id="estacion" type="text" spellcheck="false" maxlength="40"
+           placeholder="Caja 1 / Kiosko / Salchichoneria" />
+    <div class="ayuda">
+      Solo importa si la tienda tiene <b>varias basculas</b>, una por computadora.
+      Es el nombre con el que el POS distingue esta bascula de las otras. Si se deja
+      vacio, aparece como "Principal".
+    </div>
   </div>
 
   <h2>Bascula</h2>
@@ -241,6 +250,7 @@
   function pintarConfig(c) {
     if (document.activeElement !== $('token')) $('token').value = c.TIENDA_TOKEN || '';
     if (document.activeElement !== $('backend')) $('backend').value = c.BACKEND_URL || '';
+    if (document.activeElement !== $('estacion')) $('estacion').value = c.ESTACION || '';
     if (document.activeElement !== $('baud')) $('baud').value = c.SCALE_BAUD || '9600';
     if (document.activeElement !== $('pollms')) $('pollms').value = c.SCALE_POLL_MS || '0';
     if (document.activeElement !== $('pollcmd')) $('pollcmd').value = c.SCALE_POLL_CMD || '';
@@ -519,6 +529,7 @@
       await window.bridge.guardar({
         TIENDA_TOKEN: $('token').value,
         BACKEND_URL: $('backend').value,
+        ESTACION: $('estacion').value,
         SCALE_PORT: $('puerto').value,
         SCALE_BAUD: $('baud').value,
         SCALE_POLL_MS: $('pollms').value,

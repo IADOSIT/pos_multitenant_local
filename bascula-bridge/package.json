@@ -1,7 +1,7 @@
 {
   "name": "pos-iados-bascula-bridge",
-  "version": "1.5.0",
-  "description": "Bridge local de POS-iaDoS: bascula, impresora de etiquetas (red o USB) y cajon de dinero, con puente en 127.0.0.1 para operar sin internet",
+  "version": "1.6.0",
+  "description": "Bridge local de POS-iaDoS: bascula, impresora de etiquetas (red o USB) y cajon de dinero, con estacion nombrada para tiendas con varias basculas, con puente en 127.0.0.1 para operar sin internet",
   "main": "main.js",
   "scripts": {
     "start": "electron .",

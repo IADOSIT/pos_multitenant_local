@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { basculaApi } from '../../api/endpoints';
 import { suscribirPeso } from '../../api/puenteLocal';
+import { leerOrigen, aceptaLocal, aceptaNube } from '../../utils/basculaOrigen';
 import { resolveUploadUrl } from '../../api/client';
 import { printEtiquetaBascula } from '../../utils/printEtiquetaBascula';
 import { useAuthStore } from '../../store/auth.store';
@@ -71,6 +72,11 @@ export default function BasculaKioskoPage() {
   const [busqueda, setBusqueda] = useState('');
   const [teclado, setTeclado] = useState(false);
   const sockRef = useRef<Socket | null>(null);
+  // El kiosko casi siempre tiene su propia bascula por USB, pero la tienda puede tener
+  // otras (caja, salchichoneria) publicando en la misma room: sin filtrar, el peso de
+  // enfrente se cuela en la pantalla del cliente.
+  const [origen] = useState(() => leerOrigen());
+  const hayPuenteRef = useRef(false);
 
   useEffect(() => {
     if (!tiendaId) return;
@@ -81,7 +87,7 @@ export default function BasculaKioskoPage() {
   }, [tiendaId]);
 
   useEffect(() => {
-    if (!tiendaId) return;
+    if (!tiendaId || origen.modo === 'apagado') return;
     const base = import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://posapi.iados.online';
     const sock = io(`${base}/bascula`, { transports: ['websocket'] });
     sockRef.current = sock;
@@ -90,16 +96,23 @@ export default function BasculaKioskoPage() {
       sock.emit('kiosk-join', { tienda_id: tiendaId });
     });
     sock.on('disconnect', () => setConnected(false));
-    sock.on('weight-update', (data: { peso_kg: number }) => setPesoKg(data.peso_kg || 0));
+    sock.on('weight-update', (data: { peso_kg: number; estacion?: string }) => {
+      if (!aceptaNube(origen, data.estacion, hayPuenteRef.current)) return;
+      setPesoKg(data.peso_kg || 0);
+    });
     return () => { sock.disconnect(); };
-  }, [tiendaId]);
+  }, [tiendaId, origen]);
 
   // Peso tambien por el puente local (127.0.0.1) del bridge de esta misma PC: llega
   // sin pasar por internet y sin el retardo del ida y vuelta al servidor. Convive con
   // el socket de arriba — los dos traen la misma lectura del mismo bridge.
-  useEffect(() => suscribirPeso(
-    (p) => { setPesoKg(p.peso_kg || 0); setConnected(true); },
-  ), []);
+  useEffect(() => {
+    if (!aceptaLocal(origen)) { hayPuenteRef.current = false; return; }
+    return suscribirPeso(
+      (p) => { setPesoKg(p.peso_kg || 0); setConnected(true); },
+      (vivo) => { hayPuenteRef.current = vivo; },
+    );
+  }, [origen]);
 
   const productosFiltrados = useMemo(() => {
     if (!busqueda.trim()) return productos;
