@@ -17,11 +17,53 @@ const websockets_1 = require("@nestjs/websockets");
 const socket_io_1 = require("socket.io");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
+const jwt_1 = require("@nestjs/jwt");
+const common_1 = require("@nestjs/common");
 const config_bascula_entity_1 = require("./config-bascula.entity");
 let BasculaGateway = class BasculaGateway {
-    constructor(configRepo) {
+    constructor(configRepo, jwt) {
         this.configRepo = configRepo;
+        this.jwt = jwt;
+        this.logger = new common_1.Logger('BasculaGateway');
         this.bridgeMap = new Map();
+    }
+    modoEstricto() {
+        return String(process.env.BASCULA_KIOSK_STRICT || '').trim().toLowerCase() === 'true';
+    }
+    verificarOyente(client, tiendaId) {
+        const token = client.handshake?.auth?.token;
+        if (!token)
+            return 'sin-token';
+        let payload;
+        try {
+            payload = this.jwt.verify(token);
+        }
+        catch {
+            return 'invalido';
+        }
+        if (payload?.rol === 'superadmin')
+            return 'ok';
+        return Number(payload?.tienda_id) === Number(tiendaId) ? 'ok' : 'otra-tienda';
+    }
+    permitirOyente(client, tiendaId, evento) {
+        const veredicto = this.verificarOyente(client, tiendaId);
+        if (veredicto === 'ok')
+            return true;
+        const estricto = this.modoEstricto();
+        const origen = client.handshake?.headers?.origin || 'sin-origin';
+        const ua = String(client.handshake?.headers?.['user-agent'] || '').slice(0, 80);
+        this.logger.warn(`[kiosk-auth] ${evento} ${estricto ? 'RECHAZADO' : 'TOLERADO'} ` +
+            `veredicto=${veredicto} tienda_id=${tiendaId} socket=${client.id} ` +
+            `origin=${origen} ua="${ua}"`);
+        if (!estricto)
+            return true;
+        client.emit('kiosk-error', {
+            veredicto,
+            message: veredicto === 'otra-tienda'
+                ? 'Tu sesion no pertenece a esta tienda'
+                : 'Sesion no valida para escuchar la bascula',
+        });
+        return false;
     }
     handleDisconnect(client) {
         const info = this.bridgeMap.get(client.id);
@@ -54,12 +96,22 @@ let BasculaGateway = class BasculaGateway {
         this.difundirBasculas(config.tienda_id);
     }
     handleKioskJoin(client, data) {
-        client.join(`tienda:${data.tienda_id}`);
-        client.emit('kiosk-welcome', { tienda_id: data.tienda_id });
-        client.emit('basculas-update', { basculas: this.basculasDe(data.tienda_id) });
+        const tiendaId = Number(data?.tienda_id);
+        if (!Number.isInteger(tiendaId) || tiendaId <= 0)
+            return;
+        if (!this.permitirOyente(client, tiendaId, 'kiosk-join'))
+            return;
+        client.join(`tienda:${tiendaId}`);
+        client.emit('kiosk-welcome', { tienda_id: tiendaId });
+        client.emit('basculas-update', { basculas: this.basculasDe(tiendaId) });
     }
     handleBasculasListar(client, data) {
-        client.emit('basculas-update', { basculas: this.basculasDe(data.tienda_id) });
+        const tiendaId = Number(data?.tienda_id);
+        if (!Number.isInteger(tiendaId) || tiendaId <= 0)
+            return;
+        if (!this.permitirOyente(client, tiendaId, 'basculas-listar'))
+            return;
+        client.emit('basculas-update', { basculas: this.basculasDe(tiendaId) });
     }
     handleBridgeWeight(client, data) {
         const info = this.bridgeMap.get(client.id);
@@ -118,6 +170,7 @@ __decorate([
 exports.BasculaGateway = BasculaGateway = __decorate([
     (0, websockets_1.WebSocketGateway)({ cors: { origin: '*' }, namespace: '/bascula' }),
     __param(0, (0, typeorm_1.InjectRepository)(config_bascula_entity_1.ConfigBascula)),
-    __metadata("design:paramtypes", [typeorm_2.Repository])
+    __metadata("design:paramtypes", [typeorm_2.Repository,
+        jwt_1.JwtService])
 ], BasculaGateway);
 //# sourceMappingURL=bascula.gateway.js.map

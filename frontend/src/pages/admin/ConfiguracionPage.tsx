@@ -711,8 +711,14 @@ export default function ConfiguracionPage() {
     const tiendaId = bsConfig?.tienda_id;
     if (!tiendaId) { setBsBasculas([]); return; }
     const base = import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://posapi.iados.online';
-    const sock = io(`${base}/bascula`, { transports: ['websocket'] });
+    // El JWT identifica QUE tienda puede escuchar este navegador. Va en el
+    // handshake (no en el evento) para no acabar en un log de payloads.
+    const sock = io(`${base}/bascula`, {
+      transports: ['websocket'],
+      auth: { token: localStorage.getItem('pos_token') || '' },
+    });
     sock.on('connect', () => sock.emit('kiosk-join', { tienda_id: tiendaId }));
+    sock.on('kiosk-error', () => setBsBasculas([]));
     sock.on('basculas-update', (d: { basculas: { bridge_id: string; estacion: string }[] }) => {
       setBsBasculas(d?.basculas || []);
     });

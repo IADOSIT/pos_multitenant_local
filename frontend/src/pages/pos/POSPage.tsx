@@ -161,11 +161,22 @@ export default function POSPage() {
     // Con la bascula apagada no se abre ni el socket: esta PC captura el peso a mano.
     if (!basculaEnPos || !tiendaId || origen.modo === 'apagado') return;
     const base = import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://posapi.iados.online';
-    const sock = io(`${base}/bascula`, { transports: ['websocket'] });
+    // El JWT identifica QUE tienda puede escuchar este navegador. Va en el
+    // handshake (no en el evento) para no acabar en un log de payloads.
+    const sock = io(`${base}/bascula`, {
+      transports: ['websocket'],
+      auth: { token: localStorage.getItem('pos_token') || '' },
+    });
     basculaSockRef.current = sock;
     sock.on('connect', () => {
       setBasculaConectada(true);
       sock.emit('kiosk-join', { tienda_id: tiendaId });
+    });
+    // Si el backend rechaza la escucha (sesion de otra tienda, o vencida) hay que
+    // mostrarlo apagado: callar y quedarse en cero parece una bascula descompuesta.
+    sock.on('kiosk-error', (e: { message?: string }) => {
+      console.warn('[bascula] escucha rechazada:', e?.message);
+      setBasculaConectada(false);
     });
     sock.on('disconnect', () => setBasculaConectada(false));
     sock.on('weight-update', (data: { peso_kg: number; estacion?: string }) => {

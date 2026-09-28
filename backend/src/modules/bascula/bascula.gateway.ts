@@ -5,6 +5,8 @@ import {
 import { Server, Socket } from 'socket.io';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { JwtService } from '@nestjs/jwt';
+import { Logger } from '@nestjs/common';
 import { ConfigBascula } from './config-bascula.entity';
 
 /**
@@ -27,16 +29,93 @@ import { ConfigBascula } from './config-bascula.entity';
  * Compatibilidad: un bridge viejo que no mande estacion entra como 'Principal', y un
  * navegador viejo que no sepa de estaciones simplemente ignora los campos nuevos de
  * `weight-update` y sigue recibiendo el peso como siempre.
+ *
+ * -- Quien puede ESCUCHAR una tienda -----------------------------------------
+ * `kiosk-join` no validaba nada: bastaba saber el tienda_id para oir el peso de una
+ * tienda ajena desde cualquier red. La fuga es de solo lectura -- para PUBLICAR peso
+ * hay que estar en `bridgeMap`, y a eso solo se entra con el `tienda_token` -- pero
+ * aun asi no debe quedarse abierta.
+ *
+ * Se cierra en DOS PASOS, con `BASCULA_KIOSK_STRICT` como interruptor:
+ *   Paso 1 (por omision, la variable apagada): se verifica el JWT igual, pero al que
+ *     no lo trae o no cuadra se le deja pasar y queda escrito en el log con el
+ *     prefijo `[kiosk-auth]`. Sirve para ver quien entraria rechazado ANTES de
+ *     romper nada: una caja con el bundle viejo en cache sigue trabajando.
+ *   Paso 2 (la variable en 'true'): esos mismos casos se rechazan.
+ * Asi el cambio de comportamiento es una variable de entorno y no codigo nuevo, y
+ * volver atras es apagarla y redesplegar.
+ *
+ * La verificacion NO puede vivir en handleConnection (como en MonitorGateway) porque
+ * este namespace lo comparten dos clientes distintos: el bridge, que se autentica con
+ * el token de tienda y no tiene JWT, y el navegador, que si.
  */
+/** Que tan legitimo es un navegador que pide escuchar una tienda. */
+type VeredictoOyente = 'ok' | 'sin-token' | 'invalido' | 'otra-tienda';
+
 @WebSocketGateway({ cors: { origin: '*' }, namespace: '/bascula' })
 export class BasculaGateway implements OnGatewayDisconnect {
   @WebSocketServer() server: Server;
+
+  private readonly logger = new Logger('BasculaGateway');
 
   private bridgeMap = new Map<string, { tienda_id: number; estacion: string }>();
 
   constructor(
     @InjectRepository(ConfigBascula) private readonly configRepo: Repository<ConfigBascula>,
+    private readonly jwt: JwtService,
   ) {}
+
+  /** Paso 2 encendido. Se lee en cada llamada para que no quede capturado al arranque. */
+  private modoEstricto(): boolean {
+    return String(process.env.BASCULA_KIOSK_STRICT || '').trim().toLowerCase() === 'true';
+  }
+
+  /**
+   * Que credencial trae el navegador que quiere oir `tiendaId`. El JWT viaja en el
+   * handshake (`auth.token`), igual que en MonitorGateway, y no en el cuerpo del
+   * evento: asi no termina escrito en ningun log de payloads.
+   */
+  private verificarOyente(client: Socket, tiendaId: number): VeredictoOyente {
+    const token = (client.handshake as any)?.auth?.token;
+    if (!token) return 'sin-token';
+    let payload: any;
+    try {
+      payload = this.jwt.verify(token);
+    } catch {
+      return 'invalido';
+    }
+    // El superadmin entra a cualquier tienda: opera con "ver como tienda", que viaja
+    // en una cabecera HTTP que un socket no tiene con que reproducir.
+    if (payload?.rol === 'superadmin') return 'ok';
+    return Number(payload?.tienda_id) === Number(tiendaId) ? 'ok' : 'otra-tienda';
+  }
+
+  /**
+   * Portero de los eventos de escucha. Devuelve si se le deja entrar; en el paso 1
+   * eso es SIEMPRE que si, y lo unico que cambia es que queda escrito en el log.
+   */
+  private permitirOyente(client: Socket, tiendaId: number, evento: string): boolean {
+    const veredicto = this.verificarOyente(client, tiendaId);
+    if (veredicto === 'ok') return true;
+
+    const estricto = this.modoEstricto();
+    const origen = (client.handshake as any)?.headers?.origin || 'sin-origin';
+    const ua = String((client.handshake as any)?.headers?.['user-agent'] || '').slice(0, 80);
+    this.logger.warn(
+      `[kiosk-auth] ${evento} ${estricto ? 'RECHAZADO' : 'TOLERADO'} ` +
+      `veredicto=${veredicto} tienda_id=${tiendaId} socket=${client.id} ` +
+      `origin=${origen} ua="${ua}"`,
+    );
+
+    if (!estricto) return true;
+    client.emit('kiosk-error', {
+      veredicto,
+      message: veredicto === 'otra-tienda'
+        ? 'Tu sesion no pertenece a esta tienda'
+        : 'Sesion no valida para escuchar la bascula',
+    });
+    return false;
+  }
 
   handleDisconnect(client: Socket) {
     const info = this.bridgeMap.get(client.id);
@@ -84,16 +163,25 @@ export class BasculaGateway implements OnGatewayDisconnect {
   // ── El kiosko (pantalla del cliente, ya autenticado con JWT) se une para escuchar ──
   @SubscribeMessage('kiosk-join')
   handleKioskJoin(@ConnectedSocket() client: Socket, @MessageBody() data: { tienda_id: number }) {
-    client.join(`tienda:${data.tienda_id}`);
-    client.emit('kiosk-welcome', { tienda_id: data.tienda_id });
+    const tiendaId = Number(data?.tienda_id);
+    if (!Number.isInteger(tiendaId) || tiendaId <= 0) return;
+    if (!this.permitirOyente(client, tiendaId, 'kiosk-join')) return;
+
+    client.join(`tienda:${tiendaId}`);
+    client.emit('kiosk-welcome', { tienda_id: tiendaId });
     // Que sepa de una vez cuales basculas hay prendidas, sin esperar a que alguna pese.
-    client.emit('basculas-update', { basculas: this.basculasDe(data.tienda_id) });
+    client.emit('basculas-update', { basculas: this.basculasDe(tiendaId) });
   }
 
   /** Repreguntar la lista sin reconectar (la pantalla de configuracion la refresca). */
   @SubscribeMessage('basculas-listar')
   handleBasculasListar(@ConnectedSocket() client: Socket, @MessageBody() data: { tienda_id: number }) {
-    client.emit('basculas-update', { basculas: this.basculasDe(data.tienda_id) });
+    const tiendaId = Number(data?.tienda_id);
+    if (!Number.isInteger(tiendaId) || tiendaId <= 0) return;
+    // Mismo portero: la lista de basculas prendidas tambien dice algo de la tienda.
+    if (!this.permitirOyente(client, tiendaId, 'basculas-listar')) return;
+
+    client.emit('basculas-update', { basculas: this.basculasDe(tiendaId) });
   }
 
   // ── El bridge retransmite el peso en vivo de la bascula ──

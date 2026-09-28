@@ -23,9 +23,11 @@ export function roomsDelNamespace(nsp: Namespace | undefined): Map<string, Set<s
   return nsp?.adapter?.rooms as any;
 }
 
-// Presencia en vivo del POS. A diferencia de BiometricoGateway y BasculaGateway,
-// que confian en un token de tienda, aqui SI se verifica el JWT: se maneja
-// identidad de personas, y un cliente no debe poder decir "soy Juan".
+// Presencia en vivo del POS. A diferencia de BiometricoGateway, que confia en un
+// token de empresa, aqui SI se verifica el JWT: se maneja identidad de personas, y
+// un cliente no debe poder decir "soy Juan". BasculaGateway tambien lo verifica ya,
+// pero solo para el navegador que ESCUCHA: su bridge sigue entrando con el token de
+// tienda, asi que ahi la comprobacion no puede vivir en handleConnection.
 //
 // La IP no se lee del handshake a proposito: quedo fuera de alcance.
 @WebSocketGateway({ cors: { origin: '*' }, namespace: '/presencia' })
