@@ -3,8 +3,9 @@
  * Electron tray app que:
  *  1. Lee el peso en vivo de una bascula conectada por RS-232/USB (serialport)
  *  2. Retransmite el peso al backend via Socket.io (namespace /bascula)
- *  3. Recibe la orden de imprimir etiqueta y envia el ZPL por socket TCP crudo
- *     al puerto 9100 de una impresora de etiquetas en red (Zebra/GoDEX/TSC compatible)
+ *  3. Recibe la orden de imprimir etiqueta y la saca por donde este configurada:
+ *     ZPL por socket TCP crudo al 9100 de una etiquetadora en red (Zebra/GoDEX/TSC),
+ *     o por el driver de Windows a una etiquetadora USB (Brother QL-800 y similares)
  *  4. Abre el cajon de dinero mandando un pulso por un adaptador serial/USB
  *  5. Levanta un PUENTE LOCAL en 127.0.0.1 para que el POS del navegador hable
  *     directo con este equipo SIN pasar por internet (ver "Puente local" abajo)
@@ -87,6 +88,12 @@ const DEFAULTS = {
   CAJON_BAUD: '9600',
   // Nombre EXACTO de la impresora en Windows (solo aplica con CAJON_MODO=impresora)
   CAJON_IMPRESORA: '',
+  // ── Etiquetadora USB ──
+  // Nombre EXACTO en Windows de la etiquetadora conectada por USB (Brother QL-800 y
+  // cualquier otra con driver). Solo se usa cuando la tienda esta en printer_modo='usb'.
+  // Se elige aqui, de una lista, y le gana al nombre que venga de la nube: el nombre de
+  // una impresora es un dato de ESTA computadora, no de la configuracion del negocio.
+  ETIQUETA_IMPRESORA: '',
   // Secuencia que dispara el pulso: una clave de SECUENCIAS_CAJON, o "hex:1B700019FA"
   // para un adaptador raro, sin tener que tocar el codigo.
   CAJON_CMD: 'escpos_pin2',
@@ -208,6 +215,7 @@ function configPublica() {
     CAJON_BAUD: config.CAJON_BAUD,
     CAJON_IMPRESORA: config.CAJON_IMPRESORA,
     CAJON_CMD: config.CAJON_CMD,
+    ETIQUETA_IMPRESORA: config.ETIQUETA_IMPRESORA,
     PUENTE_PORT: config.PUENTE_PORT,
   };
 }
@@ -476,8 +484,18 @@ function reiniciarConexiones() {
   vigilarImpresora();
 }
 
-// ── Impresora de etiquetas (ZPL por TCP crudo, puerto 9100) ───────────────────
-function imprimirEtiqueta(payload) {
+// ── Impresora de etiquetas ───────────────────────────────────────────────────
+// Dos caminos, los elige la tienda desde Configuracion -> Bascula y viaja en el
+// payload. Se resuelve aqui, en un solo lugar, para que el resto del bridge (el
+// socket de la nube y el puente local) no tenga que saber cual es cual.
+//   'usb' → etiquetadora por USB, va por el driver de Windows (Brother QL-800)
+//   otro  → etiquetadora en red, ZPL por TCP al 9100 (comportamiento historico)
+function imprimirEtiqueta(payload = {}) {
+  if (String(payload.printer_modo || 'red') === 'usb') return imprimirEtiquetaUsb(payload);
+  return imprimirEtiquetaRed(payload);
+}
+
+function imprimirEtiquetaRed(payload) {
   return new Promise((resolve, reject) => {
     if (!payload.printer_ip) return reject(new Error('printer_ip no configurado'));
 
@@ -495,6 +513,201 @@ function imprimirEtiqueta(payload) {
     socketImpresora.on('timeout', () => { socketImpresora.destroy(); reject(new Error('timeout conectando a la impresora')); });
     socketImpresora.on('error', (err) => reject(err));
   });
+}
+
+// ── Etiquetadora USB (Brother QL-800 y cualquier otra con driver de Windows) ──
+// Por que por el driver y no con bytes crudos como el cajon: la QL-800 NO habla ZPL,
+// habla el raster propio de Brother, y armar ese raster obliga a dibujar la etiqueta
+// pixel por pixel (tipografia incluida) dentro del bridge. El driver ya hace eso, y
+// Electron puede imprimirle en silencio eligiendo la impresora por nombre. Sale la
+// MISMA etiqueta que en modo 'navegador' (mismo HTML), pero sin dialogo de impresion
+// y sin depender de cual sea la impresora predeterminada de la PC.
+function imprimirEtiquetaUsb(payload) {
+  return new Promise((resolve, reject) => {
+    const nombre = String(config.ETIQUETA_IMPRESORA || payload.printer_nombre || '').trim();
+    if (!nombre) {
+      return reject(new Error('No hay etiquetadora USB elegida. Abre la configuracion del bridge '
+        + 'y eligela en "Impresora de etiquetas", o escribe su nombre en Configuracion -> Bascula.'));
+    }
+    // Mandarle una etiqueta a "Microsoft Print to PDF" abre un dialogo de guardado que
+    // deja la etiqueta sin imprimir y al cliente esperando. Se corta antes.
+    if (esImpresoraVirtual(nombre)) {
+      return reject(new Error(`"${nombre}" es una impresora virtual (PDF/XPS/OneNote/Fax): `
+        + 'abriria un dialogo de guardado en vez de imprimir la etiqueta.'));
+    }
+
+    // Siempre horizontal: el EAN-13 necesita el lado largo, igual que en el navegador.
+    const w = Number(payload.label_width_mm) || 50;
+    const h = Number(payload.label_height_mm) || 25;
+    const anchoMm = Math.max(w, h);
+    const altoMm = Math.min(w, h);
+
+    let archivo;
+    try {
+      archivo = path.join(app.getPath('temp'), `pos-etiqueta-${Date.now()}.html`);
+      fs.writeFileSync(archivo, htmlEtiqueta(payload, anchoMm, altoMm), 'utf8');
+    } catch (e) {
+      return reject(new Error('No se pudo escribir la etiqueta temporal: ' + e.message));
+    }
+
+    // Ventana oculta y desechable: una etiqueta se imprime en un instante y no vale la
+    // pena dejar un WebContents vivo el dia entero. javascript queda apagado porque la
+    // etiqueta es HTML estatico (el codigo de barras ya viene dibujado como SVG).
+    const win = new BrowserWindow({
+      show: false,
+      width: 480,
+      height: 320,
+      webPreferences: { javascript: false, contextIsolation: true, nodeIntegration: false },
+    });
+
+    let cerrado = false;
+    const limpiar = () => {
+      if (cerrado) return;
+      cerrado = true;
+      clearTimeout(reloj);
+      try { fs.unlinkSync(archivo); } catch (_) {}
+      try { if (!win.isDestroyed()) win.destroy(); } catch (_) {}
+    };
+    // Si el driver se queda pensando (cola atorada, rollo abierto) no se puede dejar la
+    // promesa colgada: el kiosko espera una respuesta para soltar al siguiente cliente.
+    const reloj = setTimeout(() => {
+      limpiar();
+      reject(new Error(`La impresora "${nombre}" no contesto en 30 s. Revisa que este encendida, `
+        + 'con rollo, la tapa cerrada y sin trabajos detenidos en la cola de Windows.'));
+    }, 30000);
+
+    win.webContents.once('did-fail-load', (_e, code, desc) => {
+      limpiar();
+      reject(new Error(`No se pudo preparar la etiqueta (${code} ${desc})`));
+    });
+
+    win.webContents.once('did-finish-load', () => {
+      win.webContents.print(
+        {
+          silent: true,            // sin dialogo: es una caja, no un escritorio
+          printBackground: true,
+          deviceName: nombre,
+          color: false,
+          copies: 1,
+          margins: { marginType: 'none' },
+          landscape: false,        // el ancho ya es el lado largo
+          pageSize: { width: Math.round(anchoMm * 1000), height: Math.round(altoMm * 1000) },
+        },
+        (ok, motivo) => {
+          limpiar();
+          if (ok) {
+            console.log('[bridge] Etiqueta enviada a la etiquetadora USB', JSON.stringify(nombre));
+            return resolve();
+          }
+          // Electron dice "cancelled" tanto si no existe la impresora como si el driver
+          // rechazo el tamano de pagina: son los dos errores reales de esta ruta.
+          reject(new Error(`Windows no acepto el trabajo (${motivo || 'sin motivo'}). `
+            + `Verifica que "${nombre}" sea el nombre exacto de la impresora y que el rollo `
+            + `cargado admita una etiqueta de ${anchoMm} x ${altoMm} mm.`));
+        },
+      );
+    });
+
+    win.loadFile(archivo).catch((e) => { limpiar(); reject(e); });
+  });
+}
+
+// ── Codigo de barras EAN-13 ──────────────────────────────────────────────────
+// Espejo de frontend/src/utils/ean13.ts (ean13Modulos / ean13Svg): la etiqueta USB
+// se dibuja aqui y tiene que salir identica a la que imprime el navegador, porque la
+// misma caja escanea las dos. Si se toca una, se toca la otra.
+const EAN_L = [
+  '0001101', '0011001', '0010011', '0111101', '0100011',
+  '0110001', '0101111', '0111011', '0110111', '0001011',
+];
+const EAN_R = EAN_L.map((p) => p.replace(/[01]/g, (b) => (b === '0' ? '1' : '0')));
+const EAN_G = EAN_R.map((p) => p.split('').reverse().join(''));
+const EAN_PARIDAD = [
+  'LLLLLL', 'LLGLGG', 'LLGGLG', 'LLGGGL', 'LGLLGG',
+  'LGGLLG', 'LGGGLL', 'LGLGLG', 'LGLGGL', 'LGGLGL',
+];
+
+function ean13Modulos(code) {
+  if (!/^\d{13}$/.test(String(code || ''))) return null;
+  const d = String(code).split('').map(Number);
+  const paridad = EAN_PARIDAD[d[0]];
+  let bits = '101';
+  for (let i = 0; i < 6; i++) bits += (paridad[i] === 'L' ? EAN_L : EAN_G)[d[i + 1]];
+  bits += '01010';
+  for (let i = 7; i < 13; i++) bits += EAN_R[d[i]];
+  return bits + '101';
+}
+
+function ean13Svg(code, width, height) {
+  const bits = ean13Modulos(code);
+  if (!bits) return '';
+  const barras = bits
+    .split('')
+    .map((b, i) => (b === '1' ? `<rect x="${i}" y="0" width="1" height="30" fill="#000"/>` : ''))
+    .join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 95 30" preserveAspectRatio="none"`
+    + ` width="${width}" height="${height}" shape-rendering="crispEdges">${barras}</svg>`;
+}
+
+// La etiqueta, calcada de frontend/src/utils/printEtiquetaBascula.ts para que el
+// cliente reciba lo mismo sin importar por donde salio.
+function htmlEtiqueta(payload, anchoMm, altoMm) {
+  const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+
+  const barrasAncho = Math.max(20, anchoMm - 5);
+  const barrasAlto = Math.min(12, Math.max(6, Math.round(altoMm * 0.3)));
+  const barras = ean13Svg(payload.barcode, `${barrasAncho}mm`, `${barrasAlto}mm`);
+  const k = Math.min(1.2, Math.max(0.72, anchoMm / 50));
+  const pt = (base) => `${(base * k).toFixed(1)}pt`;
+
+  // El precio por kilo no existia en los payload viejos: si no viene, se deduce del
+  // peso y el importe antes que imprimir "$0.00/kg" en la etiqueta del cliente.
+  const peso = num(payload.peso_kg);
+  const total = num(payload.precio_total);
+  const porKg = num(payload.precio_kg) || (peso > 0 ? total / peso : 0);
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  @page { size: ${anchoMm}mm ${altoMm}mm landscape; margin: 0; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 1.2mm 2mm;
+    width: ${anchoMm}mm;
+    height: ${altoMm}mm;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #000;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    text-align: center;
+    overflow: hidden;
+  }
+  .nombre { font-size: ${pt(8)}; font-weight: bold; line-height: 1.05; max-height: 2.1em; overflow: hidden; }
+  .fila { display: flex; align-items: baseline; justify-content: space-between; gap: 1.5mm; }
+  .detalle { font-size: ${pt(7)}; white-space: nowrap; overflow: hidden; }
+  .total { font-size: ${pt(13)}; font-weight: bold; line-height: 1; white-space: nowrap; }
+  .barras { flex-shrink: 0; margin-top: auto; }
+  .codigo { font-size: ${pt(6)}; letter-spacing: 0.4px; line-height: 1.4; }
+  svg { display: block; margin: 0 auto; }
+</style>
+</head>
+<body>
+  <div class="nombre">${esc(payload.producto_nombre)}</div>
+  <div class="fila">
+    <div class="detalle">${peso.toFixed(3)} kg x $${porKg.toFixed(2)}/kg</div>
+    <div class="total">$${total.toFixed(2)}</div>
+  </div>
+  <div class="barras">
+    ${barras}
+    <div class="codigo">${esc(payload.barcode)}</div>
+  </div>
+</body>
+</html>`;
 }
 
 function construirZpl(payload) {
@@ -1344,7 +1557,7 @@ ipcMain.handle('guardar', async (_e, patch) => {
   const limpio = {};
   for (const k of ['BACKEND_URL', 'TIENDA_TOKEN', 'SCALE_PORT', 'SCALE_BAUD', 'SCALE_POLL_CMD', 'SCALE_POLL_MS',
                    'CAJON_MODO', 'CAJON_PORT', 'CAJON_BAUD', 'CAJON_IMPRESORA', 'CAJON_CMD',
-                   'PUENTE_PORT']) {
+                   'ETIQUETA_IMPRESORA', 'PUENTE_PORT']) {
     if (patch[k] !== undefined) limpio[k] = String(patch[k]).trim();
   }
   saveConfig(limpio);
@@ -1372,6 +1585,34 @@ ipcMain.handle('probar-cajon', async (_e, opts = {}) => {
     return { ok: false, mensaje: 'Elige primero el puerto COM del cajon.' };
   }
   return probarCajon(opts);
+});
+
+// Etiqueta de prueba para la etiquetadora USB. Sirve para lo unico que se puede
+// equivocar en esta ruta: el nombre de la impresora y el tamano del rollo.
+ipcMain.handle('probar-etiqueta', async (_e, opts = {}) => {
+  const nombre = String(opts.impresora || config.ETIQUETA_IMPRESORA || '').trim();
+  if (!nombre) return { ok: false, mensaje: 'Elige primero la etiquetadora USB.' };
+  const ancho = parseInt(opts.ancho, 10) || 50;
+  const alto = parseInt(opts.alto, 10) || 25;
+  try {
+    // 2 + PLU 00001 + 003690 centavos + digito verificador: un EAN-13 real, para que
+    // la prueba tambien sirva para comprobar que la caja lo escanea.
+    await imprimirEtiquetaUsb({
+      printer_modo: 'usb',
+      printer_nombre: nombre,
+      producto_nombre: 'PRUEBA - Jitomate saladet',
+      peso_kg: 1.234,
+      precio_kg: 29.9,
+      precio_total: 36.9,
+      barcode: '2000010036905',
+      label_width_mm: ancho,
+      label_height_mm: alto,
+    });
+    return { ok: true, mensaje: `Etiqueta de prueba enviada a "${nombre}". Si sale en blanco o cortada, `
+      + 'revisa el tamano del rollo en el driver de la impresora.' };
+  } catch (e) {
+    return { ok: false, mensaje: e.message };
+  }
 });
 
 ipcMain.handle('abrir-log', () => { shell.showItemInFolder(logFile); });

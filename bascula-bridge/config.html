@@ -165,6 +165,45 @@
     <div class="aviso" id="cajon-aviso"></div>
   </div>
 
+  <h2>Impresora de etiquetas</h2>
+  <div class="panel">
+    <label for="etq-impresora">Etiquetadora conectada por USB</label>
+    <div class="fila">
+      <select id="etq-impresora"></select>
+      <button id="btn-refrescar-etiqueta" type="button">Refrescar</button>
+    </div>
+    <div class="ayuda">
+      Solo se usa cuando la tienda esta configurada en <b>Etiquetadora USB</b>
+      (Configuracion &rarr; Bascula, en el sistema). Es la Brother QL-800 o cualquier
+      otra etiquetadora con driver de Windows: la etiqueta sale sola, sin dialogo de
+      impresion. Lo que elijas aqui le gana al nombre que venga de la nube, porque el
+      nombre de la impresora es un dato de esta computadora.
+      Las virtuales (PDF, XPS, OneNote) aparecen en gris: abren un dialogo de guardado.
+    </div>
+    <div class="ayuda" id="etq-impresora-nota" style="color:#fca5a5"></div>
+
+    <div class="fila" style="margin-top:10px">
+      <div>
+        <label for="etq-ancho">Ancho de la etiqueta de prueba (mm)</label>
+        <input id="etq-ancho" type="text" spellcheck="false" value="50" />
+      </div>
+      <div>
+        <label for="etq-alto">Alto (mm)</label>
+        <input id="etq-alto" type="text" spellcheck="false" value="25" />
+      </div>
+    </div>
+    <div class="ayuda">
+      Estas dos medidas son <b>solo para la prueba</b>: en la venta real manda el tamano
+      que este elegido en Configuracion &rarr; Bascula. El rollo cargado en la impresora
+      tiene que coincidir, y estar puesto como predeterminado en su driver.
+    </div>
+
+    <div class="pie">
+      <button id="btn-etiqueta-probar" type="button">Imprimir etiqueta de prueba</button>
+    </div>
+    <div class="aviso" id="etq-aviso"></div>
+  </div>
+
   <h2>Puente local</h2>
   <div class="panel">
     <label for="puente">Puerto en 127.0.0.1</label>
@@ -221,7 +260,8 @@
 
     $('cajon-modo').value = (c.CAJON_MODO === 'impresora') ? 'impresora' : 'com';
     aplicarModoCajon();
-    seleccionarImpresora(c.CAJON_IMPRESORA);
+    seleccionarImpresora('cajon-impresora', c.CAJON_IMPRESORA);
+    seleccionarImpresora('etq-impresora', c.ETIQUETA_IMPRESORA);
 
     seleccionarPuerto('puerto', c.SCALE_PORT);
     seleccionarPuerto('cajon-puerto', c.CAJON_PORT);
@@ -252,8 +292,8 @@
     }
   }
 
-  function seleccionarImpresora(valor) {
-    const sel = $('cajon-impresora');
+  function seleccionarImpresora(selId, valor) {
+    const sel = $(selId);
     if (document.activeElement === sel || !valor) return;
     if (![...sel.options].some((o) => o.value === valor)) {
       const o = document.createElement('option');
@@ -264,31 +304,44 @@
     sel.value = valor;
   }
 
-  async function cargarImpresoras(previo) {
-    const antes = previo !== undefined ? previo : $('cajon-impresora').value;
-    const sel = $('cajon-impresora');
+  // Un solo recorrido de Windows para los dos desplegables (el del cajon y el de la
+  // etiquetadora): enumerar impresoras cuesta un proceso de PowerShell.
+  async function cargarImpresoras(previoCajon, previoEtq) {
+    const antesCajon = previoCajon !== undefined ? previoCajon : $('cajon-impresora').value;
+    const antesEtq = previoEtq !== undefined ? previoEtq : $('etq-impresora').value;
     let lista = [];
     try { lista = await window.bridge.listarImpresoras(); } catch (_) { lista = []; }
-    sel.innerHTML = '';
-    const vacia = document.createElement('option');
-    vacia.value = '';
-    vacia.textContent = lista.length ? 'Sin impresora elegida' : 'No se encontraron impresoras';
-    sel.appendChild(vacia);
+
     let fisicas = 0;
-    for (const imp of lista) {
-      const o = document.createElement('option');
-      o.value = imp.nombre;
-      o.textContent = imp.etiqueta
-        + (imp.virtual ? ' \u2014 virtual, no sirve para el cajon' : '')
-        + (imp.predeterminada ? ' (predeterminada)' : '');
-      o.disabled = !!imp.virtual;
-      if (!imp.virtual) fisicas += 1;
-      sel.appendChild(o);
+    for (const [selId, paraQue] of [['cajon-impresora', 'el cajon'], ['etq-impresora', 'imprimir']]) {
+      const sel = $(selId);
+      sel.innerHTML = '';
+      const vacia = document.createElement('option');
+      vacia.value = '';
+      vacia.textContent = lista.length ? 'Sin impresora elegida' : 'No se encontraron impresoras';
+      sel.appendChild(vacia);
+      fisicas = 0;
+      for (const imp of lista) {
+        const o = document.createElement('option');
+        o.value = imp.nombre;
+        o.textContent = imp.etiqueta
+          + (imp.virtual ? ' \u2014 virtual, no sirve para ' + paraQue : '')
+          + (imp.predeterminada ? ' (predeterminada)' : '');
+        o.disabled = !!imp.virtual;
+        if (!imp.virtual) fisicas += 1;
+        sel.appendChild(o);
+      }
     }
-    $('cajon-impresora-nota').textContent = (lista.length && !fisicas)
+
+    const sinFisicas = !!(lista.length && !fisicas);
+    $('cajon-impresora-nota').textContent = sinFisicas
       ? 'Solo hay impresoras virtuales (PDF/XPS/OneNote). Conecta e instala la impresora de tickets y presiona Refrescar.'
       : '';
-    seleccionarImpresora(antes);
+    $('etq-impresora-nota').textContent = sinFisicas
+      ? 'Solo hay impresoras virtuales (PDF/XPS/OneNote). Conecta la etiquetadora, instala su driver y presiona Refrescar.'
+      : '';
+    seleccionarImpresora('cajon-impresora', antesCajon);
+    seleccionarImpresora('etq-impresora', antesEtq);
   }
 
   // El comando que se va a guardar: los bytes a la medida mandan sobre la lista.
@@ -359,6 +412,34 @@
   $('btn-refrescar').addEventListener('click', () => cargarPuertos());
   $('btn-refrescar-cajon').addEventListener('click', () => cargarPuertos());
   $('btn-refrescar-impresoras').addEventListener('click', () => cargarImpresoras());
+  $('btn-refrescar-etiqueta').addEventListener('click', () => cargarImpresoras());
+
+  $('btn-etiqueta-probar').addEventListener('click', async () => {
+    const btn = $('btn-etiqueta-probar');
+    const a = $('etq-aviso');
+    const impresora = $('etq-impresora').value;
+    if (!impresora) {
+      a.textContent = 'Elige primero la etiquetadora USB.';
+      a.className = 'aviso mal';
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Imprimiendo...';
+    try {
+      const r = await window.bridge.probarEtiqueta({
+        impresora,
+        ancho: $('etq-ancho').value,
+        alto: $('etq-alto').value,
+      });
+      a.textContent = r.mensaje;
+      a.className = 'aviso ' + (r.ok ? 'ok' : 'mal');
+    } catch (e) {
+      a.textContent = 'No se pudo imprimir: ' + e.message;
+      a.className = 'aviso mal';
+    }
+    btn.disabled = false;
+    btn.textContent = 'Imprimir etiqueta de prueba';
+  });
   $('cajon-modo').addEventListener('change', aplicarModoCajon);
 
   // Lo que hay que mandarle al bridge para probar, segun como este cableado.
@@ -447,6 +528,7 @@
         CAJON_BAUD: $('cajon-baud').value,
         CAJON_IMPRESORA: $('cajon-impresora').value,
         CAJON_CMD: cmdCajonElegido(),
+        ETIQUETA_IMPRESORA: $('etq-impresora').value,
         PUENTE_PORT: $('puente').value,
       });
       aviso('Guardado. Reconectando con la nueva configuracion...', true);
@@ -474,7 +556,10 @@
       s.config ? s.config.SCALE_PORT : '',
       s.config ? s.config.CAJON_PORT : '',
     );
-    await cargarImpresoras(s.config ? s.config.CAJON_IMPRESORA : '');
+    await cargarImpresoras(
+      s.config ? s.config.CAJON_IMPRESORA : '',
+      s.config ? s.config.ETIQUETA_IMPRESORA : '',
+    );
     pintarEstado(s);
     pintarConfig(s.config);
   })();

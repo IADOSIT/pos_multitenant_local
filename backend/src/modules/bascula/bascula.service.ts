@@ -46,7 +46,8 @@ export class BasculaService {
   async updateConfig(tiendaId: number, dto: Partial<ConfigBascula>, scope: any): Promise<ConfigBascula> {
     const config = await this.getOrCreateConfig(tiendaId, scope);
     const allowed = [
-      'activo', 'usar_en_pos', 'printer_modo', 'printer_ip', 'printer_port', 'label_width_mm', 'label_height_mm',
+      'activo', 'usar_en_pos', 'printer_modo', 'printer_ip', 'printer_port', 'printer_nombre',
+      'label_width_mm', 'label_height_mm',
       'scale_port', 'scale_baud_rate', 'scale_protocol',
       'cajon_activo', 'cajon_abrir_en', 'cajon_pedir_pin',
     ];
@@ -192,11 +193,17 @@ export class BasculaService {
         producto_nombre: producto.nombre,
         peso_kg: dto.peso_kg,
         precio_total: precioTotal,
+        // El modo 'usb' arma la etiqueta con el mismo formato que el navegador, y ahi
+        // si se imprime "peso x precio/kg": por eso el precio por kilo viaja tambien.
+        precio_kg: Number(producto.precio),
         barcode,
         label_width_mm: config.label_width_mm,
         label_height_mm: config.label_height_mm,
+        // El bridge decide con esto si manda ZPL por TCP o por la cola de Windows.
+        printer_modo: config.printer_modo || 'red',
         printer_ip: config.printer_ip,
         printer_port: config.printer_port,
+        printer_nombre: config.printer_nombre,
       });
     }
 

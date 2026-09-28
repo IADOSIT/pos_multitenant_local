@@ -11,8 +11,11 @@ REQUISITOS
 1. Windows 64 bits con la bascula conectada por USB/RS-232 (aparece
    como puerto COM en el Administrador de dispositivos). Si es Torrey,
    instalar antes su driver VCP.
-2. Impresora de etiquetas compatible ZPL (Zebra/GoDEX/TSC) en la
-   MISMA RED, con IP fija conocida (puerto 9100 por defecto).
+2. Impresora de etiquetas, de cualquiera de estas dos formas:
+   a) En RED, compatible ZPL (Zebra/GoDEX/TSC), con IP fija conocida
+      (puerto 9100 por defecto).
+   b) Por USB a esta misma PC, con su driver de Windows instalado
+      (Brother QL-800 y similares). Ver "IMPRESORA DE ETIQUETAS".
 
 INSTALACION (forma normal, con el instalador)
 ----------------------------------------------
@@ -39,8 +42,13 @@ INSTALACION (forma normal, con el instalador)
        segun el caso, y presionar "Abrir ahora". Si no abre, presionar
        "Probar todos los comandos": va probando las secuencias
        conocidas una por una hasta que el cajon suene.
-5. En el POS, en la misma pantalla de Configuracion, capturar la IP
-   de la impresora de etiquetas (y el puerto, 9100 por defecto).
+     - Impresora de etiquetas: solo si la etiquetadora va por USB a
+       esta PC. Elegirla de la lista y presionar "Imprimir etiqueta de
+       prueba".
+5. En el POS, en la misma pantalla de Configuracion, elegir como sale
+   la etiqueta: impresora de red (capturando su IP y el puerto, 9100
+   por defecto), etiquetadora USB, o la impresora predeterminada de
+   Windows.
 
 PUENTE LOCAL: FUNCIONA SIN INTERNET
 ------------------------------------
@@ -58,6 +66,37 @@ con el internet caido. Rutas:
 Solo responde a 127.0.0.1 y a los origenes del POS. Si el POS corre en
 OTRA computadora de la tienda, esa no tiene puente: ahi el cajon se
 abre por el servidor, y eso si necesita internet.
+
+IMPRESORA DE ETIQUETAS
+-----------------------
+Se elige por tienda desde el POS: Configuracion -> Bascula ->
+"Impresora de etiquetas". Hay tres caminos:
+
+RED (IP) - etiquetadora ZPL en la misma red
+  El bridge le manda el ZPL por un socket al puerto 9100. No necesita
+  driver ni que la impresora este colgada de ninguna PC.
+
+ETIQUETADORA USB - Brother QL-800 y similares
+  La etiquetadora va por USB a ESTA computadora, con su driver de
+  Windows instalado. En la ventana del bridge, seccion "Impresora de
+  etiquetas", se elige de la lista y se comprueba con "Imprimir
+  etiqueta de prueba". La etiqueta sale sola, sin dialogo de impresion.
+  Por que asi y no con comandos crudos como el cajon: la QL-800 no
+  habla ZPL, habla el formato propio de Brother; el driver ya sabe
+  traducir, y el bridge le manda la misma etiqueta que se imprime en
+  el navegador.
+  Dos cosas que hay que dejar bien, o la etiqueta sale cortada:
+    - el rollo cargado (DK) tiene que ser del tamano elegido en el POS,
+    - y ese tamano tiene que quedar como predeterminado en el driver de
+      la impresora (Windows -> Impresoras -> Brother QL-800 ->
+      Preferencias de impresion).
+  El nombre de la impresora se puede capturar tambien desde el POS,
+  pero lo que se elija en la ventana del bridge manda: ahi se escoge de
+  una lista y no hay como escribirlo mal.
+
+PREDETERMINADA DE WINDOWS
+  La imprime el propio kiosko en la impresora predeterminada de la PC
+  donde este abierta la pantalla, igual que los tickets del POS.
 
 CAJON DE DINERO
 ----------------
@@ -178,6 +217,14 @@ PROBLEMAS COMUNES
   DK / DRAWER / CASH, no en el de red. Si el mensaje dice que el
   driver no acepta comandos crudos, en Propiedades de impresora ->
   Opciones avanzadas activar "Imprimir directamente en la impresora".
-- La etiqueta no imprime: confirmar que la impresora esta en la
-  misma red, que la IP configurada es correcta, y que el puerto 9100
-  (o el que corresponda) no esta bloqueado por firewall.
+- La etiqueta no imprime (impresora de RED): confirmar que la
+  impresora esta en la misma red, que la IP configurada es correcta, y
+  que el puerto 9100 (o el que corresponda) no esta bloqueado por
+  firewall.
+- La etiqueta no imprime (etiquetadora USB): en la ventana del bridge
+  presionar "Refrescar" y volver a elegirla (si Windows la renombro, el
+  nombre guardado ya no existe), revisar que este encendida, con rollo
+  y la tapa cerrada, y que no haya trabajos detenidos en su cola. Si
+  sale en blanco, cortada o de un tamano raro, el problema es el rollo:
+  tiene que coincidir con el tamano elegido en el POS y estar puesto
+  como predeterminado en el driver.

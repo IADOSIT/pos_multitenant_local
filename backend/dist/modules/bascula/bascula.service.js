@@ -52,7 +52,8 @@ let BasculaService = class BasculaService {
     async updateConfig(tiendaId, dto, scope) {
         const config = await this.getOrCreateConfig(tiendaId, scope);
         const allowed = [
-            'activo', 'usar_en_pos', 'printer_modo', 'printer_ip', 'printer_port', 'label_width_mm', 'label_height_mm',
+            'activo', 'usar_en_pos', 'printer_modo', 'printer_ip', 'printer_port', 'printer_nombre',
+            'label_width_mm', 'label_height_mm',
             'scale_port', 'scale_baud_rate', 'scale_protocol',
             'cajon_activo', 'cajon_abrir_en', 'cajon_pedir_pin',
         ];
@@ -153,11 +154,14 @@ let BasculaService = class BasculaService {
                 producto_nombre: producto.nombre,
                 peso_kg: dto.peso_kg,
                 precio_total: precioTotal,
+                precio_kg: Number(producto.precio),
                 barcode,
                 label_width_mm: config.label_width_mm,
                 label_height_mm: config.label_height_mm,
+                printer_modo: config.printer_modo || 'red',
                 printer_ip: config.printer_ip,
                 printer_port: config.printer_port,
+                printer_nombre: config.printer_nombre,
             });
         }
         this.logger.log(`Pesaje registrado: ${producto.nombre} ${dto.peso_kg}kg = $${precioTotal} (${barcode})${porNavegador ? ' — imprime el kiosko' : ''}`);

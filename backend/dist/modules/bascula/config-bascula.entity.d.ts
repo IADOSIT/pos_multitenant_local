@@ -8,6 +8,7 @@ export declare class ConfigBascula {
     tienda_token: string;
     printer_modo: string;
     printer_ip: string | null;
+    printer_nombre: string | null;
     printer_port: number;
     label_width_mm: number;
     label_height_mm: number;

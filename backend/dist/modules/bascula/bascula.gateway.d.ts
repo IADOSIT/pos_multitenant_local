@@ -25,10 +25,13 @@ export declare class BasculaGateway implements OnGatewayDisconnect {
         producto_nombre: string;
         peso_kg: number;
         precio_total: number;
+        precio_kg: number;
         barcode: string;
         label_width_mm: number;
         label_height_mm: number;
+        printer_modo: string;
         printer_ip: string | null;
         printer_port: number;
+        printer_nombre: string | null;
     }): void;
 }

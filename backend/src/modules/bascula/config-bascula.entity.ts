@@ -24,10 +24,18 @@ export class ConfigBascula {
   //   'red'       → ZPL por TCP a una etiquetadora en red, lo manda el bridge local
   //   'navegador' → la imprime el propio kiosko en la impresora predeterminada de
   //                 Windows, igual que los tickets del POS (iframe + window.print)
+  //   'usb'       → etiquetadora conectada por USB a la PC del bridge (Brother QL-800
+  //                 y cualquier otra con driver de Windows). No hay IP ni ZPL: el
+  //                 bridge arma la misma etiqueta y la manda por el driver, en
+  //                 silencio, a la cola de esa impresora por nombre.
   @Column({ type: 'varchar', length: 20, default: 'red' }) printer_modo: string;
 
   // Impresora de etiquetas (recomendado: ZPL en red, socket TCP crudo al puerto 9100)
   @Column({ type: 'varchar', length: 100, nullable: true }) printer_ip: string | null;
+  // Nombre EXACTO de la impresora en Windows, solo para printer_modo='usb'. Es un dato
+  // de la PC, no de la nube: si el bridge trae ETIQUETA_IMPRESORA en su config local,
+  // esa gana. Este campo sirve para configurarla sin ir a la caja.
+  @Column({ type: 'varchar', length: 150, nullable: true }) printer_nombre: string | null;
   @Column({ type: 'int', default: 9100 }) printer_port: number;
   // Etiqueta adherible estandar 50 x 25 mm (2" x 1"), horizontal: el lado largo es
   // el ancho porque el EAN-13 se imprime a lo largo.

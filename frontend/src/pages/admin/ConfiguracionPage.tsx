@@ -42,6 +42,9 @@ const MEDIDAS_ETIQUETA: { w: number; h: number; etiqueta: string }[] = [
   { w: 58, h: 40, etiqueta: '58 x 40 mm' },
   { w: 60, h: 40, etiqueta: '60 x 40 mm' },
   { w: 40, h: 30, etiqueta: '40 x 30 mm' },
+  { w: 62, h: 29, etiqueta: '62 x 29 mm (Brother DK-1209)' },
+  { w: 90, h: 29, etiqueta: '90 x 29 mm (Brother DK-1201)' },
+  { w: 62, h: 25, etiqueta: '62 mm continuo, corte a 25 mm (Brother DK-2205)' },
 ];
 
 type CampoKey = 'nombre' | 'telefono' | 'email' | 'direccion' | 'empresa' | 'notas';
@@ -707,6 +710,7 @@ export default function ConfiguracionPage() {
         printer_modo: cfgRes.data?.printer_modo ?? 'red',
         printer_ip: cfgRes.data?.printer_ip ?? '',
         printer_port: cfgRes.data?.printer_port ?? 9100,
+        printer_nombre: cfgRes.data?.printer_nombre ?? '',
         label_width_mm: cfgRes.data?.label_width_mm ?? 50,
         label_height_mm: cfgRes.data?.label_height_mm ?? 25,
         scale_port: cfgRes.data?.scale_port ?? '',
@@ -1995,7 +1999,7 @@ export default function ConfiguracionPage() {
                     El cliente pesa su fruta/verdura, la selecciona en pantalla y se imprime una etiqueta con
                     codigo de barras (formato EAN-13 de peso variable, igual que en supermercados) que se
                     escanea en caja con el lector normal. Requiere bascula con salida serial/USB y una impresora
-                    (de etiquetas en red, o la predeterminada de Windows) — ver <code className="bg-slate-700 px-1 rounded text-blue-300">bascula-bridge/LEEME.txt</code>.
+                    (etiquetadora en red, etiquetadora USB tipo Brother QL, o la predeterminada de Windows) — ver <code className="bg-slate-700 px-1 rounded text-blue-300">bascula-bridge/LEEME.txt</code>.
                   </p>
 
                   {/* Dos formas de usar la bascula, independientes entre si */}
@@ -2028,7 +2032,7 @@ export default function ConfiguracionPage() {
                   {/* Como se imprime la etiqueta del kiosko */}
                   <div className="border-t border-iados-card pt-4">
                     <h4 className="font-bold text-sm mb-2">Impresora de etiquetas</h4>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <button
                         onClick={() => setBsForm((f: any) => ({ ...f, printer_modo: 'red' }))}
                         className={`p-3 rounded-lg text-left border transition-colors ${
@@ -2039,6 +2043,17 @@ export default function ConfiguracionPage() {
                       >
                         <div className="text-sm font-bold">Impresora de red (IP)</div>
                         <div className="text-xs text-slate-500 mt-0.5">Etiquetadora ZPL; la manda el bridge local.</div>
+                      </button>
+                      <button
+                        onClick={() => setBsForm((f: any) => ({ ...f, printer_modo: 'usb' }))}
+                        className={`p-3 rounded-lg text-left border transition-colors ${
+                          bsForm.printer_modo === 'usb'
+                            ? 'border-blue-500 bg-blue-500/10'
+                            : 'border-iados-card hover:border-slate-600'
+                        }`}
+                      >
+                        <div className="text-sm font-bold">Etiquetadora USB (Brother QL)</div>
+                        <div className="text-xs text-slate-500 mt-0.5">Va por USB a la PC del bridge; sale sola, sin dialogo.</div>
                       </button>
                       <button
                         onClick={() => setBsForm((f: any) => ({ ...f, printer_modo: 'navegador' }))}
@@ -2060,6 +2075,26 @@ export default function ConfiguracionPage() {
                       Configura ahi el mismo tamano de papel que elijas abajo, en orientacion horizontal, y
                       desactiva encabezados/margenes en el dialogo de impresion para que quepa completa.
                     </p>
+                  ) : bsForm.printer_modo === 'usb' ? (
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-xs text-slate-400 mb-1 block">Nombre de la impresora en Windows</label>
+                        <input
+                          value={bsForm.printer_nombre || ''}
+                          onChange={(e) => setBsForm((f: any) => ({ ...f, printer_nombre: e.target.value }))}
+                          placeholder="Brother QL-800"
+                          className="input-touch text-sm"
+                        />
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Tiene que ser el nombre <b>exacto</b> con el que aparece en Windows (Configuracion &rarr;
+                        Impresoras y escaneres) en la PC donde corre el bridge. Si lo dejas vacio se usa la que
+                        este elegida en la ventana del bridge, seccion "Impresora de etiquetas" &mdash; eso es lo
+                        mas seguro, porque ahi se elige de una lista. La etiqueta sale en silencio, sin dialogo de
+                        impresion; el tamano del rollo se elige abajo y ademas conviene dejarlo puesto como
+                        predeterminado en el driver de la Brother.
+                      </p>
+                    </div>
                   ) : (
                     <div className="grid grid-cols-2 gap-3">
                       <div>

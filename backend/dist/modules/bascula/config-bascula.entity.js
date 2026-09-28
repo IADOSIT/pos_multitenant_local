@@ -51,6 +51,10 @@ __decorate([
     __metadata("design:type", Object)
 ], ConfigBascula.prototype, "printer_ip", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 150, nullable: true }),
+    __metadata("design:type", Object)
+], ConfigBascula.prototype, "printer_nombre", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'int', default: 9100 }),
     __metadata("design:type", Number)
 ], ConfigBascula.prototype, "printer_port", void 0);

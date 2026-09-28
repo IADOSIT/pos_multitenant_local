@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('bridge', {
   listarImpresoras: () => ipcRenderer.invoke('listar-impresoras'),
   abrirCajon: (opts) => ipcRenderer.invoke('abrir-cajon', opts || {}),
   probarCajon: (datos) => ipcRenderer.invoke('probar-cajon', datos),
+  probarEtiqueta: (datos) => ipcRenderer.invoke('probar-etiqueta', datos || {}),
   abrirLog: () => ipcRenderer.invoke('abrir-log'),
   onEstado: (cb) => ipcRenderer.on('estado', (_e, data) => cb(data)),
 });
