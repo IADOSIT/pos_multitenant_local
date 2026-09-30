@@ -39,6 +39,8 @@ export class TicketsService {
     config.comanda_ancho = 80;
     config.comanda_auto_print = false;
     config.comanda_mostrar_precio = true;
+    config.mostrar_cliente = true;
+    config.comanda_mostrar_cliente = false;
     config.comanda_copias = 1;
     return config;
   }
@@ -114,9 +116,12 @@ export class TicketsService {
     if (config.mostrar_cajero) lines.push(`Cajero: ${this.s(venta.usuario_nombre || 'N/A')}`);
     lines.push('-'.repeat(w));
 
-    // Datos del cliente: mostrar siempre que existan,
-    // sin importar el tipo de servicio (cubre: para_llevar, self-order, ecommerce/web)
-    if (venta.cliente_nombre || venta.cliente_telefono || venta.cliente_direccion) {
+    // Datos del cliente: mostrar cuando existan y el toggle este prendido,
+    // sin importar el tipo de servicio (cubre: para_llevar, self-order, ecommerce/web).
+    // `!== false` y no `=== true`: las filas de `ticket_configs` creadas antes de
+    // que existiera la columna llegan con NULL y tienen que seguir imprimiendo.
+    if (config.mostrar_cliente !== false &&
+        (venta.cliente_nombre || venta.cliente_telefono || venta.cliente_direccion)) {
       if (venta.cliente_nombre) lines.push(`Cliente: ${this.s(venta.cliente_nombre)}`);
       if (venta.cliente_telefono) lines.push(`Tel:     ${this.s(venta.cliente_telefono)}`);
       if (venta.cliente_direccion) lines.push(`Dir:     ${this.s(venta.cliente_direccion)}`);
@@ -174,7 +179,7 @@ export class TicketsService {
     lines.push('');
     if (data.mesa) lines.push(`Mesa: ${data.mesa}`);
     lines.push(`Fecha: ${new Date().toLocaleString('es-MX')}`);
-    if (data.cliente_nombre) lines.push(`Cliente: ${this.s(data.cliente_nombre)}`);
+    if (config.mostrar_cliente !== false && data.cliente_nombre) lines.push(`Cliente: ${this.s(data.cliente_nombre)}`);
     if (data.notas) lines.push(`Nota: ${this.s(data.notas)}`);
     lines.push('-'.repeat(w));
 

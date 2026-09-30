@@ -38,8 +38,15 @@ export class DashboardController {
     @Query('desde') desde: string,
     @Query('hasta') hasta: string,
     @Query('categoria_id') categoriaId?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.service.getVentasPorProducto(scope, desde, hasta, categoriaId ? parseInt(categoriaId) : undefined);
+    return this.service.getVentasPorProducto(
+      scope,
+      desde,
+      hasta,
+      categoriaId ? parseInt(categoriaId) : undefined,
+      limit ? parseInt(limit) : undefined,
+    );
   }
 
   @Get('ventas-unidad')

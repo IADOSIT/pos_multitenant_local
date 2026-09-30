@@ -254,6 +254,7 @@ export default function ConfiguracionPage() {
     dashboard_drill_down_enabled: false,
     dashboard_unidad_enabled: false,
     dashboard_top_productos_enabled: false,
+    dashboard_platillos_enabled: false,
     dashboard_top_n: 10,
     dashboard_mostrar_margen: false,
     mesa_numero_oculto: false,
@@ -515,6 +516,7 @@ export default function ConfiguracionPage() {
       dashboard_drill_down_enabled: cp.dashboard_drill_down_enabled || false,
       dashboard_unidad_enabled: cp.dashboard_unidad_enabled || false,
       dashboard_top_productos_enabled: cp.dashboard_top_productos_enabled || false,
+      dashboard_platillos_enabled: cp.dashboard_platillos_enabled || false,
       dashboard_top_n: cp.dashboard_top_n || 10,
       dashboard_mostrar_margen: cp.dashboard_mostrar_margen || false,
       mesa_numero_oculto: cp.mesa_numero_oculto || false,
@@ -588,6 +590,7 @@ export default function ConfiguracionPage() {
           dashboard_drill_down_enabled: form.dashboard_drill_down_enabled,
           dashboard_unidad_enabled: form.dashboard_unidad_enabled,
           dashboard_top_productos_enabled: form.dashboard_top_productos_enabled,
+          dashboard_platillos_enabled: form.dashboard_platillos_enabled,
           dashboard_top_n: form.dashboard_top_n,
           dashboard_mostrar_margen: form.dashboard_mostrar_margen,
           mesa_numero_oculto: form.mesa_numero_oculto,
@@ -667,6 +670,7 @@ export default function ConfiguracionPage() {
       dashboard_ventas_enabled: true, dashboard_selforder_enabled: true,
       dashboard_categorias_enabled: false, dashboard_drill_down_enabled: false,
       dashboard_unidad_enabled: false, dashboard_top_productos_enabled: false,
+      dashboard_platillos_enabled: false,
       dashboard_top_n: 10, dashboard_mostrar_margen: false,
       mesa_numero_oculto: false, mesas_menu_enabled: true, sidebar_permisos: {}, whatsapp_eventos: { stock_bajo: true, resumen_diario: false },
       reportes_tabs_config: [
@@ -1484,6 +1488,21 @@ export default function ConfiguracionPage() {
                     );
                   })}
                 </div>
+
+                {/* Esto NO es un tab: es un bloque que aparece dentro del propio
+                    tab de Ventas, debajo de los KPI. Por eso va fuera del grid
+                    de arriba y colgado de `dashboard_ventas_enabled`. */}
+                {form.dashboard_ventas_enabled && (
+                  <label className={`flex items-start gap-3 cursor-pointer p-3 rounded-xl border transition-colors ${form.dashboard_platillos_enabled ? 'border-iados-primary/60 bg-iados-primary/10' : 'border-slate-700 hover:border-slate-600'}`}>
+                    <input type="checkbox" checked={form.dashboard_platillos_enabled || false}
+                      onChange={(e) => setForm({ ...form, dashboard_platillos_enabled: e.target.checked })}
+                      className="mt-0.5 w-4 h-4 accent-iados-primary shrink-0" />
+                    <div>
+                      <span className="text-sm font-medium block">Gráfica de platillos vendidos (dentro de Ventas)</span>
+                      <p className="text-xs text-slate-500">Cuántas piezas se vendieron de cada platillo, junto a los KPI. Muestra el top {form.dashboard_top_n || 10} y al hacer clic abre el listado completo.</p>
+                    </div>
+                  </label>
+                )}
 
                 {/* Sub-opción drill-down (sólo si categorias está activo) */}
                 {form.dashboard_categorias_enabled && (

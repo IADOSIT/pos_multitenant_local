@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { dashboardApi, tiendasApi, empleadosApi, empresasApi } from '../../api/endpoints';
 import { KPI, KPIsAsistencia, RegistroAsistencia } from '../../types';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, ShoppingBag, Receipt, DollarSign, Ban, ClipboardList, QrCode, Users, Tag, ChevronDown, ChevronRight, Layers, Package, Briefcase, Clock, AlertTriangle } from 'lucide-react';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LabelList } from 'recharts';
+import { TrendingUp, ShoppingBag, Receipt, DollarSign, Ban, ClipboardList, QrCode, Users, Tag, ChevronDown, ChevronRight, Layers, Package, Briefcase, Clock, AlertTriangle, UtensilsCrossed, Search, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
 import { useScope } from '../../hooks/useScope';
@@ -19,9 +19,12 @@ interface DashConfig {
   drill_down_enabled: boolean;
   unidad_enabled: boolean;
   top_productos_enabled: boolean;
+  platillos_enabled: boolean;
   top_n: number;
   mostrar_margen: boolean;
 }
+
+type OrdenPlatillos = 'cantidad' | 'ventas' | 'nombre';
 
 import { usePageHeader } from '../../store/pageHeader.store';
 
@@ -33,7 +36,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [rango, setRango] = useState('hoy');
   const [pedidosPendientes, setPedidosPendientes] = useState(0);
-  const [cfg, setCfg] = useState<DashConfig>({ ventas_enabled: true, selforder_enabled: true, categorias_enabled: false, drill_down_enabled: false, unidad_enabled: false, top_productos_enabled: false, top_n: 10, mostrar_margen: false });
+  const [cfg, setCfg] = useState<DashConfig>({ ventas_enabled: true, selforder_enabled: true, categorias_enabled: false, drill_down_enabled: false, unidad_enabled: false, top_productos_enabled: false, platillos_enabled: false, top_n: 10, mostrar_margen: false });
 
   // Tab data
   const [ventasCat, setVentasCat] = useState<any[]>([]);
@@ -48,6 +51,13 @@ export default function DashboardPage() {
 
   // Filtro categoría en top productos
   const [filtroCat, setFiltroCat] = useState<string>('');
+
+  // Platillos vendidos (bloque dentro del tab Ventas) + su pantalla del 100%
+  const [platillos, setPlatillos] = useState<any[]>([]);
+  const [loadingPlatillos, setLoadingPlatillos] = useState(false);
+  const [verTodosPlatillos, setVerTodosPlatillos] = useState(false);
+  const [buscaPlatillo, setBuscaPlatillo] = useState('');
+  const [ordenPlatillos, setOrdenPlatillos] = useState<OrdenPlatillos>('cantidad');
 
   // Tab Empleados / Puntualidad
   const [empEnabled, setEmpEnabled] = useState(false);
@@ -72,6 +82,7 @@ export default function DashboardPage() {
           drill_down_enabled: cp.dashboard_drill_down_enabled || false,
           unidad_enabled: cp.dashboard_unidad_enabled || false,
           top_productos_enabled: cp.dashboard_top_productos_enabled || false,
+          platillos_enabled: cp.dashboard_platillos_enabled || false,
           top_n: cp.dashboard_top_n || 10,
           mostrar_margen: cp.dashboard_mostrar_margen || false,
         });
@@ -129,8 +140,9 @@ export default function DashboardPage() {
     if (tab === 'categorias') loadVentasCat(desde, hasta);
     if (tab === 'presentacion') loadVentasUnidad(desde, hasta);
     if (tab === 'top_productos') loadVentasProd(desde, hasta);
+    if (tab === 'ventas' && cfg.platillos_enabled) loadPlatillos(desde, hasta);
     setExpandedCat(null);
-  }, [tab, rango]);
+  }, [tab, rango, cfg.platillos_enabled]);
 
   const loadPedidosCount = async () => {
     try { const { data } = await dashboardApi.pedidosCount(); setPedidosPendientes(data.count); } catch {}
@@ -183,6 +195,16 @@ export default function DashboardPage() {
     setLoadingTab(true);
     try { const { data } = await dashboardApi.ventasProducto(desde, hasta, catId); setVentasProd(data); }
     catch {} finally { setLoadingTab(false); }
+  };
+
+  // Se pide el tope del backend (2000) a proposito: la promesa de la pantalla
+  // que se abre al hacer clic es "el 100% de los platillos", no una pagina. Con
+  // el limite de 200 de siempre, un negocio con carta grande veria un total
+  // equivocado y no se daria cuenta.
+  const loadPlatillos = async (desde: string, hasta: string) => {
+    setLoadingPlatillos(true);
+    try { const { data } = await dashboardApi.ventasProducto(desde, hasta, undefined, 2000); setPlatillos(data); }
+    catch {} finally { setLoadingPlatillos(false); }
   };
 
   // Drill-down: carga productos de una categoría al expandir
@@ -262,6 +284,26 @@ export default function DashboardPage() {
       </table>
     </div>
   );
+
+  // El backend ordena por IMPORTE. La pregunta del director aqui es "cuantos
+  // platillos vendo", asi que se reordena por piezas.
+  const platillosOrd = [...platillos].sort((a, b) => b.total_unidades - a.total_unidades);
+  const platillosTop = platillosOrd.slice(0, cfg.top_n);
+  const platillosUds = platillosOrd.reduce((t, p) => t + p.total_unidades, 0);
+  const platillosImporte = platillosOrd.reduce((t, p) => t + p.total_ventas, 0);
+  const platillosMax = platillosTop[0]?.total_unidades || 0;
+
+  const platillosLista = (() => {
+    const q = buscaPlatillo.trim().toLowerCase();
+    const base = q
+      ? platillosOrd.filter((p) => `${p.nombre} ${p.categoria || ''}`.toLowerCase().includes(q))
+      : platillosOrd;
+    if (ordenPlatillos === 'ventas') return [...base].sort((a, b) => b.total_ventas - a.total_ventas);
+    if (ordenPlatillos === 'nombre') return [...base].sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
+    return base;
+  })();
+
+  const rangoTexto = rango === 'hoy' ? 'hoy' : rango === 'semana' ? 'los últimos 7 días' : 'el último mes';
 
   const horasData = kpi?.ventas_por_hora?.map((v, i) => ({ hora: `${i}:00`, ventas: v })) || [];
   const pagosData = kpi ? Object.entries(kpi.metodos_pago).filter(([, v]) => v > 0).map(([name, value]) => ({ name, value })) : [];
@@ -532,6 +574,76 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* ── Platillos vendidos (opcional, toggle por tienda) ──────────── */}
+      {cfg.platillos_enabled && (
+        <div className="card">
+          <div className="flex items-start justify-between flex-wrap gap-3 mb-3">
+            <div>
+              <h3 className="font-bold flex items-center gap-2">
+                <UtensilsCrossed size={17} className="text-amber-400" /> Platillos vendidos
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {loadingPlatillos
+                  ? 'Cargando…'
+                  : platillosOrd.length === 0
+                    ? `Sin platillos vendidos ${rangoTexto}`
+                    : `${platillosUds.toLocaleString('es-MX')} platillos servidos ${rangoTexto} · ${platillosOrd.length} distintos · $${platillosImporte.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              </p>
+            </div>
+            {platillosOrd.length > 0 && (
+              <button
+                onClick={() => { setBuscaPlatillo(''); setOrdenPlatillos('cantidad'); setVerTodosPlatillos(true); }}
+                className="btn-touch text-sm px-4 py-2 bg-iados-card hover:bg-iados-primary transition-colors flex items-center gap-1.5"
+              >
+                Ver los {platillosOrd.length} platillos <ChevronRight size={15} />
+              </button>
+            )}
+          </div>
+
+          {loadingPlatillos ? (
+            <div className="text-center text-slate-400 py-12 text-sm">Cargando…</div>
+          ) : platillosOrd.length === 0 ? (
+            <div className="text-center text-slate-500 py-12 text-sm">
+              No hay ventas registradas en este período.
+            </div>
+          ) : (
+            <>
+              {/* La grafica completa es clickeable, no solo el boton de arriba:
+                  tocar la grafica es el gesto que se intenta primero. */}
+              <div
+                onClick={() => { setBuscaPlatillo(''); setOrdenPlatillos('cantidad'); setVerTodosPlatillos(true); }}
+                className="cursor-pointer"
+                title="Ver todos los platillos"
+              >
+                <ResponsiveContainer width="100%" height={Math.max(180, platillosTop.length * 34)}>
+                  <BarChart data={platillosTop} layout="vertical" margin={{ left: 8, right: 44, top: 4, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
+                    <XAxis type="number" stroke="#94a3b8" fontSize={10} allowDecimals={false} />
+                    <YAxis type="category" dataKey="nombre" stroke="#cbd5e1" fontSize={11} width={140}
+                      tickFormatter={(v: string) => (v.length > 20 ? v.slice(0, 19) + '…' : v)} />
+                    <Tooltip
+                      cursor={{ fill: 'rgba(148,163,184,0.12)' }}
+                      contentStyle={{ background: '#1e293b', border: '1px solid #475569', borderRadius: 8 }}
+                      formatter={(v: any, _n: any, props: any) => [
+                        `${Number(v).toLocaleString('es-MX')} vendidos — $${Number(props.payload.total_ventas).toFixed(2)}`,
+                        props.payload.categoria || 'Platillo',
+                      ]}
+                    />
+                    <Bar dataKey="total_unidades" radius={[0, 4, 4, 0]} cursor="pointer">
+                      {platillosTop.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                      <LabelList dataKey="total_unidades" position="right" fill="#e2e8f0" fontSize={11} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-xs text-slate-500 text-center mt-1">
+                Top {platillosTop.length} por piezas vendidas — toca la gráfica para ver los {platillosOrd.length}
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
       <div className="grid lg:grid-cols-2 gap-4">
         {/* Ventas por hora */}
         <div className="card">
@@ -740,6 +852,148 @@ export default function DashboardPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Pantalla: el 100% de los platillos vendidos ────────────────── */}
+      {verTodosPlatillos && (
+        <div
+          className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-2 sm:p-4"
+          onClick={() => setVerTodosPlatillos(false)}
+        >
+          <div
+            className="bg-iados-surface border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[94vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Cabecera */}
+            <div className="flex items-start justify-between gap-3 p-4 border-b border-slate-700">
+              <div>
+                <h2 className="text-lg font-bold flex items-center gap-2">
+                  <UtensilsCrossed size={18} className="text-amber-400" /> Todos los platillos vendidos
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">Lo que se vendió {rangoTexto}</p>
+              </div>
+              <button
+                onClick={() => setVerTodosPlatillos(false)}
+                className="p-2 rounded-lg hover:bg-iados-card text-slate-400 hover:text-white shrink-0"
+                aria-label="Cerrar"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Tres números para leer de un golpe */}
+            <div className="grid grid-cols-3 divide-x divide-slate-700 border-b border-slate-700 shrink-0">
+              {[
+                { label: 'Platillos servidos', valor: platillosUds.toLocaleString('es-MX'), color: 'text-amber-400' },
+                { label: 'Platillos distintos', valor: platillosOrd.length.toLocaleString('es-MX'), color: 'text-blue-400' },
+                { label: 'Importe', valor: `$${platillosImporte.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, color: 'text-green-400' },
+              ].map((m) => (
+                <div key={m.label} className="p-3 text-center">
+                  <p className={`text-xl font-bold tabular-nums ${m.color}`}>{m.valor}</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">{m.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Buscar y ordenar */}
+            <div className="flex items-center gap-2 p-3 border-b border-slate-700 shrink-0 flex-wrap">
+              <div className="relative flex-1 min-w-[160px]">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                <input
+                  value={buscaPlatillo}
+                  onChange={(e) => setBuscaPlatillo(e.target.value)}
+                  placeholder="Buscar platillo o categoría…"
+                  className="input-touch text-sm w-full pl-9"
+                />
+              </div>
+              <div className="flex gap-1">
+                {([
+                  ['cantidad', 'Más vendidos'],
+                  ['ventas', 'Más dinero'],
+                  ['nombre', 'A-Z'],
+                ] as [OrdenPlatillos, string][]).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setOrdenPlatillos(key)}
+                    className={`text-xs px-3 py-2 rounded-lg transition-colors ${ordenPlatillos === key ? 'bg-iados-primary text-white' : 'bg-iados-card text-slate-400 hover:text-white'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* El listado completo */}
+            <div className="overflow-y-auto flex-1">
+              {platillosLista.length === 0 ? (
+                <p className="text-center text-slate-500 py-12 text-sm">Ningún platillo coincide con «{buscaPlatillo}».</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-iados-surface z-10">
+                    <tr className="text-slate-400 text-[11px] border-b border-slate-700">
+                      <th className="text-left py-2 pl-4 font-medium">#</th>
+                      <th className="text-left py-2 font-medium">Platillo</th>
+                      <th className="text-right py-2 font-medium">Vendidos</th>
+                      <th className="text-right py-2 font-medium">% del total</th>
+                      <th className="text-right py-2 pr-4 font-medium">Importe</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {platillosLista.map((p, i) => {
+                      const pct = platillosUds > 0 ? (p.total_unidades / platillosUds) * 100 : 0;
+                      return (
+                        <tr key={`${p.producto_id}-${i}`} className="border-b border-slate-800 hover:bg-iados-card/50">
+                          <td className="py-2 pl-4 text-slate-500 text-xs tabular-nums w-10">{i + 1}</td>
+                          <td className="py-2 pr-2">
+                            <div className="font-medium">{p.nombre}</div>
+                            <div className="text-[11px] text-slate-500">
+                              {p.categoria}{p.unidad ? ` · ${p.unidad}` : ''} · {p.num_ventas} {p.num_ventas === 1 ? 'ticket' : 'tickets'}
+                            </div>
+                            {/* Barra proporcional al más vendido: dice de un
+                                vistazo qué tan lejos está cada platillo del #1. */}
+                            <div className="h-1 bg-slate-800 rounded-full mt-1.5 max-w-[220px]">
+                              <div
+                                className="h-1 rounded-full"
+                                style={{
+                                  width: `${platillosMax > 0 ? Math.max(2, (p.total_unidades / platillosMax) * 100) : 0}%`,
+                                  background: COLORS[i % COLORS.length],
+                                }}
+                              />
+                            </div>
+                          </td>
+                          <td className="text-right py-2 font-bold text-amber-400 tabular-nums align-top">
+                            {p.total_unidades.toLocaleString('es-MX')}
+                          </td>
+                          <td className="text-right py-2 text-slate-400 text-xs tabular-nums align-top">{pct.toFixed(1)}%</td>
+                          <td className="text-right py-2 pr-4 text-green-400 tabular-nums align-top">
+                            ${p.total_ventas.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Pie: el total es el de lo que se está viendo, para que al buscar
+                no parezca que los números no cuadran. */}
+            <div className="flex items-center justify-between gap-3 p-3 border-t border-slate-700 text-xs text-slate-400 shrink-0">
+              <span>
+                {buscaPlatillo.trim()
+                  ? `${platillosLista.length} de ${platillosOrd.length} platillos`
+                  : `${platillosOrd.length} platillos`}
+              </span>
+              <span className="tabular-nums">
+                {platillosLista.reduce((t, p) => t + p.total_unidades, 0).toLocaleString('es-MX')} vendidos
+                {' · '}
+                <span className="text-green-400 font-bold">
+                  ${platillosLista.reduce((t, p) => t + p.total_ventas, 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </span>
+            </div>
+          </div>
         </div>
       )}
     </div>

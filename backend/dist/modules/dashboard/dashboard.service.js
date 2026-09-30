@@ -147,8 +147,9 @@ let DashboardService = class DashboardService {
         });
         return { count };
     }
-    async getVentasPorProducto(scope, desde, hasta, categoriaId) {
+    async getVentasPorProducto(scope, desde, hasta, categoriaId, limit) {
         const catFilter = categoriaId ? 'AND p.categoria_id = ?' : '';
+        const max = Math.min(Math.max(Number(limit) || 200, 1), 2000);
         const params = [scope.tenant_id, scope.empresa_id, scope.tienda_id, isoToLocalSQL(desde), isoToLocalSQL(hasta)];
         if (categoriaId)
             params.push(categoriaId);
@@ -171,7 +172,7 @@ let DashboardService = class DashboardService {
          ${catFilter}
        GROUP BY vd.producto_id, vd.producto_nombre, p.unidad, c.id, c.nombre
        ORDER BY total_ventas DESC
-       LIMIT 200`, params);
+       LIMIT ${max}`, params);
         return rows.map((r) => ({
             producto_id: r.producto_id,
             nombre: r.nombre,

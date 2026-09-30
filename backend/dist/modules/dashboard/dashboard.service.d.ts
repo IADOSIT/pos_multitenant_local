@@ -35,7 +35,7 @@ export declare class DashboardService {
     getPedidosPendientes(scope: any): Promise<{
         count: number;
     }>;
-    getVentasPorProducto(scope: any, desde: string, hasta: string, categoriaId?: number): Promise<any>;
+    getVentasPorProducto(scope: any, desde: string, hasta: string, categoriaId?: number, limit?: number): Promise<any>;
     getVentasPorUnidad(scope: any, desde: string, hasta: string): Promise<any>;
     getVentasPorCategoria(scope: any, desde: string, hasta: string): Promise<any>;
 }

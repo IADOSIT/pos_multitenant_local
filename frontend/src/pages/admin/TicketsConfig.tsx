@@ -233,6 +233,17 @@ export default function TicketsConfig() {
             </label>
           ))}
 
+          {/* Fuera del .map de arriba a proposito: los demas usan `!!config[field]`
+              y este tiene que verse prendido cuando el campo llega NULL, que es
+              como estan las configuraciones creadas antes de esta version. */}
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={config.mostrar_cliente !== false} onChange={(e) => update('mostrar_cliente', e.target.checked)} className="w-5 h-5 rounded" />
+            <span className="text-sm">Imprimir nombre de la persona</span>
+          </label>
+          <p className="text-xs text-slate-500 -mt-1 pl-7">
+            Saca el nombre, teléfono y dirección que se capturaron en el pedido, en el ticket de venta y en la pre-cuenta.
+          </p>
+
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={config.impresion_enabled !== false} onChange={(e) => update('impresion_enabled', e.target.checked)} className="w-5 h-5 rounded" />
             <span className="text-sm font-medium">Activar impresión automática de ticket al cobrar</span>
@@ -295,6 +306,13 @@ export default function TicketsConfig() {
                 <input type="checkbox" checked={config.comanda_mostrar_precio !== false} onChange={(e) => update('comanda_mostrar_precio', e.target.checked)} className="w-5 h-5 rounded" />
                 <span className="text-sm">Mostrar precios en comanda</span>
               </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={config.comanda_mostrar_cliente === true} onChange={(e) => update('comanda_mostrar_cliente', e.target.checked)} className="w-5 h-5 rounded" />
+                <span className="text-sm">Imprimir nombre de la persona en la comanda</span>
+              </label>
+              <p className="text-xs text-slate-500 -mt-1 pl-7">
+                Para que la cocina o el repartidor sepan de quién es el pedido. Sale arriba de los productos.
+              </p>
             </div>
           )}
 

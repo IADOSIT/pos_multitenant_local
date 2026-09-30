@@ -5,7 +5,7 @@
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260929-cortacircuitos-timeout"
+        CACHE_BUST: "20260930-platillos-y-nombre-en-ticket"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
@@ -56,7 +56,7 @@
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20260929-cortacircuitos-timeout"
+        CACHE_BUST: "20260930-platillos-y-nombre-en-ticket"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

@@ -79,6 +79,10 @@ __decorate([
     __metadata("design:type", Boolean)
 ], TicketConfig.prototype, "mostrar_folio", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ default: true }),
+    __metadata("design:type", Boolean)
+], TicketConfig.prototype, "mostrar_cliente", void 0);
+__decorate([
     (0, typeorm_1.Column)({ default: false }),
     __metadata("design:type", Boolean)
 ], TicketConfig.prototype, "mostrar_marca_iados", void 0);
@@ -126,6 +130,10 @@ __decorate([
     (0, typeorm_1.Column)({ default: true }),
     __metadata("design:type", Boolean)
 ], TicketConfig.prototype, "comanda_mostrar_precio", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ default: false }),
+    __metadata("design:type", Boolean)
+], TicketConfig.prototype, "comanda_mostrar_cliente", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'int', default: 1 }),
     __metadata("design:type", Number)

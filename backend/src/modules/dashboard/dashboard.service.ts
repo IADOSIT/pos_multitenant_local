@@ -162,8 +162,13 @@ export class DashboardService {
     return { count };
   }
 
-  async getVentasPorProducto(scope: any, desde: string, hasta: string, categoriaId?: number) {
+  async getVentasPorProducto(scope: any, desde: string, hasta: string, categoriaId?: number, limit?: number) {
     const catFilter = categoriaId ? 'AND p.categoria_id = ?' : '';
+    // 200 sigue siendo el comportamiento de siempre para quien no pide nada.
+    // El tope de 2000 es para que un `?limit=` de la URL no arme una consulta
+    // capaz de tumbar el API; una carta con mas de 2000 platillos distintos no
+    // existe, y por eso tampoco vale la pena paginar.
+    const max = Math.min(Math.max(Number(limit) || 200, 1), 2000);
     const params: any[] = [scope.tenant_id, scope.empresa_id, scope.tienda_id, isoToLocalSQL(desde), isoToLocalSQL(hasta)];
     if (categoriaId) params.push(categoriaId);
     const rows = await this.dataSource.query(
@@ -186,7 +191,7 @@ export class DashboardService {
          ${catFilter}
        GROUP BY vd.producto_id, vd.producto_nombre, p.unidad, c.id, c.nombre
        ORDER BY total_ventas DESC
-       LIMIT 200`,
+       LIMIT ${max}`,
       params,
     );
     return rows.map((r: any) => ({

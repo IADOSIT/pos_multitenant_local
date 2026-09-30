@@ -15,6 +15,7 @@ export declare class TicketConfig {
     mostrar_fecha: boolean;
     mostrar_cajero: boolean;
     mostrar_folio: boolean;
+    mostrar_cliente: boolean;
     mostrar_marca_iados: boolean;
     fuente_familia: string;
     fuente_tamano: number;
@@ -27,6 +28,7 @@ export declare class TicketConfig {
     comanda_ancho: number;
     comanda_auto_print: boolean;
     comanda_mostrar_precio: boolean;
+    comanda_mostrar_cliente: boolean;
     comanda_copias: number;
     precuenta_enabled: boolean;
     propina_enabled: boolean;

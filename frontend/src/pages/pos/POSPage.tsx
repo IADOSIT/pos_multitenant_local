@@ -613,6 +613,9 @@ export default function POSPage() {
               folio: pedido.folio,
               usuario_nombre: pedido.usuario_nombre || user?.nombre,
               tipo_servicio: data.tipo_servicio,
+              cliente_nombre: data.cliente_nombre,
+              cliente_telefono: data.cliente_telefono,
+              cliente_direccion: data.cliente_direccion,
               items: data.items.map((i: any) => ({
                 cantidad: i.cantidad,
                 nombre: i.nombre,

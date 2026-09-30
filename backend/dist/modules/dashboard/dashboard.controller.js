@@ -32,8 +32,8 @@ let DashboardController = class DashboardController {
     getPedidosCount(scope) {
         return this.service.getPedidosPendientes(scope);
     }
-    getVentasProducto(scope, desde, hasta, categoriaId) {
-        return this.service.getVentasPorProducto(scope, desde, hasta, categoriaId ? parseInt(categoriaId) : undefined);
+    getVentasProducto(scope, desde, hasta, categoriaId, limit) {
+        return this.service.getVentasPorProducto(scope, desde, hasta, categoriaId ? parseInt(categoriaId) : undefined, limit ? parseInt(limit) : undefined);
     }
     getVentasUnidad(scope, desde, hasta) {
         return this.service.getVentasPorUnidad(scope, desde, hasta);
@@ -75,8 +75,9 @@ __decorate([
     __param(1, (0, common_1.Query)('desde')),
     __param(2, (0, common_1.Query)('hasta')),
     __param(3, (0, common_1.Query)('categoria_id')),
+    __param(4, (0, common_1.Query)('limit')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, String, String]),
+    __metadata("design:paramtypes", [Object, String, String, String, String]),
     __metadata("design:returntype", void 0)
 ], DashboardController.prototype, "getVentasProducto", null);
 __decorate([

@@ -360,6 +360,9 @@ export default function PedidosPage() {
           folio: pedido.folio,
           usuario_nombre: pedido.usuario_nombre,
           tipo_servicio: pedido.tipo_servicio,
+          cliente_nombre: pedido.cliente_nombre,
+          cliente_telefono: pedido.cliente_telefono,
+          cliente_direccion: pedido.cliente_direccion,
           items: (pedido.detalles || []).map((d: any) => ({
             cantidad: d.cantidad,
             nombre: d.producto_nombre,

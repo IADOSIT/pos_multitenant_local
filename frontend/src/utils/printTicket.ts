@@ -107,6 +107,9 @@ export function printComanda(
     items: { cantidad: number; nombre: string; precio?: number; notas?: string }[];
     notas?: string;
     tipo_servicio?: string;
+    cliente_nombre?: string;
+    cliente_telefono?: string;
+    cliente_direccion?: string;
   },
   config: {
     comanda_header?: string;
@@ -114,6 +117,7 @@ export function printComanda(
     fuente_familia?: string;
     fuente_tamano?: number;
     comanda_mostrar_precio?: boolean;
+    comanda_mostrar_cliente?: boolean;
     comanda_copias?: number;
     modo_impresion?: string;
   },
@@ -142,6 +146,18 @@ export function printComanda(
   if (pedido.usuario_nombre) lines.push(`Mesero: ${pedido.usuario_nombre}`);
   if (pedido.tipo_servicio === 'para_llevar') lines.push('*** PARA LLEVAR ***');
   if (pedido.folio) lines.push(`Folio: ${pedido.folio}`);
+
+  // Datos del cliente en la comanda. Apagado por omision (`=== true`, no
+  // `!== false`): la comanda nunca los habia impreso, y prenderlos de golpe
+  // cambiaria el ticket de cocina de todas las tiendas que capturan nombre.
+  // Quien lo prende lo hace para que la cocina/el repartidor sepa de quien es
+  // el pedido, por eso va arriba de los productos y no al final.
+  if (config.comanda_mostrar_cliente === true) {
+    if (pedido.cliente_nombre) lines.push(`Cliente: ${pedido.cliente_nombre}`);
+    if (pedido.cliente_telefono) lines.push(`Tel: ${pedido.cliente_telefono}`);
+    if (pedido.cliente_direccion) lines.push(`Dir: ${pedido.cliente_direccion}`);
+  }
+
   lines.push(dash);
 
   for (const item of pedido.items) {

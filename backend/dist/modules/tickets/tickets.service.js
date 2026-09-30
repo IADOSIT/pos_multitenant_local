@@ -51,6 +51,8 @@ let TicketsService = class TicketsService {
         config.comanda_ancho = 80;
         config.comanda_auto_print = false;
         config.comanda_mostrar_precio = true;
+        config.mostrar_cliente = true;
+        config.comanda_mostrar_cliente = false;
         config.comanda_copias = 1;
         return config;
     }
@@ -120,7 +122,8 @@ let TicketsService = class TicketsService {
         if (config.mostrar_cajero)
             lines.push(`Cajero: ${this.s(venta.usuario_nombre || 'N/A')}`);
         lines.push('-'.repeat(w));
-        if (venta.cliente_nombre || venta.cliente_telefono || venta.cliente_direccion) {
+        if (config.mostrar_cliente !== false &&
+            (venta.cliente_nombre || venta.cliente_telefono || venta.cliente_direccion)) {
             if (venta.cliente_nombre)
                 lines.push(`Cliente: ${this.s(venta.cliente_nombre)}`);
             if (venta.cliente_telefono)
@@ -179,7 +182,7 @@ let TicketsService = class TicketsService {
         if (data.mesa)
             lines.push(`Mesa: ${data.mesa}`);
         lines.push(`Fecha: ${new Date().toLocaleString('es-MX')}`);
-        if (data.cliente_nombre)
+        if (config.mostrar_cliente !== false && data.cliente_nombre)
             lines.push(`Cliente: ${this.s(data.cliente_nombre)}`);
         if (data.notas)
             lines.push(`Nota: ${this.s(data.notas)}`);

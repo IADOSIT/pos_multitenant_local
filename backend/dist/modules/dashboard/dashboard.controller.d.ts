@@ -29,7 +29,7 @@ export declare class DashboardController {
     getPedidosCount(scope: any): Promise<{
         count: number;
     }>;
-    getVentasProducto(scope: any, desde: string, hasta: string, categoriaId?: string): Promise<any>;
+    getVentasProducto(scope: any, desde: string, hasta: string, categoriaId?: string, limit?: string): Promise<any>;
     getVentasUnidad(scope: any, desde: string, hasta: string): Promise<any>;
     getVentasCategoria(scope: any, desde: string, hasta: string): Promise<any>;
 }

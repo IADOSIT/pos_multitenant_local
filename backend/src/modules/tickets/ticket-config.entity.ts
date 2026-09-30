@@ -51,6 +51,13 @@ export class TicketConfig {
   @Column({ default: true })
   mostrar_folio: boolean;
 
+  // Por omision TRUE: el ticket de venta ya venia imprimiendo Cliente/Tel/Dir
+  // sin preguntar, y apagarselo a los clientes que ya estan arriba (sobre todo
+  // los de ecommerce/delivery, donde la direccion es el dato mas importante del
+  // ticket) seria una regresion.
+  @Column({ default: true })
+  mostrar_cliente: boolean;
+
   @Column({ default: false })
   mostrar_marca_iados: boolean;
 
@@ -95,6 +102,12 @@ export class TicketConfig {
 
   @Column({ default: true })
   comanda_mostrar_precio: boolean;
+
+  // Por omision FALSE: la comanda nunca ha impreso datos del cliente, asi que
+  // prenderlo solo porque se despliega esta version le cambiaria el ticket de
+  // cocina a todas las tiendas que ya capturan nombre.
+  @Column({ default: false })
+  comanda_mostrar_cliente: boolean;
 
   @Column({ type: 'int', default: 1 })
   comanda_copias: number;
