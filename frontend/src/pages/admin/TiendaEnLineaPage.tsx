@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { ecommerceApi, empresasApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
 import EscaparateTab from './EscaparateTab';
-import { useAuthStore } from '../../store/auth.store';
+import { useScope } from '../../hooks/useScope';
+import { comprobarConexion, useRecargarAlVolver } from '../../api/conexion';
 import { usePageHeader } from '../../store/pageHeader.store';
 import toast from 'react-hot-toast';
 import {
@@ -125,7 +126,11 @@ function Toggle({ on, onClick, color = 'text-green-400' }: { on: boolean; onClic
 }
 
 export default function TiendaEnLineaPage() {
-  const { user } = useAuthStore();
+  // La empresa ACTIVA, no la de la cuenta: un superadmin entra aqui "viendo como"
+  // una tienda ajena, y `user.empresa_id` es la suya. Leer la equivocada mostraba
+  // datos de otra empresa, y guardar escribia `campos_formulario` y
+  // `auto_cancel_horas` ENCIMA de la empresa del superadmin.
+  const { empresaId } = useScope();
   const [tab, setTab] = useState<typeof TABS[number]['id']>('general');
   const [config, setConfig] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -266,9 +271,25 @@ export default function TiendaEnLineaPage() {
     }));
   }
 
+  // Un parpadeo del cortacircuitos (una consulta lenta basta) dejaba esta pantalla
+  // con el banner rojo de forma permanente: `load()` corre una sola vez al montar.
+  useRecargarAlVolver(() => { load(); });
+
+  // El boton del banner rojo. Sin el latido, con el cortacircuitos abierto el
+  // interceptor rechaza sin salir a la red: se veria como que el boton no hace nada.
+  async function reintentar() {
+    setLoading(true);
+    await comprobarConexion();
+    await load();
+  }
+
   async function load() {
     setLoading(true);
-    setLoadError(false);
+    // Tres peticiones, tres try por separado. Antes iban en un solo try con un solo
+    // catch, asi que un fallo del CONTADOR DE PEDIDOS o de la empresa decia "no se
+    // pudo cargar la configuracion" y bloqueaba el guardado aunque la config
+    // hubiera llegado perfecta. `loadError` es solo de la config: es lo unico que de
+    // verdad no se debe publicar en blanco encima de lo que ya esta en linea.
     try {
       const { data } = await ecommerceApi.getConfig();
       if (data) {
@@ -303,17 +324,25 @@ export default function TiendaEnLineaPage() {
           },
         });
       }
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
+    }
+
+    // Un numerito informativo: que falle no bloquea nada.
+    try {
       const pedRes = await ecommerceApi.listPedidos({ limit: 1 });
       setStats({ pedidos: pedRes.data?.meta?.total || 0 });
-      if (user?.empresa_id) {
-        const { data: emp } = await empresasApi.get(user.empresa_id);
+    } catch { /* el contador se queda como estaba */ }
+
+    if (empresaId) {
+      try {
+        const { data: emp } = await empresasApi.get(empresaId);
         const cfg = emp?.config_especial || {};
         setEmpresaNombre(emp?.nombre || '');
         setCampos(mergeCampos(cfg.campos_formulario));
         setAutoCancel(Number(cfg.auto_cancel_horas) || 0);
-      }
-    } catch {
-      setLoadError(true);
+      } catch { /* los campos del formulario se quedan en sus valores por omision */ }
     }
     setLoading(false);
   }
@@ -347,8 +376,8 @@ export default function TiendaEnLineaPage() {
     try {
       const { data } = await ecommerceApi.saveConfig(form);
       setConfig(data);
-      if (user?.empresa_id) {
-        await empresasApi.setConfigEspecial(user.empresa_id, { campos_formulario: campos, auto_cancel_horas: autoCancel });
+      if (empresaId) {
+        await empresasApi.setConfigEspecial(empresaId, { campos_formulario: campos, auto_cancel_horas: autoCancel });
       }
       toast.success('Tienda en línea actualizada');
     } catch (e: any) {
@@ -414,7 +443,7 @@ export default function TiendaEnLineaPage() {
             <p className="font-semibold">No se pudo cargar la configuración de la tienda.</p>
             <p className="mt-0.5">El guardado está bloqueado para no publicar un formulario vacío encima de lo que ya está en línea.</p>
           </div>
-          <button onClick={load} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-800 hover:bg-red-700 text-white text-xs rounded-lg shrink-0">
+          <button onClick={reintentar} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-800 hover:bg-red-700 text-white text-xs rounded-lg shrink-0">
             <RefreshCw size={12} /> Reintentar
           </button>
         </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * Estado REAL de la conexion con el servidor.
@@ -16,6 +16,10 @@ import { useEffect, useState } from 'react';
  * pantalla cae a su cache o a su modo offline sin colgarse). Mientras esta
  * caido, un latido contra `/health` — barato y publico — comprueba si volvio; al
  * primer 200 se reanuda todo.
+ *
+ * Un timeout NO cuenta como error de red: ver `marcarFalloLento()`. Confundirlos
+ * era lo que dejaba a una tienda con internet perfecto en modo offline cada vez
+ * que el VPS se ponia lento un instante.
  */
 
 const UMBRAL_FALLOS = 2;          // errores de red seguidos para dar por caido el servidor
@@ -29,6 +33,9 @@ let fallos = 0;
 let espera = ESPERA_MIN;
 let timer: ReturnType<typeof setTimeout> | null = null;
 let latiendo = false;
+// Una sola confirmacion en vuelo: al arrancar salen ~15 peticiones en paralelo y
+// un momento lento las agota casi todas juntas.
+let confirmando = false;
 
 function hayRed(): boolean {
   return typeof navigator === 'undefined' ? true : navigator.onLine;
@@ -69,9 +76,10 @@ function cambiarEstado(vivo: boolean): void {
     espera = ESPERA_MIN;
     pararLatido();
   } else {
-    // Dos peticiones lentas (un reporte pesado, por ejemplo) tambien se ven como
-    // fallos de red. Antes de dejar a la tienda en modo offline se confirma con
-    // un latido casi inmediato: si el servidor contesta, no pasa nada.
+    // Aqui ya se dio por caido. El latido casi inmediato sigue siendo la red de
+    // seguridad para el camino rapido (`marcarFalloRed`, que corta sin preguntar):
+    // si el servidor si contesta, se cierra el corte enseguida. Los timeouts ya no
+    // llegan aqui sin haber pasado por su propia confirmacion.
     espera = PRIMERA_ESPERA;
     programarLatido();
     espera = ESPERA_MIN;
@@ -85,11 +93,41 @@ export function marcarExito(): void {
   cambiarEstado(true);
 }
 
-/** Error sin respuesta (DNS, TCP, timeout): candidato a corte de internet. */
+/**
+ * Error sin respuesta y sin camino: DNS que no resuelve, TCP rechazado, CORS. Eso
+ * falla rapido y de verdad, asi que se corta igual de rapido: es para lo que se
+ * hizo el cortacircuitos.
+ */
 export function marcarFalloRed(): void {
   if (!servidorVivo) return;
   fallos += 1;
   if (fallos >= UMBRAL_FALLOS) cambiarEstado(false);
+}
+
+/**
+ * Se agoto el tiempo de espera (los 10 s de axios). NO es lo mismo que un corte:
+ * un VPS ocupado un instante, o una consulta pesada, tarda mas que el timeout y se
+ * veia identico a un cable desconectado. Y como las peticiones salen en paralelo,
+ * un solo momento lento producia varios "fallos" de golpe: la tienda aparecia
+ * offline teniendo internet perfecto.
+ *
+ * La diferencia es CUANDO se confirma. Antes se cortaba y se preguntaba despues
+ * (el latido de los 700 ms), y ese parpadeo bastaba para dejar una pantalla con su
+ * mensaje de error para siempre. Ahora se pregunta primero: si `/health` contesta,
+ * no pasa nada. Solo si el latido tambien falla se da el servidor por caido, asi
+ * que se conserva lo que importa de verdad — dejar de gastar 10 s por peticion
+ * cuando la tienda esta sin internet.
+ */
+export function marcarFalloLento(): void {
+  if (!servidorVivo) return;
+  fallos += 1;
+  if (fallos < UMBRAL_FALLOS) return;
+  if (confirmando) return;
+  confirmando = true;
+  latir()
+    .then((vivo) => { if (!vivo && servidorVivo) cambiarEstado(false); })
+    .catch(() => { /* latir() ya atrapa lo suyo; esto es por si acaso */ })
+    .finally(() => { confirmando = false; });
 }
 
 /**
@@ -145,6 +183,38 @@ export function iniciarVigilanciaConexion(): void {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && !servidorVivo) latir();
   });
+}
+
+/**
+ * Vuelve a ejecutar una carga cuando la conexion REGRESA.
+ *
+ * Los loaders de las pantallas corren una sola vez, al montarse. Sin esto, un
+ * parpadeo del cortacircuitos dejaba la pantalla con su mensaje de error de forma
+ * permanente aunque el internet volviera al segundo: nadie reintentaba, y el boton
+ * "Reintentar" tambien fallaba al instante mientras el corte seguia abierto.
+ *
+ * Solo dispara en la transicion caido -> vivo, nunca al montar, asi que no duplica
+ * la carga inicial. `recargar` se guarda en un ref: la funcion se recrea en cada
+ * render y no debe volver a suscribir el listener.
+ */
+export function useRecargarAlVolver(recargar: () => void): void {
+  const ref = useRef(recargar);
+  ref.current = recargar;
+
+  useEffect(() => {
+    let previo = hayConexion();
+    const h = () => {
+      const ahora = hayConexion();
+      if (ahora && !previo) ref.current();
+      previo = ahora;
+    };
+    window.addEventListener('conexion:cambio', h);
+    window.addEventListener('online', h);
+    return () => {
+      window.removeEventListener('conexion:cambio', h);
+      window.removeEventListener('online', h);
+    };
+  }, []);
 }
 
 /** Estado de conexion para los componentes. */

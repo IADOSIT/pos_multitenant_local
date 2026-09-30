@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { hayConexion, marcarExito, marcarFalloRed } from './conexion';
+import { hayConexion, marcarExito, marcarFalloLento, marcarFalloRed } from './conexion';
 
 // En Docker: nginx proxea /api -> backend:3000, así que usamos /api (relativo)
 // En dev local: VITE_API_URL=http://localhost:3000/api
@@ -68,8 +68,14 @@ api.interceptors.response.use(
     if (err.response) {
       // Contesto (aunque sea 4xx/5xx de la app): hay camino hasta el servidor.
       marcarExito();
-    } else if (err.code !== 'ERR_SIN_CONEXION') {
-      // Sin respuesta y no es nuestro propio corte: cuenta como fallo de red.
+    } else if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT') {
+      // Se agoto el tiempo, que no es lo mismo que no haber camino: se confirma
+      // con un latido antes de dejar la tienda en modo offline. Un servidor lento
+      // un instante ya no la tira. ('Request aborted' de axios cae aqui tambien,
+      // y tratarlo como lento es lo conservador.)
+      marcarFalloLento();
+    } else if (err.code !== 'ERR_SIN_CONEXION' && err.code !== 'ERR_CANCELED') {
+      // Sin respuesta, sin camino y no es nuestro propio corte: fallo de red real.
       marcarFalloRed();
     }
     // Excluir endpoints de auth que legítimamente devuelven 401 (no son sesión expirada)
