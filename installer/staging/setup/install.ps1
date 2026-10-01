@@ -274,6 +274,31 @@ echo.
 pause
 "@ | Set-Content "$InstallDir\ACTUALIZAR.bat"
 
+# --- ENSAYAR.bat ---------------------------------------------------------------
+# Prueba una actualizacion contra una COPIA de la base, sin detener el sistema.
+# Existe para poder decidir si se actualiza o no ANTES de tocar nada.
+@"
+@echo off
+title POS-iaDoS - Ensayar una actualizacion
+net session >nul 2>&1 || (powershell -Command "Start-Process '%~f0' -Verb RunAs" & exit /b)
+echo.
+echo   Esto PRUEBA una version nueva contra una copia de tu base de datos.
+echo.
+echo     - El sistema NO se detiene: puedes seguir vendiendo.
+echo     - La base de datos real solo se LEE, nunca se escribe.
+echo     - Al final dice si la actualizacion es segura o no.
+echo.
+echo   Escribe la carpeta del paquete nuevo (la que trae app\backend).
+echo.
+set /p PAQUETE="  Carpeta del paquete (Enter para salir): "
+if "%PAQUETE%"=="" exit /b
+powershell -ExecutionPolicy Bypass -File "%~dp0tools\ensayar.ps1" -InstallDir "%~dp0." -Paquete "%PAQUETE%"
+echo.
+echo   El resultado quedo en ULTIMO-ENSAYO.txt
+echo.
+pause
+"@ | Set-Content "$InstallDir\ENSAYAR.bat"
+
 New-Item -ItemType Directory -Force -Path "$InstallDir\backups" | Out-Null
 
 Write-Log "Archivos copiados" "Green"
@@ -709,6 +734,24 @@ CONECTAR CELULARES Y TABLETS (en la misma red WiFi)
 - En el celular abre: http://<IP-DEL-SERVIDOR>:$BackendPort
 - Autocobro (Self Order / QR): Configuracion > Menu Digital
 - Con meseros en tableta  : Configuracion > POS > Self Order
+
+RESPALDOS Y ACTUALIZACIONES (doble clic en la carpeta $InstallDir)
+------------------------------------------------------------------
+RESPALDAR.bat      Guarda TODO ahora: base de datos, imagenes, un Excel con
+                   todos los datos y la lista de ajustes activos.
+ENSAYAR.bat        Prueba una version nueva contra una COPIA de tu base, sin
+                   detener el sistema. Dice si la actualizacion es segura
+                   ANTES de aplicarla. El resultado queda en ULTIMO-ENSAYO.txt
+ACTUALIZAR.bat     Aplica una version nueva. Respalda, ensaya y solo entonces
+                   actualiza; si algo falla regresa solo a la version de hoy.
+REVERTIR.bat       Regresa el sistema a cualquier respaldo anterior.
+MANTENIMIENTO.bat  Menu con todo lo anterior mas diagnostico y revision de
+                   las imagenes.
+
+Tambien desde el sistema: Configuracion > Mantenimiento > Este equipo
+
+Ningun dato se borra en ninguna de estas opciones. Lo unico que sobrescribe
+es REVERTIR, y antes de hacerlo guarda el estado de hoy para poder volver.
 "@ | Set-Content "$InstallDir\CREDENCIALES.txt" -Encoding UTF8
         Write-Log "Credenciales guardadas en: $InstallDir\CREDENCIALES.txt" "Cyan"
         } # fin else SQL ok

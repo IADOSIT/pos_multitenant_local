@@ -369,6 +369,11 @@ export default function MantenimientoLocal() {
                 </p>
                 <ul className="text-xs text-slate-300 space-y-1 list-disc pl-5">
                   <li>Primero se respalda base de datos, imágenes, Excel y ajustes.</li>
+                  <li>
+                    <strong>Después se ensaya contra una copia de su base, con el sistema todavía
+                    trabajando.</strong> Si la versión nueva perdiera un solo dato, la actualización se
+                    cancela sola ahí mismo y nada se detiene.
+                  </li>
                   <li>El punto de venta se detiene unos minutos y vuelve solo.</li>
                   <li>Si algo falla, regresa por sí mismo a la versión de hoy.</li>
                   <li>Después queda un reporte con todo lo que cambió.</li>

@@ -20,6 +20,7 @@
 #  Uso:
 #    .\actualizar.ps1 -Paquete "C:\temp\pos-update-2.4.2"
 #    .\actualizar.ps1 -Paquete "..." -SiSinPreguntar          desatendido
+#    .\actualizar.ps1 -Paquete "..." -SinEnsayo                sin la prueba previa
 # =============================================================================
 param(
     [string]$InstallDir = "C:\POS-iaDoS",
@@ -28,7 +29,8 @@ param(
     [switch]$SinExcel,
     [switch]$SinArreglarImagenes,
     [switch]$SiSinPreguntar,
-    [switch]$SinAutoRevertir
+    [switch]$SinAutoRevertir,
+    [switch]$SinEnsayo
 )
 
 $ErrorActionPreference = "Stop"
@@ -120,7 +122,7 @@ Escribir "  ==========================================================" "Cyan"
 # =============================================================================
 #  1. Revisiones previas
 # =============================================================================
-Titulo "[1/8] Revisando el equipo y el paquete"
+Titulo "[1/9] Revisando el equipo y el paquete"
 
 if (-not (Test-Path $InstallDir))  { Terminar 1 "No existe $InstallDir." }
 if (-not (Test-Path $ENV_BACKEND)) { Terminar 1 "No existe $ENV_BACKEND. Esta instalacion no esta completa." }
@@ -168,7 +170,7 @@ if (-not $SiSinPreguntar) {
 # =============================================================================
 #  2. Respaldo completo. Si esto falla, no se actualiza.
 # =============================================================================
-Titulo "[2/8] Respaldo completo antes de tocar nada"
+Titulo "[2/9] Respaldo completo antes de tocar nada"
 
 $respaldarPs1 = Join-Path $InstallDir "tools\respaldar.ps1"
 if (-not (Test-Path $respaldarPs1)) {
@@ -197,9 +199,52 @@ $ajustesAntes = Join-Path $RESPALDO "reportes\ajustes.json"
 if (-not (Test-Path $ajustesAntes)) { Aviso "No se guardo la foto de ajustes; no se podra comparar al final" }
 
 # =============================================================================
-#  3. Detener el sistema
+#  3. Ensayo contra una COPIA, con el sistema todavia arriba.
+#     Aqui es donde se sabe si la version nueva se iba a llevar datos. Si el
+#     ensayo dice que no, se corta ANTES de detener el servicio: el cliente
+#     nunca deja de vender y no hay nada que revertir.
 # =============================================================================
-Titulo "[3/8] Deteniendo el sistema"
+Titulo "[3/9] Ensayo de la actualizacion (el sistema sigue arriba)"
+
+$ensayarPs1 = Join-Path $InstallDir "tools\ensayar.ps1"
+if (-not (Test-Path $ensayarPs1)) {
+    $ensayarPs1 = Join-Path $Paquete "setup\ensayar.ps1"
+}
+
+if ($SinEnsayo) {
+    Aviso "Se pidio -SinEnsayo: la version nueva se instala sin probarla antes"
+} elseif (-not (Test-Path $ensayarPs1)) {
+    Aviso "No se encontro ensayar.ps1; se continua sin la prueba previa"
+} else {
+    # Se reusa el volcado del respaldo que se acaba de hacer: no hay razon para
+    # volcar la base dos veces seguidas.
+    $argsEnsayo = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $ensayarPs1,
+                    "-InstallDir", $InstallDir, "-Paquete", $Paquete, "-Respaldo", $RESPALDO)
+    & powershell @argsEnsayo 2>&1 | ForEach-Object { Escribir "      $_" }
+    $codigoEnsayo = $LASTEXITCODE
+
+    if ($codigoEnsayo -eq 0 -or $codigoEnsayo -eq 3) {
+        Ok "El ensayo salio bien: la version nueva no pierde datos"
+    } elseif ($codigoEnsayo -eq 2) {
+        Escribir ""
+        Escribir "   El ensayo dice que NO se debe actualizar." "Red"
+        Escribir "   Lee el detalle en:  $InstallDir\ULTIMO-ENSAYO.txt" "Yellow"
+        Escribir "   El sistema NO se detuvo y sigue en la version de siempre." "Yellow"
+        Escribir "   El respaldo de hoy quedo en:  $RESPALDO" "Yellow"
+        Terminar 2 "Actualizacion cancelada por el ensayo. No se toco nada."
+    } else {
+        Escribir ""
+        Escribir "   El ensayo no se pudo completar (codigo $codigoEnsayo)." "Yellow"
+        Escribir "   Lee:  $InstallDir\ULTIMO-ENSAYO.txt" "Yellow"
+        Escribir "   Si de todos modos quieres actualizar, vuelve a correr esto con -SinEnsayo." "Yellow"
+        Terminar 1 "Actualizacion cancelada: no se pudo probar antes. No se toco nada."
+    }
+}
+
+# =============================================================================
+#  4. Detener el sistema
+# =============================================================================
+Titulo "[4/9] Deteniendo el sistema"
 Servicio -Accion "stop" -Nombre $SVC_BACKEND
 Start-Sleep -Seconds 4
 # Si quedo algun node colgado del InstallDir, se cierra: con el archivo abierto
@@ -211,9 +256,9 @@ Start-Sleep -Seconds 2
 Ok "Backend detenido"
 
 # =============================================================================
-#  4. Copiar el programa nuevo
+#  5. Copiar el programa nuevo
 # =============================================================================
-Titulo "[4/8] Instalando los archivos nuevos"
+Titulo "[5/9] Instalando los archivos nuevos"
 
 $destBackend = Join-Path $InstallDir "backend"
 
@@ -287,9 +332,9 @@ Set-Content -Path $ENV_BACKEND -Value $envLineas -Encoding UTF8
 Ok "version.json y APP_VERSION en $VersionNueva"
 
 # =============================================================================
-#  5. Arrancar: aqui TypeORM migra el esquema solo
+#  6. Arrancar: aqui TypeORM migra el esquema solo
 # =============================================================================
-Titulo "[5/8] Arrancando y migrando el esquema"
+Titulo "[6/9] Arrancando y migrando el esquema"
 
 $logBackend = Join-Path $InstallDir "logs\backend.log"
 $marcaLog = 0
@@ -363,9 +408,9 @@ if ($versionReportada -eq "?") {
 }
 
 # =============================================================================
-#  6. Ajustar las URL de las imagenes a la nueva redireccion
+#  7. Ajustar las URL de las imagenes a la nueva redireccion
 # =============================================================================
-Titulo "[6/8] Ajustando las imagenes a la nueva redireccion"
+Titulo "[7/9] Ajustando las imagenes a la nueva redireccion"
 
 $reportesFinal = Join-Path $RESPALDO "reportes-despues"
 New-Item -ItemType Directory -Path $reportesFinal -Force | Out-Null
@@ -393,9 +438,9 @@ if ($SinArreglarImagenes) {
 }
 
 # =============================================================================
-#  7. Comprobar que quedo operando igual
+#  8. Comprobar que quedo operando igual
 # =============================================================================
-Titulo "[7/8] Comparando los ajustes de antes y de ahora"
+Titulo "[8/9] Comparando los ajustes de antes y de ahora"
 
 $ajustesIguales = $null
 if (-not (Test-Path $ajustesAntes)) {
@@ -418,9 +463,9 @@ if (-not (Test-Path $ajustesAntes)) {
 }
 
 # =============================================================================
-#  8. Reporte final
+#  9. Reporte final
 # =============================================================================
-Titulo "[8/8] Reporte"
+Titulo "[9/9] Reporte"
 
 $duracion = [int]((Get-Date) - $inicio).TotalSeconds
 $Res = New-Object System.Collections.ArrayList

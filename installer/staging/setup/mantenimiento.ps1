@@ -18,6 +18,9 @@
 #      .\mantenimiento.ps1 -Accion arreglar-imagenes (reporta y corrige URL)
 #      .\mantenimiento.ps1 -Accion ajustes
 #      .\mantenimiento.ps1 -Accion respaldos         (lista lo que hay)
+#      .\mantenimiento.ps1 -Accion ensayar -Paquete "C:\temp\paquete-nuevo"
+#                                                    (prueba una actualizacion
+#                                                     sin detener el sistema)
 #
 #  Nada de lo que hay aqui borra datos del cliente. La unica accion que
 #  sobrescribe es revertir, y esa pide confirmacion escrita.
@@ -25,9 +28,11 @@
 param(
     [string]$InstallDir = "C:\POS-iaDoS",
     [ValidateSet("", "menu", "diagnostico", "respaldar", "revertir", "excel",
-                 "imagenes", "arreglar-imagenes", "ajustes", "respaldos")]
+                 "imagenes", "arreglar-imagenes", "ajustes", "respaldos",
+                 "ensayar")]
     [string]$Accion = "",
     [string]$Respaldo = "",
+    [string]$Paquete = "",
     [switch]$SiSinPreguntar
 )
 
@@ -294,6 +299,12 @@ switch ($Accion) {
         if ($SiSinPreguntar) { $a += "-SiSinPreguntar" }
         exit (Correr-Script -Nombre "revertir.ps1" -Argumentos $a)
     }
+    "ensayar" {
+        if ($Paquete -eq "") { Falla "Falta -Paquete con la carpeta del paquete nuevo"; exit 1 }
+        $a = @("-Paquete", $Paquete)
+        if ($Respaldo -ne "") { $a += @("-Respaldo", $Respaldo) }
+        exit (Correr-Script -Nombre "ensayar.ps1" -Argumentos $a)
+    }
     "excel" {
         $c = Carpeta-Reporte -Que "excel"
         $r = Correr-Node -Script "exportar-excel.js" -Argumentos @() -Salida $c
@@ -349,6 +360,7 @@ while ($true) {
     Escribir "   7.  Arreglar las URL de las imagenes"
     Escribir "   8.  Ver los ajustes activos del cliente"
     Escribir "   9.  Reiniciar el sistema"
+    Escribir "  10.  ENSAYAR una actualizacion (sin detener el sistema)"
     Escribir "   0.  Salir"
     Escribir ""
     $op = Read-Host "   Opcion"
@@ -408,6 +420,18 @@ while ($true) {
             while ((Get-Date) -lt $fin) { if (Puerto-Abierto -Puerto $puerto) { $arranco = $true; break }; Start-Sleep -Seconds 2 }
             if ($arranco) { Ok "El sistema volvio a arrancar en el puerto $puerto" }
             else { Falla "No arranco. Corre la opcion 1 (diagnostico)." }
+        }
+        "10" {
+            Escribir ""
+            Escribir "   Esto prueba la version nueva contra una COPIA de tu base." "White"
+            Escribir "   El sistema NO se detiene y la base real solo se lee." "Green"
+            Escribir "   Al final dice si se puede actualizar o no." "Green"
+            Escribir ""
+            $paq = Read-Host "   Carpeta del paquete nuevo (Enter para cancelar)"
+            if ($paq -ne "") {
+                if (-not (Test-Path $paq)) { Falla "No existe: $paq" }
+                else { Correr-Script -Nombre "ensayar.ps1" -Argumentos @("-Paquete", $paq) | Out-Null }
+            } else { Escribir "   Cancelado." "Yellow" }
         }
         "0" { Escribir ""; exit 0 }
         default { Aviso "Opcion no valida" }

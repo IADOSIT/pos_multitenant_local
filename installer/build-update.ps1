@@ -91,9 +91,21 @@ if ($MigrationSQL -and (Test-Path $MigrationSQL)) {
     Write-Host "  Migracion SQL incluida" -ForegroundColor Gray
 }
 
-# Scripts
-Copy-Item -Path "$INSTALLER_DIR\scripts\update.ps1" -Destination "$OUTPUT\setup\" -Force
-Copy-Item -Path "$INSTALLER_DIR\scripts\services.ps1" -Destination "$OUTPUT\setup\" -Force
+# Scripts: va el juego COMPLETO de staging\setup, no solo el actualizador.
+# Asi el paquete lleva respaldar.ps1, ensayar.ps1 y revertir.ps1, que es lo que
+# actualizar.ps1 necesita para respaldar antes, ensayar contra una copia y
+# poder regresar si algo sale mal.
+$SETUP_SRC = "$INSTALLER_DIR\staging\setup"
+if (-not (Test-Path "$SETUP_SRC\actualizar.ps1")) {
+    Write-Host "  ERROR: no se encontro $SETUP_SRC\actualizar.ps1" -ForegroundColor Red
+    Write-Host "  Sin el actualizador el paquete no serviria para nada." -ForegroundColor Red
+    exit 1
+}
+Copy-Item -Path "$SETUP_SRC\*.ps1" -Destination "$OUTPUT\setup\" -Force
+if (Test-Path "$SETUP_SRC\node") {
+    New-Item -ItemType Directory -Force -Path "$OUTPUT\setup\node" | Out-Null
+    Copy-Item -Path "$SETUP_SRC\node\*" -Destination "$OUTPUT\setup\node\" -Recurse -Force
+}
 
 # ACTUALIZAR.bat
 @"
@@ -103,13 +115,17 @@ title POS-iaDoS - Actualizacion a v$NewVersion
 echo.
 echo  Actualizando POS-iaDoS a v$NewVersion...
 echo.
+echo  Antes de cambiar nada: respaldo completo y una prueba
+echo  contra una copia de la base. Si la prueba falla, no se
+echo  actualiza y el sistema se queda como esta.
+echo.
 net session >nul 2>&1
 if %errorlevel% neq 0 (
     echo  Solicitando permisos de administrador...
     powershell -Command "Start-Process '%~f0' -Verb RunAs"
     exit /b
 )
-powershell -ExecutionPolicy Bypass -File "%~dp0setup\update.ps1" -PatchPath "%~dp0"
+powershell -ExecutionPolicy Bypass -File "%~dp0setup\actualizar.ps1" -Paquete "%~dp0."
 echo.
 pause
 "@ | Set-Content "$OUTPUT\ACTUALIZAR.bat"
