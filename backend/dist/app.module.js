@@ -49,6 +49,7 @@ const cotizaciones_module_1 = require("./modules/cotizaciones/cotizaciones.modul
 const logistica_module_1 = require("./modules/logistica/logistica.module");
 const empleados_module_1 = require("./modules/empleados/empleados.module");
 const bascula_module_1 = require("./modules/bascula/bascula.module");
+const mantenimiento_module_1 = require("./modules/mantenimiento/mantenimiento.module");
 const apartados_module_1 = require("./modules/apartados/apartados.module");
 const transferencias_module_1 = require("./modules/transferencias/transferencias.module");
 const monitor_module_1 = require("./modules/monitor/monitor.module");
@@ -108,6 +109,7 @@ exports.AppModule = AppModule = __decorate([
             logistica_module_1.LogisticaModule,
             empleados_module_1.EmpleadosModule,
             bascula_module_1.BasculaModule,
+            mantenimiento_module_1.MantenimientoModule,
             apartados_module_1.ApartadosModule,
             transferencias_module_1.TransferenciasModule,
             monitor_module_1.MonitorModule,

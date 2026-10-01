@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { backupApi, tiendasApi, deployApi } from '../../api/endpoints';
+import { mantenimientoApi } from '../../api/endpoints';
+import MantenimientoLocal from './MantenimientoLocal';
 import { useAuthStore } from '../../store/auth.store';
 import toast from 'react-hot-toast';
 import {
@@ -33,7 +35,9 @@ export default function MantenimientoPage() {
   const [files, setFiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState<string | null>(null);
-  const [tab, setTab] = useState<'respaldos' | 'configuracion' | 'limpiar' | 'restaurar'>('respaldos');
+  const [tab, setTab] = useState<'respaldos' | 'configuracion' | 'limpiar' | 'restaurar' | 'equipo'>('respaldos');
+  // Solo existe cuando el POS esta instalado en la computadora del negocio.
+  const [enSitio, setEnSitio] = useState(false);
   const [tiendas, setTiendas] = useState<any[]>([]);
   const [tiendaFilter, setTiendaFilter] = useState<number | undefined>(undefined);
 
@@ -83,6 +87,13 @@ export default function MantenimientoPage() {
     loadAll();
     tiendasApi.list().then((r) => setTiendas(r.data || [])).catch(() => {});
   }, [loadAll]);
+
+  // En la nube /mantenimiento/estado responde 404 y la pestana no se dibuja.
+  useEffect(() => {
+    mantenimientoApi.estado()
+      .then(({ data }) => setEnSitio(!!data?.on_premise))
+      .catch(() => setEnSitio(false));
+  }, []);
 
   // Control de versión / despliegue (solo superadmin)
   useEffect(() => {
@@ -393,7 +404,18 @@ export default function MantenimientoPage() {
         >
           <RotateCcw size={14} className="inline mr-1" />Restaurar BD
         </button>
+        {enSitio && (
+          <button
+            onClick={() => setTab('equipo')}
+            className={`px-4 py-2 rounded-xl text-sm font-medium ${tab === 'equipo' ? 'bg-emerald-600 text-white' : 'bg-iados-card text-slate-400'}`}
+          >
+            <HardDrive size={14} className="inline mr-1" />Este equipo
+          </button>
+        )}
       </div>
+
+      {/* Tab: Este equipo (instalacion en sitio) */}
+      {tab === 'equipo' && enSitio && <MantenimientoLocal />}
 
       {/* Tab: Archivos */}
       {tab === 'respaldos' && (

@@ -446,3 +446,18 @@ export const empleadosApi = {
   putBioConfig:   (d: any)                  => api.put('/empleados/biometrico/config', d),
   regenToken:     ()                        => api.patch('/empleados/biometrico/regenerar-token'),
 };
+
+// Mantenimiento en sitio (solo instalacion local; en la nube devuelve 404)
+export const mantenimientoApi = {
+  estado:      ()                 => api.get('/mantenimiento/estado'),
+  respaldos:   ()                 => api.get('/mantenimiento/respaldos'),
+  trabajo:     (id: string)       => api.get(`/mantenimiento/trabajo/${id}`),
+  respaldar:   (d: { etiqueta?: string; sin_excel?: boolean; sin_imagenes?: boolean } = {}) =>
+                                     api.post('/mantenimiento/respaldar', d),
+  excel:       ()                 => api.post('/mantenimiento/excel'),
+  imagenes:    (arreglar = false) => api.post('/mantenimiento/imagenes', { arreglar }),
+  ajustes:     ()                 => api.post('/mantenimiento/ajustes'),
+  revertir:    (respaldo: string) => api.post('/mantenimiento/revertir', { respaldo }),
+  actualizacion: ()               => api.get('/mantenimiento/actualizacion'),
+  actualizar:  (paquete?: string) => api.post('/mantenimiento/actualizar', paquete ? { paquete } : {}),
+};

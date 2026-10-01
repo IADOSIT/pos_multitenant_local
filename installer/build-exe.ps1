@@ -435,6 +435,16 @@ $checks = @(
     @{ Path = "$MergedDir\app\backend\public";       Name = "Frontend" },
     @{ Path = "$MergedDir\setup\install.ps1";        Name = "install.ps1" },
     @{ Path = "$MergedDir\setup\uninstall.ps1";      Name = "uninstall.ps1" },
+    # Sin estos cinco el exe puede instalar pero NO puede respaldar ni
+    # revertir, y entonces no se debe usar sobre un cliente en operacion.
+    @{ Path = "$MergedDir\setup\respaldar.ps1";      Name = "respaldar.ps1" },
+    @{ Path = "$MergedDir\setup\revertir.ps1";       Name = "revertir.ps1" },
+    @{ Path = "$MergedDir\setup\actualizar.ps1";     Name = "actualizar.ps1" },
+    @{ Path = "$MergedDir\setup\mantenimiento.ps1";  Name = "mantenimiento.ps1" },
+    @{ Path = "$MergedDir\setup\node\comun.js";      Name = "herramientas node (comun.js)" },
+    @{ Path = "$MergedDir\setup\node\imagenes.js";   Name = "herramientas node (imagenes.js)" },
+    @{ Path = "$MergedDir\setup\node\ajustes.js";    Name = "herramientas node (ajustes.js)" },
+    @{ Path = "$MergedDir\setup\node\exportar-excel.js"; Name = "herramientas node (exportar-excel.js)" },
     @{ Path = "$MergedDir\install-mode.txt";         Name = "install-mode.txt" },
     @{ Path = "$MergedDir\backend.env.template";     Name = "backend.env.template" },
     @{ Path = "$MergedDir\INSTALAR.bat";             Name = "INSTALAR.bat" }

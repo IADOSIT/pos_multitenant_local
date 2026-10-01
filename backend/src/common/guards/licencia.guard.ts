@@ -6,7 +6,10 @@ import { LicenciasService } from '../../modules/licencias/licencias.service';
 // no representan a un usuario cuya licencia se pueda evaluar.
 // /api/bridge: descarga del instalador del bridge; se baja en la PC de la caja,
 // sin sesion iniciada, y solo entrega el mismo binario para todas las tiendas.
-const BYPASS_PATHS = ['/api/auth', '/api/licencias', '/api/health', '/api/deploy', '/api/notificaciones', '/api/uploads', '/api/menu-digital/view', '/api/menu-digital/receive', '/api/public/logistica', '/api/public/biometrico', '/api/internal/', '/api/bridge'];
+// /api/mantenimiento va aqui a proposito: respaldar y revertir es precisamente
+// lo que un cliente con la licencia bloqueada necesita poder hacer. Igual exige
+// sesion y rol admin/superadmin en su propio controlador.
+const BYPASS_PATHS = ['/api/auth', '/api/licencias', '/api/health', '/api/deploy', '/api/mantenimiento', '/api/notificaciones', '/api/uploads', '/api/menu-digital/view', '/api/menu-digital/receive', '/api/public/logistica', '/api/public/biometrico', '/api/internal/', '/api/bridge'];
 
 @Injectable()
 export class LicenciaGuard implements CanActivate {

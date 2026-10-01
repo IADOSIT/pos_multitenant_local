@@ -60,15 +60,60 @@ if (-not $isAdmin) {
     exit 1
 }
 
-# Verificar si ya esta instalado
-if (Test-Path "$InstallDir\version.json") {
-    $currentVer = (Get-Content "$InstallDir\version.json" | ConvertFrom-Json).version
-    Write-Host "  POS-iaDoS v$currentVer ya esta instalado en $InstallDir" -ForegroundColor Yellow
-    Write-Host "  Use ACTUALIZAR.bat para actualizar o DESINSTALAR.bat primero." -ForegroundColor Yellow
-    exit 1
-}
-
 $InstallerPath = $InstallerPath.Trim('"').TrimEnd('\')
+
+# =============================================================================
+# Instalacion nueva o actualizacion?
+#
+# Si ya existe version.json, este equipo YA esta operando y lo que toca es una
+# actualizacion, no una instalacion. Son dos caminos muy distintos: la
+# instalacion siembra datos y genera el .env; la actualizacion no debe hacer
+# ninguna de las dos cosas.
+#
+# La actualizacion se delega a actualizar.ps1, que:
+#   1. respalda todo antes de tocar nada (base, imagenes, Excel, ajustes)
+#   2. solo reemplaza el programa; nunca uploads, .env ni mariadb\data
+#   3. deja que TypeORM migre el esquema al arrancar
+#   4. se revierte solo si el sistema no vuelve a arrancar
+#
+# $EsInstalacionNueva se calcula AQUI, antes de copiar nada, y despues se usa
+# como seguro del bloque que limpia datos demo.
+# =============================================================================
+$EsInstalacionNueva = -not (Test-Path "$InstallDir\version.json")
+
+if (-not $EsInstalacionNueva) {
+    $currentVer = "desconocida"
+    try { $currentVer = (Get-Content "$InstallDir\version.json" -Raw | ConvertFrom-Json).version } catch {}
+
+    Write-Host ""
+    Write-Host "  Ya hay POS-iaDoS v$currentVer instalado en $InstallDir" -ForegroundColor Yellow
+    Write-Host "  Se va a ACTUALIZAR. No se borra ningun dato." -ForegroundColor Green
+    Write-Host ""
+
+    $actualizador = Join-Path $InstallerPath "setup\actualizar.ps1"
+    if (-not (Test-Path $actualizador)) {
+        Write-Host "  ERROR: este paquete no trae setup\actualizar.ps1." -ForegroundColor Red
+        Write-Host "  No se continua: instalar encima de una instalacion existente" -ForegroundColor Red
+        Write-Host "  borraria datos del negocio." -ForegroundColor Red
+        exit 1
+    }
+
+    # Las herramientas de respaldo y revert se refrescan ANTES de actualizar,
+    # porque el equipo puede traer una version vieja o no traerlas. Se ejecuta
+    # la copia del PAQUETE, no la de tools, para que el script no se
+    # sobrescriba a si mismo mientras corre.
+    New-Item -ItemType Directory -Force -Path "$InstallDir\tools" | Out-Null
+    Copy-Item -Path "$InstallerPath\setup\*.ps1" -Destination "$InstallDir\tools\" -Force -ErrorAction SilentlyContinue
+    if (Test-Path "$InstallerPath\setup\node") {
+        New-Item -ItemType Directory -Force -Path "$InstallDir\tools\node" | Out-Null
+        Copy-Item -Path "$InstallerPath\setup\node\*" -Destination "$InstallDir\tools\node\" -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    $argsAct = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $actualizador,
+                 "-InstallDir", $InstallDir, "-Paquete", $InstallerPath, "-SiSinPreguntar")
+    & powershell @argsAct
+    exit $LASTEXITCODE
+}
 
 # Detectar modo de instalacion (local o online)
 $InstallMode = "local"
@@ -132,6 +177,15 @@ Copy-Item -Path "$InstallerPath\app\database" -Destination "$InstallDir\database
 
 # Copiar scripts y version
 Copy-Item -Path "$InstallerPath\setup\*.ps1" -Destination "$InstallDir\tools\" -Force
+# Herramientas de mantenimiento en Node (respaldo, imagenes, ajustes, Excel).
+# Usan mysql2 y exceljs del propio backend, asi que no instalan nada extra.
+if (Test-Path "$InstallerPath\setup\node") {
+    New-Item -ItemType Directory -Force -Path "$InstallDir\tools\node" | Out-Null
+    Copy-Item -Path "$InstallerPath\setup\node\*" -Destination "$InstallDir\tools\node\" -Recurse -Force
+    Write-Log "  Herramientas de respaldo y mantenimiento copiadas" "Gray"
+} else {
+    Write-Log "  ADVERTENCIA: el paquete no trae setup\node (sin respaldos automaticos)" "Yellow"
+}
 Copy-Item -Path "$InstallerPath\version.json" -Destination "$InstallDir\" -Force
 Copy-Item -Path "$InstallerPath\DESINSTALAR.bat"   -Destination "$InstallDir\" -Force
 if (Test-Path "$InstallerPath\DIAGNOSTICO.bat") {
@@ -158,6 +212,69 @@ pause
 powershell -ExecutionPolicy Bypass -File "%~dp0tools\services.ps1" -Action status
 pause
 "@ | Set-Content "$InstallDir\ESTADO.bat"
+
+# --- BATs de respaldo y mantenimiento -----------------------------------------
+# Van en la raiz para que se abran con doble clic, sin escribir comandos.
+@"
+@echo off
+title POS-iaDoS - Respaldar
+net session >nul 2>&1 || (powershell -Command "Start-Process '%~f0' -Verb RunAs" & exit /b)
+echo.
+echo   Se va a respaldar TODO: base de datos, imagenes, Excel y ajustes.
+echo   No se borra nada. El sistema se detiene unos segundos.
+echo.
+powershell -ExecutionPolicy Bypass -File "%~dp0tools\respaldar.ps1" -InstallDir "%~dp0." -Etiqueta manual
+echo.
+pause
+"@ | Set-Content "$InstallDir\RESPALDAR.bat"
+
+@"
+@echo off
+title POS-iaDoS - Regresar a un respaldo
+net session >nul 2>&1 || (powershell -Command "Start-Process '%~f0' -Verb RunAs" & exit /b)
+echo.
+echo   Esto REGRESA el sistema a como estaba en un respaldo anterior.
+echo   Antes de hacerlo guarda el estado de hoy, para poder volver.
+echo.
+powershell -ExecutionPolicy Bypass -File "%~dp0tools\revertir.ps1" -InstallDir "%~dp0." -Listar
+echo.
+set /p CARPETA="  Nombre de la carpeta del respaldo (Enter para salir): "
+if "%CARPETA%"=="" exit /b
+powershell -ExecutionPolicy Bypass -File "%~dp0tools\revertir.ps1" -InstallDir "%~dp0." -Respaldo "%~dp0backups\%CARPETA%"
+echo.
+pause
+"@ | Set-Content "$InstallDir\REVERTIR.bat"
+
+@"
+@echo off
+title POS-iaDoS - Mantenimiento
+net session >nul 2>&1 || (powershell -Command "Start-Process '%~f0' -Verb RunAs" & exit /b)
+powershell -ExecutionPolicy Bypass -File "%~dp0tools\mantenimiento.ps1" -InstallDir "%~dp0."
+"@ | Set-Content "$InstallDir\MANTENIMIENTO.bat"
+
+@"
+@echo off
+title POS-iaDoS - Actualizar
+net session >nul 2>&1 || (powershell -Command "Start-Process '%~f0' -Verb RunAs" & exit /b)
+echo.
+echo   Para actualizar hay dos caminos:
+echo.
+echo     1) Ejecutar el instalador nuevo (el .exe). Detecta que ya esta
+echo        instalado, respalda todo y actualiza sin borrar datos.
+echo.
+echo     2) Desde el sistema: Configuracion ^> Mantenimiento ^> Actualizar
+echo.
+echo   Si ya tienes la carpeta de un paquete de actualizacion, escribela
+echo   aqui. Si no, cierra esta ventana y usa el .exe.
+echo.
+set /p PAQUETE="  Carpeta del paquete (Enter para salir): "
+if "%PAQUETE%"=="" exit /b
+powershell -ExecutionPolicy Bypass -File "%~dp0tools\actualizar.ps1" -InstallDir "%~dp0." -Paquete "%PAQUETE%"
+echo.
+pause
+"@ | Set-Content "$InstallDir\ACTUALIZAR.bat"
+
+New-Item -ItemType Directory -Force -Path "$InstallDir\backups" | Out-Null
 
 Write-Log "Archivos copiados" "Green"
 
@@ -436,9 +553,19 @@ if ($adminEmailTrim -ne "" -and $adminEmailTrim.Contains("@")) {
         $eSlug    = "$slugNeg-$slugSuffix"
         $eLic     = $licCodigo      -replace "'", "''"
 
-        # Bloque TRUNCATE solo si no se pidieron datos demo
+        # Bloque TRUNCATE solo si no se pidieron datos demo.
+        #
+        # DOBLE SEGURO: ademas exige que sea una instalacion NUEVA. Este bloque
+        # existe para limpiar los datos de demostracion del seed antes de dar
+        # de alta al cliente real; si el equipo ya estaba instalado, esas
+        # tablas traen el negocio del cliente y vaciarlas seria perderlo todo.
+        # La rama de actualizacion ya sale del script antes de llegar aqui;
+        # esto es el seguro por si alguien corre install.ps1 a mano.
         $truncateBlock = ""
-        if ($InstallDemoData -ne "1") {
+        if ($InstallDemoData -ne "1" -and -not $EsInstalacionNueva) {
+            Write-Log "  Instalacion existente detectada: NO se limpia ninguna tabla." "Yellow"
+        }
+        if ($InstallDemoData -ne "1" -and $EsInstalacionNueva) {
             $truncateBlock = @"
 
 -- Limpiar datos demo antes de insertar datos reales del cliente
@@ -477,10 +604,16 @@ INSERT INTO ``tiendas`` (tenant_id, empresa_id, nombre, zona_horaria, activo, cr
   CONCAT('$eSlug-', FLOOR(RAND()*9000+1000)), 0, 0);
 SET @s = LAST_INSERT_ID();
 
+-- Licencia PERMANENTE. fecha_fin en NULL y permanente = 1 es lo que hace que
+-- LicenciaGuard nunca bloquee: sin esto el equipo deja de poder vender a los
+-- 30 dias y le pide un codigo de activacion, que es justo lo que no queremos
+-- en una instalacion sin internet. machine_locked se queda en 0 a proposito,
+-- para que cambiar de computadora o de disco no invalide la licencia.
 INSERT INTO ``licencias`` (tenant_id, codigo_instalacion, plan, features, max_tiendas, max_usuarios,
-  fecha_inicio, fecha_fin, grace_days, offline_allowed, estado, created_at, updated_at)
+  fecha_inicio, fecha_fin, grace_days, offline_allowed, estado, permanente, machine_locked,
+  activated_at, created_at, updated_at)
   VALUES (@t, '$eLic', 'pro', '["pos","caja","pedidos","reportes","dashboard"]',
-  5, 20, '$hoy', DATE_ADD('$hoy', INTERVAL 30 DAY), 30, 1, 'trial', NOW(), NOW());
+  5, 20, '$hoy', NULL, 30, 1, 'activa', 1, 0, NOW(), NOW(), NOW());
 
 INSERT INTO ``users`` (tenant_id, empresa_id, tienda_id, nombre, email, password, rol, pin, activo, created_at, updated_at)
   VALUES (@t, @e, @s, 'Administrador', '$eEmail', '$eHAdmin', 'admin', '0000', 1, NOW(), NOW());
@@ -774,6 +907,14 @@ Write-Host "  Logs:    $InstallDir\logs\" -ForegroundColor Gray
 Write-Host ""
 Write-Host "  Gestion de servicios:" -ForegroundColor Gray
 Write-Host "    INICIAR.bat | DETENER.bat | ESTADO.bat | DESINSTALAR.bat" -ForegroundColor Gray
+Write-Host ""
+Write-Host "  Respaldos y mantenimiento:" -ForegroundColor White
+Write-Host "    RESPALDAR.bat      respalda base, imagenes, Excel y ajustes" -ForegroundColor Green
+Write-Host "    REVERTIR.bat       regresa a un respaldo anterior" -ForegroundColor Green
+Write-Host "    MANTENIMIENTO.bat  menu con todo (diagnostico incluido)" -ForegroundColor Green
+Write-Host "    ACTUALIZAR.bat     actualiza sin borrar datos" -ForegroundColor Green
+Write-Host ""
+Write-Host "  Se recomienda correr RESPALDAR.bat una vez por semana." -ForegroundColor Cyan
 Write-Host ""
 
 # Abrir navegador

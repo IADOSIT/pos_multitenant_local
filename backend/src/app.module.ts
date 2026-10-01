@@ -40,6 +40,7 @@ import { CotizacionesModule } from './modules/cotizaciones/cotizaciones.module';
 import { LogisticaModule } from './modules/logistica/logistica.module';
 import { EmpleadosModule } from './modules/empleados/empleados.module';
 import { BasculaModule } from './modules/bascula/bascula.module';
+import { MantenimientoModule } from './modules/mantenimiento/mantenimiento.module';
 import { ApartadosModule } from './modules/apartados/apartados.module';
 import { TransferenciasModule } from './modules/transferencias/transferencias.module';
 import { MonitorModule } from './modules/monitor/monitor.module';
@@ -99,6 +100,7 @@ const _serveStatic = existsSync(_staticRoot);
     LogisticaModule,
     EmpleadosModule,
     BasculaModule,
+    MantenimientoModule,
     ApartadosModule,
     TransferenciasModule,
     MonitorModule,
