@@ -10,6 +10,21 @@ param(
 $ErrorActionPreference = "Stop"
 $NSSM = "$InstallDir\tools\nssm.exe"
 
+# Puertos reales de este equipo. install.ps1 pudo haberlos movido (el backend
+# a 3001-3040, MariaDB a 3307+) si los de fabrica estaban ocupados, y lo deja
+# anotado en el .env. Leerlos de ahi evita reportar CERRADO un puerto que esta
+# abierto y evita imprimir una URL que no abre.
+$AppPort = 3000
+$DbPort  = 3306
+$envFile = Join-Path $InstallDir "backend\.env"
+if (Test-Path $envFile) {
+    foreach ($linea in (Get-Content $envFile -ErrorAction SilentlyContinue)) {
+        if ($linea -match '^\s*APP_PORT\s*=\s*(\d+)') { $AppPort = [int]$Matches[1] }
+        if ($linea -match '^\s*DB_PORT\s*=\s*(\d+)')  { $DbPort  = [int]$Matches[1] }
+    }
+}
+
+
 function Wait-ForPort {
     param([int]$Port, [int]$TimeoutSeconds = 60)
     $elapsed = 0
@@ -39,8 +54,8 @@ if (-not (Test-Path "$InstallDir\version.json")) {
     exit 1
 }
 
-$currentVersion = (Get-Content "$InstallDir\version.json" | ConvertFrom-Json).version
-$patchInfo = Get-Content "$PatchPath\version.json" | ConvertFrom-Json
+$currentVersion = (Get-Content "$InstallDir\version.json" -Encoding UTF8 | ConvertFrom-Json).version
+$patchInfo = Get-Content "$PatchPath\version.json" -Encoding UTF8 | ConvertFrom-Json
 $newVersion = $patchInfo.version
 
 Write-Host "  Version actual:  $currentVersion" -ForegroundColor White
@@ -100,7 +115,7 @@ if (Test-Path "$PatchPath\app\database") {
 $migrationFile = "$PatchPath\app\database\migration-$newVersion.sql"
 if (Test-Path $migrationFile) {
     Write-Host "    Ejecutando migracion SQL..." -ForegroundColor Gray
-    $envFile = Get-Content "$InstallDir\backend\.env" | ConvertFrom-StringData
+    $envFile = Get-Content "$InstallDir\backend\.env" -Encoding UTF8 | ConvertFrom-StringData
     $MYSQL = "$InstallDir\mariadb\bin\mysql.exe"
     $ErrorActionPreference = "SilentlyContinue"
     Get-Content $migrationFile -Raw | & $MYSQL -u $envFile.DB_USERNAME -p"$($envFile.DB_PASSWORD)" --host=127.0.0.1 --port=$($envFile.DB_PORT) $envFile.DB_DATABASE 2>&1
@@ -128,5 +143,5 @@ Write-Host "  ============================================" -ForegroundColor Gre
 Write-Host "   Actualizado a v$newVersion" -ForegroundColor Green
 Write-Host "  ============================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "  URL: http://localhost:3000" -ForegroundColor White
+Write-Host "  URL: http://localhost:${AppPort}" -ForegroundColor White
 Write-Host ""

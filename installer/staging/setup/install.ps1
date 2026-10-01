@@ -9,7 +9,20 @@ param(
     [int]$BackendPort = 3000,
     [string]$InstallDemoData = "0",
     [string]$AdminEmail = "",
-    [string]$NombreNegocio = ""
+    [string]$NombreNegocio = "",
+    # Ultimo recurso, nunca automatico: permite sembrar sobre una base que YA
+    # tiene datos. Los seeds empiezan con TRUNCATE TABLE, asi que sin esto el
+    # instalador se niega a tocar una base con operacion adentro.
+    [switch]$ForzarSembrado,
+    # Si el puerto de MariaDB o del backend esta ocupado, buscar otro libre en
+    # lugar de abortar. Encendido por omision porque el equipo se opera remoto.
+    [bool]$BuscarPuertoLibre = $true,
+    # Solo se usa en el camino de ACTUALIZACION: se le pasa a actualizar.ps1
+    # para saltarse el ensayo previo. Existe porque si el ensayo no se puede
+    # completar por una razon del entorno, sin esto el EXE fallaria igual cada
+    # vez y no habria manera de actualizar el equipo a distancia. El respaldo
+    # y el auto-revertir siguen activos.
+    [switch]$SinEnsayo
 )
 
 $ErrorActionPreference = "Stop"
@@ -19,6 +32,24 @@ $DB_USER = "pos_iados"
 $DB_PASS = "pos_iados_2024"
 $DB_ROOT_PASS = "P0s_R00t_2024!"
 
+# Escribe texto en UTF-8 de verdad, SIN marca de orden de bytes.
+#
+# "Set-Content -Encoding UTF8" en el PowerShell que trae Windows mete tres
+# bytes invisibles (EF BB BF) al principio del archivo. En un .json eso hace
+# que JSON.parse del backend truene y, como el catch devuelve null callado, un
+# respaldo bueno se muestra como incompleto y sin forma de revertir. Nunca se
+# usa Set-Content -Encoding UTF8 en este paquete; se usa esta funcion.
+function Set-TextoSinBOM {
+    param(
+        [Parameter(Mandatory = $true)][string]$Ruta,
+        [Parameter(Mandatory = $true)][AllowEmptyString()][AllowNull()]$Texto
+    )
+    if ($Texto -is [array]) { $Texto = ($Texto -join "`r`n") }
+    if ($null -eq $Texto)   { $Texto = "" }
+    $sinBOM = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($Ruta, [string]$Texto, $sinBOM)
+}
+
 function Write-Log {
     param([string]$Message, [string]$Color = "White")
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -26,6 +57,56 @@ function Write-Log {
     Write-Host "  $Message" -ForegroundColor $Color
     if (Test-Path (Split-Path $LOG_FILE)) {
         Add-Content -Path $LOG_FILE -Value $logMsg
+    }
+}
+
+function Esperar-ServicioBorrado {
+    param([string]$Nombre, [int]$TimeoutSeconds = 45)
+    $fin = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $fin) {
+        $sc = & sc.exe query $Nombre 2>&1
+        if ("$sc" -match "1060") { return $true }
+        if ("$sc" -notmatch "DELETE_PENDING|marcado") {
+            & sc.exe delete $Nombre 2>&1 | Out-Null
+        }
+        Start-Sleep -Seconds 3
+    }
+    return $false
+}
+
+function Puerto-Ocupado {
+    param([int]$Port)
+    # Se prueba una conexion real en lugar de Get-NetTCPConnection porque esto
+    # tiene que funcionar igual si el que escucha es un servicio, un contenedor
+    # o un programa suelto.
+    try {
+        $tcp = New-Object System.Net.Sockets.TcpClient
+        $tcp.Connect("127.0.0.1", $Port)
+        $tcp.Close()
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+function Puerto-Libre {
+    param([int]$Desde, [int]$Intentos = 40)
+    for ($p = $Desde; $p -lt ($Desde + $Intentos); $p++) {
+        if (-not (Puerto-Ocupado -Port $p)) { return $p }
+    }
+    return 0
+}
+
+function Quien-Escucha {
+    param([int]$Port)
+    # Solo para el reporte: saber QUE programa tiene el puerto ahorra una
+    # sesion de adivinanzas cuando el equipo se atiende a distancia.
+    try {
+        $c = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction Stop | Select-Object -First 1
+        $pr = Get-Process -Id $c.OwningProcess -ErrorAction Stop
+        return "$($pr.ProcessName) (PID $($pr.Id))"
+    } catch {
+        return "un programa que no se pudo identificar"
     }
 }
 
@@ -79,16 +160,95 @@ $InstallerPath = $InstallerPath.Trim('"').TrimEnd('\')
 # $EsInstalacionNueva se calcula AQUI, antes de copiar nada, y despues se usa
 # como seguro del bloque que limpia datos demo.
 # =============================================================================
-$EsInstalacionNueva = -not (Test-Path "$InstallDir\version.json")
+# Antes esto dependia de un solo archivo: version.json. Si ese archivo faltaba
+# (instalacion vieja que no lo escribia, archivo borrado, carpeta distinta), el
+# instalador se creia en una maquina limpia y seguia por el camino de
+# instalacion nueva, que corre 04_seed_pruebas.sql, y ese archivo empieza con
+# 16 TRUNCATE TABLE. O sea: un archivo de menos y el cliente se queda sin
+# usuarios, sin productos, sin tiendas y sin licencia.
+#
+# Ahora se busca CUALQUIER senal de que este equipo ya opera. Una sola alcanza
+# para irse por el camino de actualizacion, que no borra nada.
+# -----------------------------------------------------------------------------
+# El EXE instala en C:\POS-iaDoS y no deja escoger carpeta. Pero si el cliente
+# tiene su instalacion en otra ruta (D:\POS-iaDoS, otra letra de disco, una
+# instalacion vieja movida de lugar), este script no encontraria ninguna senal
+# en C:\POS-iaDoS, se creeria en un equipo nuevo, y sembraria datos de ejemplo
+# -con TRUNCATE- mientras su sistema real sigue en la otra carpeta.
+#
+# Los servicios de Windows saben la ruta verdadera: nssm guarda el programa y
+# su carpeta de trabajo en el registro. Se le pregunta a el.
+# -----------------------------------------------------------------------------
+function Obtener-RutaInstalada {
+    foreach ($svc in @("PosIaDos-Backend", "PosIaDos-MariaDB")) {
+        $llave = "HKLM:\SYSTEM\CurrentControlSet\Services\$svc\Parameters"
+        if (-not (Test-Path $llave)) { continue }
+        $par = Get-ItemProperty -Path $llave -ErrorAction SilentlyContinue
+        foreach ($valor in @($par.AppDirectory, $par.Application)) {
+            if (-not $valor) { continue }
+            # AppDirectory = <InstallDir>\backend ; Application = <InstallDir>\node\node.exe
+            # o <InstallDir>\mariadb\bin\mysqld.exe. En todos los casos basta
+            # subir hasta la carpeta que tenga backend\ o mariadb\ adentro.
+            $d = $valor
+            if (Test-Path $d -PathType Leaf) { $d = Split-Path -Parent $d }
+            for ($i = 0; $i -lt 4 -and $d; $i++) {
+                if ((Test-Path (Join-Path $d "backend")) -or (Test-Path (Join-Path $d "mariadb"))) {
+                    return $d
+                }
+                $d = Split-Path -Parent $d
+            }
+        }
+    }
+    return ""
+}
+
+$rutaReal = Obtener-RutaInstalada
+if ($rutaReal -and ($rutaReal.TrimEnd("\") -ne $InstallDir.TrimEnd("\"))) {
+    Write-Host ""
+    Write-Host "  Los servicios de POS-iaDoS apuntan a otra carpeta:" -ForegroundColor Yellow
+    Write-Host "    esperada : $InstallDir" -ForegroundColor Gray
+    Write-Host "    real     : $rutaReal" -ForegroundColor Yellow
+    Write-Host "  Se va a trabajar sobre la carpeta real, que es donde esta su" -ForegroundColor Green
+    Write-Host "  informacion. Instalar en la otra carpeta habria sembrado datos" -ForegroundColor Green
+    Write-Host "  de ejemplo y dejado dos instalaciones peleandose el puerto." -ForegroundColor Green
+    Write-Host ""
+    $InstallDir = $rutaReal
+    $LOG_FILE   = "$InstallDir\logs\install.log"
+}
+
+$senales = @()
+if (Test-Path "$InstallDir\version.json")             { $senales += "version.json" }
+if (Test-Path "$InstallDir\backend\.env")             { $senales += "backend\.env (configuracion del cliente)" }
+if (Test-Path "$InstallDir\backend\uploads")          { $senales += "backend\uploads (imagenes del cliente)" }
+if (Test-Path "$InstallDir\mariadb\data\pos_iados")   { $senales += "mariadb\data\pos_iados (la base de datos)" }
+if (Test-Path "$InstallDir\backups")                  { $senales += "carpeta backups" }
+foreach ($svc in @("PosIaDos-Backend", "PosIaDos-MariaDB")) {
+    if (Get-Service -Name $svc -ErrorAction SilentlyContinue) { $senales += "servicio $svc" }
+}
+
+$EsInstalacionNueva = ($senales.Count -eq 0)
 
 if (-not $EsInstalacionNueva) {
     $currentVer = "desconocida"
-    try { $currentVer = (Get-Content "$InstallDir\version.json" -Raw | ConvertFrom-Json).version } catch {}
+    try { $currentVer = (Get-Content "$InstallDir\version.json" -Raw -Encoding UTF8 | ConvertFrom-Json).version } catch {}
 
     Write-Host ""
-    Write-Host "  Ya hay POS-iaDoS v$currentVer instalado en $InstallDir" -ForegroundColor Yellow
+    Write-Host "  Este equipo YA tiene POS-iaDoS trabajando (version: $currentVer)." -ForegroundColor Yellow
+    Write-Host "  Se detecto por:" -ForegroundColor Gray
+    foreach ($sn in ($senales | Select-Object -Unique)) { Write-Host "    - $sn" -ForegroundColor Gray }
+    Write-Host ""
     Write-Host "  Se va a ACTUALIZAR. No se borra ningun dato." -ForegroundColor Green
     Write-Host ""
+
+    # Nombre del EXE para la pista de ayuda. Si el instalador se corrio desde
+    # el .exe, Inno deja su ruta en este variable de entorno; si no, se usa el
+    # nombre publicado.
+    $InstallerExeHint = "POS-iaDoS-Local.exe"
+    try {
+        $padre = (Get-CimInstance Win32_Process -Filter "ProcessId=$PID" -ErrorAction Stop).ParentProcessId
+        $rutaPadre = (Get-CimInstance Win32_Process -Filter "ProcessId=$padre" -ErrorAction Stop).ExecutablePath
+        if ($rutaPadre -and $rutaPadre -like "*.exe") { $InstallerExeHint = $rutaPadre }
+    } catch { }
 
     $actualizador = Join-Path $InstallerPath "setup\actualizar.ps1"
     if (-not (Test-Path $actualizador)) {
@@ -111,11 +271,34 @@ if (-not $EsInstalacionNueva) {
 
     $argsAct = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $actualizador,
                  "-InstallDir", $InstallDir, "-Paquete", $InstallerPath, "-SiSinPreguntar")
+    if ($SinEnsayo) {
+        Write-Host "  Se pidio /SINENSAYO: se actualiza sin la prueba previa." -ForegroundColor Yellow
+        Write-Host "  El respaldo y el revertir automatico siguen activos." -ForegroundColor Yellow
+        Write-Host ""
+        $argsAct += "-SinEnsayo"
+    }
     & powershell @argsAct
-    exit $LASTEXITCODE
+    $codigoAct = $LASTEXITCODE
+
+    # Si la actualizacion se corto porque el ensayo no se pudo completar, aqui
+    # se dice en una linea como salir del paso. Sin esto, el reporte termina
+    # pidiendo un parametro que desde el EXE no se podia pasar.
+    if ($codigoAct -eq 1) {
+        Write-Host ""
+        Write-Host "  Si el motivo fue que el ENSAYO no se pudo completar (no que" -ForegroundColor Yellow
+        Write-Host "  el ensayo dijera que no), se puede actualizar saltandoselo." -ForegroundColor Yellow
+        Write-Host "  Abre una ventana de comandos como Administrador y corre:" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "     ""$InstallerExeHint"" /SINENSAYO" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "  El respaldo previo y el revertir automatico siguen activos." -ForegroundColor Yellow
+        Write-Host ""
+    }
+    exit $codigoAct
 }
 
-# Detectar modo de instalacion (local o online)
+# Detectar modo de instalacion (local o online). Se lee ANTES de la revision
+# previa porque de el depende si hace falta MariaDB en el paquete.
 $InstallMode = "local"
 $ModeFile = Join-Path $InstallerPath "install-mode.txt"
 if (Test-Path $ModeFile) {
@@ -123,11 +306,139 @@ if (Test-Path $ModeFile) {
 }
 Write-Log "Modo de instalacion: $InstallMode" "Cyan"
 
+# =============================================================================
+# PASO 0: REVISION PREVIA DEL EQUIPO
+#
+# Todo lo que se revisa aqui es algo que ya tumbo una instalacion antes. Se
+# hace ANTES de copiar un solo archivo, para que un equipo que no cumple no
+# quede a medio instalar. Pensado para Windows 11 Pro de 64 bits.
+# =============================================================================
+Write-Log "Paso 0: Revisando el equipo..." "Yellow"
+
+$problemas = @()
+
+# --- 1. Arquitectura -------------------------------------------------------
+# El MariaDB y el Node que lleva el paquete son de 64 bits. En un Windows de
+# 32 bits ninguno arranca y el error que da Windows no explica por que.
+if ([System.Environment]::Is64BitOperatingSystem) {
+    Write-Log "  Windows de 64 bits: OK" "Green"
+} else {
+    $problemas += "Este Windows es de 32 bits. POS-iaDoS on-premise requiere 64 bits."
+}
+
+$verWin = "desconocida"
+try { $verWin = (Get-CimInstance Win32_OperatingSystem).Caption } catch { }
+Write-Log "  Sistema: $verWin" "Gray"
+
+# --- 2. Universal CRT ------------------------------------------------------
+# mysqld.exe importa api-ms-win-crt-*.dll. OJO: esos nombres NO son archivos,
+# son "api sets" que Windows traduce en memoria a ucrtbase.dll; en System32 no
+# existe ningun api-ms-win-crt-*.dll y aun asi MariaDB corre. Por eso aqui se
+# busca ucrtbase.dll, que si es el archivo real de la Universal CRT.
+# Windows 10 y 11 la traen de fabrica. Si de verdad faltara, MariaDB no
+# arrancaria, pero no se aborta por esto: se avisa y se sigue, porque una
+# comprobacion de requisitos no debe ser mas estricta que la realidad.
+$ucrt = @("$env:SystemRoot\System32\ucrtbase.dll",
+          "$env:SystemRoot\System32\downlevel\api-ms-win-crt-runtime-l1-1-0.dll")
+if ($ucrt | Where-Object { Test-Path $_ }) {
+    Write-Log "  Librerias del sistema (Universal CRT): OK" "Green"
+} else {
+    Write-Log "  AVISO: no se encontro ucrtbase.dll (Universal CRT)." "Yellow"
+    Write-Log "  Si MariaDB no arranca, instala las actualizaciones de Windows." "Yellow"
+    Write-Log "  La instalacion continua: este aviso no la detiene." "Yellow"
+}
+
+# --- 3. Espacio en disco ---------------------------------------------------
+# El programa pesa ~450 MB, pero cada respaldo guarda base + imagenes + Excel.
+# Sin margen, el primer respaldo truena a la mitad y deja un .sql incompleto,
+# que es peor que no tener respaldo porque parece que si hay.
+$unidad = (Split-Path -Qualifier $InstallDir)
+try {
+    $libreGB = [math]::Round((Get-PSDrive -Name $unidad.TrimEnd(":")).Free / 1GB, 1)
+    if ($libreGB -ge 5) {
+        Write-Log "  Espacio libre en $unidad $libreGB GB: OK" "Green"
+    } elseif ($libreGB -ge 2) {
+        Write-Log "  AVISO: solo hay $libreGB GB libres en $unidad. Alcanza para instalar," "Yellow"
+        Write-Log "  pero los respaldos se van a quedar sin espacio pronto." "Yellow"
+    } else {
+        $problemas += "Solo hay $libreGB GB libres en $unidad. Se necesitan al menos 2 GB (recomendado 5 GB para respaldos)."
+    }
+} catch {
+    Write-Log "  No se pudo medir el espacio libre en $unidad (se continua)" "Gray"
+}
+
+# --- 4. Permiso real de escritura -----------------------------------------
+# El Acceso Controlado a Carpetas de Windows 11 y algunos antivirus dejan
+# crear la carpeta pero bloquean escribir dentro. Se comprueba de verdad.
+try {
+    New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+    # La carpeta de logs se crea aqui a proposito: Write-Log solo escribe al
+    # archivo si ya existe, y este reporte previo es justo el que hay que poder
+    # mandar cuando el equipo se atiende a distancia.
+    New-Item -ItemType Directory -Force -Path "$InstallDir\logs" | Out-Null
+    $pruebaEsc = Join-Path $InstallDir ".prueba-escritura"
+    "ok" | Set-Content $pruebaEsc -ErrorAction Stop
+    Remove-Item $pruebaEsc -Force -ErrorAction SilentlyContinue
+    Write-Log "  Permiso de escritura en ${InstallDir}: OK" "Green"
+} catch {
+    $problemas += "No se puede escribir en $InstallDir. Revisa 'Acceso controlado a carpetas' en Seguridad de Windows o el antivirus, y corre el instalador como Administrador."
+}
+
+# --- 5. Puerto del backend -------------------------------------------------
+# El 3000 lo usan muchas cosas (otro Node, Grafana, un dev server olvidado).
+# Si esta tomado, antes el servicio arrancaba y moria callado. Ahora se elige
+# otro puerto AQUI, antes de escribir el .env y antes de CREDENCIALES.txt, que
+# es donde el cliente lee la direccion para entrar.
+if (Puerto-Ocupado -Port $BackendPort) {
+    $quienBack = Quien-Escucha -Port $BackendPort
+    Write-Log "  El puerto $BackendPort ya lo usa $quienBack." "Yellow"
+    if (-not $BuscarPuertoLibre) {
+        $problemas += "El puerto $BackendPort esta ocupado por $quienBack."
+    } else {
+        $nuevoPuertoApp = Puerto-Libre -Desde 3001
+        if ($nuevoPuertoApp -eq 0) {
+            $problemas += "No se encontro ningun puerto libre entre 3001 y 3040 para el sistema."
+        } else {
+            $BackendPort = $nuevoPuertoApp
+            Write-Log "  POS-iaDoS se abrira en el puerto $BackendPort" "Green"
+        }
+    }
+} else {
+    Write-Log "  Puerto $BackendPort libre: OK" "Green"
+}
+
+# --- 6. Piezas del paquete -------------------------------------------------
+# Si el EXE se extrajo a medias (antivirus, disco lleno, copia por red), mejor
+# saberlo ahora que a la mitad de la instalacion.
+$piezas = @(
+    @{ R = "$InstallerPath\app\backend\dist\main.js"; N = "programa (backend)" },
+    @{ R = "$InstallerPath\runtime\node\node.exe";    N = "Node.js" },
+    @{ R = "$InstallerPath\runtime\nssm.exe";         N = "administrador de servicios" }
+)
+if ($InstallMode -ne "online") {
+    $piezas += @{ R = "$InstallerPath\runtime\mariadb\bin\mysqld.exe"; N = "base de datos MariaDB" }
+}
+foreach ($pz in $piezas) {
+    if (-not (Test-Path $pz.R)) { $problemas += "El paquete no trae: $($pz.N) ($($pz.R))" }
+}
+
+# --- Veredicto -------------------------------------------------------------
+if ($problemas.Count -gt 0) {
+    Write-Log "" "Red"
+    Write-Log "INSTALACION CANCELADA. No se cambio nada en el equipo." "Red"
+    Write-Log "" "Red"
+    foreach ($pb in $problemas) { Write-Log "  - $pb" "Red" }
+    Write-Log "" "Red"
+    Write-Log "Manda esta pantalla completa (o el archivo $LOG_FILE) para resolverlo." "Yellow"
+    exit 1
+}
+Write-Log "Equipo revisado: se puede instalar" "Green"
+
 # Leer version del paquete
 $AppVersion = ""
 $versionFile = Join-Path $InstallerPath "version.json"
 if (Test-Path $versionFile) {
-    $AppVersion = (Get-Content $versionFile -Raw | ConvertFrom-Json).version
+    $AppVersion = (Get-Content $versionFile -Raw -Encoding UTF8 | ConvertFrom-Json).version
 }
 
 # Numero de pasos segun modo
@@ -299,6 +610,23 @@ echo.
 pause
 "@ | Set-Content "$InstallDir\ENSAYAR.bat"
 
+# --- REVISAR.bat ---------------------------------------------------------------
+# Revisa el equipo sin cambiar NADA y deja un reporte de texto. Es lo primero
+# que se pide cuando el equipo se opera a distancia y no se puede ver.
+@"
+@echo off
+title POS-iaDoS - Revisar el equipo
+echo.
+echo   Esta revision SOLO LEE. No detiene el sistema, no toca la base de
+echo   datos, no borra nada. Deja un reporte de texto al terminar.
+echo.
+powershell -ExecutionPolicy Bypass -File "%~dp0tools\revisar-equipo.ps1" -InstallDir "%~dp0."
+echo.
+echo   El reporte quedo en REVISION-EQUIPO.txt
+echo.
+pause
+"@ | Set-Content "$InstallDir\REVISAR.bat"
+
 New-Item -ItemType Directory -Force -Path "$InstallDir\backups" | Out-Null
 
 Write-Log "Archivos copiados" "Green"
@@ -316,6 +644,34 @@ $MARIADB_DIR = "$InstallDir\mariadb"
 $MARIADB_DATA = "$InstallDir\mariadb\data"
 $MYSQLD = "$MARIADB_DIR\bin\mysqld.exe"
 $MYSQL = "$MARIADB_DIR\bin\mysql.exe"
+
+# -----------------------------------------------------------------------------
+# Puerto 3306 ocupado por OTRO servidor (XAMPP, Laragon, un MySQL que ya tenia
+# el equipo). Esto era el segundo camino a la catastrofe: nuestro mysqld no
+# arrancaba, Wait-ForPort veia el puerto abierto, lo daba por bueno, y los
+# seeds -que empiezan con TRUNCATE- se ejecutaban contra el servidor AJENO.
+# Si el puerto esta tomado y el que escucha no es nuestro servicio, nos
+# movemos a otro puerto y ahi no hay ninguna base que podamos arruinar.
+# -----------------------------------------------------------------------------
+$nuestroMariaDB = Get-Service -Name "PosIaDos-MariaDB" -ErrorAction SilentlyContinue
+if ((Puerto-Ocupado -Port $MariaDBPort) -and (-not $nuestroMariaDB -or $nuestroMariaDB.Status -ne "Running")) {
+    $quien = Quien-Escucha -Port $MariaDBPort
+    Write-Log "  El puerto $MariaDBPort ya lo esta usando $quien y no es nuestro MariaDB." "Yellow"
+
+    if (-not $BuscarPuertoLibre) {
+        Write-Log "ERROR: puerto $MariaDBPort ocupado por otro servidor de base de datos." "Red"
+        Write-Log "No se continua: sembrar contra ese servidor borraria datos ajenos." "Red"
+        exit 1
+    }
+
+    $nuevoPuertoDb = Puerto-Libre -Desde 3307
+    if ($nuevoPuertoDb -eq 0) {
+        Write-Log "ERROR: no se encontro ningun puerto libre entre 3307 y 3346." "Red"
+        exit 1
+    }
+    $MariaDBPort = $nuevoPuertoDb
+    Write-Log "  POS-iaDoS usara el puerto $MariaDBPort para su propia MariaDB." "Green"
+}
 
 # Crear my.ini
 $myIni = @"
@@ -366,12 +722,23 @@ $ErrorActionPreference = "SilentlyContinue"
 & $NSSM remove $SVC_MARIADB confirm 2>&1 | Out-Null
 $ErrorActionPreference = "Stop"
 
+# Windows deja el servicio "marcado para eliminacion" mientras algo tenga
+# abierto el administrador de servicios (services.msc, el Visor de eventos, el
+# antivirus). En ese estado nssm install falla y el instalador seguia de largo
+# dejando el POS sin base de datos. Se espera a que Windows lo suelte.
+Esperar-ServicioBorrado -Nombre $SVC_MARIADB | Out-Null
+
 & $NSSM install $SVC_MARIADB $MYSQLD "--defaults-file=$MARIADB_DIR\my.ini"
 & $NSSM set $SVC_MARIADB DisplayName "POS-iaDoS MariaDB"
 & $NSSM set $SVC_MARIADB Description "Servidor de base de datos MariaDB para POS-iaDoS"
 & $NSSM set $SVC_MARIADB Start SERVICE_AUTO_START
 & $NSSM set $SVC_MARIADB AppStdout "$InstallDir\logs\mariadb-stdout.log"
 & $NSSM set $SVC_MARIADB AppStderr "$InstallDir\logs\mariadb-stderr.log"
+# Misma rotacion que el backend: sin esto la bitacora de la base crece sin
+# limite en un equipo que nadie revisa, y el disco lleno la deja sin arrancar.
+& $NSSM set $SVC_MARIADB AppRotateFiles 1
+& $NSSM set $SVC_MARIADB AppRotateOnline 1
+& $NSSM set $SVC_MARIADB AppRotateBytes 10485760
 
 # Iniciar MariaDB
 Write-Log "  Iniciando MariaDB..." "Gray"
@@ -440,6 +807,133 @@ $ErrorActionPreference = "Stop"
 
 Write-Log "Base de datos '$DB_NAME' creada" "Green"
 
+# =============================================================================
+# COMPUERTA DE BASE VIRGEN  (el candado que no se puede saltar)
+#
+# 04_seed_pruebas.sql arranca con 16 TRUNCATE TABLE (tenants, empresas,
+# tiendas, licencias, users, categorias, productos, producto_tienda,
+# ticket_configs, cajas, gateway_configs, menu_digital_config, backup_configs,
+# mesas, mesa_asignaciones, mesas_juntas). Si eso corre sobre un negocio en
+# marcha se pierde TODO: usuarios, catalogo y la licencia.
+#
+# Llegar hasta aqui ya significa que no se detecto instalacion previa, pero eso
+# se juzga por archivos y servicios. Esta compuerta le pregunta a la unica
+# fuente que no miente: la base de datos. Si tiene una sola fila de operacion,
+# no se siembra. Punto.
+# =============================================================================
+$tablasCenso = @("users","productos","ventas","tenants","empresas","tiendas","pedidos","categorias","venta_detalles","movimientos_caja","producto_tienda","licencias")
+
+$ErrorActionPreference = "SilentlyContinue"
+$listaIn   = ($tablasCenso | ForEach-Object { "'" + $_ + "'" }) -join ","
+$sqlCenso  = "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA='" + $DB_NAME + "' AND TABLE_NAME IN (" + $listaIn + ");"
+$tablasHay = & $MYSQL -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort -N -e $sqlCenso 2>$null
+$ErrorActionPreference = "Stop"
+
+$filasPorTabla = @{}
+$filasTotales  = 0
+foreach ($t in @($tablasHay)) {
+    $tabla = "$t".Trim()
+    if ($tabla -eq "") { continue }
+    $ErrorActionPreference = "SilentlyContinue"
+    $sqlCuenta = "SELECT COUNT(*) FROM ``" + $tabla + "``;"
+    $n = & $MYSQL -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME -N -e $sqlCuenta 2>$null
+    $ErrorActionPreference = "Stop"
+    $num = 0
+    if ([int]::TryParse(("$n".Trim()), [ref]$num) -and $num -gt 0) {
+        $filasPorTabla[$tabla] = $num
+        $filasTotales += $num
+    }
+}
+
+$BaseVirgen = ($filasTotales -eq 0)
+
+if (-not $BaseVirgen) {
+    Write-Log "" "Yellow"
+    Write-Log "  ATENCION: la base '$DB_NAME' YA TIENE DATOS ($filasTotales filas)." "Yellow"
+    foreach ($k in ($filasPorTabla.Keys | Sort-Object)) {
+        Write-Log ("    {0,-22} {1,8} filas" -f $k, $filasPorTabla[$k]) "Gray"
+    }
+    Write-Log "" "Yellow"
+
+    if (-not $ForzarSembrado) {
+        Write-Log "INSTALACION CANCELADA A PROPOSITO. No se borro nada." "Red"
+        Write-Log "" "Red"
+        Write-Log "Este equipo parecia nuevo (no se hallo instalacion previa), pero la base" "Red"
+        Write-Log "de datos tiene operacion adentro. Sembrar los datos de ejemplo borraria" "Red"
+        Write-Log "esas $filasTotales filas y eso no se puede deshacer." "Red"
+        Write-Log "" "Red"
+        Write-Log "Que hacer:" "Yellow"
+        Write-Log "  - Si este equipo YA usaba POS-iaDoS: corre ACTUALIZAR.bat, no el" "Yellow"
+        Write-Log "    instalador. La actualizacion respalda y no borra nada." "Yellow"
+        Write-Log "  - Si de verdad quieres empezar de cero y perder esos datos: vuelve a" "Yellow"
+        Write-Log "    correr con -ForzarSembrado (respalda la base antes de sembrar)." "Yellow"
+        Write-Log "" "Yellow"
+        exit 1
+    }
+
+    # Camino explicito, nunca automatico: respaldo obligatorio ANTES de sembrar.
+    Write-Log "  -ForzarSembrado activo: se respalda la base antes de sembrar." "Yellow"
+    $selloResp = Get-Date -Format "yyyyMMdd-HHmmss"
+    $dirResp   = "$InstallDir\backups\antes-de-sembrar-$selloResp"
+    New-Item -ItemType Directory -Force -Path $dirResp | Out-Null
+    $MYSQLDUMP = "$MARIADB_DIR\bin\mysqldump.exe"
+    $archResp  = "$dirResp\base-datos.sql"
+
+    # El volcado se escribe con la salida redirigida, NUNCA por tuberia.
+    #
+    # Antes esta linea era:
+    #     & $MYSQLDUMP @argsDump | Set-Content -Encoding UTF8 $archResp
+    # y tenia dos fallas juntas. La tuberia de PowerShell convierte la salida
+    # de mysqldump a texto con la pagina de codigos de la consola y la vuelve a
+    # escribir, asi que todo acento y todo dato binario de su operacion quedaba
+    # alterado; y Set-Content -Encoding UTF8 agrega tres bytes invisibles al
+    # principio que hacen que mysql truene al restaurar, con un
+    # "error in your SQL syntax at line 1". Un respaldo corrompido y que
+    # tampoco se puede restaurar, tomado el instante antes de vaciar tablas.
+    #
+    # Redirigiendo la salida, los bytes de mysqldump llegan al archivo tal
+    # cual. La contrasena va en un archivo temporal y no en la linea de
+    # comandos, que es visible para cualquiera con el administrador de tareas.
+    $cnfTmp  = Join-Path $dirResp "cliente.cnf"
+    $errDump = Join-Path $dirResp "mysqldump-errores.txt"
+    $dumpOk  = $false
+    try {
+        Set-Content -Path $cnfTmp -Encoding ASCII -NoNewline `
+            -Value "[client]`r`nuser=$DB_USER`r`npassword=""$DB_PASS""`r`nhost=127.0.0.1`r`nport=$MariaDBPort`r`n"
+
+        $argsDump = @("--defaults-extra-file=$cnfTmp",
+                      "--single-transaction", "--routines", "--triggers", "--events",
+                      "--hex-blob", "--default-character-set=utf8mb4",
+                      "--add-drop-table", "--complete-insert",
+                      "--databases", $DB_NAME)
+
+        $pDump = Start-Process -FilePath $MYSQLDUMP -ArgumentList $argsDump `
+                    -RedirectStandardOutput $archResp -RedirectStandardError $errDump `
+                    -NoNewWindow -Wait -PassThru
+        if ($pDump.ExitCode -eq 0) { $dumpOk = $true }
+        else {
+            Write-Log "  mysqldump termino con codigo $($pDump.ExitCode)" "Red"
+            if (Test-Path $errDump) {
+                foreach ($l in (Get-Content $errDump -ErrorAction SilentlyContinue | Select-Object -First 6)) {
+                    Write-Log "    $l" "Red"
+                }
+            }
+        }
+    } finally {
+        if (Test-Path $cnfTmp) { Remove-Item -Path $cnfTmp -Force -ErrorAction SilentlyContinue }
+    }
+
+    if (-not $dumpOk -or -not (Test-Path $archResp) -or (Get-Item $archResp).Length -lt 1024) {
+        Write-Log "ERROR: el respaldo previo quedo vacio o no se pudo crear." "Red"
+        Write-Log "No se siembra sin respaldo. Cancelado, nada se borro." "Red"
+        exit 1
+    }
+    $mbResp = [math]::Round((Get-Item $archResp).Length / 1MB, 2)
+    Write-Log "  Respaldo guardado: $archResp ($mbResp MB)" "Green"
+} else {
+    Write-Log "  Base de datos vacia: se puede sembrar sin riesgo." "Green"
+}
+
 # Crear tablas con el orden de columnas correcto (sincronizado con seeds VPS)
 # IMPORTANTE: debe ejecutarse ANTES que el backend para que TypeORM no altere el orden
 $schemaFile = "$InstallDir\database\02_crear_tablas.sql"
@@ -474,8 +968,13 @@ if (Test-Path $seedFile03) {
     Write-Log "  ADVERTENCIA: No se encontro 03_seed_datos_iniciales.sql" "Yellow"
 }
 
+# Doble seguro: 04 es el unico seed con TRUNCATE. Ademas de la compuerta de
+# arriba, aqui se vuelve a exigir que la base estuviera vacia (o que se haya
+# forzado explicitamente, lo que ya dejo un respaldo en backups\).
 $seedFile04 = "$InstallDir\database\04_seed_pruebas.sql"
-if (Test-Path $seedFile04) {
+if ((Test-Path $seedFile04) -and -not ($BaseVirgen -or $ForzarSembrado)) {
+    Write-Log "  04_seed OMITIDO: la base tiene datos y ese seed borraria tablas." "Yellow"
+} elseif (Test-Path $seedFile04) {
     $ErrorActionPreference = "SilentlyContinue"
     Get-Content $seedFile04 -Raw | & $MYSQL -f -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME 2>&1 | Out-Null
     $ErrorActionPreference = "Stop"
@@ -752,7 +1251,7 @@ Tambien desde el sistema: Configuracion > Mantenimiento > Este equipo
 
 Ningun dato se borra en ninguna de estas opciones. Lo unico que sobrescribe
 es REVERTIR, y antes de hacerlo guarda el estado de hoy para poder volver.
-"@ | Set-Content "$InstallDir\CREDENCIALES.txt" -Encoding UTF8
+"@ | ForEach-Object { Set-TextoSinBOM -Ruta "$InstallDir\CREDENCIALES.txt" -Texto $_ }
         Write-Log "Credenciales guardadas en: $InstallDir\CREDENCIALES.txt" "Cyan"
         } # fin else SQL ok
 
@@ -784,7 +1283,7 @@ if ($InstallMode -eq "online") {
         $envContent = $envContent -replace 'APP_PORT=.*', "APP_PORT=$BackendPort"
         $envContent = $envContent -replace 'APP_HOST=.*', 'APP_HOST=0.0.0.0'
         $envContent += "`nINSTALL_MODE=online"
-        $envContent | Set-Content "$InstallDir\backend\.env" -Encoding UTF8
+        Set-TextoSinBOM -Ruta "$InstallDir\backend\.env" -Texto ($envContent -join "`r`n")
         Write-Log "  .env generado desde template online" "Gray"
     } else {
         Write-Log "ERROR: No se encontro backend.env.template para modo online" "Red"
@@ -827,6 +1326,10 @@ $ErrorActionPreference = "SilentlyContinue"
 & $NSSM remove $SVC_BACKEND confirm 2>&1 | Out-Null
 $ErrorActionPreference = "Stop"
 
+# Igual que con MariaDB: si Windows dejo el servicio en "borrado pendiente",
+# nssm install falla y el POS se quedaria sin servicio. Se espera a que lo suelte.
+Esperar-ServicioBorrado -Nombre $SVC_BACKEND | Out-Null
+
 & $NSSM install $SVC_BACKEND $NODE_EXE "dist\main.js"
 & $NSSM set $SVC_BACKEND DisplayName "POS-iaDoS Backend"
 & $NSSM set $SVC_BACKEND Description "Servidor API y Frontend para POS-iaDoS"
@@ -835,6 +1338,20 @@ $ErrorActionPreference = "Stop"
 & $NSSM set $SVC_BACKEND AppStdout "$InstallDir\logs\backend-stdout.log"
 & $NSSM set $SVC_BACKEND AppStderr "$InstallDir\logs\backend-stderr.log"
 & $NSSM set $SVC_BACKEND AppEnvironmentExtra "NODE_ENV=production"
+# IMPORTANTE: no matar el arbol de procesos al detener el servicio.
+# El boton "Actualizar" de la aplicacion lanza actualizar.ps1 como hijo
+# desprendido de este backend, y lo primero que hace ese script es detener
+# este mismo servicio. Con el valor de fabrica (1), nssm recorreria el arbol
+# y mataria al actualizador justo en ese momento: la actualizacion quedaria
+# a medias y tampoco correria el revertir automatico. Con 0, nssm detiene
+# unicamente el node.exe. Los node colgados los cierra actualizar.ps1 solo.
+& $NSSM set $SVC_BACKEND AppKillProcessTree 0
+# Rotar las bitacoras a los 10 MB. Este equipo opera sin que nadie lo mire
+# durante meses; sin rotacion estos archivos crecen hasta llenar el disco y
+# con el disco lleno la base no arranca.
+& $NSSM set $SVC_BACKEND AppRotateFiles 1
+& $NSSM set $SVC_BACKEND AppRotateOnline 1
+& $NSSM set $SVC_BACKEND AppRotateBytes 10485760
 
 # Iniciar backend
 Write-Log "  Iniciando Backend (TypeORM creara las tablas automaticamente)..." "Gray"

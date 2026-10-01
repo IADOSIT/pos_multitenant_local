@@ -42,6 +42,25 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Escribe texto en UTF-8 de verdad, SIN marca de orden de bytes.
+#
+# "Set-Content -Encoding UTF8" en el PowerShell que trae Windows mete tres
+# bytes invisibles (EF BB BF) al principio del archivo. En un .json eso hace
+# que JSON.parse del backend truene y, como el catch devuelve null callado, un
+# respaldo bueno se muestra como incompleto y sin forma de revertir. Nunca se
+# usa Set-Content -Encoding UTF8 en este paquete; se usa esta funcion.
+function Set-TextoSinBOM {
+    param(
+        [Parameter(Mandatory = $true)][string]$Ruta,
+        [Parameter(Mandatory = $true)][AllowEmptyString()][AllowNull()]$Texto
+    )
+    if ($Texto -is [array]) { $Texto = ($Texto -join "`r`n") }
+    if ($null -eq $Texto)   { $Texto = "" }
+    $sinBOM = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($Ruta, [string]$Texto, $sinBOM)
+}
+
+
 # -----------------------------------------------------------------------------
 #  Salida a pantalla y a archivo al mismo tiempo. El cliente opera en remoto y
 #  sin supervision visual: el archivo es la unica evidencia.
@@ -215,13 +234,13 @@ $versionNueva = "desconocida"
 foreach ($rel in @("version.json", "app\version.json")) {
     $vj = Join-Path $Paquete $rel
     if (Test-Path $vj) {
-        try { $versionNueva = (Get-Content $vj -Raw | ConvertFrom-Json).version } catch { }
+        try { $versionNueva = (Get-Content $vj -Raw -Encoding UTF8 | ConvertFrom-Json).version } catch { }
         if ($versionNueva -ne "desconocida") { break }
     }
 }
 $versionHoy = "desconocida"
 $vjHoy = Join-Path $InstallDir "version.json"
-if (Test-Path $vjHoy) { try { $versionHoy = (Get-Content $vjHoy -Raw | ConvertFrom-Json).version } catch { } }
+if (Test-Path $vjHoy) { try { $versionHoy = (Get-Content $vjHoy -Raw -Encoding UTF8 | ConvertFrom-Json).version } catch { } }
 Ok "Version instalada hoy: $versionHoy   ->   version del paquete: $versionNueva"
 
 # --- node_modules: sin ellos el backend nuevo no arranca y seria un falso NO ---
@@ -276,7 +295,7 @@ while (Test-Path $script:Carpeta) { $script:Carpeta = "$base-$n"; $n++ }
 New-Item -ItemType Directory -Path $script:Carpeta -Force | Out-Null
 
 $script:LogPath = Join-Path $script:Carpeta "ensayo.log"
-Set-Content -Path $script:LogPath -Value (($script:Lineas | Where-Object { $_ -ne $null }) -join "`r`n") -Encoding UTF8
+Set-TextoSinBOM -Ruta $script:LogPath -Texto (($script:Lineas | Where-Object { $_ -ne $null }) -join "`r`n")
 Ok "Carpeta: $($script:Carpeta)"
 
 # =============================================================================
@@ -509,7 +528,7 @@ if ($murio) {
     Falla "La version nueva se cayo al arrancar (codigo $($proc.ExitCode))"
     Mostrar-Errores
     $rep = Join-Path $script:Carpeta "ENSAYO.txt"
-    Set-Content -Path $rep -Encoding UTF8 -Value @"
+    $textoVeredicto = @"
 POS-iaDoS - ENSAYO DE LA ACTUALIZACION
 ======================================
 
@@ -526,6 +545,7 @@ Manda estos dos archivos:
 
 Carpeta del ensayo: $($script:Carpeta)
 "@
+    Set-TextoSinBOM -Ruta $rep -Texto $textoVeredicto
     Copy-Item -Path $rep -Destination (Join-Path $InstallDir "ULTIMO-ENSAYO.txt") -Force -ErrorAction SilentlyContinue
     Terminar 2 "NO ACTUALIZAR: la version nueva no arranca. El sistema sigue trabajando igual."
 }
@@ -627,7 +647,7 @@ $lineasRep = @(
     "",
     "Carpeta: $($script:Carpeta)"
 )
-Set-Content -Path $reporte -Value ($lineasRep -join "`r`n") -Encoding UTF8
+Set-TextoSinBOM -Ruta $reporte -Texto ($lineasRep -join "`r`n")
 Copy-Item -Path $reporte -Destination (Join-Path $InstallDir "ULTIMO-ENSAYO.txt") -Force -ErrorAction SilentlyContinue
 
 # El .sql de la copia pesa igual que la base: no tiene sentido guardarlo, el

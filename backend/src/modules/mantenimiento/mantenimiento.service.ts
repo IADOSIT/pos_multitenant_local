@@ -81,7 +81,21 @@ export class MantenimientoService {
 
   private leerJson(ruta: string): any {
     try {
-      return JSON.parse(fs.readFileSync(ruta, 'utf8'));
+      let texto = fs.readFileSync(ruta, 'utf8');
+      // Se quita la marca de orden de bytes si viene.
+      //
+      // Los .json del equipo en sitio los escribe PowerShell, y
+      // "Set-Content -Encoding UTF8" en el PowerShell que trae Windows mete
+      // tres bytes invisibles al principio del archivo. JSON.parse truena con
+      // ellos, y como este catch devuelve null sin avisar, el efecto era que
+      // un respaldo perfectamente bueno se mostraba en la pantalla de
+      // mantenimiento con completo:false y revertir_con:null, es decir, como
+      // si estuviera roto y sin forma de volver atras. Ya se corrigio en los
+      // scripts que los escriben, pero los respaldos que el cliente hizo con
+      // una version anterior siguen teniendo la marca y tienen que poder
+      // restaurarse igual.
+      if (texto.charCodeAt(0) === 0xfeff) texto = texto.slice(1);
+      return JSON.parse(texto);
     } catch {
       return null;
     }

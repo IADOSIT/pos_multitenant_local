@@ -35,6 +35,25 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Escribe texto en UTF-8 de verdad, SIN marca de orden de bytes.
+#
+# "Set-Content -Encoding UTF8" en el PowerShell que trae Windows mete tres
+# bytes invisibles (EF BB BF) al principio del archivo. En un .json eso hace
+# que JSON.parse del backend truene y, como el catch devuelve null callado, un
+# respaldo bueno se muestra como incompleto y sin forma de revertir. Nunca se
+# usa Set-Content -Encoding UTF8 en este paquete; se usa esta funcion.
+function Set-TextoSinBOM {
+    param(
+        [Parameter(Mandatory = $true)][string]$Ruta,
+        [Parameter(Mandatory = $true)][AllowEmptyString()][AllowNull()]$Texto
+    )
+    if ($Texto -is [array]) { $Texto = ($Texto -join "`r`n") }
+    if ($null -eq $Texto)   { $Texto = "" }
+    $sinBOM = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($Ruta, [string]$Texto, $sinBOM)
+}
+
+
 $script:LogPath = $null
 
 function Escribir {
@@ -112,6 +131,9 @@ $ENV_BACKEND = Join-Path $InstallDir "backend\.env"
 $VERSION_JS  = Join-Path $InstallDir "version.json"
 $BACKUPS     = Join-Path $InstallDir "backups"
 $SVC_BACKEND = "PosIaDos-Backend"
+# Solo se usa para ajustar la rotacion de su bitacora; este script nunca
+# detiene la base de datos.
+$SVC_MARIADB = "PosIaDos-MariaDB"
 $inicio = Get-Date
 
 Escribir ""
@@ -140,11 +162,11 @@ if (-not (Test-Path (Join-Path $pkgBackend "dist"))) {
 Ok "Paquete valido en $Paquete"
 
 $versionActual = "desconocida"
-if (Test-Path $VERSION_JS) { try { $versionActual = (Get-Content $VERSION_JS -Raw | ConvertFrom-Json).version } catch {} }
+if (Test-Path $VERSION_JS) { try { $versionActual = (Get-Content $VERSION_JS -Raw -Encoding UTF8 | ConvertFrom-Json).version } catch {} }
 
 if ($VersionNueva -eq "") {
     $pv = Join-Path $Paquete "version.json"
-    if (Test-Path $pv) { try { $VersionNueva = (Get-Content $pv -Raw | ConvertFrom-Json).version } catch {} }
+    if (Test-Path $pv) { try { $VersionNueva = (Get-Content $pv -Raw -Encoding UTF8 | ConvertFrom-Json).version } catch {} }
 }
 if ($VersionNueva -eq "") { $VersionNueva = "nueva" }
 
@@ -154,7 +176,7 @@ if ($versionActual -eq $VersionNueva) {
 }
 
 $cfg = Leer-Env -Ruta $ENV_BACKEND
-$puerto = if ($cfg.PORT) { [int]$cfg.PORT } else { 3000 }
+$puerto = if ($cfg.APP_PORT) { [int]$cfg.APP_PORT } elseif ($cfg.PORT) { [int]$cfg.PORT } else { 3000 }   # el .env dice APP_PORT; PORT queda como alias por compatibilidad
 
 if (-not $SiSinPreguntar) {
     Escribir ""
@@ -245,6 +267,28 @@ if ($SinEnsayo) {
 #  4. Detener el sistema
 # =============================================================================
 Titulo "[4/9] Deteniendo el sistema"
+
+# Antes de detener nada: asegurar que el servicio no mate a sus procesos hijos.
+# Este mismo script puede venir lanzado por el boton "Actualizar" de la
+# aplicacion, es decir como hijo del backend. Si el servicio conserva el valor
+# de fabrica de nssm (matar el arbol), el "stop" de la linea siguiente nos
+# mataria a nosotros y la actualizacion quedaria a medias, sin revertir.
+# Un equipo instalado con una version anterior trae el valor peligroso, por eso
+# se corrige aqui y no solo en la instalacion. Es un ajuste del servicio: no
+# toca datos ni archivos del cliente.
+if (Test-Path $script:NSSM) {
+    & $script:NSSM set $SVC_BACKEND AppKillProcessTree 0 2>&1 | Out-Null
+    # Rotar las bitacoras a los 10 MB. En un equipo que nadie revisa estos
+    # archivos crecen sin limite y el disco lleno deja la base sin arrancar.
+    & $script:NSSM set $SVC_BACKEND AppRotateFiles  1        2>&1 | Out-Null
+    & $script:NSSM set $SVC_BACKEND AppRotateOnline 1        2>&1 | Out-Null
+    & $script:NSSM set $SVC_BACKEND AppRotateBytes  10485760 2>&1 | Out-Null
+    & $script:NSSM set $SVC_MARIADB AppRotateFiles  1        2>&1 | Out-Null
+    & $script:NSSM set $SVC_MARIADB AppRotateOnline 1        2>&1 | Out-Null
+    & $script:NSSM set $SVC_MARIADB AppRotateBytes  10485760 2>&1 | Out-Null
+    Ok "Servicio ajustado para no matar al actualizador"
+}
+
 Servicio -Accion "stop" -Nombre $SVC_BACKEND
 Start-Sleep -Seconds 4
 # Si quedo algun node colgado del InstallDir, se cierra: con el archivo abierto
@@ -261,6 +305,23 @@ Ok "Backend detenido"
 Titulo "[5/9] Instalando los archivos nuevos"
 
 $destBackend = Join-Path $InstallDir "backend"
+
+# El motor (node) NO se reemplaza: el programa nuevo corre sobre el que ya esta
+# instalado. Asi no hay que migrar nada ni se arriesga el runtime. Pero se deja
+# anotado cual es, porque si alguna vez no coincidiera con el del paquete el
+# arranque fallaria y esta linea seria la unica pista.
+$vNodeInst = ""
+$vNodePkg  = ""
+try { $vNodeInst = (& $NODE -v 2>$null | Select-Object -First 1) } catch { }
+$nodePkgExe = Join-Path $Paquete "runtime\node\node.exe"
+if (Test-Path $nodePkgExe) { try { $vNodePkg = (& $nodePkgExe -v 2>$null | Select-Object -First 1) } catch { } }
+if ($vNodeInst) {
+    if ($vNodePkg -and $vNodePkg -ne $vNodeInst) {
+        Aviso "El motor instalado es node $vNodeInst y el paquete trae $vNodePkg. No se reemplaza (no hace falta), queda anotado."
+    } else {
+        Escribir "        Motor: node $vNodeInst (no se reemplaza)"
+    }
+}
 
 Copiar-Espejo  -Origen (Join-Path $pkgBackend "dist")   -Destino (Join-Path $destBackend "dist")   -Etiqueta "backend\dist (el programa)" | Out-Null
 Copiar-Espejo  -Origen (Join-Path $pkgBackend "public") -Destino (Join-Path $destBackend "public") -Etiqueta "backend\public" | Out-Null
@@ -310,7 +371,7 @@ $infoVersion = [ordered]@{
     actualizado  = $true
     respaldo     = $RESPALDO
 }
-$infoVersion | ConvertTo-Json | Set-Content -Path $VERSION_JS -Encoding UTF8
+$infoVersion | ConvertTo-Json | ForEach-Object { Set-TextoSinBOM -Ruta $VERSION_JS -Texto $_ }
 
 # Solo se reescribe la linea APP_VERSION. El resto del .env no se toca.
 $envLineas = Get-Content -Path $ENV_BACKEND -Encoding UTF8
@@ -328,7 +389,7 @@ if (-not ($envLineas -match "^\s*INSTALL_MODE\s*=")) {
     $envLineas += "INSTALL_MODE=local"
     Aviso "Al .env le faltaba INSTALL_MODE: se agrego como local"
 }
-Set-Content -Path $ENV_BACKEND -Value $envLineas -Encoding UTF8
+Set-TextoSinBOM -Ruta $ENV_BACKEND -Texto ($envLineas -join "`r`n")
 Ok "version.json y APP_VERSION en $VersionNueva"
 
 # =============================================================================
@@ -345,8 +406,37 @@ Escribir "        Esperando a que arranque (puede tardar: esta migrando la base)
 
 $arranco = Esperar-Puerto -Puerto $puerto -Segundos 240
 
+# El puerto abierto solo dice que el programa esta vivo. Para saber si PUEDE
+# VENDER hay que preguntarle a /api/health, que es el unico que ejecuta un
+# SELECT de verdad contra la base. Sin esta comprobacion, un backend que arranca
+# pero se quedo sin base pasaria como actualizacion exitosa y el cliente se
+# encontraria un POS que abre y no cobra, con el reporte diciendo que todo bien.
+$motivoFalla = "El sistema NO arranco despues de 4 minutos."
+if ($arranco) {
+    Escribir "        Preguntandole a la base si responde..."
+    $saludOk = $false
+    $ultimaSalud = ""
+    $finSalud = (Get-Date).AddSeconds(90)
+    while ((Get-Date) -lt $finSalud) {
+        try {
+            $h = Invoke-RestMethod -Uri "http://127.0.0.1:$puerto/api/health" -TimeoutSec 10
+            $ultimaSalud = "status=$($h.status) db=$($h.db)"
+            if ($h.status -eq "ok" -and $h.db -eq "connected") { $saludOk = $true; break }
+        } catch {
+            $ultimaSalud = $_.Exception.Message
+        }
+        Start-Sleep -Seconds 5
+    }
+    if ($saludOk) {
+        Ok "La base responde (health: $ultimaSalud)"
+    } else {
+        $arranco = $false
+        $motivoFalla = "El sistema abrio el puerto pero la base NO responde. Ultimo health: $ultimaSalud"
+    }
+}
+
 if (-not $arranco) {
-    Falla "El sistema NO arranco despues de 4 minutos."
+    Falla $motivoFalla
     if (Test-Path $logBackend) {
         Escribir ""
         Escribir "   Ultimas lineas del log:" "Yellow"
@@ -360,7 +450,7 @@ if (-not $arranco) {
     }
 
     if ($SinAutoRevertir) {
-        Terminar 1 "No arranco y se pidio -SinAutoRevertir. Reviertelo con: .\revertir.ps1 -Respaldo ""$RESPALDO"""
+        Terminar 1 "$motivoFalla Se pidio -SinAutoRevertir, asi que no se toco nada mas. Reviertelo con: .\revertir.ps1 -Respaldo ""$RESPALDO"""
     }
 
     Escribir ""
@@ -426,7 +516,7 @@ if ($SinArreglarImagenes) {
     if (Test-Path (Join-Path $reportesFinal "imagenes.json")) {
         $imagenesOk = $true
         try {
-            $ij = Get-Content (Join-Path $reportesFinal "imagenes.json") -Raw | ConvertFrom-Json
+            $ij = Get-Content (Join-Path $reportesFinal "imagenes.json") -Raw -Encoding UTF8 | ConvertFrom-Json
             Ok "URL revisadas: $($ij.total_urls)   descargadas: $($ij.resumen.descargadas)   filas ajustadas: $($ij.cambios.Count)"
             if ($ij.resumen.descargas_falladas) {
                 Aviso "$($ij.resumen.descargas_falladas) imagen(es) de internet no se pudieron traer: su URL se conservo sin cambios"
@@ -524,7 +614,7 @@ R ""
 R "==============================================================="
 
 $rutaReporte = Join-Path $InstallDir "ULTIMA-ACTUALIZACION.txt"
-Set-Content -Path $rutaReporte -Value ($Res -join "`r`n") -Encoding UTF8
+Set-TextoSinBOM -Ruta $rutaReporte -Texto ($Res -join "`r`n")
 Copy-Item -Path $rutaReporte -Destination (Join-Path $RESPALDO "ACTUALIZACION.txt") -Force
 Ok "ULTIMA-ACTUALIZACION.txt en la raiz de la instalacion"
 

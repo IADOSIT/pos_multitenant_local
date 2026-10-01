@@ -68,14 +68,22 @@ Push-Location "$ROOT\frontend"
 $env:VITE_API_URL = "/api"
 & npm run build 2>&1 | Out-Null
 
-if (-not (Test-Path "dist\index.html")) {
-    Write-Host "  ERROR: No se genero dist/index.html" -ForegroundColor Red
+# vite.config.ts compila en dist-prod (el modo on-premise), no en dist.
+if (-not (Test-Path "dist-prod\index.html")) {
+    Write-Host "  ERROR: No se genero dist-prod/index.html" -ForegroundColor Red
     Pop-Location
     exit 1
 }
 
+# Las pantallas van a los DOS lugares a proposito. El backend on-premise busca
+# primero frontend\dist-prod y solo si no existe cae a backend\public
+# (app.module.ts). Si se copiara nada mas a public, el cliente seguiria viendo
+# la version vieja y pareceria que la actualizacion no surtio efecto.
 New-Item -ItemType Directory -Force -Path "$OUTPUT\app\backend\public" | Out-Null
-Copy-Item -Path "dist\*" -Destination "$OUTPUT\app\backend\public" -Recurse -Force
+Copy-Item -Path "dist-prod\*" -Destination "$OUTPUT\app\backend\public" -Recurse -Force
+
+New-Item -ItemType Directory -Force -Path "$OUTPUT\app\frontend\dist-prod" | Out-Null
+Copy-Item -Path "dist-prod\*" -Destination "$OUTPUT\app\frontend\dist-prod" -Recurse -Force
 
 Pop-Location
 Write-Host "  Frontend compilado" -ForegroundColor Green
@@ -130,6 +138,39 @@ echo.
 pause
 "@ | Set-Content "$OUTPUT\ACTUALIZAR.bat"
 
+# ENSAYAR.bat - la prueba previa, por separado y sin detener nada
+@"
+@echo off
+chcp 65001 >nul 2>&1
+title POS-iaDoS - Ensayo de la version v$NewVersion
+echo.
+echo  ==========================================
+echo    Ensayo: probar v$NewVersion sin instalarla
+echo  ==========================================
+echo.
+echo  El sistema NO se detiene: puedes seguir vendiendo.
+echo  La base de datos real solo se LEE, nunca se escribe.
+echo.
+echo  Al terminar lee el archivo ULTIMO-ENSAYO.txt
+echo.
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo  Solicitando permisos de administrador...
+    powershell -Command "Start-Process '%~f0' -Verb RunAs"
+    exit /b
+)
+set "DESTINO=C:\POS-iaDoS"
+if not exist "%DESTINO%\backend" set /p DESTINO=Ruta de la instalacion: 
+powershell -ExecutionPolicy Bypass -File "%~dp0setup\ensayar.ps1" -InstallDir "%DESTINO%" -Paquete "%~dp0."
+echo.
+if %errorlevel% equ 0 echo  Resultado: la version nueva no cambia el esquema. Se puede actualizar.
+if %errorlevel% equ 3 echo  Resultado: la version nueva solo AGREGA. Se puede actualizar.
+if %errorlevel% equ 2 echo  Resultado: NO ACTUALIZAR. Manda ULTIMO-ENSAYO.txt antes de seguir.
+if %errorlevel% equ 1 echo  Resultado: no se pudo ensayar. Manda ULTIMO-ENSAYO.txt.
+echo.
+pause
+"@ | Set-Content "$OUTPUT\ENSAYAR.bat"
+
 # Version
 $versionData = @{
     version = $NewVersion
@@ -171,5 +212,7 @@ Write-Host "============================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Instrucciones:" -ForegroundColor White
 Write-Host "  1. Copiar carpeta POS-iaDoS-UPDATE-v$NewVersion al equipo destino" -ForegroundColor Gray
-Write-Host "  2. Ejecutar ACTUALIZAR.bat como administrador" -ForegroundColor Gray
+Write-Host "  2. ENSAYAR.bat  (prueba sin detener el sistema; lee ULTIMO-ENSAYO.txt)" -ForegroundColor Gray
+Write-Host "  3. ACTUALIZAR.bat como administrador (respalda y vuelve a ensayar solo)" -ForegroundColor Gray
+Write-Host "  4. Si algo saliera mal: REVERTIR.bat de la instalacion" -ForegroundColor Gray
 Write-Host ""

@@ -47,7 +47,10 @@ let MantenimientoService = class MantenimientoService {
     }
     leerJson(ruta) {
         try {
-            return JSON.parse(fs.readFileSync(ruta, 'utf8'));
+            let texto = fs.readFileSync(ruta, 'utf8');
+            if (texto.charCodeAt(0) === 0xfeff)
+                texto = texto.slice(1);
+            return JSON.parse(texto);
         }
         catch {
             return null;

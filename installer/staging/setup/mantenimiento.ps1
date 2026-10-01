@@ -99,14 +99,14 @@ function Diagnostico {
     Escribir "  ==========================================================" "Cyan"
 
     $cfg = Leer-Env -Ruta $ENV_BACKEND
-    $puerto = if ($cfg.PORT) { [int]$cfg.PORT } else { 3000 }
+    $puerto = if ($cfg.APP_PORT) { [int]$cfg.APP_PORT } elseif ($cfg.PORT) { [int]$cfg.PORT } else { 3000 }   # el .env dice APP_PORT; PORT queda como alias por compatibilidad
     $problemas = 0
 
     Titulo "Version"
     $vLocal = "desconocida"
     if (Test-Path $VERSION_JS) {
         try {
-            $vj = Get-Content $VERSION_JS -Raw | ConvertFrom-Json
+            $vj = Get-Content $VERSION_JS -Raw -Encoding UTF8 | ConvertFrom-Json
             $vLocal = $vj.version
             Ok "Archivos instalados: $vLocal   (fecha: $($vj.build_date))"
             if ($vj.version_previa) { Escribir "        venia de: $($vj.version_previa)" "DarkGray" }
@@ -161,7 +161,7 @@ function Diagnostico {
                 Select-Object -Last 6 | ForEach-Object { Escribir "      $_" "DarkGray" }
             $aj = Join-Path $tmp "ajustes.json"
             if (Test-Path $aj) {
-                $j = Get-Content $aj -Raw | ConvertFrom-Json
+                $j = Get-Content $aj -Raw -Encoding UTF8 | ConvertFrom-Json
                 Ok "Conexion a la base correcta. Tablas: $($j.tablas_totales)"
             } else { Falla "No se pudo leer la base de datos"; $problemas++ }
         } catch { Falla "No se pudo leer la base de datos: $($_.Exception.Message)"; $problemas++ }
@@ -237,7 +237,7 @@ function Listar-Respaldos {
         $detalle = ""
         if (Test-Path $m) {
             try {
-                $j = Get-Content $m -Raw | ConvertFrom-Json
+                $j = Get-Content $m -Raw -Encoding UTF8 | ConvertFrom-Json
                 $detalle = "version $($j.version)  |  $($j.base_sql.tablas) tablas  |  $($j.uploads.archivos) imagenes"
             } catch { $detalle = "manifest ilegible" }
         } else { $detalle = "SIN manifest (respaldo incompleto)" }
@@ -346,7 +346,7 @@ while ($true) {
     Escribir "   POS-iaDoS - MANTENIMIENTO" "Cyan"
     Escribir "  ==========================================================" "Cyan"
     $v = "?"
-    if (Test-Path $VERSION_JS) { try { $v = (Get-Content $VERSION_JS -Raw | ConvertFrom-Json).version } catch {} }
+    if (Test-Path $VERSION_JS) { try { $v = (Get-Content $VERSION_JS -Raw -Encoding UTF8 | ConvertFrom-Json).version } catch {} }
     $svc = Get-Service -Name $SVC_BACKEND -ErrorAction SilentlyContinue
     $estado = if ($svc -and $svc.Status -eq "Running") { "operando" } else { "DETENIDO" }
     Escribir "   Version $v   -   sistema $estado" $(if ($estado -eq "operando") { "Green" } else { "Red" })
@@ -414,7 +414,7 @@ while ($true) {
             else { Restart-Service -Name $SVC_BACKEND -Force -ErrorAction SilentlyContinue }
             Escribir "        Esperando..."
             $cfg = Leer-Env -Ruta $ENV_BACKEND
-            $puerto = if ($cfg.PORT) { [int]$cfg.PORT } else { 3000 }
+            $puerto = if ($cfg.APP_PORT) { [int]$cfg.APP_PORT } elseif ($cfg.PORT) { [int]$cfg.PORT } else { 3000 }   # el .env dice APP_PORT; PORT queda como alias por compatibilidad
             $fin = (Get-Date).AddSeconds(150)
             $arranco = $false
             while ((Get-Date) -lt $fin) { if (Puerto-Abierto -Puerto $puerto) { $arranco = $true; break }; Start-Sleep -Seconds 2 }

@@ -2,16 +2,56 @@
 setlocal EnableDelayedExpansion
 title POS-iaDoS Diagnostico
 
+set "SDB=PosIaDos-MariaDB"
+set "SBE=PosIaDos-Backend"
+
+:: --- Donde esta instalado DE VERDAD ------------------------------------
+:: No se da por hecho C:\POS-iaDoS. nssm guarda el directorio del servicio
+:: en el registro y de ahi sale la ruta real. Si el cliente instalo en otra
+:: unidad, este diagnostico revisaba una carpeta inexistente y reportaba
+:: todo como FALTA, mandando a buscar el problema donde no estaba.
 set "D=C:\POS-iaDoS"
+set "BD="
+for /f "tokens=2,*" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Services\%SBE%\Parameters" /v AppDirectory 2^>nul ^| findstr /i "AppDirectory"') do set "BD=%%B"
+if defined BD for %%I in ("%BD%\..") do set "D=%%~fI"
+
 set "MYSQL=%D%\mariadb\bin\mysql.exe"
 set "NODE=%D%\node\node.exe"
-set "NM=C:/POS-iaDoS/backend/node_modules"
+set "NM=%D%\backend\node_modules"
+set "ENVF=%D%\backend\.env"
+
 set "DBU=pos_iados"
 set "DBP=pos_iados_2024"
 set "DBN=pos_iados"
-set "DBR=P0s_R00t_2024!"
-set "SDB=PosIaDos-MariaDB"
-set "SBE=PosIaDos-Backend"
+
+:: La contrasena de root termina en "!". Este archivo corre con
+:: EnableDelayedExpansion y cmd se come un "!" sin pareja, asi que sin el
+:: "^" la variable quedaba incompleta y el intento de conexion por root
+:: fallaba SIEMPRE, reportando "contrasena incorrecta" aunque fuera buena.
+:: Y por el mismo motivo hay que LEERLA con !DBR! y nunca con %DBR%: al
+:: expandirse con porcentajes, la expansion retardada se come otra vez el
+:: "!" del valor ya expandido y la contrasena vuelve a llegar cortada.
+set "DBR=P0s_R00t_2024^!"
+
+:: --- Puertos REALES ----------------------------------------------------
+:: install.ps1 mueve el backend a 3001-3040 y MariaDB a 3307+ cuando los
+:: puertos de fabrica estan ocupados, y lo anota en el .env. Leerlos de ahi
+:: evita el falso "CERRADO" en un equipo que esta funcionando bien.
+:: La clave del backend se llama APP_PORT (es la que lee main.ts); se acepta
+:: tambien PORT por si alguna version vieja del .env la hubiera usado, y
+:: APP_PORT gana porque se evalua despues.
+set "PBE="
+set "PDB="
+if exist "%ENVF%" (
+    for /f "usebackq tokens=1,* delims==" %%K in ("%ENVF%") do (
+        if /i "%%K"=="PORT"     set "PBE=%%L"
+        if /i "%%K"=="APP_PORT" set "PBE=%%L"
+        if /i "%%K"=="DB_PORT"  set "PDB=%%L"
+    )
+)
+if not defined PBE set "PBE=3000"
+if not defined PDB set "PDB=3306"
+
 set "LOG=%D%\logs\diagnostico.txt"
 set "TMP=%D%\logs\_diag.js"
 set "CNT=0"
@@ -26,6 +66,8 @@ echo ================================================================
 echo   POS-iaDoS - Diagnostico
 echo ================================================================
 echo   Instalacion : %D%
+echo   Puerto app  : %PBE%
+echo   Puerto base : %PDB%
 echo   Log         : %LOG%
 echo.
 echo ===== DIAGNOSTICO %DATE% %TIME% ===== > "%LOG%"
@@ -65,24 +107,24 @@ echo.
 echo [2] PUERTOS
 echo [2] PUERTOS >> "%LOG%"
 
-netstat -aon 2>nul | findstr ":3000 " | findstr LISTENING >nul 2>&1
+netstat -aon 2>nul | findstr ":%PBE% " | findstr LISTENING >nul 2>&1
 if errorlevel 1 (
-    echo   3000 Backend : CERRADO
-    echo   3000: CERRADO >> "%LOG%"
+    echo   %PBE% Backend : CERRADO
+    echo   %PBE% Backend: CERRADO >> "%LOG%"
     set "BACKEND_CERRADO=1"
 ) else (
-    echo   3000 Backend : ABIERTO OK
-    echo   3000: ABIERTO >> "%LOG%"
+    echo   %PBE% Backend : ABIERTO OK
+    echo   %PBE% Backend: ABIERTO >> "%LOG%"
     set "BACKEND_CERRADO=0"
 )
 
-netstat -aon 2>nul | findstr ":3306 " | findstr LISTENING >nul 2>&1
+netstat -aon 2>nul | findstr ":%PDB% " | findstr LISTENING >nul 2>&1
 if errorlevel 1 (
-    echo   3306 MariaDB : CERRADO
-    echo   3306: CERRADO >> "%LOG%"
+    echo   %PDB% MariaDB : CERRADO
+    echo   %PDB% MariaDB: CERRADO >> "%LOG%"
 ) else (
-    echo   3306 MariaDB : ABIERTO OK
-    echo   3306: ABIERTO >> "%LOG%"
+    echo   %PDB% MariaDB : ABIERTO OK
+    echo   %PDB% MariaDB: ABIERTO >> "%LOG%"
 )
 
 :: ----------------------------------------------------------------
@@ -117,35 +159,59 @@ if not exist "%D%\backend\node_modules\exceljs" (
 
 if "%MISSING_MODS%"=="1" (
     echo.
-    echo   *** MODULOS FALTANTES - intentando reparar ***
-    echo   Buscando fuente en C:\sites\pos_multitenant_local\installer\staging\app\backend\node_modules...
-    set "SRCNM=C:\sites\pos_multitenant_local\installer\staging\app\backend\node_modules"
+    echo   *** MODULOS FALTANTES ***
+    echo   *** MODULOS FALTANTES *** >> "%LOG%"
+    :: La fuente es el PAQUETE que esta al lado de este .bat, no ninguna
+    :: carpeta de desarrollo. La version anterior copiaba desde la maquina
+    :: donde se compila el instalador: en la computadora del cliente esa
+    :: ruta no existe, los xcopy fallaban en silencio y aun asi imprimia
+    :: "reparacion completada". Un reporte que afirmaba haber arreglado
+    :: algo que nunca toco.
+    set "SRCNM=%~dp0app\backend\node_modules"
     set "DESTNM=%D%\backend\node_modules"
-    if exist "!SRCNM!\@nestjs\schedule" (
-        if not exist "!DESTNM!\@nestjs\schedule" (
-            xcopy "!SRCNM!\@nestjs\schedule" "!DESTNM!\@nestjs\schedule\" /E /I /Q >nul 2>&1
-            echo   COPIADO: @nestjs/schedule
+    if exist "!SRCNM!" (
+        echo   Copiando desde el paquete: !SRCNM!
+        echo   Fuente: !SRCNM! >> "%LOG%"
+        set "COPIADOS=0"
+        for %%M in (exceljs cron) do (
+            if exist "!SRCNM!\%%M" if not exist "!DESTNM!\%%M" (
+                xcopy "!SRCNM!\%%M" "!DESTNM!\%%M\" /E /I /Q >nul 2>&1
+                if exist "!DESTNM!\%%M" (
+                    echo   COPIADO: %%M
+                    echo   COPIADO: %%M >> "%LOG%"
+                    set "COPIADOS=1"
+                ) else (
+                    echo   NO SE PUDO COPIAR: %%M
+                    echo   NO SE PUDO COPIAR: %%M >> "%LOG%"
+                )
+            )
         )
-    )
-    if exist "!SRCNM!\exceljs" (
-        if not exist "!DESTNM!\exceljs" (
-            xcopy "!SRCNM!\exceljs" "!DESTNM!\exceljs\" /E /I /Q >nul 2>&1
-            echo   COPIADO: exceljs
+        for %%M in (schedule) do (
+            if exist "!SRCNM!\@nestjs\%%M" if not exist "!DESTNM!\@nestjs\%%M" (
+                xcopy "!SRCNM!\@nestjs\%%M" "!DESTNM!\@nestjs\%%M\" /E /I /Q >nul 2>&1
+                if exist "!DESTNM!\@nestjs\%%M" (
+                    echo   COPIADO: @nestjs/%%M
+                    echo   COPIADO: @nestjs/%%M >> "%LOG%"
+                    set "COPIADOS=1"
+                ) else (
+                    echo   NO SE PUDO COPIAR: @nestjs/%%M
+                    echo   NO SE PUDO COPIAR: @nestjs/%%M >> "%LOG%"
+                )
+            )
         )
-    )
-    if exist "!SRCNM!\@sinonjs" (
-        if not exist "!DESTNM!\@sinonjs" (
+        if exist "!SRCNM!\@sinonjs" if not exist "!DESTNM!\@sinonjs" (
             xcopy "!SRCNM!\@sinonjs" "!DESTNM!\@sinonjs\" /E /I /Q >nul 2>&1
         )
-    )
-    if exist "!SRCNM!\cron" (
-        if not exist "!DESTNM!\cron" (
-            xcopy "!SRCNM!\cron" "!DESTNM!\cron\" /E /I /Q >nul 2>&1
-            echo   COPIADO: cron
+        if "!COPIADOS!"=="1" (
+            echo   Hay que reiniciar el servicio: sc stop %SBE% ^&^& sc start %SBE%
+            echo   Modulos copiados: hace falta reiniciar el servicio >> "%LOG%"
         )
+    ) else (
+        echo   NO se repararon: este .bat no viene acompanado del paquete.
+        echo   Corre el instalador POS-iaDoS-Local-vX.Y.Z.exe, o el
+        echo   ACTUALIZAR.bat que viene dentro del paquete descomprimido.
+        echo   NO reparado: falta el paquete junto al .bat >> "%LOG%"
     )
-    echo   Reparacion de modulos completada.
-    echo   Modulos reparados >> "%LOG%"
 )
 
 :: ----------------------------------------------------------------
@@ -178,18 +244,18 @@ if not exist "%MYSQL%" (
     goto SKIP_DB
 )
 
-"%MYSQL%" -u%DBU% -p%DBP% %DBN% -e "SELECT 1" >nul 2>&1
+"%MYSQL%" -u%DBU% -p!DBP! %DBN% -e "SELECT 1" >nul 2>&1
 if not errorlevel 1 goto DB_CONN_OK
 
 echo   Conexion con %DBU% fallo, probando root...
-"%MYSQL%" -uroot -p%DBR% %DBN% -e "SELECT 1" >nul 2>&1
+"%MYSQL%" -uroot -p!DBR! %DBN% -e "SELECT 1" >nul 2>&1
 if errorlevel 1 (
     echo   Conexion root fallo. MariaDB caido o contrasena incorrecta.
     echo   Conexion: FALLO >> "%LOG%"
     goto SKIP_DB
 )
 set "DBU=root"
-set "DBP=%DBR%"
+set "DBP=!DBR!"
 echo   Conectado como root OK
 
 :DB_CONN_OK
@@ -197,18 +263,18 @@ echo   Conexion BD: OK
 echo   Conexion BD: OK >> "%LOG%"
 
 set "CNT=0"
-for /f %%C in ('"%MYSQL%" -u%DBU% -p%DBP% %DBN% -se "SELECT COUNT(*) FROM users" 2^>nul') do set "CNT=%%C"
+for /f %%C in ('"%MYSQL%" -u%DBU% -p!DBP! %DBN% -se "SELECT COUNT(*) FROM users" 2^>nul') do set "CNT=%%C"
 echo   Usuarios en tabla: %CNT%
 echo   Usuarios: %CNT% >> "%LOG%"
 
 if "%CNT%"=="0" goto EMPTY_USERS
 
-"%MYSQL%" -u%DBU% -p%DBP% %DBN% --table -e "SELECT id,email,rol,activo,LEFT(password,25) AS hash FROM users ORDER BY id" 2>nul
-"%MYSQL%" -u%DBU% -p%DBP% %DBN% --table -e "SELECT id,email,rol,activo,LEFT(password,25) AS hash FROM users ORDER BY id" >> "%LOG%" 2>nul
-"%MYSQL%" -u%DBU% -p%DBP% %DBN% -se "SELECT email,password FROM users ORDER BY id" >> "%LOG%" 2>nul
+"%MYSQL%" -u%DBU% -p!DBP! %DBN% --table -e "SELECT id,email,rol,activo,LEFT(password,25) AS hash FROM users ORDER BY id" 2>nul
+"%MYSQL%" -u%DBU% -p!DBP! %DBN% --table -e "SELECT id,email,rol,activo,LEFT(password,25) AS hash FROM users ORDER BY id" >> "%LOG%" 2>nul
+"%MYSQL%" -u%DBU% -p!DBP! %DBN% -se "SELECT email,password FROM users ORDER BY id" >> "%LOG%" 2>nul
 
-for /f %%H in ('"%MYSQL%" -u%DBU% -p%DBP% %DBN% -se "SELECT password FROM users WHERE id=1" 2^>nul') do set "HA=%%H"
-for /f %%H in ('"%MYSQL%" -u%DBU% -p%DBP% %DBN% -se "SELECT password FROM users WHERE id=3" 2^>nul') do set "HC=%%H"
+for /f %%H in ('"%MYSQL%" -u%DBU% -p!DBP! %DBN% -se "SELECT password FROM users WHERE id=1" 2^>nul') do set "HA=%%H"
+for /f %%H in ('"%MYSQL%" -u%DBU% -p!DBP! %DBN% -se "SELECT password FROM users WHERE id=3" 2^>nul') do set "HC=%%H"
 goto SKIP_DB
 
 :EMPTY_USERS
@@ -233,18 +299,18 @@ echo   Aplicando seed: %SEED%
 echo   Aplicando seed >> "%LOG%"
 
 :: Mostrar errores del seed (sin suprimir) para diagnostico
-"%MYSQL%" -uroot -p%DBR% %DBN% < "%SEED%" 2>&1 | findstr /i "ERROR warn" 2>nul
-"%MYSQL%" -uroot -p%DBR% %DBN% < "%SEED%" >> "%LOG%" 2>&1
+"%MYSQL%" -uroot -p!DBR! %DBN% < "%SEED%" 2>&1 | findstr /i "ERROR warn" 2>nul
+"%MYSQL%" -uroot -p!DBR! %DBN% < "%SEED%" >> "%LOG%" 2>&1
 
 set "CNT=0"
-for /f %%C in ('"%MYSQL%" -u%DBU% -p%DBP% %DBN% -se "SELECT COUNT(*) FROM users" 2^>nul') do set "CNT=%%C"
+for /f %%C in ('"%MYSQL%" -u%DBU% -p!DBP! %DBN% -se "SELECT COUNT(*) FROM users" 2^>nul') do set "CNT=%%C"
 echo   Usuarios tras seed: %CNT%
 echo   Seed aplicado. Usuarios: %CNT% >> "%LOG%"
 if "%CNT%"=="0" (
     echo   Seed no inserto usuarios. Verificando errores...
     echo   Intentando con SET FOREIGN_KEY_CHECKS=0 manual...
-    "%MYSQL%" -uroot -p%DBR% %DBN% -e "SET FOREIGN_KEY_CHECKS=0; SET SESSION check_constraint_checks=OFF; INSERT IGNORE INTO users (id,tenant_id,empresa_id,tienda_id,nombre,email,password,rol,pin,activo,created_at,updated_at) VALUES (1,1,1,1,'Super Admin','admin@iados.mx','PLACEHOLDER','superadmin','0000',1,NOW(),NOW()), (2,1,1,1,'Administrador','admin2@iados.mx','PLACEHOLDER','admin','1111',1,NOW(),NOW()), (3,1,1,1,'Cajero Demo','cajero@iados.mx','PLACEHOLDER','cajero','1234',1,NOW(),NOW()); SET FOREIGN_KEY_CHECKS=1;" 2>&1
-    for /f %%C in ('"%MYSQL%" -u%DBU% -p%DBP% %DBN% -se "SELECT COUNT(*) FROM users" 2^>nul') do set "CNT=%%C"
+    "%MYSQL%" -uroot -p!DBR! %DBN% -e "SET FOREIGN_KEY_CHECKS=0; SET SESSION check_constraint_checks=OFF; INSERT IGNORE INTO users (id,tenant_id,empresa_id,tienda_id,nombre,email,password,rol,pin,activo,created_at,updated_at) VALUES (1,1,1,1,'Super Admin','admin@iados.mx','PLACEHOLDER','superadmin','0000',1,NOW(),NOW()), (2,1,1,1,'Administrador','admin2@iados.mx','PLACEHOLDER','admin','1111',1,NOW(),NOW()), (3,1,1,1,'Cajero Demo','cajero@iados.mx','PLACEHOLDER','cajero','1234',1,NOW(),NOW()); SET FOREIGN_KEY_CHECKS=1;" 2>&1
+    for /f %%C in ('"%MYSQL%" -u%DBU% -p!DBP! %DBN% -se "SELECT COUNT(*) FROM users" 2^>nul') do set "CNT=%%C"
     echo   Usuarios tras insercion directa: %CNT%
     if "%CNT%"=="0" (
         echo   FALLO insercion directa. Revisa manualmente %D%\database\
@@ -256,7 +322,9 @@ echo   Seed/insercion OK.
 :: Generar hashes bcrypt frescos y actualizar passwords
 echo   Actualizando passwords con bcryptjs...
 echo   Actualizando passwords... >> "%LOG%"
-set "BPATH=C:/POS-iaDoS/backend/node_modules/bcryptjs"
+:: Ruta de la instalacion real, no una fija. Con barras normales porque
+:: va dentro de un require() de node.
+set "BPATH=%D:\=/%/backend/node_modules/bcryptjs"
 echo try{const b=require('%BPATH%');const ha=b.hashSync('admin123',10);const hc=b.hashSync('cajero123',10);console.log(ha+'|'+hc);}catch(e){console.error(e.message);process.exit(1);} > "%TMP%"
 for /f "delims=" %%O in ('"%NODE%" "%TMP%" 2^>nul') do set "HASHES=%%O"
 if "%HASHES%"=="" (
@@ -265,13 +333,13 @@ if "%HASHES%"=="" (
 )
 for /f "tokens=1 delims=|" %%A in ("%HASHES%") do set "HA=%%A"
 for /f "tokens=2 delims=|" %%B in ("%HASHES%") do set "HC=%%B"
-"%MYSQL%" -uroot -p%DBR% %DBN% -e "UPDATE users SET password='%HA%' WHERE rol IN ('superadmin','admin'); UPDATE users SET password='%HC%' WHERE rol IN ('cajero','mesero','manager');" 2>nul
+"%MYSQL%" -uroot -p!DBR! %DBN% -e "UPDATE users SET password='%HA%' WHERE rol IN ('superadmin','admin'); UPDATE users SET password='%HC%' WHERE rol IN ('cajero','mesero','manager');" 2>nul
 echo   Passwords actualizados correctamente.
 echo   Passwords actualizados >> "%LOG%"
 
 :SKIP_BCRYPT
-for /f %%H in ('"%MYSQL%" -u%DBU% -p%DBP% %DBN% -se "SELECT password FROM users WHERE id=1" 2^>nul') do set "HA=%%H"
-for /f %%H in ('"%MYSQL%" -u%DBU% -p%DBP% %DBN% -se "SELECT password FROM users WHERE id=3" 2^>nul') do set "HC=%%H"
+for /f %%H in ('"%MYSQL%" -u%DBU% -p!DBP! %DBN% -se "SELECT password FROM users WHERE id=1" 2^>nul') do set "HA=%%H"
+for /f %%H in ('"%MYSQL%" -u%DBU% -p!DBP! %DBN% -se "SELECT password FROM users WHERE id=3" 2^>nul') do set "HC=%%H"
 echo   Seed aplicado OK.
 echo.
 echo   Ahora intentando reiniciar el servicio Backend...
@@ -281,7 +349,7 @@ if not errorlevel 1 (
     timeout /t 3 /nobreak >nul
     sc start %SBE% >nul 2>&1
     timeout /t 5 /nobreak >nul
-    echo   Servicio reiniciado. Espera 10s y abre http://localhost:3000
+    echo   Servicio reiniciado. Espera 10s y abre http://localhost:%PBE%
     echo   Backend reiniciado >> "%LOG%"
 ) else (
     echo   (Para reiniciar el servicio ejecuta como Administrador: sc start %SBE%)
@@ -302,14 +370,14 @@ if not exist "%NODE%" (
     goto FIN
 )
 
-echo var b=require('%NM%/bcryptjs'); > "%TMP%"
+echo var b=require('%NM:\=/%/bcryptjs'); > "%TMP%"
 echo var http=require('http'); >> "%TMP%"
 echo console.log('--- BCRYPT ---'); >> "%TMP%"
 echo console.log('admin123  admin :', b.compareSync('admin123', '%HA%') ? 'COINCIDE OK' : '!! FALLA !!'); >> "%TMP%"
 echo console.log('cajero123 cajero:', b.compareSync('cajero123', '%HC%') ? 'COINCIDE OK' : '!! FALLA !!'); >> "%TMP%"
 echo console.log('--- API LOGIN ---'); >> "%TMP%"
 echo var bd=JSON.stringify({email:'admin@iados.mx',password:'admin123'}); >> "%TMP%"
-echo var r=http.request({host:'localhost',port:3000,path:'/api/auth/login',method:'POST',headers:{'Content-Type':'application/json','Content-Length':bd.length}},function(res){ >> "%TMP%"
+echo var r=http.request({host:'127.0.0.1',port:%PBE%,path:'/api/auth/login',method:'POST',headers:{'Content-Type':'application/json','Content-Length':bd.length}},function(res){ >> "%TMP%"
 echo   var d=''; >> "%TMP%"
 echo   res.on('data',function(c){d+=c;}); >> "%TMP%"
 echo   res.on('end',function(){ >> "%TMP%"

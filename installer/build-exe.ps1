@@ -19,17 +19,26 @@ param(
     [string]$Mode             = "local",
     [string]$Version          = "",
     [string]$OutputDir        = "output",
-    [string]$InnoSetupPath    = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+    # Vacio = se busca solo. Inno Setup se puede instalar para todos los usuarios
+    # (Program Files) o solo para uno (%LOCALAPPDATA%), y winget usa el segundo.
+    [string]$InnoSetupPath    = "",
     [string]$RuntimeSource    = "v1.0.0",
     # Ruta opcional a un frontend ya compilado (evita correr vite cuando falla por OOM)
-    [string]$PreBuiltFrontend = ""
+    [string]$PreBuiltFrontend = "",
+    # No recompilar el backend: reusar backend\dist tal como esta. Se usa cuando
+    # el equipo que compila no tiene RAM suficiente; tsc muere a medias y deja
+    # backend\dist incompleto, que es peor que no tocarlo.
+    [switch]$SinCompilarBackend,
+    # Sin preguntas: si falta una pieza, aborta en lugar de esperar respuesta.
+    # Obligatorio cuando el build corre sin nadie viendo la pantalla.
+    [switch]$Desatendido
 )
 
 # Auto-detectar version desde staging/version.json si no se paso como parametro
 if (-not $Version) {
     $vjPath = Join-Path $PSScriptRoot "staging\version.json"
     if (Test-Path $vjPath) {
-        $vj = Get-Content $vjPath -Raw | ConvertFrom-Json
+        $vj = Get-Content $vjPath -Raw -Encoding UTF8 | ConvertFrom-Json
         $parts = $vj.version -split '\.'
         $Version = "$($parts[0]).$($parts[1]).$([int]$parts[2]+1)"
     } else {
@@ -53,6 +62,26 @@ function Write-Fail {
     exit 1
 }
 
+# Escribe texto en UTF-8 de verdad, SIN marca de orden de bytes.
+#
+# "Set-Content -Encoding UTF8" en PowerShell 5.1 (el de Windows) mete tres
+# bytes invisibles EF BB BF al principio. Eso rompe un .bat (cmd los pega a
+# "@echo off" y el eco queda encendido, imprimiendo las contrasenas de
+# DIAGNOSTICO.bat), rompe un .json (JSON.parse de Node truena y el backend
+# se queda sin version, callado) y puede impedir que Docker lea el
+# docker-compose.yml en el servidor. UTF8Encoding con $false es "sin marca".
+#
+# Siempre esta funcion para cualquier archivo que escriba el build. Nunca
+# Set-Content -Encoding UTF8.
+function Set-TextoSinBOM {
+    param(
+        [Parameter(Mandatory = $true)][string]$Ruta,
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Texto
+    )
+    $sinBOM = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($Ruta, $Texto, $sinBOM)
+}
+
 $ModeLabel   = if ($Mode -eq "local") { "Local (BD propia)"   } else { "Online (BD en nube)" }
 $OutputName  = "POS-iaDoS-$($Mode.Substring(0,1).ToUpper() + $Mode.Substring(1))-v$Version"
 
@@ -68,11 +97,21 @@ Write-Host ""
 # 0. Excluir carpeta output de Windows Defender (evita error 110 en Inno Setup)
 # =============================================================================
 $OutputFullPath = Join-Path $ScriptDir $OutputDir
+# Antes esto decia "Exclusion agregada" siempre, incluso sin permisos de
+# administrador, porque -ErrorAction SilentlyContinue se tragaba el error. Si
+# falla hay que saberlo: es la causa del error 110 de Inno Setup.
+$exclusionOk = $false
 try {
-    Add-MpPreference -ExclusionPath $OutputFullPath -ErrorAction SilentlyContinue
-    Write-OK "Exclusion Defender agregada: $OutputFullPath"
+    Add-MpPreference -ExclusionPath $OutputFullPath -ErrorAction Stop
+    $exclusionOk = $true
 } catch {
-    Write-Warn "No se pudo agregar exclusion Defender (requiere admin) - continua de todas formas"
+    $exclusionOk = $false
+}
+if ($exclusionOk) {
+    Write-OK "Exclusion Defender agregada: $OutputFullPath"
+} else {
+    Write-Warn "No se pudo excluir $OutputFullPath de Defender (falta admin)."
+    Write-Warn "Si Inno Setup falla con 'error 110', corre esta consola como Administrador."
 }
 
 # =============================================================================
@@ -119,19 +158,47 @@ if ($PreBuiltFrontend -and (Test-Path "$PreBuiltFrontend\index.html")) {
 # Compila a backend/dist (propio del proyecto, sin problemas de permisos).
 # Despues del staging copy, el dist fresco sobreescribe el de staging en el output.
 # =============================================================================
-Write-Step "Compilando TypeScript del backend..."
 $BackendDir  = Join-Path $ProjectDir "backend"
 $BackendDist = Join-Path $ProjectDir "backend\dist"
-$tscResult   = & cmd /c "cd /d `"$BackendDir`" && npx tsc -p tsconfig.json --outDir `"$BackendDist`" --incremental false 2>&1"
-$tscExit     = $LASTEXITCODE
-if ($tscExit -ne 0) {
-    Write-Warn "tsc reporto advertencias (codigo $tscExit)"
-}
-if (Test-Path "$BackendDist\main.js") {
-    Write-OK "Backend TypeScript compilado -> backend\dist"
+
+if ($SinCompilarBackend) {
+    # Reusar lo que ya esta compilado. Se exige que este completo: si tsc murio
+    # antes (por falta de memoria), backend\dist queda a medias y el EXE saldria
+    # roto sin avisar.
+    Write-Step "Backend: reusando backend\dist sin recompilar (-SinCompilarBackend)"
+    if (-not (Test-Path "$BackendDist\main.js")) {
+        Write-Fail "No existe backend\dist\main.js. Sin backend compilado no hay EXE."
+    }
+    # El numero esperado no se pone a mano: se cuenta el codigo fuente. Asi el
+    # guardia sigue sirviendo cuando el proyecto crezca, y detecta el caso real
+    # que ya paso aqui: tsc muerto por falta de memoria deja un dist a medias.
+    $fuentes = @(Get-ChildItem (Join-Path $BackendDir "src") -Recurse -File -Filter "*.ts" |
+                 Where-Object { $_.Name -notlike "*.d.ts" -and $_.Name -notlike "*.spec.ts" })
+    $faltantes = @()
+    foreach ($f in $fuentes) {
+        $rel = ($f.FullName.Substring((Join-Path $BackendDir "src").Length + 1)) -replace '\.ts$', '.js'
+        if (-not (Test-Path (Join-Path $BackendDist $rel))) { $faltantes += $rel }
+    }
+    if ($faltantes.Count -gt 0) {
+        Write-Host "  Archivos sin compilar ($($faltantes.Count) de $($fuentes.Count)):" -ForegroundColor Yellow
+        $faltantes | Select-Object -First 10 | ForEach-Object { Write-Host "    $_" -ForegroundColor Yellow }
+        Write-Fail "backend\dist esta incompleto. Recompila con 'cd backend; npm run build' y vuelve a intentar."
+    }
+    $distFecha = (Get-Item "$BackendDist\main.js").LastWriteTime
+    Write-OK "Backend reusado: $($fuentes.Count)/$($fuentes.Count) modulos compilados (main.js del $distFecha)"
 } else {
-    Write-Host $tscResult
-    Write-Fail "Compilacion TypeScript fallo - backend\dist\main.js no encontrado"
+    Write-Step "Compilando TypeScript del backend..."
+    $tscResult   = & cmd /c "cd /d `"$BackendDir`" && npx tsc -p tsconfig.json --outDir `"$BackendDist`" --incremental false 2>&1"
+    $tscExit     = $LASTEXITCODE
+    if ($tscExit -ne 0) {
+        Write-Warn "tsc reporto advertencias (codigo $tscExit)"
+    }
+    if (Test-Path "$BackendDist\main.js") {
+        Write-OK "Backend TypeScript compilado -> backend\dist"
+    } else {
+        Write-Host $tscResult
+        Write-Fail "Compilacion TypeScript fallo - backend\dist\main.js no encontrado. Si fue por memoria, usa -SinCompilarBackend"
+    }
 }
 # Limpiar dist_new residual si existe
 $DistNewLegacy = Join-Path $ProjectDir "installer\staging\app\backend\dist_new"
@@ -232,19 +299,78 @@ try {
 # =============================================================================
 Write-Step "Verificando prerrequisitos..."
 
-if (-not (Test-Path $InnoSetupPath)) {
+# Inno Setup se busca en los tres lugares donde realmente aparece: instalacion
+# para todos los usuarios, para 64 bits, y la de winget, que es por usuario y
+# cae en %LOCALAPPDATA%. Antes la ruta estaba fija en Program Files (x86) y un
+# equipo con winget fallaba aunque lo tuviera instalado.
+if (-not $InnoSetupPath) {
+    $candidatosISCC = @(
+        "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
+        "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+        "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
+    )
+    foreach ($ci in $candidatosISCC) {
+        if ($ci -and (Test-Path $ci)) { $InnoSetupPath = $ci; break }
+    }
+    if (-not $InnoSetupPath) {
+        $porPath = Get-Command "ISCC.exe" -ErrorAction SilentlyContinue
+        if ($porPath) { $InnoSetupPath = $porPath.Source }
+    }
+}
+
+if (-not $InnoSetupPath -or -not (Test-Path $InnoSetupPath)) {
     Write-Host ""
     Write-Host "  [XX] Inno Setup 6 no encontrado." -ForegroundColor Red
-    Write-Host "  Descargalo en: https://jrsoftware.org/isdl.php" -ForegroundColor Yellow
+    Write-Host "  Instalalo con:  winget install --id JRSoftware.InnoSetup" -ForegroundColor Yellow
+    Write-Host "  O descargalo en: https://jrsoftware.org/isdl.php" -ForegroundColor Yellow
     exit 1
 }
-Write-OK "Inno Setup 6 encontrado"
+Write-OK "Inno Setup 6: $InnoSetupPath"
 
-$RuntimeDir = Join-Path $ScriptDir "$OutputDir\POS-iaDoS-Setup-$RuntimeSource\runtime"
-if (-not (Test-Path $RuntimeDir)) {
-    Write-Fail "No se encontro carpeta de runtimes: $RuntimeDir"
+# Los runtimes (Node, MariaDB, nssm) viven en staging\runtime. Antes se
+# buscaban dentro de un output de un build anterior (output\POS-iaDoS-Setup-
+# v1.0.0\runtime), asi que en un equipo limpio -o despues de borrar output- el
+# build moria sin poder arreglarse solo. Ahora: se prefiere staging\runtime, y
+# si no esta, se arma con preparar-runtimes.ps1 desde los ZIP de .downloads
+# (sin internet).
+$RuntimeDir = Join-Path $ScriptDir "staging\runtime"
+
+function Test-RuntimeCompleto {
+    param([string]$Dir, [string]$ModoBuild)
+    if (-not (Test-Path $Dir)) { return $false }
+    $req = @("nssm.exe", "node\node.exe")
+    if ($ModoBuild -eq "local") {
+        $req += @("mariadb\bin\mysqld.exe", "mariadb\bin\mysql.exe", "mariadb\bin\mysqldump.exe")
+    }
+    foreach ($r in $req) {
+        if (-not (Test-Path (Join-Path $Dir $r))) { return $false }
+    }
+    return $true
 }
-Write-OK "Runtimes base encontrados ($RuntimeSource)"
+
+if (-not (Test-RuntimeCompleto -Dir $RuntimeDir -ModoBuild $Mode)) {
+    $preparador = Join-Path $ScriptDir "preparar-runtimes.ps1"
+    if (Test-Path $preparador) {
+        Write-Warn "staging\runtime incompleto. Armandolo con preparar-runtimes.ps1..."
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $preparador
+        if ($LASTEXITCODE -ne 0) {
+            Write-Fail "preparar-runtimes.ps1 fallo (codigo $LASTEXITCODE). Revisa installer\.downloads"
+        }
+    }
+}
+
+# Ultimo recurso: un output de un build anterior, por si alguien ya lo tenia asi.
+if (-not (Test-RuntimeCompleto -Dir $RuntimeDir -ModoBuild $Mode)) {
+    $RuntimeAlterno = Join-Path $ScriptDir "$OutputDir\POS-iaDoS-Setup-$RuntimeSource\runtime"
+    if (Test-RuntimeCompleto -Dir $RuntimeAlterno -ModoBuild $Mode) {
+        $RuntimeDir = $RuntimeAlterno
+    } else {
+        Write-Fail "No hay runtimes completos. Corre: .\preparar-runtimes.ps1"
+    }
+}
+
+$runtimeMB = [math]::Round(((Get-ChildItem $RuntimeDir -Recurse -File | Measure-Object Length -Sum).Sum) / 1MB, 1)
+Write-OK "Runtimes: $RuntimeDir ($runtimeMB MB)"
 
 $StagingDir  = Join-Path $ScriptDir "staging"
 $FrontendDir = $FrontendDistDir  # Apunta a dist-build (compilado fresco, permisos correctos)
@@ -416,7 +542,7 @@ Copy-Item -Path "$StagingDir\LICENSE.txt" -Destination $MergedDir -Force -ErrorA
 Write-OK "BAT files copiados"
 
 # --- Modo de instalacion (leido por install.ps1) ---
-$Mode | Set-Content -Path "$MergedDir\install-mode.txt" -Encoding UTF8
+Set-TextoSinBOM -Ruta "$MergedDir\install-mode.txt" -Texto $Mode
 Write-OK "install-mode.txt: $Mode"
 
 # --- Template del .env del backend ---
@@ -462,8 +588,14 @@ foreach ($c in $checks) {
 }
 
 if (-not $allOk) {
-    $resp = Read-Host "`n  Faltan componentes. Continuar de todas formas? (s/N)"
-    if ($resp -notmatch "^[sS]") { exit 1 }
+    # Antes aqui habia un Read-Host. Un build lanzado sin nadie enfrente se
+    # quedaba colgado para siempre esperando una tecla, y parecia congelado.
+    # Faltar una pieza significa EXE roto: se aborta, punto.
+    Write-Host ""
+    Write-Host "  [XX] Faltan componentes del instalador (ver lista de arriba)." -ForegroundColor Red
+    Write-Host "  No se genera el EXE: saldria incompleto y fallaria en el equipo" -ForegroundColor Red
+    Write-Host "  del cliente, que es el peor lugar para descubrirlo." -ForegroundColor Red
+    exit 1
 }
 
 # =============================================================================
@@ -478,7 +610,7 @@ $buildDate = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     mode       = $Mode
     product    = "POS-iaDoS"
     company    = "iaDoS"
-} | ConvertTo-Json -Depth 2 | Set-Content -Path "$MergedDir\version.json" -Encoding UTF8
+} | ConvertTo-Json -Depth 2 | ForEach-Object { Set-TextoSinBOM -Ruta "$MergedDir\version.json" -Texto $_ }
 
 Write-OK "v$Version  [$Mode]  ($buildDate)"
 
@@ -487,10 +619,10 @@ Write-OK "v$Version  [$Mode]  ($buildDate)"
 # =============================================================================
 Write-Step "Actualizando version en BAT files..."
 Get-ChildItem -Path $MergedDir -Filter "*.bat" | ForEach-Object {
-    $content = Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue
+    $content = Get-Content $_.FullName -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
     if ($content) {
         $content = $content -replace 'v\d+\.\d+\.\d+', "v$Version"
-        Set-Content -Path $_.FullName -Value $content -Encoding UTF8 -NoNewline
+        Set-TextoSinBOM -Ruta $_.FullName -Texto $content
         Write-OK $_.Name
     }
 }
@@ -548,7 +680,7 @@ if ($Mode -eq "local") {
 Write-Host ""
 Write-Host "  Proximos pasos:" -ForegroundColor White
 Write-Host "    1. Probar el EXE en maquina limpia" -ForegroundColor Yellow
-Write-Host "    2. git add -A && git commit -m 'release: v$Version-$Mode'" -ForegroundColor Yellow
+Write-Host "    2. git add por ruta explicita (NUNCA -A: la raiz trae archivos sueltos y ext.env)" -ForegroundColor Yellow
 Write-Host "    3. git tag v$Version-$Mode" -ForegroundColor Yellow
 Write-Host ""
 
@@ -560,16 +692,16 @@ Write-Step "Actualizando version en archivos del proyecto..."
 # staging/version.json
 $vjPath = Join-Path $ScriptDir "staging\version.json"
 @{ version = $Version; build_date = (Get-Date -Format "yyyy-MM-dd HH:mm:ss"); product = "POS-iaDoS"; company = "iaDoS" } |
-    ConvertTo-Json | Set-Content $vjPath -Encoding UTF8
+    ConvertTo-Json | ForEach-Object { Set-TextoSinBOM -Ruta $vjPath -Texto $_ }
 Write-OK "staging/version.json -> $Version"
 
 # backend/loc.env
 $locEnv = Join-Path $ProjectDir "backend\loc.env"
 if (Test-Path $locEnv) {
-    $c = Get-Content $locEnv -Raw
+    $c = Get-Content $locEnv -Raw -Encoding UTF8
     if ($c -match 'APP_VERSION=') { $c = $c -replace 'APP_VERSION=.*', "APP_VERSION=$Version" }
     else { $c = $c.TrimEnd() + "`nAPP_VERSION=$Version`n" }
-    $c | Set-Content $locEnv -Encoding UTF8 -NoNewline
+    Set-TextoSinBOM -Ruta $locEnv -Texto $c
     Write-OK "backend/loc.env -> APP_VERSION=$Version"
 }
 
@@ -577,10 +709,10 @@ if (Test-Path $locEnv) {
 $extEnv = Join-Path $ProjectDir "backend\ext.env"
 if (Test-Path $extEnv) {
     try {
-        $c = Get-Content $extEnv -Raw
+        $c = Get-Content $extEnv -Raw -Encoding UTF8
         if ($c -match 'APP_VERSION=') { $c = $c -replace 'APP_VERSION=.*', "APP_VERSION=$Version" }
         else { $c = $c.TrimEnd() + "`nAPP_VERSION=$Version`n" }
-        $c | Set-Content $extEnv -Encoding UTF8 -NoNewline
+        Set-TextoSinBOM -Ruta $extEnv -Texto $c
         Write-OK "backend/ext.env -> APP_VERSION=$Version"
     } catch {
         Write-Warn "backend/ext.env no actualizado (archivo protegido - no critico)"
@@ -590,9 +722,11 @@ if (Test-Path $extEnv) {
 # docker-compose.yml
 $dcPath = Join-Path $ProjectDir "docker-compose.yml"
 if (Test-Path $dcPath) {
-    $c = Get-Content $dcPath -Raw
+    # -Encoding UTF8 no es opcional: sin el, Get-Content lee con la pagina
+    # ANSI y los acentos salen doblemente codificados al reescribir.
+    $c = Get-Content $dcPath -Raw -Encoding UTF8
     $c = $c -replace 'APP_VERSION:.*', "APP_VERSION: `"$Version`""
-    $c | Set-Content $dcPath -Encoding UTF8 -NoNewline
+    Set-TextoSinBOM -Ruta $dcPath -Texto $c
     Write-OK "docker-compose.yml -> APP_VERSION=$Version"
 }
 
@@ -602,6 +736,40 @@ Write-Host ""
 
 # Limpiar dist-build temporal
 if (Test-Path $distBuildDir) {
-    Remove-Item -Recurse -Force $distBuildDir -ErrorAction SilentlyContinue
-    Write-OK "dist-build temporal eliminado"
+    try {
+        Remove-Item -Recurse -Force $distBuildDir -ErrorAction Stop
+        Write-OK "dist-build temporal eliminado"
+    } catch {
+        Write-Warn "No se pudo borrar $distBuildDir (no es critico, el EXE ya esta listo)"
+    }
 }
+
+# -----------------------------------------------------------------------------
+# Cierre explicito. Sin esto, PowerShell hereda el codigo de la ultima
+# instruccion y un detalle de limpieza hacia parecer que el build fallo.
+# Lo que decide si el build salio bien es que el EXE exista y pese.
+# -----------------------------------------------------------------------------
+if (-not (Test-Path $ExePath)) {
+    Write-Host ""
+    Write-Host "  [X] El EXE no quedo en $ExePath" -ForegroundColor Red
+    Write-Host ""
+    exit 1
+}
+
+$exeFinal = Get-Item $ExePath
+if ($exeFinal.Length -lt 50MB) {
+    Write-Host ""
+    Write-Host "  [X] El EXE quedo demasiado chico ($([math]::Round($exeFinal.Length/1MB,1)) MB)." -ForegroundColor Red
+    Write-Host "      Un paquete local completo pasa de los 100 MB. Algo no entro." -ForegroundColor Red
+    Write-Host ""
+    exit 1
+}
+
+Write-Host ""
+Write-Host "  ======================================================================" -ForegroundColor Green
+Write-Host "   BUILD TERMINADO BIEN" -ForegroundColor Green
+Write-Host "   $ExePath" -ForegroundColor Green
+Write-Host "   $([math]::Round($exeFinal.Length/1MB,1)) MB  |  $($exeFinal.LastWriteTime)" -ForegroundColor Green
+Write-Host "  ======================================================================" -ForegroundColor Green
+Write-Host ""
+exit 0

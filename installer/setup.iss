@@ -47,9 +47,18 @@ OutputDir=output
 OutputBaseFilename={#OutputName}
 
 ; Compresión máxima
-Compression=lzma2/ultra64
+; Compresion: lzma2/max en lugar de ultra64. ultra64 usa un diccionario de
+; 64 MB y en este equipo de compilacion (15.8 GB con ~2 GB libres) el proceso
+; compresor se queda sin memoria y Windows lo mata a la mitad, dejando un EXE
+; incompleto o ningun EXE. max usa 32 MB, menos de la mitad de memoria, y la
+; diferencia de tamano es de uno o dos megas porque el paquete es casi todo
+; binarios ya comprimidos (node, MariaDB). Un EXE un poco mas grande es un
+; problema mucho menor que no tener EXE.
+Compression=lzma2/max
 SolidCompression=yes
 LZMAUseSeparateProcess=yes
+; Un solo hilo de compresion: cada hilo lleva su propio bloque en memoria.
+LZMANumBlockThreads=1
 
 ; Apariencia - Wizard moderno de Inno Setup 6
 WizardStyle=modern
@@ -67,6 +76,14 @@ LicenseFile={#SourceDir}\LICENSE.txt
 
 ; Privilegios y requisitos del sistema
 PrivilegesRequired=admin
+; Bitacora del propio instalador en %TEMP%\Setup Log*.txt. Es el unico rastro
+; que queda si algo falla ANTES de que install.ps1 empiece a escribir el suyo.
+SetupLogging=yes
+; Sin esto, Inno puede abrir una pantalla de "cierre estas aplicaciones" y
+; quedarse esperando un clic. En un equipo remoto sin nadie enfrente eso es un
+; bloqueo para siempre. Detener el sistema es tarea de install.ps1, por
+; servicio de Windows, no de esta pantalla.
+CloseApplications=no
 MinVersion=6.1
 ArchitecturesInstallIn64BitMode=x64
 
@@ -156,7 +173,7 @@ Name: "demodata"; \
 [Run]
 ; Ejecutar install.ps1 con los archivos extraídos al directorio temporal
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
-  Parameters: "-ExecutionPolicy Bypass -NoProfile -NonInteractive -File ""{tmp}\POS-iaDoS-Src\setup\install.ps1"" -InstallerPath ""{tmp}\POS-iaDoS-Src"" -InstallDemoData {code:GetDemoDataFlag} -AdminEmail ""{code:GetAdminEmail}"" -NombreNegocio ""{code:GetNombreNegocio}"""; \
+  Parameters: "-ExecutionPolicy Bypass -NoProfile -NonInteractive -File ""{tmp}\POS-iaDoS-Src\setup\install.ps1"" -InstallerPath ""{tmp}\POS-iaDoS-Src"" -InstallDemoData {code:GetDemoDataFlag} -AdminEmail ""{code:GetAdminEmail}"" -NombreNegocio ""{code:GetNombreNegocio}""{code:GetBanderasExtra}"; \
   StatusMsg: "Instalando POS-iaDoS... (esto puede tardar varios minutos)"; \
   Flags: runhidden waituntilterminated
 
@@ -199,6 +216,42 @@ begin
 end;
 
 // ── Getters para {code:...} en [Run] ─────────────────────────────────────────
+
+// Banderas que el usuario puede pasarle al EXE y que viajan hasta install.ps1:
+//
+//   POS-iaDoS-Local-vX.Y.Z.exe /SINENSAYO
+//       Actualiza sin la prueba previa. Sirve cuando el ensayo no se puede
+//       completar por el entorno (poca memoria, antivirus, sin puerto libre) y
+//       sin esto el EXE fallaria igual cada vez. El respaldo previo y el
+//       revertir automatico siguen activos.
+//
+//   POS-iaDoS-Local-vX.Y.Z.exe /FORZARSEMBRADO
+//       Ultimo recurso: permite sembrar sobre una base que ya tiene datos.
+//       Antes de sembrar se hace un volcado completo de la base. No se usa
+//       nunca de forma automatica.
+function TieneParametro(Nombre: String): Boolean;
+var
+  i: Integer;
+begin
+  Result := False;
+  for i := 1 to ParamCount do
+  begin
+    if CompareText(ParamStr(i), Nombre) = 0 then
+    begin
+      Result := True;
+      Exit;
+    end;
+  end;
+end;
+
+function GetBanderasExtra(Param: String): String;
+begin
+  Result := '';
+  if TieneParametro('/SINENSAYO') then
+    Result := Result + ' -SinEnsayo';
+  if TieneParametro('/FORZARSEMBRADO') then
+    Result := Result + ' -ForzarSembrado';
+end;
 
 function GetDemoDataFlag(Param: String): String;
 begin
@@ -382,15 +435,29 @@ var
 begin
   Result := True;
 
+  // El texto anterior decía "será reemplazada", y eso no es lo que pasa ni lo
+  // que debe pasar: cuando ya hay una instalación, install.ps1 se va por el
+  // camino de ACTUALIZACIÓN, que respalda todo antes de tocar nada y no borra
+  // datos ni imágenes. Decirle al cliente que su instalación "será
+  // reemplazada" lo hace cancelar una actualización que era segura, o aceptar
+  // creyendo que va a perder su información.
   if DirExists('{#MyInstallDir}') then
   begin
     Response := MsgBox(
-      'Se detectó una instalación existente de POS-iaDoS en:' + #13#10 +
+      'Ya hay POS-iaDoS instalado en:' + #13#10 +
       '{#MyInstallDir}' + #13#10#13#10 +
-      'Si continúa, será reemplazada.' + #13#10 +
-      '¿Desea continuar?',
+      'Se va a ACTUALIZAR, no a reinstalar:' + #13#10 +
+      '  1. Primero se respalda todo (base de datos, imágenes, un Excel con' + #13#10 +
+      '     todos los datos y la lista de ajustes activos).' + #13#10 +
+      '  2. Se prueba la versión nueva contra una COPIA de tu base. Si la' + #13#10 +
+      '     prueba falla, no se actualiza y el sistema sigue igual.' + #13#10 +
+      '  3. Sólo se reemplaza el programa. Tus datos, tus imágenes y tu' + #13#10 +
+      '     configuración se quedan como están.' + #13#10#13#10 +
+      'Si algo saliera mal puedes regresar en cualquier momento con' + #13#10 +
+      'REVERTIR.bat.' + #13#10#13#10 +
+      '¿Continuar con la actualización?',
       mbConfirmation,
-      MB_YESNO or MB_DEFBUTTON2
+      MB_YESNO or MB_DEFBUTTON1
     );
 
     if Response = IDNO then

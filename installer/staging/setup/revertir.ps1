@@ -115,7 +115,7 @@ function Obtener-Respaldos {
         if (-not (Test-Path $sql)) { continue }   # sin volcado no sirve para revertir
         $man = $null
         $rutaMan = Join-Path $d.FullName "manifest.json"
-        if (Test-Path $rutaMan) { try { $man = Get-Content $rutaMan -Raw | ConvertFrom-Json } catch {} }
+        if (Test-Path $rutaMan) { try { $man = Get-Content $rutaMan -Raw -Encoding UTF8 | ConvertFrom-Json } catch {} }
         $lista += [pscustomobject]@{
             Carpeta  = $d.FullName
             Nombre   = $d.Name
@@ -191,7 +191,7 @@ if (-not (Test-Path $sqlPath)) {
 
 $manifest = $null
 $rutaMan = Join-Path $Respaldo "manifest.json"
-if (Test-Path $rutaMan) { try { $manifest = Get-Content $rutaMan -Raw | ConvertFrom-Json } catch {} }
+if (Test-Path $rutaMan) { try { $manifest = Get-Content $rutaMan -Raw -Encoding UTF8 | ConvertFrom-Json } catch {} }
 
 $sqlInfo = Get-Item $sqlPath
 Ok "base-datos.sql  $(Tamano-Legible $sqlInfo.Length)"
@@ -234,7 +234,7 @@ $dbPort = if ($cfg.DB_PORT) { $cfg.DB_PORT } else { "3306" }
 $dbUser = if ($cfg.DB_USERNAME) { $cfg.DB_USERNAME } else { "pos_iados" }
 $dbName = if ($cfg.DB_DATABASE) { $cfg.DB_DATABASE } else { "pos_iados" }
 $dbPass = $cfg.DB_PASSWORD
-$puerto = if ($cfg.PORT) { [int]$cfg.PORT } else { 3000 }
+$puerto = if ($cfg.APP_PORT) { [int]$cfg.APP_PORT } elseif ($cfg.PORT) { [int]$cfg.PORT } else { 3000 }   # el .env dice APP_PORT; PORT queda como alias por compatibilidad
 if (-not $dbPass) { Terminar 1 "El .env no trae DB_PASSWORD. No se puede restaurar." }
 
 # =============================================================================
@@ -242,7 +242,7 @@ if (-not $dbPass) { Terminar 1 "El .env no trae DB_PASSWORD. No se puede restaur
 # =============================================================================
 $versionActual = "desconocida"
 $vj = Join-Path $InstallDir "version.json"
-if (Test-Path $vj) { try { $versionActual = (Get-Content $vj -Raw | ConvertFrom-Json).version } catch {} }
+if (Test-Path $vj) { try { $versionActual = (Get-Content $vj -Raw -Encoding UTF8 | ConvertFrom-Json).version } catch {} }
 
 Escribir ""
 Escribir "  ----------------------------------------------------------" "Yellow"

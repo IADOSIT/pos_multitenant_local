@@ -33,6 +33,25 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Escribe texto en UTF-8 de verdad, SIN marca de orden de bytes.
+#
+# "Set-Content -Encoding UTF8" en el PowerShell que trae Windows mete tres
+# bytes invisibles (EF BB BF) al principio del archivo. En un .json eso hace
+# que JSON.parse del backend truene y, como el catch devuelve null callado, un
+# respaldo bueno se muestra como incompleto y sin forma de revertir. Nunca se
+# usa Set-Content -Encoding UTF8 en este paquete; se usa esta funcion.
+function Set-TextoSinBOM {
+    param(
+        [Parameter(Mandatory = $true)][string]$Ruta,
+        [Parameter(Mandatory = $true)][AllowEmptyString()][AllowNull()]$Texto
+    )
+    if ($Texto -is [array]) { $Texto = ($Texto -join "`r`n") }
+    if ($null -eq $Texto)   { $Texto = "" }
+    $sinBOM = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($Ruta, [string]$Texto, $sinBOM)
+}
+
+
 # -----------------------------------------------------------------------------
 #  Salida: todo va a pantalla y al mismo tiempo al log del respaldo. El cliente
 #  trabaja en remoto y sin supervision visual, asi que el log es la unica
@@ -158,7 +177,7 @@ Ok "Instalacion encontrada en $InstallDir"
 
 $version = "desconocida"
 if (Test-Path $VERSION_JS) {
-    try { $version = (Get-Content $VERSION_JS -Raw | ConvertFrom-Json).version } catch { $version = "ilegible" }
+    try { $version = (Get-Content $VERSION_JS -Raw -Encoding UTF8 | ConvertFrom-Json).version } catch { $version = "ilegible" }
 }
 Ok "Version instalada: $version"
 
@@ -216,7 +235,7 @@ New-Item -ItemType Directory -Path (Join-Path $carpeta "config") -Force | Out-Nu
 New-Item -ItemType Directory -Path (Join-Path $carpeta "reportes") -Force | Out-Null
 
 $script:LogPath = Join-Path $carpeta "respaldo.log"
-Set-Content -Path $script:LogPath -Value (($script:Lineas | Where-Object { $_ -ne $null }) -join "`r`n") -Encoding UTF8
+Set-TextoSinBOM -Ruta $script:LogPath -Texto (($script:Lineas | Where-Object { $_ -ne $null }) -join "`r`n")
 Ok "Carpeta: $carpeta"
 
 # =============================================================================
@@ -387,7 +406,7 @@ if (Test-Path $distProd) {
 try {
     $esquema = Select-String -Path $sqlPath -Pattern '^(CREATE TABLE|\s+`|\) ENGINE)' |
                ForEach-Object { $_.Line }
-    Set-Content -Path (Join-Path $carpeta "reportes\esquema.txt") -Value $esquema -Encoding UTF8
+    Set-TextoSinBOM -Ruta (Join-Path $carpeta "reportes\esquema.txt") -Texto $esquema
     Ok "reportes\esquema.txt (estructura de las tablas)"
 } catch {
     Aviso "No se pudo extraer el esquema del volcado"
@@ -453,11 +472,11 @@ Titulo "[8/8] Cerrando el respaldo"
 
 $imgJson = $null
 if ($imagenesOk) {
-    try { $imgJson = Get-Content (Join-Path $reportes "imagenes.json") -Raw | ConvertFrom-Json } catch {}
+    try { $imgJson = Get-Content (Join-Path $reportes "imagenes.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch {}
 }
 $excelJson = $null
 if ($excelOk) {
-    try { $excelJson = Get-Content (Join-Path $carpeta "excel.json") -Raw | ConvertFrom-Json } catch {}
+    try { $excelJson = Get-Content (Join-Path $carpeta "excel.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch {}
 }
 
 $manifest = [ordered]@{
@@ -496,7 +515,7 @@ $manifest = [ordered]@{
     }
     revertir_con      = "tools\revertir.ps1 -Respaldo ""$carpeta"""
 }
-$manifest | ConvertTo-Json -Depth 6 | Set-Content -Path (Join-Path $carpeta "manifest.json") -Encoding UTF8
+$manifest | ConvertTo-Json -Depth 6 | ForEach-Object { Set-TextoSinBOM -Ruta (Join-Path $carpeta "manifest.json") -Texto $_ }
 Ok "manifest.json"
 
 # --- RESUMEN.txt: el archivo que se abre primero ---
@@ -544,7 +563,7 @@ R "  programa al estado exacto de este respaldo."
 R ""
 R "  Tardo $duracion segundos."
 R "==============================================================="
-Set-Content -Path (Join-Path $carpeta "RESUMEN.txt") -Value ($Res -join "`r`n") -Encoding UTF8
+Set-TextoSinBOM -Ruta (Join-Path $carpeta "RESUMEN.txt") -Texto ($Res -join "`r`n")
 Ok "RESUMEN.txt"
 
 # --- se vuelve a prender el backend ---
@@ -553,7 +572,7 @@ if ($backendEstaba) {
     Escribir "        Volviendo a prender el sistema..."
     Servicio -Accion "start" -Nombre $SVC_BACKEND
 
-    $puerto = if ($cfg.PORT) { [int]$cfg.PORT } else { 3000 }
+    $puerto = if ($cfg.APP_PORT) { [int]$cfg.APP_PORT } elseif ($cfg.PORT) { [int]$cfg.PORT } else { 3000 }   # el .env dice APP_PORT; PORT queda como alias por compatibilidad
     if (Esperar-Puerto -Puerto $puerto -Segundos 90) {
         Ok "Sistema operando de nuevo en el puerto $puerto"
     } else {

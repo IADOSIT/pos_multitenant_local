@@ -11,6 +11,21 @@ $ErrorActionPreference = "SilentlyContinue"
 $NSSM = "$InstallDir\tools\nssm.exe"
 $services = @("PosIaDos-MariaDB", "PosIaDos-Backend")
 
+# Puertos reales de este equipo. install.ps1 pudo haberlos movido (el backend
+# a 3001-3040, MariaDB a 3307+) si los de fabrica estaban ocupados, y lo deja
+# anotado en el .env. Leerlos de ahi evita reportar CERRADO un puerto que esta
+# abierto y evita imprimir una URL que no abre.
+$AppPort = 3000
+$DbPort  = 3306
+$envFile = Join-Path $InstallDir "backend\.env"
+if (Test-Path $envFile) {
+    foreach ($linea in (Get-Content $envFile -ErrorAction SilentlyContinue)) {
+        if ($linea -match '^\s*APP_PORT\s*=\s*(\d+)') { $AppPort = [int]$Matches[1] }
+        if ($linea -match '^\s*DB_PORT\s*=\s*(\d+)')  { $DbPort  = [int]$Matches[1] }
+    }
+}
+
+
 function Get-ServiceStatus {
     param([string]$Name)
     try {
@@ -34,7 +49,7 @@ switch ($Action) {
             $color = if ($status -eq "Running") { "Green" } else { "Red" }
             Write-Host "  $svc : $status" -ForegroundColor $color
         }
-        Write-Host "`n  Sistema disponible en http://localhost:3000`n" -ForegroundColor Green
+        Write-Host "`n  Sistema disponible en http://localhost:${AppPort}`n" -ForegroundColor Green
     }
     "stop" {
         Write-Host "`n  Deteniendo servicios POS-iaDoS...`n" -ForegroundColor Yellow
@@ -70,7 +85,7 @@ switch ($Action) {
         Write-Host ""
 
         if (Test-Path "$InstallDir\version.json") {
-            $ver = (Get-Content "$InstallDir\version.json" | ConvertFrom-Json)
+            $ver = (Get-Content "$InstallDir\version.json" -Encoding UTF8 | ConvertFrom-Json)
             Write-Host "  Version: $($ver.version)  (Build: $($ver.build_date))" -ForegroundColor White
         }
 
@@ -83,7 +98,7 @@ switch ($Action) {
 
         # Verificar puertos
         Write-Host ""
-        $ports = @(@{Name="MariaDB"; Port=3306}, @{Name="Backend"; Port=3000})
+        $ports = @(@{Name="MariaDB"; Port=$DbPort}, @{Name="Backend"; Port=$AppPort})
         foreach ($p in $ports) {
             try {
                 $tcp = New-Object System.Net.Sockets.TcpClient
@@ -96,7 +111,7 @@ switch ($Action) {
         }
 
         Write-Host ""
-        Write-Host "  URL: http://localhost:3000" -ForegroundColor White
+        Write-Host "  URL: http://localhost:${AppPort}" -ForegroundColor White
         Write-Host "  Logs: $InstallDir\logs\" -ForegroundColor Gray
         Write-Host ""
     }
