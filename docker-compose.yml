@@ -5,7 +5,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20261001-ensayo-antes-de-actualizar"
+        CACHE_BUST: "20261001-v244-codificacion"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
@@ -56,7 +56,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20261001-ensayo-antes-de-actualizar"
+        CACHE_BUST: "20261001-v244-codificacion"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:
