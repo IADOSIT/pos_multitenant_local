@@ -157,8 +157,14 @@ function Diagnostico {
         $tmp = Join-Path $env:TEMP ("pos-diag-" + [guid]::NewGuid().ToString("N").Substring(0,8))
         New-Item -ItemType Directory -Path $tmp -Force | Out-Null
         try {
+            # PowerShell 5.1 + Stop + stderr nativo redirigido = error falso: un
+            # aviso de node en stderr caeria al catch aunque haya funcionado.
+            # Solo esta llamada corre con Continue; el resto sigue en Stop.
+            $eapAntes = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+            try {
             & $NODE (Join-Path $NODE_TOOLS "ajustes.js") --install-dir $InstallDir --salida $tmp 2>&1 |
                 Select-Object -Last 6 | ForEach-Object { Escribir "      $_" "DarkGray" }
+            } finally { $ErrorActionPreference = $eapAntes }
             $aj = Join-Path $tmp "ajustes.json"
             if (Test-Path $aj) {
                 $j = Get-Content $aj -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -410,7 +416,10 @@ while ($true) {
         }
         "9" {
             $nssm = Join-Path $TOOLS "nssm.exe"
-            if (Test-Path $nssm) { & $nssm restart $SVC_BACKEND 2>&1 | Out-Null }
+            if (Test-Path $nssm) {
+                $eapAntes = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+                try { & $nssm restart $SVC_BACKEND 2>&1 | Out-Null } finally { $ErrorActionPreference = $eapAntes }
+            }
             else { Restart-Service -Name $SVC_BACKEND -Force -ErrorAction SilentlyContinue }
             Escribir "        Esperando..."
             $cfg = Leer-Env -Ruta $ENV_BACKEND

@@ -424,8 +424,16 @@ $script:ArgsMysql = @("--defaults-extra-file=$($script:CnfTemp)")
 #     para poder jurar que el ensayo no la toco ---
 $tablasRealAntes = 0
 try {
+    # PowerShell 5.1 + Stop + stderr nativo redirigido = error falso: un aviso
+    # en stderr de mysql/node tronaria aunque el comando haya funcionado. Por
+    # eso cada llamada nativa redirigida corre con Continue, y aqui ademas
+    # solo se parsea stdout (un aviso en stderr traeria digitos).
+    $eapAntes = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+    try {
     $s = & $script:MYSQL "--defaults-extra-file=$($script:CnfTemp)" "-N" "-B" "-e" `
-        "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='$dbName' AND TABLE_TYPE='BASE TABLE'" 2>&1
+        "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='$dbName' AND TABLE_TYPE='BASE TABLE'" 2>&1 |
+        Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] }
+    } finally { $ErrorActionPreference = $eapAntes }
     if ($s -match "(\d+)") { $tablasRealAntes = [int]$Matches[1] }
 } catch { }
 Escribir "        La base real tiene $tablasRealAntes tablas (se vuelve a revisar al final)"
@@ -464,8 +472,11 @@ Titulo "[6/9] Fotografiando el esquema de hoy"
 
 $antesJson = Join-Path $script:Carpeta "esquema-antes.json"
 $salidaEsq = Join-Path $script:Carpeta "esquema-captura.txt"
+$eapAntes = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+try {
 & $NODE $ESQUEMA_JS "--install-dir" $InstallDir "--base" $BaseEnsayo "--archivo" $antesJson *>&1 |
     Tee-Object -FilePath $salidaEsq | ForEach-Object { Escribir "        $_" }
+} finally { $ErrorActionPreference = $eapAntes }
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path $antesJson)) {
     Terminar 1 "No se pudo fotografiar el esquema. Sin la foto de antes no hay con que comparar, asi que no se ensaya."
 }
@@ -579,8 +590,11 @@ Start-Sleep -Seconds 5
 Titulo "[8/9] Comparando que cambio"
 
 $despuesJson = Join-Path $script:Carpeta "esquema-despues.json"
+$eapAntes = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+try {
 & $NODE $ESQUEMA_JS "--install-dir" $InstallDir "--base" $BaseEnsayo "--archivo" $despuesJson *>&1 |
     ForEach-Object { Escribir "        $_" }
+} finally { $ErrorActionPreference = $eapAntes }
 if (-not (Test-Path $despuesJson)) {
     Terminar 2 "No se pudo fotografiar el esquema despues de migrar. Mejor no actualizar sin saber que cambio."
 }
@@ -592,8 +606,11 @@ $script:ProcesoNode = $null
 Start-Sleep -Seconds 2
 
 $reporteEsq = Join-Path $script:Carpeta "ESQUEMA.txt"
+$eapAntes = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+try {
 & $NODE $ESQUEMA_JS "--comparar" $antesJson "--contra" $despuesJson "--salida" $reporteEsq *>&1 |
     ForEach-Object { Escribir $_ }
+} finally { $ErrorActionPreference = $eapAntes }
 $codigoEsq = $LASTEXITCODE
 
 # =============================================================================
@@ -603,8 +620,12 @@ Titulo "[9/9] Revisando que la base real no se toco"
 
 $tablasRealDespues = -1
 try {
+    $eapAntes = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+    try {
     $s = & $script:MYSQL "--defaults-extra-file=$($script:CnfTemp)" "-N" "-B" "-e" `
-        "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='$dbName' AND TABLE_TYPE='BASE TABLE'" 2>&1
+        "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='$dbName' AND TABLE_TYPE='BASE TABLE'" 2>&1 |
+        Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] }
+    } finally { $ErrorActionPreference = $eapAntes }
     if ($s -match "(\d+)") { $tablasRealDespues = [int]$Matches[1] }
 } catch { }
 

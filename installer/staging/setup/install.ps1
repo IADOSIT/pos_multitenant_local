@@ -277,8 +277,30 @@ if (-not $EsInstalacionNueva) {
         Write-Host ""
         $argsAct += "-SinEnsayo"
     }
+    # El EXE lee logs\ultima-actualizacion.txt para decir en pantalla si se
+    # actualizo o no. Se quita el de una corrida anterior para no mostrar un
+    # resultado viejo; si actualizar.ps1 se cae sin dejar el suyo, aqui se
+    # escribe uno con el codigo de salida.
+    $resultadoAct = Join-Path $InstallDir "logs\ultima-actualizacion.txt"
+    Remove-Item -Path $resultadoAct -Force -ErrorAction SilentlyContinue
     & powershell @argsAct
     $codigoAct = $LASTEXITCODE
+    if (-not (Test-Path $resultadoAct)) {
+        try {
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $resultadoAct) | Out-Null
+            $lineasAct = @(
+                "codigo=$codigoAct",
+                "aplicada=$(if ($codigoAct -eq 0 -or $codigoAct -eq 3) { 'si' } else { 'no' })",
+                "intacto=desconocido",
+                "etapa=desconocida",
+                "version=",
+                "mensaje=El actualizador termino con codigo $codigoAct sin dejar detalle. Revisa la carpeta logs.",
+                "bitacora=$InstallDir\logs",
+                "fecha=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+            )
+            [System.IO.File]::WriteAllText($resultadoAct, ($lineasAct -join "`r`n"), (New-Object System.Text.UTF8Encoding($false)))
+        } catch { }
+    }
 
     # Si la actualizacion se corto porque el ensayo no se pudo completar, aqui
     # se dice en una linea como salir del paso. Sin esto, el reporte termina

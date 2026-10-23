@@ -201,6 +201,7 @@ var
   GAdminEmail    : String;
   GNombreNegocio : String;
   GCredOk        : Boolean;
+  GEsActualizacion : Boolean;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -359,6 +360,8 @@ begin
   // ── Confirmación ANTES de cerrar la página de finalización ────────────────
   if CurPageID = wpFinished then
   begin
+    if GEsActualizacion then
+      GCredOk := True;
     if not GCredOk then
     begin
       if MsgBox(
@@ -382,10 +385,127 @@ end;
 
 // ── Página de finalización con credenciales y guía de primer uso ──────────────
 
+// ── Resultado de la actualización ─────────────────────────────────────────────
+//
+// install.ps1 corre oculto y el asistente no ve su código de salida, así que
+// antes esta página decía "instalado correctamente" pasara lo que pasara. Ya
+// ocurrió en un equipo en sitio: la actualización se cortó antes del respaldo,
+// el EXE dijo que todo salió bien y el sistema siguió en la versión vieja sin
+// que nadie supiera por qué. actualizar.ps1 deja ahora el resultado en
+// logs\ultima-actualizacion.txt (clave=valor, ASCII) y aquí se lee.
+
+function ValorResultado(Lineas: TArrayOfString; Clave: String): String;
+var
+  i, p: Integer;
+begin
+  Result := '';
+  for i := 0 to GetArrayLength(Lineas) - 1 do
+  begin
+    p := Pos('=', Lineas[i]);
+    if (p > 1) and (CompareText(Trim(Copy(Lineas[i], 1, p - 1)), Clave) = 0) then
+    begin
+      Result := Trim(Copy(Lineas[i], p + 1, Length(Lineas[i])));
+      Exit;
+    end;
+  end;
+end;
+
+procedure MostrarResultadoActualizacion();
+var
+  Lineas: TArrayOfString;
+  Archivo, Codigo, Aplicada, Intacto, Etapa, Version, Mensaje, Bitacora, Texto: String;
+  ErrCode: Integer;
+  Fallo: Boolean;
+begin
+  Archivo := '{#MyInstallDir}\logs\ultima-actualizacion.txt';
+  Fallo := True;
+  Bitacora := '{#MyInstallDir}\logs';
+
+  if not LoadStringsFromFile(Archivo, Lineas) then
+  begin
+    Texto :=
+      'NO SE PUDO CONFIRMAR SI SE ACTUALIZÓ.' + #13#10#13#10 +
+      'El actualizador no dejó su resultado. Revisa la versión en el pie' + #13#10 +
+      'del menú del sistema y las bitácoras en:' + #13#10 +
+      '  {#MyInstallDir}\logs' + #13#10#13#10 +
+      'Tus datos no se borran en ningún caso. Si algo quedó mal puedes' + #13#10 +
+      'regresar con REVERTIR.bat.';
+  end
+  else
+  begin
+    Codigo   := ValorResultado(Lineas, 'codigo');
+    Aplicada := ValorResultado(Lineas, 'aplicada');
+    Intacto  := ValorResultado(Lineas, 'intacto');
+    Etapa    := ValorResultado(Lineas, 'etapa');
+    Version  := ValorResultado(Lineas, 'version');
+    Mensaje  := ValorResultado(Lineas, 'mensaje');
+    if ValorResultado(Lineas, 'bitacora') <> '' then
+      Bitacora := ValorResultado(Lineas, 'bitacora');
+    if Version = '' then
+      Version := '{#MyAppVersion}';
+
+    if CompareText(Aplicada, 'si') = 0 then
+    begin
+      Fallo := False;
+      Texto :=
+        '{#MyAppName} SE ACTUALIZÓ a la versión ' + Version + '.' + #13#10#13#10 +
+        'Tus datos, tus imágenes y tu configuración se conservaron.' + #13#10 +
+        'Antes de actualizar se hizo un respaldo completo en:' + #13#10 +
+        '  {#MyInstallDir}\backups' + #13#10#13#10 +
+        'Reporte:   {#MyInstallDir}\ULTIMA-ACTUALIZACION.txt' + #13#10 +
+        'Bitácora:  ' + Bitacora + #13#10#13#10 +
+        'Abre el sistema y recarga la página con Ctrl+F5 para ver' + #13#10 +
+        'las pantallas nuevas.' + #13#10#13#10 +
+        'Si algo no quedó bien puedes regresar en cualquier momento' + #13#10 +
+        'con REVERTIR.bat.';
+      if Codigo = '3' then
+        Texto := Texto + #13#10#13#10 +
+          'ATENCIÓN: hay ajustes que cambiaron. Revisa:' + #13#10 + '  ' + Mensaje;
+    end
+    else
+    begin
+      Texto := 'LA ACTUALIZACIÓN NO SE APLICÓ  (código ' + Codigo + ')' + #13#10#13#10;
+      if CompareText(Intacto, 'si') = 0 then
+        Texto := Texto +
+          'Tu sistema sigue EXACTAMENTE como estaba, en la versión anterior.' + #13#10 +
+          'No se tocó nada y sigue operando.' + #13#10#13#10
+      else if CompareText(Intacto, 'no') = 0 then
+        Texto := Texto +
+          'ATENCIÓN: el corte fue con el sistema detenido. Lee el motivo:' + #13#10 +
+          'ahí dice si ya regresó solo o qué correr para regresarlo.' + #13#10#13#10;
+      Texto := Texto + 'Motivo:' + #13#10 + '  ' + Mensaje + #13#10#13#10;
+      if Etapa <> '' then
+        Texto := Texto + 'Paso:      ' + Etapa + #13#10;
+      Texto := Texto + 'Bitácora:  ' + Bitacora + #13#10#13#10 +
+        'Mándale esta pantalla y la bitácora a soporte.';
+      if Pos('[3/9]', Etapa) > 0 then
+        Texto := Texto + #13#10#13#10 +
+          'Si el motivo es que el ENSAYO no se pudo completar, se puede' + #13#10 +
+          'actualizar saltándoselo: corre el EXE con  /SINENSAYO';
+    end;
+  end;
+
+  WizardForm.FinishedHeadingLabel.Caption := 'Resultado de la actualización';
+  WizardForm.FinishedLabel.Caption := Texto;
+
+  if Fallo then
+  begin
+    if MsgBox(Texto + #13#10#13#10 + '¿Abrir la bitácora ahora?',
+              mbError, MB_YESNO or MB_DEFBUTTON1) = IDYES then
+      ShellExec('open', Bitacora, '', '', SW_SHOWNORMAL, ewNoWait, ErrCode);
+  end;
+end;
+
 procedure CurPageChanged(CurPageID: Integer);
 var
   Dom, FinText: String;
 begin
+  if (CurPageID = wpFinished) and GEsActualizacion then
+  begin
+    MostrarResultadoActualizacion();
+    Exit;
+  end;
+
   if CurPageID = wpFinished then
   begin
     Dom := GetDomain(GAdminEmail);
@@ -434,6 +554,7 @@ var
   Response: Integer;
 begin
   Result := True;
+  GEsActualizacion := DirExists('{#MyInstallDir}');
 
   // El texto anterior decía "será reemplazada", y eso no es lo que pasa ni lo
   // que debe pasar: cuando ya hay una instalación, install.ps1 se va por el

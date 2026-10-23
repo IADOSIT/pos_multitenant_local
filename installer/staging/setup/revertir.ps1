@@ -75,6 +75,9 @@ function Tamano-Legible {
 
 function Servicio {
     param([string]$Accion, [string]$Nombre)
+    # PowerShell 5.1 + Stop + stderr nativo redirigido = error falso: nssm
+    # escribe avisos en stderr aunque funcione y eso abortaria el script.
+    $ErrorActionPreference = "Continue"
     if (Test-Path $script:NSSM) {
         & $script:NSSM $Accion $Nombre 2>&1 | Out-Null
     } elseif ($Accion -eq "stop") {
@@ -290,9 +293,12 @@ if ($SinRedDeSeguridad) {
         Terminar 1 "Sin la red de seguridad no se revierte. Reinstala las herramientas o usa -SinRedDeSeguridad si aceptas el riesgo."
     }
     # Sin Excel: aqui lo que importa es el volcado y las imagenes, rapido.
+    $eapAntes = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+    try {
     & powershell -NoProfile -ExecutionPolicy Bypass -File $respaldarPs1 `
         -InstallDir $InstallDir -Etiqueta "antes-de-revertir" -SinExcel -SinImagenes 2>&1 |
         ForEach-Object { Escribir "      $_" }
+    } finally { $ErrorActionPreference = $eapAntes }
     if ($LASTEXITCODE -ne 0) {
         Terminar 1 "No se pudo respaldar el estado de hoy. NO se revierte: primero hay que poder deshacer."
     }
@@ -392,8 +398,13 @@ if ($SoloImagenes) {
     try {
         Set-Content -Path $cnf2 -Encoding ASCII -NoNewline `
             -Value "[client]`r`nuser=$dbUser`r`npassword=""$dbPass""`r`nhost=$dbHost`r`nport=$dbPort`r`n"
+        # Solo stdout se parsea: un aviso de mysql en stderr traeria digitos.
+        $eapAntes = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+        try {
         $salida = & $MYSQL "--defaults-extra-file=$cnf2" "-N" "-B" "-e" `
-            "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='$dbName' AND TABLE_TYPE='BASE TABLE'" 2>&1
+            "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='$dbName' AND TABLE_TYPE='BASE TABLE'" 2>&1 |
+            Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] }
+        } finally { $ErrorActionPreference = $eapAntes }
         $tablas = 0
         if ($salida -match "(\d+)") { $tablas = [int]$Matches[1] }
         $esperadas = if ($manifest -and $manifest.base_sql) { [int]$manifest.base_sql.tablas } else { 0 }

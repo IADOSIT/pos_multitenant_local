@@ -124,6 +124,9 @@ function Huella {
 
 function Servicio {
     param([string]$Accion, [string]$Nombre)
+    # PowerShell 5.1 + Stop + stderr nativo redirigido = error falso: nssm
+    # escribe avisos en stderr aunque funcione y eso abortaria el script.
+    $ErrorActionPreference = "Continue"
     if (Test-Path $script:NSSM) {
         & $script:NSSM $Accion $Nombre 2>&1 | Out-Null
     } elseif ($Accion -eq "stop") {
@@ -428,8 +431,11 @@ if (-not $nodeOk) {
     # --- Excel con todo ---
     if (-not $SinExcel) {
         Escribir "        Exportando la base a Excel (puede tardar varios minutos)..."
+        $eapAntes = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+        try {
         & $NODE (Join-Path $NODE_TOOLS "exportar-excel.js") --install-dir $InstallDir --salida $carpeta --archivo "datos-completos.xlsx" 2>&1 |
             ForEach-Object { Escribir "      $_" }
+        } finally { $ErrorActionPreference = $eapAntes }
         if ($LASTEXITCODE -eq 0 -and (Test-Path (Join-Path $carpeta "datos-completos.xlsx"))) {
             $excelOk = $true
             Ok "datos-completos.xlsx  ($(Tamano-Legible (Get-Item (Join-Path $carpeta 'datos-completos.xlsx')).Length))"
@@ -441,8 +447,11 @@ if (-not $nodeOk) {
     }
 
     # --- ajustes activos ---
+    $eapAntes = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+    try {
     & $NODE (Join-Path $NODE_TOOLS "ajustes.js") --install-dir $InstallDir --salida $reportes 2>&1 |
         ForEach-Object { Escribir "      $_" }
+    } finally { $ErrorActionPreference = $eapAntes }
     if (Test-Path (Join-Path $reportes "ajustes.json")) {
         $ajustesOk = $true
         Ok "reportes\ajustes.json + AJUSTES.txt (lo que trae prendido hoy)"
@@ -452,8 +461,11 @@ if (-not $nodeOk) {
 
     # --- inventario de imagenes, sin tocar la base ---
     if (-not $SinImagenes) {
+        $eapAntes = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+        try {
         & $NODE (Join-Path $NODE_TOOLS "imagenes.js") --install-dir $InstallDir --salida $reportes 2>&1 |
             ForEach-Object { Escribir "      $_" }
+        } finally { $ErrorActionPreference = $eapAntes }
         if (Test-Path (Join-Path $reportes "imagenes.json")) {
             $imagenesOk = $true
             Ok "reportes\imagenes.json + IMAGENES.txt (estado de cada URL)"

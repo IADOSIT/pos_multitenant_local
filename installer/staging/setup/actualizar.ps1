@@ -59,12 +59,69 @@ function Set-TextoSinBOM {
 
 $script:LogPath = $null
 
+# Bitacora desde la primera linea. La del respaldo ($RESPALDO\actualizacion.log)
+# existe solo despues del paso 2: si la actualizacion se cortaba antes, desde el
+# EXE (que la corria en una ventana oculta) no quedaba ningun rastro del motivo.
+# Ya paso en un equipo en sitio: el EXE dijo "instalado" y todo siguio igual.
+# Esta vive en logs\ y se escribe siempre, ademas de la del respaldo.
+$script:LogGeneral    = $null
+$script:ResultadoPath = $null
+$script:Etapa         = "inicio"
+# Pasa a $true justo antes de detener el sistema (paso 4). Mientras siga en
+# $false, cualquier corte deja el equipo exactamente como estaba.
+$script:SistemaTocado = $false
+if ($InstallDir -and (Test-Path $InstallDir)) {
+    try {
+        $dirLogs = Join-Path $InstallDir "logs"
+        New-Item -ItemType Directory -Path $dirLogs -Force | Out-Null
+        $script:LogGeneral    = Join-Path $dirLogs ("actualizacion-{0}.log" -f (Get-Date -Format "yyyyMMdd-HHmmss"))
+        $script:ResultadoPath = Join-Path $dirLogs "ultima-actualizacion.txt"
+    } catch { $script:LogGeneral = $null; $script:ResultadoPath = $null }
+}
+
 function Escribir {
     param([string]$Texto = "", [string]$Color = "Gray")
     Write-Host $Texto -ForegroundColor $Color
+    if ($script:LogGeneral) { try { Add-Content -Path $script:LogGeneral -Value $Texto -Encoding UTF8 } catch { } }
     if ($script:LogPath) { Add-Content -Path $script:LogPath -Value $Texto -Encoding UTF8 }
 }
-function Titulo { param([string]$t) Escribir ""; Escribir "  $t" "Cyan" }
+
+# Resultado para el EXE: el asistente lo lee al terminar y dice en pantalla si
+# se actualizo o no, por que y donde esta la bitacora. Texto clave=valor en
+# ASCII y sin BOM, porque lo lee el codigo Pascal del instalador.
+function Guardar-Resultado {
+    param([int]$Codigo, [string]$Mensaje, [string]$Aplicada)
+    if (-not $script:ResultadoPath) { return }
+    try {
+        $limpio = ([string]$Mensaje -replace "[\r\n]+", " ").Normalize([Text.NormalizationForm]::FormD)
+        $limpio = ($limpio -replace '\p{Mn}', '') -replace '[^\x20-\x7E]', '?'
+        $lineas = @(
+            "codigo=$Codigo",
+            "aplicada=$Aplicada",
+            "intacto=$(if ($script:SistemaTocado) { 'no' } else { 'si' })",
+            "etapa=$($script:Etapa)",
+            "version=$VersionNueva",
+            "mensaje=$limpio",
+            "bitacora=$($script:LogGeneral)",
+            "fecha=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+        )
+        Set-TextoSinBOM -Ruta $script:ResultadoPath -Texto ($lineas -join "`r`n")
+    } catch { }
+}
+
+function Titulo { param([string]$t) $script:Etapa = $t.Trim(); Escribir ""; Escribir "  $t" "Cyan" }
+
+# La ultima linea con texto de lo que dijo un script hijo: casi siempre es su
+# motivo para parar. Va en el mensaje final para que el EXE lo muestre sin
+# tener que abrir la bitacora.
+function Ultima-Linea {
+    param($Lineas)
+    $u = @($Lineas | ForEach-Object { "$_".Trim() } |
+           Where-Object { $_ -ne "" -and $_ -notmatch '^[=\-\s]+$' -and $_ -notmatch '^Bitacora:' }) |
+         Select-Object -Last 1
+    if ($u) { return " Motivo: $u" }
+    return ""
+}
 function Ok    { param([string]$t) Escribir "    OK  $t" "Green" }
 function Aviso { param([string]$t) Escribir "    !   $t" "Yellow" }
 function Falla { param([string]$t) Escribir "    X   $t" "Red" }
@@ -74,6 +131,8 @@ function Terminar {
     Escribir ""
     Escribir "  $Mensaje" $(if ($Codigo -eq 0) { "Green" } else { "Red" })
     Escribir ""
+    if ($script:LogGeneral) { Escribir "  Bitacora: $($script:LogGeneral)" }
+    Guardar-Resultado -Codigo $Codigo -Mensaje $Mensaje -Aplicada "no"
     Soltar-Candado
     exit $Codigo
 }
@@ -93,6 +152,13 @@ function Leer-Env {
 
 function Servicio {
     param([string]$Accion, [string]$Nombre)
+    # PowerShell 5.1 con "Stop" convierte cualquier linea que un programa
+    # escriba en stderr (redirigido con 2>&1) en un error que corta el script,
+    # aunque el programa haya terminado bien. nssm, node y el powershell hijo
+    # escriben avisos ahi. Por eso cada llamada a un programa externo baja a
+    # "Continue" solo mientras corre; el resultado se sigue juzgando por
+    # $LASTEXITCODE, igual que antes.
+    $ErrorActionPreference = "Continue"
     if (Test-Path $script:NSSM) { & $script:NSSM $Accion $Nombre 2>&1 | Out-Null }
     elseif ($Accion -eq "stop") { Stop-Service -Name $Nombre -Force -ErrorAction SilentlyContinue }
     else { Start-Service -Name $Nombre -ErrorAction SilentlyContinue }
@@ -175,6 +241,8 @@ function Soltar-Candado {
 # el candado puesto.
 trap {
     Escribir "    X   Error inesperado: $($_.Exception.Message)" "Red"
+    if ($script:LogGeneral) { Escribir "  Bitacora: $($script:LogGeneral)" }
+    Guardar-Resultado -Codigo 1 -Mensaje "Error inesperado en '$($script:Etapa)': $($_.Exception.Message)" -Aplicada "no"
     Soltar-Candado
     break
 }
@@ -274,6 +342,8 @@ if (-not $SiSinPreguntar) {
 # fija antes del primer arranque y aqui se reafirma para los arranques que
 # siguen. Es un ajuste del servicio: no toca datos ni archivos del cliente.
 if (Test-Path $script:NSSM) {
+    $eapAntes = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+    try {
     & $script:NSSM set $SVC_BACKEND AppKillProcessTree 0 2>&1 | Out-Null
     # Rotar las bitacoras a los 10 MB. En un equipo que nadie revisa estos
     # archivos crecen sin limite y el disco lleno deja la base sin arrancar.
@@ -283,6 +353,7 @@ if (Test-Path $script:NSSM) {
     & $script:NSSM set $SVC_MARIADB AppRotateFiles  1        2>&1 | Out-Null
     & $script:NSSM set $SVC_MARIADB AppRotateOnline 1        2>&1 | Out-Null
     & $script:NSSM set $SVC_MARIADB AppRotateBytes  10485760 2>&1 | Out-Null
+    } finally { $ErrorActionPreference = $eapAntes }
     Ok "Servicio ajustado para no matar al actualizador"
 }
 
@@ -300,9 +371,12 @@ $argsRespaldo = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $respalda
                   "-InstallDir", $InstallDir, "-Etiqueta", "preactualizacion")
 if ($SinExcel) { $argsRespaldo += "-SinExcel" }
 
-& powershell @argsRespaldo 2>&1 | ForEach-Object { Escribir "      $_" }
+$eapAntes = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+$salidaRespaldo = New-Object System.Collections.ArrayList
+try { & powershell @argsRespaldo 2>&1 | ForEach-Object { [void]$salidaRespaldo.Add("$_"); Escribir "      $_" } }
+finally { $ErrorActionPreference = $eapAntes }
 if ($LASTEXITCODE -ne 0) {
-    Terminar 1 "El respaldo FALLO. No se actualiza. El sistema sigue como estaba."
+    Terminar 1 "El respaldo FALLO.$(Ultima-Linea $salidaRespaldo) No se actualiza. El sistema sigue como estaba."
 }
 
 $carpetaRespaldo = (Get-ChildItem -Path $BACKUPS -Directory -Filter "*preactualizacion*" -ErrorAction SilentlyContinue |
@@ -312,6 +386,9 @@ if (-not $carpetaRespaldo) {
 }
 $RESPALDO = $carpetaRespaldo.FullName
 $script:LogPath = Join-Path $RESPALDO "actualizacion.log"
+if ($script:LogGeneral -and (Test-Path $script:LogGeneral)) {
+    try { Copy-Item -Path $script:LogGeneral -Destination $script:LogPath -Force } catch { }
+}
 Ok "Respaldo: $($carpetaRespaldo.Name)"
 
 $ajustesAntes = Join-Path $RESPALDO "reportes\ajustes.json"
@@ -339,7 +416,10 @@ if ($SinEnsayo) {
     # volcar la base dos veces seguidas.
     $argsEnsayo = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $ensayarPs1,
                     "-InstallDir", $InstallDir, "-Paquete", $Paquete, "-Respaldo", $RESPALDO)
-    & powershell @argsEnsayo 2>&1 | ForEach-Object { Escribir "      $_" }
+    $eapAntes = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+    $salidaEnsayo = New-Object System.Collections.ArrayList
+    try { & powershell @argsEnsayo 2>&1 | ForEach-Object { [void]$salidaEnsayo.Add("$_"); Escribir "      $_" } }
+    finally { $ErrorActionPreference = $eapAntes }
     $codigoEnsayo = $LASTEXITCODE
 
     if ($codigoEnsayo -eq 0 -or $codigoEnsayo -eq 3) {
@@ -356,7 +436,7 @@ if ($SinEnsayo) {
         Escribir "   El ensayo no se pudo completar (codigo $codigoEnsayo)." "Yellow"
         Escribir "   Lee:  $InstallDir\ULTIMO-ENSAYO.txt" "Yellow"
         Escribir "   Si de todos modos quieres actualizar, vuelve a correr esto con -SinEnsayo." "Yellow"
-        Terminar 1 "Actualizacion cancelada: no se pudo probar antes. No se toco nada."
+        Terminar 1 "Actualizacion cancelada: el ensayo no se pudo completar (codigo $codigoEnsayo).$(Ultima-Linea $salidaEnsayo) No se toco nada."
     }
 }
 
@@ -364,6 +444,7 @@ if ($SinEnsayo) {
 #  4. Detener el sistema
 # =============================================================================
 Titulo "[4/9] Deteniendo el sistema"
+$script:SistemaTocado = $true
 
 Servicio -Accion "stop" -Nombre $SVC_BACKEND
 Start-Sleep -Seconds 4
@@ -571,10 +652,14 @@ if (-not $arranco) {
     if (Test-Path $revertirPs1) {
         # Sin red de seguridad: la red ES este respaldo, y el estado roto no
         # vale la pena guardarlo.
-        & powershell -NoProfile -ExecutionPolicy Bypass -File $revertirPs1 `
-            -InstallDir $InstallDir -Respaldo $RESPALDO -SiSinPreguntar -SinRedDeSeguridad 2>&1 |
-            ForEach-Object { Escribir "      $_" }
+        $eapAntes = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+        try {
+            & powershell -NoProfile -ExecutionPolicy Bypass -File $revertirPs1 `
+                -InstallDir $InstallDir -Respaldo $RESPALDO -SiSinPreguntar -SinRedDeSeguridad 2>&1 |
+                ForEach-Object { Escribir "      $_" }
+        } finally { $ErrorActionPreference = $eapAntes }
         if ($LASTEXITCODE -eq 0) {
+            $script:SistemaTocado = $false   # regreso completo al estado anterior
             Terminar 1 "La actualizacion fallo y el sistema YA REGRESO a la version $versionActual. Esta operando. Avisa del fallo con el log: $script:LogPath"
         }
         Terminar 1 "La actualizacion fallo y el regreso automatico tambien. Entra al equipo y corre: .\revertir.ps1 -Respaldo ""$RESPALDO"""
@@ -621,8 +706,11 @@ if ($SinArreglarImagenes) {
 } elseif (-not (Test-Path $NODE) -or -not (Test-Path (Join-Path $NODE_TOOLS "imagenes.js"))) {
     Aviso "No se encontraron las herramientas de imagenes; se omite"
 } else {
-    & $NODE (Join-Path $NODE_TOOLS "imagenes.js") --install-dir $InstallDir --salida $reportesFinal --arreglar 2>&1 |
-        ForEach-Object { Escribir "      $_" }
+    $eapAntes = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+    try {
+        & $NODE (Join-Path $NODE_TOOLS "imagenes.js") --install-dir $InstallDir --salida $reportesFinal --arreglar 2>&1 |
+            ForEach-Object { Escribir "      $_" }
+    } finally { $ErrorActionPreference = $eapAntes }
     if (Test-Path (Join-Path $reportesFinal "imagenes.json")) {
         $imagenesOk = $true
         try {
@@ -648,8 +736,11 @@ if (-not (Test-Path $ajustesAntes)) {
 } elseif (-not (Test-Path (Join-Path $NODE_TOOLS "ajustes.js"))) {
     Aviso "No se encontro la herramienta de ajustes"
 } else {
-    & $NODE (Join-Path $NODE_TOOLS "ajustes.js") --install-dir $InstallDir --salida $reportesFinal --comparar $ajustesAntes 2>&1 |
-        ForEach-Object { Escribir "      $_" }
+    $eapAntes = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+    try {
+        & $NODE (Join-Path $NODE_TOOLS "ajustes.js") --install-dir $InstallDir --salida $reportesFinal --comparar $ajustesAntes 2>&1 |
+            ForEach-Object { Escribir "      $_" }
+    } finally { $ErrorActionPreference = $eapAntes }
     $codigo = $LASTEXITCODE
     if ($codigo -eq 0) {
         $ajustesIguales = $true
@@ -745,8 +836,10 @@ if ($ajustesIguales -eq $false) {
     Escribir "   ATENCION: hay ajustes que cambiaron. Revisa:" "Yellow"
     Escribir "     $reportesFinal\COMPARACION-AJUSTES.txt" "Yellow"
     Escribir ""
+    Guardar-Resultado -Codigo 3 -Mensaje "Actualizado a la version $VersionNueva, pero hay ajustes que cambiaron. Revisa $reportesFinal\COMPARACION-AJUSTES.txt" -Aplicada "si"
     Soltar-Candado
     exit 3
 }
+Guardar-Resultado -Codigo 0 -Mensaje "Actualizado a la version $VersionNueva. Reporte: $rutaReporte" -Aplicada "si"
 Soltar-Candado
 exit 0
