@@ -249,6 +249,19 @@ Ok "Carpeta: $carpeta"
 Titulo "[3/8] Pausando el sistema"
 
 $backendEstaba = $false
+
+# Si algo inesperado corta el respaldo con el backend detenido, se vuelve a
+# prender antes de salir. Ya paso en sitio: el respaldo se cayo al escribir
+# RESUMEN.txt y la caja se quedo sin sistema hasta que alguien lo arranco a mano.
+trap {
+    Escribir "    X   Error inesperado: $($_.Exception.Message)" "Red"
+    if ($backendEstaba) {
+        Escribir "        Volviendo a prender el sistema..." "Yellow"
+        Servicio -Accion "start" -Nombre $SVC_BACKEND
+    }
+    exit 1
+}
+
 if (-not $NoDetenerServicio) {
     $svc = Get-Service -Name $SVC_BACKEND -ErrorAction SilentlyContinue
     if ($svc -and $svc.Status -eq "Running") {
@@ -533,48 +546,51 @@ Ok "manifest.json"
 # --- RESUMEN.txt: el archivo que se abre primero ---
 $duracion = [int]((Get-Date) - $inicio).TotalSeconds
 $Res = New-Object System.Collections.ArrayList
-function R { param([string]$t = "") [void]$Res.Add($t) }
+# No se llama "R": ese es un alias de PowerShell (r = Invoke-History) y un
+# alias le gana a una funcion del mismo nombre. Con "R" el reporte se caia
+# con "No se encuentra el historial de la linea de comandos".
+function Linea-Reporte { param([string]$t = "") [void]$Res.Add($t) }
 
-R "==============================================================="
-R "  RESPALDO POS-iaDoS"
-R "  $(Get-Date -Format 'dd/MM/yyyy HH:mm')   version respaldada: $version"
-R "==============================================================="
-R ""
-R "  Carpeta:"
-R "    $carpeta"
-R ""
-R "  QUE SE GUARDO"
-R "    Base de datos     base-datos.sql   $(Tamano-Legible $sqlInfo.Length)  ($tablasEnDump tablas)"
-R "    Imagenes          uploads\         $archivosUploads archivos"
-R "    Configuracion     config\backend.env, version.json, my.ini"
-R "    Programa          programa\dist, programa\public"
-if ($excelOk)    { R "    Excel completo    datos-completos.xlsx" }
-if ($ajustesOk)  { R "    Ajustes activos   reportes\AJUSTES.txt" }
-if ($imagenesOk) { R "    Imagenes (URL)    reportes\IMAGENES.txt" }
-R ""
+Linea-Reporte "==============================================================="
+Linea-Reporte "  RESPALDO POS-iaDoS"
+Linea-Reporte "  $(Get-Date -Format 'dd/MM/yyyy HH:mm')   version respaldada: $version"
+Linea-Reporte "==============================================================="
+Linea-Reporte ""
+Linea-Reporte "  Carpeta:"
+Linea-Reporte "    $carpeta"
+Linea-Reporte ""
+Linea-Reporte "  QUE SE GUARDO"
+Linea-Reporte "    Base de datos     base-datos.sql   $(Tamano-Legible $sqlInfo.Length)  ($tablasEnDump tablas)"
+Linea-Reporte "    Imagenes          uploads\         $archivosUploads archivos"
+Linea-Reporte "    Configuracion     config\backend.env, version.json, my.ini"
+Linea-Reporte "    Programa          programa\dist, programa\public"
+if ($excelOk)    { Linea-Reporte "    Excel completo    datos-completos.xlsx" }
+if ($ajustesOk)  { Linea-Reporte "    Ajustes activos   reportes\AJUSTES.txt" }
+if ($imagenesOk) { Linea-Reporte "    Imagenes (URL)    reportes\IMAGENES.txt" }
+Linea-Reporte ""
 if ($imgJson) {
-    R "  ESTADO DE LAS IMAGENES"
-    R "    URL en la base                        : $($imgJson.total_urls)"
-    R "    Correctas (se ven sin internet)       : $($imgJson.resumen.relativa_ok)"
-    R "    En internet (se pueden traer al equipo): $($imgJson.resumen.externa)"
-    R "    Con host fijo (se pueden normalizar)  : $($imgJson.resumen.absoluta_local)"
-    R "    Sin archivo en disco                  : $($imgJson.resumen.relativa_huerfana)"
-    R "    Archivos en uploads                   : $($imgJson.archivos_en_disco)"
-    R "    Detalle completo en reportes\IMAGENES.txt"
-    R ""
+    Linea-Reporte "  ESTADO DE LAS IMAGENES"
+    Linea-Reporte "    URL en la base                        : $($imgJson.total_urls)"
+    Linea-Reporte "    Correctas (se ven sin internet)       : $($imgJson.resumen.relativa_ok)"
+    Linea-Reporte "    En internet (se pueden traer al equipo): $($imgJson.resumen.externa)"
+    Linea-Reporte "    Con host fijo (se pueden normalizar)  : $($imgJson.resumen.absoluta_local)"
+    Linea-Reporte "    Sin archivo en disco                  : $($imgJson.resumen.relativa_huerfana)"
+    Linea-Reporte "    Archivos en uploads                   : $($imgJson.archivos_en_disco)"
+    Linea-Reporte "    Detalle completo en reportes\IMAGENES.txt"
+    Linea-Reporte ""
 }
-R "  COMO REVERTIR  (devuelve el sistema a como estaba hoy)"
-R "    Doble clic en REVERTIR.bat  y elegir este respaldo,"
-R "    o desde PowerShell como administrador:"
-R ""
-R "      cd ""$InstallDir\tools"""
-R "      .\revertir.ps1 -Respaldo ""$carpeta"""
-R ""
-R "  El revert devuelve la base, las imagenes, la configuracion y el"
-R "  programa al estado exacto de este respaldo."
-R ""
-R "  Tardo $duracion segundos."
-R "==============================================================="
+Linea-Reporte "  COMO REVERTIR  (devuelve el sistema a como estaba hoy)"
+Linea-Reporte "    Doble clic en REVERTIR.bat  y elegir este respaldo,"
+Linea-Reporte "    o desde PowerShell como administrador:"
+Linea-Reporte ""
+Linea-Reporte "      cd ""$InstallDir\tools"""
+Linea-Reporte "      .\revertir.ps1 -Respaldo ""$carpeta"""
+Linea-Reporte ""
+Linea-Reporte "  El revert devuelve la base, las imagenes, la configuracion y el"
+Linea-Reporte "  programa al estado exacto de este respaldo."
+Linea-Reporte ""
+Linea-Reporte "  Tardo $duracion segundos."
+Linea-Reporte "==============================================================="
 Set-TextoSinBOM -Ruta (Join-Path $carpeta "RESUMEN.txt") -Texto ($Res -join "`r`n")
 Ok "RESUMEN.txt"
 
