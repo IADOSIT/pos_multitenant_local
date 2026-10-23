@@ -402,10 +402,15 @@ if (-not (Test-Path $ajustesAntes)) { Aviso "No se guardo la foto de ajustes; no
 # =============================================================================
 Titulo "[3/9] Ensayo de la actualizacion (el sistema sigue arriba)"
 
-$ensayarPs1 = Join-Path $InstallDir "tools\ensayar.ps1"
+# Primero el ensayar.ps1 del paquete: el de tools\ es el de la version instalada,
+# y hasta v2.4.7 ese borraba al terminar el volcado que recibe con -Respaldo, que
+# es el base-datos.sql del respaldo de hoy.
+$ensayarPs1 = Join-Path $Paquete "setup\ensayar.ps1"
 if (-not (Test-Path $ensayarPs1)) {
-    $ensayarPs1 = Join-Path $Paquete "setup\ensayar.ps1"
+    $ensayarPs1 = Join-Path $InstallDir "tools\ensayar.ps1"
 }
+$sqlRespaldo = Join-Path $RESPALDO "base-datos.sql"
+$sqlResguardo = Join-Path $RESPALDO "base-datos.sql.resguardo"
 
 if ($SinEnsayo) {
     Aviso "Se pidio -SinEnsayo: la version nueva se instala sin probarla antes"
@@ -416,11 +421,22 @@ if ($SinEnsayo) {
     # volcar la base dos veces seguidas.
     $argsEnsayo = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $ensayarPs1,
                     "-InstallDir", $InstallDir, "-Paquete", $Paquete, "-Respaldo", $RESPALDO)
+    # Copia de resguardo del volcado por si el ensayar.ps1 que toco es uno viejo.
+    if (Test-Path $sqlRespaldo) { Copy-Item -Path $sqlRespaldo -Destination $sqlResguardo -Force }
     $eapAntes = $ErrorActionPreference; $ErrorActionPreference = "Continue"
     $salidaEnsayo = New-Object System.Collections.ArrayList
     try { & powershell @argsEnsayo 2>&1 | ForEach-Object { [void]$salidaEnsayo.Add("$_"); Escribir "      $_" } }
     finally { $ErrorActionPreference = $eapAntes }
     $codigoEnsayo = $LASTEXITCODE
+
+    if (Test-Path $sqlResguardo) {
+        if (Test-Path $sqlRespaldo) {
+            Remove-Item -Path $sqlResguardo -Force -ErrorAction SilentlyContinue
+        } else {
+            Move-Item -Path $sqlResguardo -Destination $sqlRespaldo -Force
+            Aviso "El ensayo borro el volcado del respaldo; se repuso desde la copia de resguardo"
+        }
+    }
 
     if ($codigoEnsayo -eq 0 -or $codigoEnsayo -eq 3) {
         Ok "El ensayo salio bien: la version nueva no pierde datos"

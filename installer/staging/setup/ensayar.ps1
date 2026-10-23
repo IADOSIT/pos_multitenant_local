@@ -685,8 +685,10 @@ Set-TextoSinBOM -Ruta $reporte -Texto ($lineasRep -join "`r`n")
 Copy-Item -Path $reporte -Destination (Join-Path $InstallDir "ULTIMO-ENSAYO.txt") -Force -ErrorAction SilentlyContinue
 
 # El .sql de la copia pesa igual que la base: no tiene sentido guardarlo, el
-# respaldo de verdad es el que hace respaldar.ps1.
-if (-not $Conservar) {
+# respaldo de verdad es el que hace respaldar.ps1. Solo se borra el volcado que
+# hizo ESTE script: con -Respaldo, $sqlPath es el base-datos.sql del respaldo, y
+# borrarlo dejaba la actualizacion sin con que revertir (paso hasta v2.4.7).
+if (-not $Conservar -and $Respaldo -eq "") {
     Remove-Item -Path $sqlPath -Force -ErrorAction SilentlyContinue
 }
 

@@ -50,6 +50,57 @@ function Set-TextoSinBOM {
     [System.IO.File]::WriteAllText($Ruta, [string]$Texto, $sinBOM)
 }
 
+# Corre SQL con mysql.exe leyendo un archivo como entrada, NUNCA por tuberia.
+#
+# Antes se hacia "Get-Content archivo -Raw | & $MYSQL ..." y "$sql | & $MYSQL".
+# PowerShell 5.1 manda a un programa externo lo que le llega por tuberia con
+# $OutputEncoding, que es ASCII: toda a/e/i/o/u acentuada y toda n con tilde
+# llegaba a la base como "?". Ademas Get-Content sin -Encoding lee como ANSI
+# los .sql sin BOM. En una instalacion nueva eso dejaba categorias, productos y
+# el nombre del negocio con signos de interrogacion.
+#
+# Aqui se copian los bytes tal cual (quitando el BOM si lo hay) a un archivo
+# temporal y mysql lo lee directo, en utf8mb4. Con -Texto el SQL se escribe
+# antes en UTF-8 sin BOM. Devuelve @{ Codigo = <exit>; Salida = <stdout+stderr> }.
+function Ejecutar-Sql {
+    param([string]$Archivo, [string]$Texto, [switch]$Forzar)
+    $tmpSql = Join-Path $env:TEMP ("pos-iados-sql-" + [guid]::NewGuid().ToString("N") + ".sql")
+    $tmpOut = "$tmpSql.out"
+    $tmpErr = "$tmpSql.err"
+    $eapPrev = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        if ($Archivo) {
+            $bytes = [System.IO.File]::ReadAllBytes($Archivo)
+            $ini = 0
+            if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) { $ini = 3 }
+            $fs = [System.IO.File]::Create($tmpSql)
+            try { $fs.Write($bytes, $ini, $bytes.Length - $ini) } finally { $fs.Close() }
+        } else {
+            Set-TextoSinBOM -Ruta $tmpSql -Texto $Texto
+        }
+        $argsSql = @()
+        if ($Forzar) { $argsSql += "-f" }
+        $argsSql += @("-u", $DB_USER, "-p$DB_PASS", "--host=127.0.0.1", "--port=$MariaDBPort",
+                      "--default-character-set=utf8mb4", $DB_NAME)
+        $p = Start-Process -FilePath $MYSQL -ArgumentList $argsSql `
+                -RedirectStandardInput $tmpSql -RedirectStandardOutput $tmpOut -RedirectStandardError $tmpErr `
+                -NoNewWindow -Wait -PassThru
+        $salida = ""
+        foreach ($f in @($tmpOut, $tmpErr)) {
+            if (Test-Path $f) { $salida += [System.IO.File]::ReadAllText($f) }
+        }
+        return @{ Codigo = $p.ExitCode; Salida = $salida.Trim() }
+    } catch {
+        return @{ Codigo = 99; Salida = "No se pudo ejecutar mysql: $($_.Exception.Message)" }
+    } finally {
+        $ErrorActionPreference = $eapPrev
+        foreach ($f in @($tmpSql, $tmpOut, $tmpErr)) {
+            Remove-Item -Path $f -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 function Write-Log {
     param([string]$Message, [string]$Color = "White")
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -111,9 +162,14 @@ function Quien-Escucha {
 }
 
 function Wait-ForPort {
-    param([int]$Port, [int]$TimeoutSeconds = 60)
-    $elapsed = 0
-    while ($elapsed -lt $TimeoutSeconds) {
+    param([int]$Port, [int]$TimeoutSeconds = 60, [string]$Etiqueta = "")
+    # Se mide con el reloj y no sumando 2 s por vuelta: en Windows un Connect a
+    # un puerto cerrado tarda ~2 s en fallar, asi que la cuenta vieja duraba el
+    # doble de lo que decia y nadie sabia cuanto se habia esperado de verdad.
+    $inicio = Get-Date
+    $fin = $inicio.AddSeconds($TimeoutSeconds)
+    $siguienteAviso = $inicio.AddSeconds(30)
+    while ((Get-Date) -lt $fin) {
         try {
             $tcp = New-Object System.Net.Sockets.TcpClient
             $tcp.Connect("127.0.0.1", $Port)
@@ -121,7 +177,11 @@ function Wait-ForPort {
             return $true
         } catch {
             Start-Sleep -Seconds 2
-            $elapsed += 2
+        }
+        if ($Etiqueta -and (Get-Date) -ge $siguienteAviso) {
+            $seg = [int]((Get-Date) - $inicio).TotalSeconds
+            Write-Log "    $Etiqueta sigue arrancando (${seg}s de $TimeoutSeconds s)..." "Gray"
+            $siguienteAviso = (Get-Date).AddSeconds(30)
         }
     }
     return $false
@@ -798,7 +858,7 @@ $ErrorActionPreference = "SilentlyContinue"
 & $NSSM start $SVC_MARIADB 2>&1 | Out-Null
 $ErrorActionPreference = "Stop"
 
-if (-not (Wait-ForPort -Port $MariaDBPort -TimeoutSeconds 30)) {
+if (-not (Wait-ForPort -Port $MariaDBPort -TimeoutSeconds 90 -Etiqueta "MariaDB")) {
     Write-Log "ERROR: MariaDB no inicio en el puerto $MariaDBPort" "Red"
     exit 1
 }
@@ -995,9 +1055,10 @@ if (-not $BaseVirgen) {
 $schemaFile = "$InstallDir\database\02_crear_tablas.sql"
 if (Test-Path $schemaFile) {
     Write-Log "  Creando estructura de tablas..." "Gray"
-    $ErrorActionPreference = "SilentlyContinue"
-    $schemaOut = Get-Content $schemaFile -Raw | & $MYSQL -f -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME 2>&1
-    $ErrorActionPreference = "Stop"
+    $rSchema = Ejecutar-Sql -Archivo $schemaFile -Forzar
+    if ($rSchema.Codigo -ne 0 -or "$($rSchema.Salida)" -match "ERROR [0-9]") {
+        Write-Log "  ADVERTENCIA 02_crear_tablas (codigo $($rSchema.Codigo)): $($rSchema.Salida)" "Yellow"
+    }
     Write-Log "  Estructura de tablas creada" "Green"
 } else {
     Write-Log "ADVERTENCIA: No se encontro 02_crear_tablas.sql" "Yellow"
@@ -1011,10 +1072,9 @@ Write-Log "  Cargando datos iniciales (ANTES del backend)..." "Gray"
 
 $seedFile03 = "$InstallDir\database\03_seed_datos_iniciales.sql"
 if (Test-Path $seedFile03) {
-    $ErrorActionPreference = "SilentlyContinue"
-    $s03out = Get-Content $seedFile03 -Raw | & $MYSQL -f -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME 2>&1
-    $s03exit = $LASTEXITCODE
-    $ErrorActionPreference = "Stop"
+    $r03 = Ejecutar-Sql -Archivo $seedFile03 -Forzar
+    $s03out  = $r03.Salida
+    $s03exit = $r03.Codigo
     if ($s03exit -ne 0 -or ("$s03out" -match "ERROR 1[^0289]")) {
         Write-Log "  ADVERTENCIA seed 03: $s03out" "Yellow"
     } else {
@@ -1024,6 +1084,22 @@ if (Test-Path $seedFile03) {
     Write-Log "  ADVERTENCIA: No se encontro 03_seed_datos_iniciales.sql" "Yellow"
 }
 
+# 05 - Perfil Carbon+Hielo (columnas modulo + tablas de perfiles)
+# Va ANTES de 04: 03 se exporto sin la columna modulo y 04 ya la trae, asi que
+# 04 necesita que 05 la agregue primero. Corriendo 05 al final, los INSERT de
+# users, categorias y productos de 04 fallaban por numero de columnas y la base
+# quedaba sin usuarios ni productos. 05 solo crea tablas y columnas si no
+# existen, y su INSERT es IGNORE: no toca datos de nadie.
+$seedFile05 = "$InstallDir\database\05_perfil_carbon_hielo.sql"
+if (Test-Path $seedFile05) {
+    $r05 = Ejecutar-Sql -Archivo $seedFile05 -Forzar
+    if ($r05.Codigo -ne 0 -or "$($r05.Salida)" -match "ERROR [0-9]") {
+        Write-Log "  ADVERTENCIA 05_seed (codigo $($r05.Codigo)): $($r05.Salida)" "Yellow"
+    } else {
+        Write-Log "  05_seed ejecutado OK" "Green"
+    }
+}
+
 # Doble seguro: 04 es el unico seed con TRUNCATE. Ademas de la compuerta de
 # arriba, aqui se vuelve a exigir que la base estuviera vacia (o que se haya
 # forzado explicitamente, lo que ya dejo un respaldo en backups\).
@@ -1031,21 +1107,14 @@ $seedFile04 = "$InstallDir\database\04_seed_pruebas.sql"
 if ((Test-Path $seedFile04) -and -not ($BaseVirgen -or $ForzarSembrado)) {
     Write-Log "  04_seed OMITIDO: la base tiene datos y ese seed borraria tablas." "Yellow"
 } elseif (Test-Path $seedFile04) {
-    $ErrorActionPreference = "SilentlyContinue"
-    Get-Content $seedFile04 -Raw | & $MYSQL -f -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME 2>&1 | Out-Null
-    $ErrorActionPreference = "Stop"
-    Write-Log "  04_seed ejecutado OK" "Green"
+    $r04 = Ejecutar-Sql -Archivo $seedFile04 -Forzar
+    if ($r04.Codigo -ne 0 -or "$($r04.Salida)" -match "ERROR [0-9]") {
+        Write-Log "  ADVERTENCIA 04_seed (codigo $($r04.Codigo)): $($r04.Salida)" "Yellow"
+    } else {
+        Write-Log "  04_seed ejecutado OK" "Green"
+    }
 } else {
     Write-Log "  ADVERTENCIA: No se encontro 04_seed_pruebas.sql" "Yellow"
-}
-
-# 05 - Perfil Carbon+Hielo (columnas modulo + tablas de perfiles)
-$seedFile05 = "$InstallDir\database\05_perfil_carbon_hielo.sql"
-if (Test-Path $seedFile05) {
-    $ErrorActionPreference = "SilentlyContinue"
-    Get-Content $seedFile05 -Raw | & $MYSQL -f -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME 2>&1 | Out-Null
-    $ErrorActionPreference = "Stop"
-    Write-Log "  05_seed ejecutado OK" "Green"
 }
 
 # Generar hashes frescos con bcryptjs (Node ya fue copiado en PASO 1)
@@ -1106,14 +1175,12 @@ if ($adminEmailTrim -ne "" -and $adminEmailTrim.Contains("@")) {
         $emailCajero = "cajero@$dominio"
         $emailMesero = "mesero@$dominio"
 
-        # Slug del negocio (ASCII, sin tildes, solo a-z0-9-)
-        $slugNeg = $nombreNegTrim.ToLowerInvariant()
-        $slugNeg = [System.Text.RegularExpressions.Regex]::Replace($slugNeg, '[áàäâ]', 'a')
-        $slugNeg = [System.Text.RegularExpressions.Regex]::Replace($slugNeg, '[éèëê]', 'e')
-        $slugNeg = [System.Text.RegularExpressions.Regex]::Replace($slugNeg, '[íìïî]', 'i')
-        $slugNeg = [System.Text.RegularExpressions.Regex]::Replace($slugNeg, '[óòöô]', 'o')
-        $slugNeg = [System.Text.RegularExpressions.Regex]::Replace($slugNeg, '[úùüû]', 'u')
-        $slugNeg = [System.Text.RegularExpressions.Regex]::Replace($slugNeg, 'ñ', 'n')
+        # Slug del negocio (ASCII, sin tildes, solo a-z0-9-). Las tildes se quitan
+        # descomponiendo cada letra (FormD) y borrando sus marcas: este archivo no lleva
+        # BOM y PowerShell 5.1 lo lee como ANSI, asi que escribir aqui letras acentuadas
+        # literales no coincidia con nada y "Limon" con tilde salia como "lim-n".
+        $slugNeg = $nombreNegTrim.ToLowerInvariant().Normalize([System.Text.NormalizationForm]::FormD)
+        $slugNeg = [System.Text.RegularExpressions.Regex]::Replace($slugNeg, '\p{Mn}', '')
         $slugNeg = [System.Text.RegularExpressions.Regex]::Replace($slugNeg, '[^a-z0-9]+', '-')
         $slugNeg = $slugNeg.Trim('-')
         $slugSuffix = (Get-Date -Format "yyMMdd")
@@ -1150,6 +1217,14 @@ if ($adminEmailTrim -ne "" -and $adminEmailTrim.Contains("@")) {
 
 -- Limpiar datos demo antes de insertar datos reales del cliente
 TRUNCATE TABLE ``ticket_configs``;
+TRUNCATE TABLE ``categorias``;
+TRUNCATE TABLE ``productos``;
+TRUNCATE TABLE ``producto_tienda``;
+TRUNCATE TABLE ``cajas``;
+TRUNCATE TABLE ``mesas``;
+TRUNCATE TABLE ``mesa_asignaciones``;
+TRUNCATE TABLE ``mesas_juntas``;
+TRUNCATE TABLE ``gateway_configs``;
 TRUNCATE TABLE ``licencias``;
 TRUNCATE TABLE ``users``;
 TRUNCATE TABLE ``tiendas``;
@@ -1232,10 +1307,9 @@ INSERT INTO ``users`` (tenant_id, empresa_id, tienda_id, nombre, email, password
 SET FOREIGN_KEY_CHECKS=1;
 "@
 
-        $ErrorActionPreference = "SilentlyContinue"
-        $clientSqlOut = $clientSql | & $MYSQL -u $DB_USER -p"$DB_PASS" --host=127.0.0.1 --port=$MariaDBPort $DB_NAME 2>&1
-        $clientSqlExit = $LASTEXITCODE
-        $ErrorActionPreference = "Stop"
+        $rCliente = Ejecutar-Sql -Texto $clientSql
+        $clientSqlOut  = $rCliente.Salida
+        $clientSqlExit = $rCliente.Codigo
 
         if ($clientSqlExit -ne 0 -or ("$clientSqlOut" -match "ERROR [0-9]")) {
             Write-Log "  ERROR en alta cliente: $clientSqlOut" "Red"
@@ -1247,6 +1321,9 @@ SET FOREIGN_KEY_CHECKS=1;
 
         # Guardar CREDENCIALES.txt en la carpeta de instalacion
         New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+        # "n" con tilde y "a" con acento por codigo: este archivo se lee como ANSI (sin BOM)
+        # y escritas tal cual salian con letras raras en el bloc de notas.
+        $enie = [char]0x00F1; $aAcento = [char]0x00E1
         @"
 POS-iaDoS - Credenciales de Acceso
 ====================================
@@ -1262,17 +1339,17 @@ URL desde otros equipos en la misma red:
 
 ADMINISTRADOR
   Email      : $adminEmailTrim
-  Contraseña : admin123
+  Contrase${enie}a : admin123
   PIN        : 0000
 
-CAJERO (creado automáticamente)
+CAJERO (creado autom${aAcento}ticamente)
   Email      : $emailCajero
-  Contraseña : cajero123
+  Contrase${enie}a : cajero123
   PIN        : 1234
 
-MESERO (creado automáticamente)
+MESERO (creado autom${aAcento}ticamente)
   Email      : $emailMesero
-  Contraseña : mesero123
+  Contrase${enie}a : mesero123
   PIN        : 5678
 
 PRIMER USO
@@ -1416,7 +1493,11 @@ $ErrorActionPreference = "SilentlyContinue"
 & $NSSM start $SVC_BACKEND 2>&1 | Out-Null
 $ErrorActionPreference = "Stop"
 
-if (-not (Wait-ForPort -Port $BackendPort -TimeoutSeconds 60)) {
+# La primera vez el backend crea ~100 tablas (TypeORM synchronize) antes de
+# abrir el puerto. En un equipo con poca memoria eso paso de 2 minutos y la
+# instalacion se daba por fallida con el backend arrancando bien un momento
+# despues. Por eso se le dan hasta 6 minutos.
+if (-not (Wait-ForPort -Port $BackendPort -TimeoutSeconds 360 -Etiqueta "El backend")) {
     Write-Log "ERROR: Backend no inicio en el puerto $BackendPort" "Red"
     Write-Log "Revise logs en $InstallDir\logs\" "Red"
     exit 1

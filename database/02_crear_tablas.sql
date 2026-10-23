@@ -459,6 +459,17 @@ CREATE TABLE IF NOT EXISTS licencias (
   activated_at TIMESTAMP NULL,
   last_heartbeat TIMESTAMP NULL,
   notas TEXT NULL,
+  -- Mismas columnas que licencia.entity.ts. El alta del cliente en install.ps1
+  -- inserta permanente y machine_locked ANTES de que arranque el backend; sin
+  -- ellas ese INSERT fallaba, el script se detenia y la instalacion nueva se
+  -- quedaba sin licencia y sin el usuario administrador.
+  permanente TINYINT(1) NOT NULL DEFAULT 0,
+  machine_locked TINYINT(1) NOT NULL DEFAULT 0,
+  machine_fingerprint TEXT NULL,
+  activation_token TEXT NULL,
+  activation_token_code TEXT NULL,
+  activation_token_expires TIMESTAMP NULL,
+  activation_token_used TINYINT(1) NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

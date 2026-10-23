@@ -259,14 +259,21 @@ begin
   if WizardIsTaskSelected('demodata') then Result := '1' else Result := '0';
 end;
 
+// Si por cualquier camino las variables llegan vacias (versiones viejas de este
+// script las dejaban asi en /VERYSILENT), install.ps1 no daba de alta el negocio
+// ni su licencia permanente. Si estan vacias se toma lo que tenga la pagina (sus
+// valores por defecto, que el wizard ya valida en modo normal). OJO: en modo
+// silencioso Inno SI llama NextButtonClick; ahi no puede haber MsgBox normales.
 function GetAdminEmail(Param: String): String;
 begin
   Result := GAdminEmail;
+  if Result = '' then Result := Trim(PageCliente.Values[0]);
 end;
 
 function GetNombreNegocio(Param: String): String;
 begin
   Result := GNombreNegocio;
+  if Result = '' then Result := Trim(PageCliente.Values[1]);
 end;
 
 // ── Inicialización del asistente ──────────────────────────────────────────────
@@ -328,17 +335,17 @@ begin
 
     if (Length(Email) < 5) or (Pos('@', Email) = 0) or (Pos('.', Email) = 0) then
     begin
-      MsgBox(
+      SuppressibleMsgBox(
         'Por favor ingresa un correo válido.' + #13#10 +
         'Ejemplo: admin@minegocio.mx',
-        mbError, MB_OK);
+        mbError, MB_OK, IDOK);
       Result := False;
       Exit;
     end;
 
     if Length(Nombre) < 2 then
     begin
-      MsgBox('Por favor ingresa el nombre del negocio.', mbError, MB_OK);
+      SuppressibleMsgBox('Por favor ingresa el nombre del negocio.', mbError, MB_OK, IDOK);
       Result := False;
       Exit;
     end;
@@ -346,9 +353,9 @@ begin
     // Rechazar caracteres que rompen PowerShell
     if (Pos('"', Email) > 0) or (Pos('"', Nombre) > 0) then
     begin
-      MsgBox(
+      SuppressibleMsgBox(
         'El correo y el nombre no pueden contener comillas dobles.',
-        mbError, MB_OK);
+        mbError, MB_OK, IDOK);
       Result := False;
       Exit;
     end;
@@ -361,6 +368,11 @@ begin
   if CurPageID = wpFinished then
   begin
     if GEsActualizacion then
+      GCredOk := True;
+    // En modo silencioso Inno tambien llama a NextButtonClick (simula los
+    // clics en Siguiente) y este MsgBox no lo calla /SUPPRESSMSGBOXES: la
+    // instalacion desatendida se quedaba esperando un Si que nadie iba a dar.
+    if WizardSilent then
       GCredOk := True;
     if not GCredOk then
     begin
@@ -488,7 +500,9 @@ begin
   WizardForm.FinishedHeadingLabel.Caption := 'Resultado de la actualización';
   WizardForm.FinishedLabel.Caption := Texto;
 
-  if Fallo then
+  // En modo silencioso no se pregunta: una ventana sin nadie enfrente deja el
+  // instalador esperando para siempre.
+  if Fallo and not WizardSilent then
   begin
     if MsgBox(Texto + #13#10#13#10 + '¿Abrir la bitácora ahora?',
               mbError, MB_YESNO or MB_DEFBUTTON1) = IDYES then
@@ -549,12 +563,36 @@ end;
 
 // ── Verificar instalación previa ──────────────────────────────────────────────
 
+// Las mismas señales que usa install.ps1 para decidir entre instalar y
+// actualizar. Antes bastaba con que existiera C:\POS-iaDoS: una carpeta que
+// quedó sola (por ejemplo, con un logs\ de una prueba) hacía que una
+// instalación nueva avisara "Se va a ACTUALIZAR" y terminara diciendo "NO SE
+// PUDO CONFIRMAR", aunque install.ps1 sí había instalado desde cero.
+function HayInstalacionPrevia(): Boolean;
+begin
+  Result :=
+    FileExists('{#MyInstallDir}\version.json') or
+    FileExists('{#MyInstallDir}\backend\.env') or
+    DirExists('{#MyInstallDir}\backend\uploads') or
+    DirExists('{#MyInstallDir}\mariadb\data\pos_iados') or
+    DirExists('{#MyInstallDir}\backups') or
+    RegKeyExists(HKLM, 'SYSTEM\CurrentControlSet\Services\PosIaDos-Backend') or
+    RegKeyExists(HKLM, 'SYSTEM\CurrentControlSet\Services\PosIaDos-MariaDB');
+end;
+
+// En una actualización install.ps1 no usa el correo ni el nombre del negocio
+// (no da de alta a nadie): no tiene caso pedirlos.
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := GEsActualizacion and (PageID = PageCliente.ID);
+end;
+
 function InitializeSetup(): Boolean;
 var
   Response: Integer;
 begin
   Result := True;
-  GEsActualizacion := DirExists('{#MyInstallDir}');
+  GEsActualizacion := HayInstalacionPrevia();
 
   // El texto anterior decía "será reemplazada", y eso no es lo que pasa ni lo
   // que debe pasar: cuando ya hay una instalación, install.ps1 se va por el
@@ -562,7 +600,12 @@ begin
   // datos ni imágenes. Decirle al cliente que su instalación "será
   // reemplazada" lo hace cancelar una actualización que era segura, o aceptar
   // creyendo que va a perder su información.
-  if DirExists('{#MyInstallDir}') then
+  //
+  // En modo silencioso (/SILENT, /VERYSILENT) no se pregunta: el MsgBox normal
+  // no lo apaga ni /SUPPRESSMSGBOXES, y el instalador se quedaba esperando una
+  // respuesta en una ventana que nadie veía. Correr el EXE en silencio ya es
+  // la confirmación; la actualización igual respalda y ensaya antes de tocar.
+  if GEsActualizacion and not WizardSilent then
   begin
     Response := MsgBox(
       'Ya hay POS-iaDoS instalado en:' + #13#10 +
