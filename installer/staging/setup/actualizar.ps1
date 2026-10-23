@@ -13,7 +13,8 @@
 #  Lo que NUNCA se toca:
 #    backend\uploads         las imagenes del cliente
 #    backend\uploads-builtin
-#    backend\.env            solo se le cambia la linea APP_VERSION
+#    backend\.env            solo se cambia APP_VERSION y se agregan las lineas
+#                            que falten; ninguna que ya exista cambia de valor
 #    mariadb\data            los datos de la base
 #    logs\
 #
@@ -21,6 +22,7 @@
 #    .\actualizar.ps1 -Paquete "C:\temp\pos-update-2.4.2"
 #    .\actualizar.ps1 -Paquete "..." -SiSinPreguntar          desatendido
 #    .\actualizar.ps1 -Paquete "..." -SinEnsayo                sin la prueba previa
+#    .\actualizar.ps1 -Paquete "..." -SinPantallas             paquete solo de backend
 # =============================================================================
 param(
     [string]$InstallDir = "C:\POS-iaDoS",
@@ -30,7 +32,8 @@ param(
     [switch]$SinArreglarImagenes,
     [switch]$SiSinPreguntar,
     [switch]$SinAutoRevertir,
-    [switch]$SinEnsayo
+    [switch]$SinEnsayo,
+    [switch]$SinPantallas
 )
 
 $ErrorActionPreference = "Stop"
@@ -71,6 +74,7 @@ function Terminar {
     Escribir ""
     Escribir "  $Mensaje" $(if ($Codigo -eq 0) { "Green" } else { "Red" })
     Escribir ""
+    Soltar-Candado
     exit $Codigo
 }
 
@@ -124,6 +128,57 @@ function Copiar-Sumando {
     return $true
 }
 
+# --- Candado: un solo mantenimiento a la vez ---------------------------------
+# El backend escribe este mismo archivo cuando se da clic en "Sincronizar", y
+# mientras exista con un proceso vivo no deja lanzar otro respaldo, revert o
+# actualizacion. Aqui se respeta igual: si alguien corre el EXE o
+# ACTUALIZAR.bat mientras el boton ya va a medias, se para antes de tocar nada.
+# Dos actualizaciones encimadas se pisan el respaldo y el revert.
+$script:Candado = Join-Path $InstallDir "logs\mantenimiento-en-curso.json"
+$script:CandadoPropio = $false
+
+function Tomar-Candado {
+    $ahora = [long][DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+    if (Test-Path $script:Candado) {
+        try {
+            $c = Get-Content -Path $script:Candado -Raw -Encoding UTF8 | ConvertFrom-Json
+            $pidOtro = [int]$c.pid
+            $desde = [long]$c.inicio
+            $vigente = ($ahora - $desde) -lt (3 * 3600 * 1000)
+            if ($pidOtro -ne $PID -and $vigente -and (Get-Process -Id $pidOtro -ErrorAction SilentlyContinue)) {
+                $min = [int][Math]::Max(1, ($ahora - $desde) / 60000)
+                return "Ya hay un $($c.tipo) en curso desde hace $min min (proceso $pidOtro). Espera a que termine y vuelve a intentarlo."
+            }
+        } catch { }   # archivo roto o de un proceso que ya no existe: se reemplaza
+    }
+    try {
+        New-Item -ItemType Directory -Path (Split-Path -Parent $script:Candado) -Force | Out-Null
+        Set-TextoSinBOM -Ruta $script:Candado -Texto (@{ tipo = "actualizacion"; pid = $PID; inicio = $ahora } | ConvertTo-Json -Compress)
+        $script:CandadoPropio = $true
+    } catch {
+        Write-Host "    !   No se pudo escribir el candado ($($_.Exception.Message)); se sigue sin el" -ForegroundColor Yellow
+    }
+    return ""
+}
+
+# Solo se borra si sigue siendo el propio.
+function Soltar-Candado {
+    if (-not $script:CandadoPropio) { return }
+    try {
+        $c = Get-Content -Path $script:Candado -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ([int]$c.pid -eq $PID) { Remove-Item -Path $script:Candado -Force -ErrorAction SilentlyContinue }
+    } catch { }
+    $script:CandadoPropio = $false
+}
+
+# Un error que nadie esperaba corta el script igual que antes, pero sin dejar
+# el candado puesto.
+trap {
+    Escribir "    X   Error inesperado: $($_.Exception.Message)" "Red"
+    Soltar-Candado
+    break
+}
+
 $script:NSSM = Join-Path $InstallDir "tools\nssm.exe"
 $NODE        = Join-Path $InstallDir "node\node.exe"
 $NODE_TOOLS  = Join-Path $InstallDir "tools\node"
@@ -147,6 +202,8 @@ Escribir "  ==========================================================" "Cyan"
 Titulo "[1/9] Revisando el equipo y el paquete"
 
 if (-not (Test-Path $InstallDir))  { Terminar 1 "No existe $InstallDir." }
+$ocupado = Tomar-Candado
+if ($ocupado) { Terminar 1 "$ocupado No se toco nada." }
 if (-not (Test-Path $ENV_BACKEND)) { Terminar 1 "No existe $ENV_BACKEND. Esta instalacion no esta completa." }
 if ($Paquete -eq "")               { Terminar 1 "Falta -Paquete con la carpeta de la actualizacion." }
 if (-not (Test-Path $Paquete))     { Terminar 1 "No existe la carpeta del paquete: $Paquete" }
@@ -160,6 +217,25 @@ if (-not (Test-Path (Join-Path $pkgBackend "dist"))) {
     Terminar 1 "El paquete no trae backend\dist compilado. No sirve para actualizar: $pkgBackend"
 }
 Ok "Paquete valido en $Paquete"
+
+# Pantallas del paquete. Un paquete sin index.html deja el POS en blanco: el
+# espejo de robocopy copia la carpeta vacia y borra las pantallas que hoy
+# funcionan. Ya paso con el EXE v2.4.4. Se revisa aqui, antes del respaldo,
+# para no detener nada por un paquete que no sirve.
+$pkgPantallas = ""
+foreach ($cand in @((Join-Path $pkgBackend "public"),
+                    (Join-Path $raizApp "frontend\dist-prod"),
+                    (Join-Path $raizApp "frontend"))) {
+    if (Test-Path (Join-Path $cand "index.html")) { $pkgPantallas = $cand; break }
+}
+if ($pkgPantallas) {
+    $nPantallas = @(Get-ChildItem -Path $pkgPantallas -Recurse -File -ErrorAction SilentlyContinue).Count
+    Ok "Pantallas del paquete: $nPantallas archivos"
+} elseif ($SinPantallas) {
+    Aviso "El paquete no trae pantallas; se pidio -SinPantallas: se dejan las actuales"
+} else {
+    Terminar 1 "El paquete no trae las pantallas (falta index.html). Instalarlo dejaria el POS en blanco. No se toco nada."
+}
 
 $versionActual = "desconocida"
 if (Test-Path $VERSION_JS) { try { $versionActual = (Get-Content $VERSION_JS -Raw -Encoding UTF8 | ConvertFrom-Json).version } catch {} }
@@ -187,6 +263,27 @@ if (-not $SiSinPreguntar) {
     Escribir ""
     $r = Read-Host "   Escribe ACTUALIZAR para continuar"
     if ($r -ne "ACTUALIZAR") { Terminar 0 "Cancelado. No se toco nada." }
+}
+
+# Que el servicio no mate a sus procesos hijos al detenerse. Este script puede
+# venir del boton "Sincronizar", es decir como hijo del backend, y el respaldo
+# del paso 2 es el primero que detiene el backend: con el valor de fabrica de
+# nssm (matar el arbol) ese "stop" nos mataria a nosotros y la actualizacion
+# quedaria a medias, sin revertir. Por eso va aqui y no en el paso 4, que es
+# donde estaba. nssm lee este valor al arrancar el servicio; el instalador lo
+# fija antes del primer arranque y aqui se reafirma para los arranques que
+# siguen. Es un ajuste del servicio: no toca datos ni archivos del cliente.
+if (Test-Path $script:NSSM) {
+    & $script:NSSM set $SVC_BACKEND AppKillProcessTree 0 2>&1 | Out-Null
+    # Rotar las bitacoras a los 10 MB. En un equipo que nadie revisa estos
+    # archivos crecen sin limite y el disco lleno deja la base sin arrancar.
+    & $script:NSSM set $SVC_BACKEND AppRotateFiles  1        2>&1 | Out-Null
+    & $script:NSSM set $SVC_BACKEND AppRotateOnline 1        2>&1 | Out-Null
+    & $script:NSSM set $SVC_BACKEND AppRotateBytes  10485760 2>&1 | Out-Null
+    & $script:NSSM set $SVC_MARIADB AppRotateFiles  1        2>&1 | Out-Null
+    & $script:NSSM set $SVC_MARIADB AppRotateOnline 1        2>&1 | Out-Null
+    & $script:NSSM set $SVC_MARIADB AppRotateBytes  10485760 2>&1 | Out-Null
+    Ok "Servicio ajustado para no matar al actualizador"
 }
 
 # =============================================================================
@@ -268,27 +365,6 @@ if ($SinEnsayo) {
 # =============================================================================
 Titulo "[4/9] Deteniendo el sistema"
 
-# Antes de detener nada: asegurar que el servicio no mate a sus procesos hijos.
-# Este mismo script puede venir lanzado por el boton "Actualizar" de la
-# aplicacion, es decir como hijo del backend. Si el servicio conserva el valor
-# de fabrica de nssm (matar el arbol), el "stop" de la linea siguiente nos
-# mataria a nosotros y la actualizacion quedaria a medias, sin revertir.
-# Un equipo instalado con una version anterior trae el valor peligroso, por eso
-# se corrige aqui y no solo en la instalacion. Es un ajuste del servicio: no
-# toca datos ni archivos del cliente.
-if (Test-Path $script:NSSM) {
-    & $script:NSSM set $SVC_BACKEND AppKillProcessTree 0 2>&1 | Out-Null
-    # Rotar las bitacoras a los 10 MB. En un equipo que nadie revisa estos
-    # archivos crecen sin limite y el disco lleno deja la base sin arrancar.
-    & $script:NSSM set $SVC_BACKEND AppRotateFiles  1        2>&1 | Out-Null
-    & $script:NSSM set $SVC_BACKEND AppRotateOnline 1        2>&1 | Out-Null
-    & $script:NSSM set $SVC_BACKEND AppRotateBytes  10485760 2>&1 | Out-Null
-    & $script:NSSM set $SVC_MARIADB AppRotateFiles  1        2>&1 | Out-Null
-    & $script:NSSM set $SVC_MARIADB AppRotateOnline 1        2>&1 | Out-Null
-    & $script:NSSM set $SVC_MARIADB AppRotateBytes  10485760 2>&1 | Out-Null
-    Ok "Servicio ajustado para no matar al actualizador"
-}
-
 Servicio -Accion "stop" -Nombre $SVC_BACKEND
 Start-Sleep -Seconds 4
 # Si quedo algun node colgado del InstallDir, se cierra: con el archivo abierto
@@ -323,8 +399,12 @@ if ($vNodeInst) {
     }
 }
 
-Copiar-Espejo  -Origen (Join-Path $pkgBackend "dist")   -Destino (Join-Path $destBackend "dist")   -Etiqueta "backend\dist (el programa)" | Out-Null
-Copiar-Espejo  -Origen (Join-Path $pkgBackend "public") -Destino (Join-Path $destBackend "public") -Etiqueta "backend\public" | Out-Null
+# Si una copia del programa falla, no se arranca a medias: se va directo al
+# regreso automatico del paso 6.
+$fallaCopia = ""
+if (-not (Copiar-Espejo -Origen (Join-Path $pkgBackend "dist") -Destino (Join-Path $destBackend "dist") -Etiqueta "backend\dist (el programa)")) {
+    $fallaCopia = "No se pudo copiar backend\dist."
+}
 Copiar-Sumando -Origen (Join-Path $pkgBackend "node_modules") -Destino (Join-Path $destBackend "node_modules") -Etiqueta "backend\node_modules (librerias)" | Out-Null
 
 # uploads-builtin se suma, nunca se espeja: trae imagenes de catalogo que el
@@ -339,13 +419,30 @@ foreach ($f in (Get-ChildItem -Path $pkgBackend -File -ErrorAction SilentlyConti
 }
 Ok "archivos de la raiz del backend (sin tocar .env)"
 
-# Pantallas
-$pkgFront = Join-Path $raizApp "frontend\dist-prod"
-if (-not (Test-Path $pkgFront)) { $pkgFront = Join-Path $raizApp "frontend" }
-if (Test-Path (Join-Path $pkgFront "index.html")) {
-    Copiar-Espejo -Origen $pkgFront -Destino (Join-Path $InstallDir "frontend\dist-prod") -Etiqueta "pantallas (frontend)" | Out-Null
+# Pantallas. Van siempre a backend\public, que es de donde las sirve el
+# backend cuando no existe frontend\dist-prod. Si este equipo SI tiene
+# frontend\dist-prod (instalaciones viejas), el backend sirve esa y hay que
+# ponerla al dia tambien. Si no la tiene, no se crea: crearla cambiaria de donde
+# salen las pantallas y el revertir regresaria el programa viejo con pantallas
+# nuevas encima.
+if ($pkgPantallas) {
+    if (-not (Copiar-Espejo -Origen $pkgPantallas -Destino (Join-Path $destBackend "public") -Etiqueta "pantallas (backend\public)")) {
+        if (-not $fallaCopia) { $fallaCopia = "No se pudieron copiar las pantallas a backend\public." }
+    }
+    $frontInstalado = Join-Path $InstallDir "frontend\dist-prod"
+    if (Test-Path $frontInstalado) {
+        if (-not (Copiar-Espejo -Origen $pkgPantallas -Destino $frontInstalado -Etiqueta "pantallas (frontend\dist-prod)")) {
+            if (-not $fallaCopia) { $fallaCopia = "No se pudieron copiar las pantallas a frontend\dist-prod." }
+        }
+    }
+    if (-not $fallaCopia -and -not (Test-Path (Join-Path $destBackend "public\index.html"))) {
+        $fallaCopia = "Despues de copiar, backend\public no tiene index.html."
+    }
 } else {
-    Aviso "El paquete no trae pantallas compiladas; se dejan las actuales"
+    Aviso "El paquete no trae pantallas; se dejan las actuales"
+}
+if (-not $fallaCopia -and -not (Test-Path (Join-Path $destBackend "dist\main.js"))) {
+    $fallaCopia = "Despues de copiar, falta backend\dist\main.js."
 }
 
 # Herramientas de mantenimiento: se actualizan tambien, para que el revert del
@@ -373,8 +470,9 @@ $infoVersion = [ordered]@{
 }
 $infoVersion | ConvertTo-Json | ForEach-Object { Set-TextoSinBOM -Ruta $VERSION_JS -Texto $_ }
 
-# Solo se reescribe la linea APP_VERSION. El resto del .env no se toca.
-$envLineas = Get-Content -Path $ENV_BACKEND -Encoding UTF8
+# Solo se reescribe la linea APP_VERSION y se agregan las que falten. Ninguna
+# linea que ya exista cambia de valor.
+$envLineas = @(Get-Content -Path $ENV_BACKEND -Encoding UTF8)
 if ($envLineas -match "^\s*APP_VERSION\s*=") {
     $envLineas = $envLineas | ForEach-Object {
         if ($_ -match "^\s*APP_VERSION\s*=") { "APP_VERSION=$VersionNueva" } else { $_ }
@@ -389,6 +487,13 @@ if (-not ($envLineas -match "^\s*INSTALL_MODE\s*=")) {
     $envLineas += "INSTALL_MODE=local"
     Aviso "Al .env le faltaba INSTALL_MODE: se agrego como local"
 }
+# De aqui pregunta el boton "Sincronizar" si hay version nueva. Solo se agrega
+# si falta: si alguien puso otra direccion, o la dejo vacia a proposito para
+# apagar la consulta, se respeta.
+if (-not ($envLineas -match "^\s*UPDATE_FEED_URL\s*=")) {
+    $envLineas += "UPDATE_FEED_URL=https://pos.iados.online/api/uploads/actualizaciones/feed.json"
+    Ok "Se agrego UPDATE_FEED_URL: el boton Sincronizar ya puede buscar versiones nuevas"
+}
 Set-TextoSinBOM -Ruta $ENV_BACKEND -Texto ($envLineas -join "`r`n")
 Ok "version.json y APP_VERSION en $VersionNueva"
 
@@ -401,17 +506,22 @@ $logBackend = Join-Path $InstallDir "logs\backend.log"
 $marcaLog = 0
 if (Test-Path $logBackend) { $marcaLog = (Get-Item $logBackend).Length }
 
-Servicio -Accion "start" -Nombre $SVC_BACKEND
-Escribir "        Esperando a que arranque (puede tardar: esta migrando la base)..."
-
-$arranco = Esperar-Puerto -Puerto $puerto -Segundos 240
+if ($fallaCopia) {
+    # Con el programa a medias no se arranca: se regresa al respaldo.
+    $arranco = $false
+    $motivoFalla = "La copia de los archivos nuevos fallo: $fallaCopia"
+} else {
+    Servicio -Accion "start" -Nombre $SVC_BACKEND
+    Escribir "        Esperando a que arranque (puede tardar: esta migrando la base)..."
+    $arranco = Esperar-Puerto -Puerto $puerto -Segundos 240
+    $motivoFalla = "El sistema NO arranco despues de 4 minutos."
+}
 
 # El puerto abierto solo dice que el programa esta vivo. Para saber si PUEDE
 # VENDER hay que preguntarle a /api/health, que es el unico que ejecuta un
 # SELECT de verdad contra la base. Sin esta comprobacion, un backend que arranca
 # pero se quedo sin base pasaria como actualizacion exitosa y el cliente se
 # encontraria un POS que abre y no cobra, con el reporte diciendo que todo bien.
-$motivoFalla = "El sistema NO arranco despues de 4 minutos."
 if ($arranco) {
     Escribir "        Preguntandole a la base si responde..."
     $saludOk = $false
@@ -581,7 +691,7 @@ R "      .\revertir.ps1 -Respaldo ""$RESPALDO"""
 R ""
 R "  QUE NO SE TOCO"
 R "    backend\uploads          las imagenes del negocio"
-R "    backend\.env             solo cambio la linea APP_VERSION"
+R "    backend\.env             solo cambio APP_VERSION (y se agregan las lineas que falten)"
 R "    mariadb\data             los datos de la base"
 R ""
 if ($imagenesOk) {
@@ -635,6 +745,8 @@ if ($ajustesIguales -eq $false) {
     Escribir "   ATENCION: hay ajustes que cambiaron. Revisa:" "Yellow"
     Escribir "     $reportesFinal\COMPARACION-AJUSTES.txt" "Yellow"
     Escribir ""
+    Soltar-Candado
     exit 3
 }
+Soltar-Candado
 exit 0

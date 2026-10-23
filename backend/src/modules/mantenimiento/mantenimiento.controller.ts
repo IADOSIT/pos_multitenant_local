@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -66,9 +66,10 @@ export class MantenimientoController {
     return this.svc.revertir(body?.respaldo);
   }
 
+  /** Sin `forzar` contesta lo consultado en la ultima hora; con `forzar=1` sale a preguntar. */
   @Get('actualizacion')
-  buscarActualizacion() {
-    return this.svc.buscarActualizacion();
+  buscarActualizacion(@Query('forzar') forzar?: string) {
+    return this.svc.buscarActualizacion(forzar === '1' || forzar === 'true');
   }
 
   @Post('actualizar')

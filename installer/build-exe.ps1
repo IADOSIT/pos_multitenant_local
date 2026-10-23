@@ -115,6 +115,42 @@ if ($exclusionOk) {
 }
 
 # =============================================================================
+# 0b. Un build a la vez
+#
+# El EXE v2.4.4 salio con backend\public vacio: corrieron dos builds juntos,
+# los dos usan frontend\dist-build, y uno lo borro en su limpieza final
+# mientras el otro lo estaba copiando. Ese EXE instalaba y arrancaba bien,
+# pero abria una pagina en blanco.
+#
+# El candado es output\.build-en-curso con el PID del build. Si ese proceso
+# ya no existe, o el candado tiene mas de 3 horas, se considera abandonado.
+# El mismo PID es esta misma consola en una corrida anterior que murio a
+# medias, asi que tambien se toma.
+# =============================================================================
+New-Item -ItemType Directory -Path $OutputFullPath -Force | Out-Null
+$CandadoBuild = Join-Path $OutputFullPath ".build-en-curso"
+if (Test-Path $CandadoBuild) {
+    $pidOtro = 0
+    try { $pidOtro = [int]((Get-Content $CandadoBuild -Raw -ErrorAction Stop).Trim()) } catch { $pidOtro = 0 }
+    $edadCandado = (Get-Date) - (Get-Item $CandadoBuild).LastWriteTime
+    $otroVivo = ($pidOtro -gt 0 -and $pidOtro -ne $PID -and $edadCandado.TotalHours -lt 3 -and
+                 (Get-Process -Id $pidOtro -ErrorAction SilentlyContinue))
+    if ($otroVivo) {
+        Write-Host "  [XX] Ya hay otro build corriendo (proceso $pidOtro)." -ForegroundColor Red
+        Write-Host "       Dos builds juntos se pisan frontend\dist-build y el EXE sale sin pantallas." -ForegroundColor Red
+        Write-Host "       Espera a que termine. Si de verdad no hay ninguno, borra $CandadoBuild" -ForegroundColor Red
+        exit 1
+    }
+    Write-Warn "Candado de un build anterior que ya no corre (proceso $pidOtro). Se toma."
+}
+Set-TextoSinBOM -Ruta $CandadoBuild -Texto "$PID"
+
+# Todo lo que sigue va dentro de try/finally para soltar el candado siempre:
+# build bueno, Write-Fail, error o Ctrl+C. PowerShell corre el finally aunque
+# se salga con exit.
+try {
+
+# =============================================================================
 # 1. Build frontend
 # =============================================================================
 
@@ -138,7 +174,7 @@ if ($PreBuiltFrontend -and (Test-Path "$PreBuiltFrontend\index.html")) {
     if (Test-Path $distBuildDir) {
         Remove-Item -Recurse -Force $distBuildDir -ErrorAction SilentlyContinue
     }
-    $buildResult = & cmd /c "cd /d `"$FrontendSrcDir`" && npx vite build --outDir dist-build --emptyOutDir 2>&1"
+    $buildResult = & cmd /c "cd /d `"$FrontendSrcDir`" && npx vite build --mode onpremise --outDir dist-build --emptyOutDir 2>&1"
     $buildExitCode = $LASTEXITCODE
     $FrontendIndexHtml = Join-Path $FrontendDistDir "index.html"
     if ($buildExitCode -ne 0) {
@@ -443,6 +479,16 @@ Write-Info "Copiando app desde staging..."
 & robocopy "$StagingDir\app" "$MergedDir\app" /E /XD node_modules /NP /NFL /NDL /LOG:NUL | Out-Null
 Write-OK "App copiada (staging, sin node_modules)"
 
+# package.json y package-lock.json salen del proyecto, no de staging. El de
+# staging se quedo atras (no lista socket.io ni twilio), y Sincronizar revisa
+# las librerias del equipo contra el package-lock que trae el paquete.
+foreach ($pj in @("package.json", "package-lock.json")) {
+    $origPj = Join-Path $BackendDir $pj
+    if (-not (Test-Path $origPj)) { Write-Fail "Falta backend\$pj" }
+    Copy-Item -Path $origPj -Destination "$MergedDir\app\backend\$pj" -Force
+}
+Write-OK "package.json y package-lock.json tomados de backend\"
+
 # --- Sobrescribir seeds con los frescos de database/ (bypass permisos staging) ---
 if (Test-Path $DbSrcDir) {
     Write-Info "Actualizando seeds con version fresca de database/..."
@@ -482,38 +528,29 @@ if ($PrevSrc) {
     Write-OK "node_modules base copiados de build anterior"
 }
 
-# Sincronizar paquetes faltantes desde backend/node_modules real
-$synced = 0
-if (Test-Path $SrcNM) {
-    Get-ChildItem -Path $SrcNM -Directory | ForEach-Object {
-        $pkgName = $_.Name
-        $dest = Join-Path $DestNM $pkgName
-        if (-not (Test-Path $dest)) {
-            Copy-Item -Path $_.FullName -Destination $dest -Recurse -Force
-            $synced++
-        }
-    }
-    Get-ChildItem -Path $SrcNM -Directory -Filter "@*" | ForEach-Object {
-        $scopeDir = $_.FullName; $scopeName = $_.Name
-        Get-ChildItem -Path $scopeDir -Directory | ForEach-Object {
-            $dest = Join-Path $DestNM "$scopeName\$($_.Name)"
-            if (-not (Test-Path $dest)) {
-                New-Item -ItemType Directory -Path (Split-Path $dest) -Force | Out-Null
-                Copy-Item -Path $_.FullName -Destination $dest -Recurse -Force
-                $synced++
-            }
-        }
-    }
+# Copia exacta de backend\node_modules. Antes solo se agregaban las carpetas
+# que faltaban: una libreria que cambiaba de version en el proyecto se
+# quedaba con la version vieja del build anterior. /MIR deja el destino
+# identico al origen; la base del build anterior solo sirve para copiar menos.
+if (-not (Test-Path $SrcNM)) {
+    Write-Fail "No existe backend\node_modules. Corre 'cd backend; npm ci' y vuelve a intentar."
 }
-if ($synced -gt 0) { Write-OK "node_modules: $synced paquetes nuevos sincronizados" }
-else               { Write-OK "node_modules: al dia (sin paquetes nuevos)" }
+& robocopy $SrcNM $DestNM /MIR /NP /NFL /NDL /LOG:NUL | Out-Null
+$rcNM = $LASTEXITCODE
+if ($rcNM -ge 8) { Write-Fail "robocopy de node_modules fallo (codigo $rcNM)" }
+$nmCount = @(Get-ChildItem $DestNM -Directory).Count
+Write-OK "node_modules: copia exacta de backend\node_modules ($nmCount carpetas)"
 
 # --- Uploads: logos, imagenes de menu (viven en backend/uploads del proyecto, no en staging) ---
 $UploadsDir = Join-Path $ProjectDir "backend\uploads"
 $DestUploads = "$MergedDir\app\backend\uploads"
 New-Item -ItemType Directory -Path $DestUploads -Force | Out-Null
 if (Test-Path $UploadsDir) {
-    Copy-Item -Path "$UploadsDir\*" -Destination $DestUploads -Recurse -Force
+    # actualizaciones\ es donde se publican los paquetes de Sincronizar para
+    # el servidor; meterlos al EXE solo lo haria pesar de mas.
+    & robocopy $UploadsDir $DestUploads /E /XD (Join-Path $UploadsDir "actualizaciones") /NP /NFL /NDL /LOG:NUL | Out-Null
+    $rcUp = $LASTEXITCODE
+    if ($rcUp -ge 8) { Write-Fail "robocopy de uploads fallo (codigo $rcUp)" }
     $uploadCount = (Get-ChildItem $DestUploads -Recurse -File).Count
     Write-OK "Uploads copiados: $uploadCount archivos (logos, menu)"
 } else {
@@ -521,13 +558,38 @@ if (Test-Path $UploadsDir) {
 }
 
 # --- Frontend dist actualizado ---
-if (Test-Path $FrontendDir) {
-    Write-Info "Actualizando frontend con build reciente..."
-    $pubDir = "$MergedDir\app\backend\public"
-    if (Test-Path $pubDir) { Remove-Item -Recurse -Force $pubDir }
-    New-Item -ItemType Directory -Path $pubDir | Out-Null
-    Copy-Item -Path "$FrontendDir\*" -Destination $pubDir -Recurse -Force
-    Write-OK "Frontend actualizado"
+# Sin pantallas no hay EXE. Antes, si dist-build no existia, este paso se
+# saltaba callado y el instalador salia con backend\public vacio.
+if (-not (Test-Path "$FrontendDir\index.html")) {
+    Write-Fail "No hay frontend compilado en $FrontendDir (falta index.html)"
+}
+Write-Info "Actualizando frontend con build reciente..."
+$pubDir = "$MergedDir\app\backend\public"
+if (Test-Path $pubDir) { Remove-Item -Recurse -Force $pubDir }
+New-Item -ItemType Directory -Path $pubDir | Out-Null
+Copy-Item -Path "$FrontendDir\*" -Destination $pubDir -Recurse -Force
+$pubCount    = @(Get-ChildItem $pubDir -Recurse -File).Count
+$fuenteCount = @(Get-ChildItem $FrontendDir -Recurse -File).Count
+if (-not (Test-Path "$pubDir\index.html") -or $pubCount -lt 100 -or $pubCount -ne $fuenteCount) {
+    Write-Fail "Las pantallas no quedaron completas en app\backend\public ($pubCount de $fuenteCount archivos)"
+}
+Write-OK "Frontend actualizado ($pubCount archivos)"
+
+# La letra Inter viene de fonts.googleapis.com. Como <link rel=stylesheet>
+# normal, el navegador espera esa hoja antes de pintar: con un internet que
+# no contesta (uno apagado falla al instante, uno colgado no) la caja se
+# queda en blanco hasta que se rinde. Con media=print + onload se carga sin
+# detener la pantalla: con internet se ve igual que siempre y sin internet
+# usa la letra del sistema. Solo en la copia del equipo; la nube no cambia.
+$idxPub = "$pubDir\index.html"
+$htmlPub = [System.IO.File]::ReadAllText($idxPub)
+$patronFuente = '<link href="(https://fonts\.googleapis\.com/[^"]+)" rel="stylesheet">'
+if ($htmlPub -match $patronFuente) {
+    $htmlPub = [regex]::Replace($htmlPub, $patronFuente, '<link href="$1" rel="stylesheet" media="print" onload="this.media=''all''">')
+    Set-TextoSinBOM -Ruta $idxPub -Texto $htmlPub
+    Write-OK "Letra de Google ya no detiene la pantalla sin internet"
+} else {
+    Write-Warn "index.html no trae el link de Google Fonts como se esperaba; se deja igual"
 }
 
 # --- Setup scripts ---
@@ -559,6 +621,8 @@ $checks = @(
     @{ Path = "$MergedDir\runtime\nssm.exe";         Name = "NSSM" },
     @{ Path = "$MergedDir\app\backend\package.json"; Name = "Backend" },
     @{ Path = "$MergedDir\app\backend\public";       Name = "Frontend" },
+    @{ Path = "$MergedDir\app\backend\public\index.html"; Name = "Frontend (index.html)" },
+    @{ Path = "$MergedDir\app\backend\package-lock.json"; Name = "Backend (package-lock.json)" },
     @{ Path = "$MergedDir\setup\install.ps1";        Name = "install.ps1" },
     @{ Path = "$MergedDir\setup\uninstall.ps1";      Name = "uninstall.ps1" },
     # Sin estos cinco el exe puede instalar pero NO puede respaldar ni
@@ -773,3 +837,12 @@ Write-Host "   $([math]::Round($exeFinal.Length/1MB,1)) MB  |  $($exeFinal.LastW
 Write-Host "  ======================================================================" -ForegroundColor Green
 Write-Host ""
 exit 0
+
+} finally {
+    # Solo se borra si sigue siendo nuestro.
+    try {
+        if ((Test-Path $CandadoBuild) -and ((Get-Content $CandadoBuild -Raw).Trim() -eq "$PID")) {
+            Remove-Item $CandadoBuild -Force
+        }
+    } catch { }
+}

@@ -6,3 +6,4 @@ POS-iaDoS-Local-v*/
 *.exe
 # Mantener el directorio vacío (placeholder)
 !.gitignore
+.build-en-curso

@@ -1,4 +1,5 @@
 import { io, Socket } from 'socket.io-client';
+import { baseSocket } from './socket';
 
 // Cliente del monitor de presencia. Es ESTRICTAMENTE OPCIONAL: si falla, la app
 // debe seguir funcionando identica. Por eso no lanza nunca, no muestra toasts y
@@ -29,10 +30,6 @@ function esNube(): boolean {
   if (typeof window === 'undefined') return false;
   const host = window.location.hostname.toLowerCase();
   return host === HOST_NUBE || host.endsWith('.' + HOST_NUBE);
-}
-
-function baseSocket(): string {
-  return import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://posapi.iados.online';
 }
 
 function puedeConectar(): boolean {

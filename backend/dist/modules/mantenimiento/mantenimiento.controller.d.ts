@@ -60,29 +60,7 @@ export declare class MantenimientoController {
         respaldo: string;
         mensaje: string;
     };
-    buscarActualizacion(): Promise<{
-        automatica_disponible: boolean;
-        origen: string | null;
-        nota: string;
-        disponible: boolean;
-        version_actual: any;
-    } | {
-        automatica_disponible: boolean;
-        origen: string | null;
-        nota: string;
-        disponible: boolean;
-        version_actual: any;
-        version_nueva: string | null;
-        notas: any;
-        url_paquete: any;
-    } | {
-        automatica_disponible: boolean;
-        origen: string | null;
-        nota: string;
-        disponible: boolean;
-        version_actual: any;
-        error: string;
-    }>;
+    buscarActualizacion(forzar?: string): Promise<any>;
     actualizar(body: {
         paquete?: string;
     }): Promise<{

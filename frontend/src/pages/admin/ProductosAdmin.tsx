@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { createColumnHelper, ColumnDef } from '@tanstack/react-table';
 import { productosApi, categoriasApi } from '../../api/endpoints';
 import { resolveUploadUrl } from '../../api/client';
-import { removeBackgroundToWhite } from '../../utils/removeBackground';
+import { removeBackgroundToWhite, HerramientaSinConexionError } from '../../utils/removeBackground';
 import { generateProductImageFree, base64ToBlob } from '../../utils/generateProductImage';
 import toast from 'react-hot-toast';
 import { Plus, Upload, Download, Search, Edit2, Trash2, Image, X, ImagePlus, Wand2, Sparkles } from 'lucide-react';
@@ -123,7 +123,7 @@ export default function ProductosAdmin() {
       setForm({ ...form, imagen_url: data });
       toast.success('Imagen generada');
     } catch (e: any) {
-      toast.error(e.response?.data?.message || 'No se pudo generar la imagen');
+      toast.error(e.response?.data?.message || (e instanceof HerramientaSinConexionError ? e.message : 'No se pudo generar la imagen'));
     } finally {
       setGeneratingImage(false);
     }
@@ -138,7 +138,9 @@ export default function ProductosAdmin() {
       const { data } = await productosApi.uploadImage(file);
       setForm({ ...form, imagen_url: data });
       toast.success('Fondo quitado');
-    } catch (e: any) { toast.error('No se pudo quitar el fondo de esta imagen'); }
+    } catch (e: any) {
+      toast.error(e instanceof HerramientaSinConexionError ? e.message : 'No se pudo quitar el fondo de esta imagen');
+    }
     finally { setRemovingBg(false); }
   };
 

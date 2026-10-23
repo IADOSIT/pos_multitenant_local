@@ -49,8 +49,8 @@ let MantenimientoController = class MantenimientoController {
     revertir(body) {
         return this.svc.revertir(body?.respaldo);
     }
-    buscarActualizacion() {
-        return this.svc.buscarActualizacion();
+    buscarActualizacion(forzar) {
+        return this.svc.buscarActualizacion(forzar === '1' || forzar === 'true');
     }
     actualizar(body) {
         return this.svc.actualizar(body || {});
@@ -111,8 +111,9 @@ __decorate([
 ], MantenimientoController.prototype, "revertir", null);
 __decorate([
     (0, common_1.Get)('actualizacion'),
+    __param(0, (0, common_1.Query)('forzar')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], MantenimientoController.prototype, "buscarActualizacion", null);
 __decorate([

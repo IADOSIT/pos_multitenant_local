@@ -5,7 +5,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20261001-v244-codificacion"
+        CACHE_BUST: "20261022-v245-sincronizar"
     container_name: pos-iados-api
     restart: unless-stopped
     ports:
@@ -29,7 +29,7 @@ services:
       # a 'false' y redesplegar, sin tocar codigo.
       BASCULA_KIOSK_STRICT: "false"
       FRONTEND_URL: http://localhost,http://localhost:8081,https://pos.iados.online,https://tienda.iados.online
-      APP_VERSION: "2.4.4"
+      APP_VERSION: "2.4.5"
       PEXELS_API_KEY: zTTe3zHwLV7IAsqZSwfavWE41iv2ALaGMgrFAtkKitUw1sawGTRSp1wB
       NODE_OPTIONS: "--max-old-space-size=512"
       # Secreto compartido con POS_STORE_API para /internal/* (aceptacion de
@@ -56,7 +56,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CACHE_BUST: "20261001-v244-codificacion"
+        CACHE_BUST: "20261022-v245-sincronizar"
     container_name: pos-iados-web
     restart: unless-stopped
     ports:

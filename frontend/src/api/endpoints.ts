@@ -458,6 +458,13 @@ export const mantenimientoApi = {
   imagenes:    (arreglar = false) => api.post('/mantenimiento/imagenes', { arreglar }),
   ajustes:     ()                 => api.post('/mantenimiento/ajustes'),
   revertir:    (respaldo: string) => api.post('/mantenimiento/revertir', { respaldo }),
-  actualizacion: ()               => api.get('/mantenimiento/actualizacion'),
-  actualizar:  (paquete?: string) => api.post('/mantenimiento/actualizar', paquete ? { paquete } : {}),
+  // El servidor espera hasta 20 s al origen de actualizaciones; con los 10 s del
+  // cliente la pantalla se rendia antes de saber la respuesta.
+  actualizacion: (forzar = false) =>
+    api.get('/mantenimiento/actualizacion', { params: forzar ? { forzar: 1 } : {}, timeout: 30000 }),
+  // Esta llamada no regresa hasta que el paquete bajo y se verifico. Con el
+  // timeout global la pantalla decia "no se pudo" mientras el equipo si seguia
+  // actualizando por detras.
+  actualizar:  (paquete?: string) =>
+    api.post('/mantenimiento/actualizar', paquete ? { paquete } : {}, { timeout: 25 * 60 * 1000 }),
 };

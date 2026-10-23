@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
+import { baseSocket } from '../../api/socket';
 import { CheckCircle, XCircle } from 'lucide-react';
 
 interface AttendanceEvent {
@@ -25,7 +26,7 @@ export default function BiometricoLivePage() {
 
   useEffect(() => {
     if (!empresa_token) return;
-    const base = import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://posapi.iados.online';
+    const base = baseSocket();
     const sock = io(`${base}/biometrico`, { transports: ['websocket'] });
     sockRef.current = sock;
     sock.on('connect', () => {

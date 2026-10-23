@@ -6,6 +6,8 @@ declare const __BUILD_ID__: string;
 
 interface ImportMetaEnv {
   readonly VITE_API_URL: string;
+  // '1' solo en el build en sitio (.env.onpremise). Ver api/socket.ts.
+  readonly VITE_SOCKET_MISMO_ORIGEN?: string;
 }
 
 interface ImportMeta {

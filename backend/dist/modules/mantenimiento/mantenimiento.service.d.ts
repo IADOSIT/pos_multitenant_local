@@ -2,6 +2,8 @@ type EstadoTrabajo = 'corriendo' | 'ok' | 'error' | 'desconocido';
 export declare class MantenimientoService {
     private readonly log;
     private readonly trabajos;
+    private consulta;
+    private descargando;
     get installDir(): string;
     get toolsDir(): string;
     get nodeToolsDir(): string;
@@ -11,6 +13,7 @@ export declare class MantenimientoService {
     private exigirOnPremise;
     private leerJson;
     private tamanoCarpeta;
+    private versionInstalada;
     estado(): any;
     private ultimaActualizacion;
     private configuracionActualizacion;
@@ -29,6 +32,12 @@ export declare class MantenimientoService {
     }[];
     private nuevoTrabajo;
     private lanzar;
+    get candadoPath(): string;
+    private procesoVivo;
+    private mantenimientoEnCurso;
+    private exigirSinMantenimientoEnCurso;
+    private tomarCandado;
+    private soltarCandado;
     private psArgs;
     trabajo(id: string): {
         id: string;
@@ -70,29 +79,10 @@ export declare class MantenimientoService {
         mensaje: string;
     };
     private resolverRespaldo;
-    buscarActualizacion(): Promise<{
-        automatica_disponible: boolean;
-        origen: string | null;
-        nota: string;
-        disponible: boolean;
-        version_actual: any;
-    } | {
-        automatica_disponible: boolean;
-        origen: string | null;
-        nota: string;
-        disponible: boolean;
-        version_actual: any;
-        version_nueva: string | null;
-        notas: any;
-        url_paquete: any;
-    } | {
-        automatica_disponible: boolean;
-        origen: string | null;
-        nota: string;
-        disponible: boolean;
-        version_actual: any;
-        error: string;
-    }>;
+    private compararVersiones;
+    buscarActualizacion(forzar?: boolean): Promise<any>;
+    private consultarOrigen;
+    private problemaDelAviso;
     actualizar(cuerpo?: {
         paquete?: string;
     }): Promise<{
@@ -101,6 +91,10 @@ export declare class MantenimientoService {
         mensaje: string;
         reinicia: boolean;
     }>;
+    private backendDelPaquete;
+    private verificarPaquete;
+    private verificarLibrerias;
+    private limpiarDescargasViejas;
     private descargarPaquete;
 }
 export {};

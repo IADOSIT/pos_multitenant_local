@@ -5,6 +5,7 @@ import { useScope } from '../../hooks/useScope';
 import { offlineActions } from '../../store/offline.store';
 import { productosApi, categoriasApi, cajaApi, tiendasApi, pedidosApi, ticketsApi, selfOrderApi, empresasApi, basculaApi } from '../../api/endpoints';
 import { io, Socket } from 'socket.io-client';
+import { baseSocket } from '../../api/socket';
 import { resolveUploadUrl } from '../../api/client';
 import { useConexion } from '../../api/conexion';
 import { printComanda, printTicket } from '../../utils/printTicket';
@@ -160,7 +161,7 @@ export default function POSPage() {
   useEffect(() => {
     // Con la bascula apagada no se abre ni el socket: esta PC captura el peso a mano.
     if (!basculaEnPos || !tiendaId || origen.modo === 'apagado') return;
-    const base = import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://posapi.iados.online';
+    const base = baseSocket();
     // El JWT identifica QUE tienda puede escuchar este navegador. Va en el
     // handshake (no en el evento) para no acabar en un log de payloads.
     const sock = io(`${base}/bascula`, {

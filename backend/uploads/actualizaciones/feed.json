@@ -1,0 +1,10 @@
+{
+    "version":  "2.4.5",
+    "notas":  "Boton Sincronizar; bascula y biometrico apuntan al propio equipo; la pantalla ya no se queda en blanco sin internet.",
+    "url":  "https://pos.iados.online/api/uploads/actualizaciones/POS-iaDoS-UPDATE-v2.4.5-398a9097.zip",
+    "sha256":  "398a9097f932f21a9bce934c290b06147a9c2899c2d4f0ff3bce807f4d668ab4",
+    "bytes":  6639627,
+    "lock_sha256":  "03770f31831cafd296a8a3856c3275aff98945ebd84d2e71831f2c75a9062bd4",
+    "con_librerias":  false,
+    "fecha":  "2026-10-23T01:57:35Z"
+}

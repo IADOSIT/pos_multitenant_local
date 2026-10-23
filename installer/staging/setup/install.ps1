@@ -412,6 +412,9 @@ if (Puerto-Ocupado -Port $BackendPort) {
 # saberlo ahora que a la mitad de la instalacion.
 $piezas = @(
     @{ R = "$InstallerPath\app\backend\dist\main.js"; N = "programa (backend)" },
+    # Sin esto el sistema instala, arranca y abre una pagina en blanco. Paso
+    # con el EXE v2.4.4, que salio con backend\public vacio.
+    @{ R = "$InstallerPath\app\backend\public\index.html"; N = "pantallas del sistema" },
     @{ R = "$InstallerPath\runtime\node\node.exe";    N = "Node.js" },
     @{ R = "$InstallerPath\runtime\nssm.exe";         N = "administrador de servicios" }
 )
@@ -1306,6 +1309,7 @@ FRONTEND_URL=http://localhost:$BackendPort
 INSTALL_MODE=local
 APP_VERSION=$AppVersion
 DEFAULT_WORKER_URL=https://pos-iados-relay.axel-muniz.workers.dev
+UPDATE_FEED_URL=https://pos.iados.online/api/uploads/actualizaciones/feed.json
 "@
 $envContent | Set-Content "$InstallDir\backend\.env"
 Write-Log "Backend configurado (.env generado)" "Green"

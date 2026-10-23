@@ -1,6 +1,6 @@
 # Mariscos23 — todos los escenarios y como los resuelve el EXE
 
-**Paquete:** `POS-iaDoS-Local-v2.4.4.exe` · modo `local` (MariaDB propia) · destino **Windows 11 Pro**
+**Paquete:** `POS-iaDoS-Local-v2.4.5.exe` · modo `local` (MariaDB propia) · destino **Windows 11 Pro**
 
 **Regla de oro de todo el documento:** nunca se borra data del cliente, y siempre se puede volver atras.
 
@@ -12,7 +12,7 @@ Este archivo recorre de inicio a fin lo que puede salir mal, en el orden en que 
 
 | # | Escenario | Como queda resuelto |
 |---|---|---|
-| A1 | **SmartScreen** bloquea el EXE porque no esta firmado | No se puede evitar sin certificado. Camino exacto: *Mas informacion* → *Ejecutar de todas formas*. Ver seccion G. |
+| A1 | **SmartScreen** bloquea el EXE porque no esta firmado | No se puede evitar sin certificado. Camino exacto: *Mas informacion* → *Ejecutar de todas formas*. Ver seccion H. |
 | A2 | Windows pide **UAC** | `PrivilegesRequired=admin` en `setup.iss`: pide elevacion una sola vez, al inicio. Nunca a media instalacion. |
 | A3 | Equipo de **32 bits** | `ArchitecturesInstallIn64BitMode=x64` y, dentro, PASO 0 aborta antes de copiar nada. La MariaDB empaquetada es x64. |
 | A4 | **Antivirus o Carpetas Controladas** no dejan escribir en `C:\POS-iaDoS` | PASO 0 hace una **escritura de prueba real** (crea y borra un archivo). Si falla, aborta con el mensaje que nombra Acceso Controlado a Carpetas. No deja nada a medias. |
@@ -191,7 +191,47 @@ No se arreglaron 21 lineas una por una: se metio una funcion, `Set-TextoSinBOM`,
 
 ---
 
-## G. Lo que **NO** queda resuelto
+## G. Version 2.4.5: el boton Sincronizar y el EXE que salio sin pantallas
+
+### G1 — El EXE v2.4.4 instalaba bien y abria una pagina en blanco
+
+**No se use el v2.4.4.** Corrieron dos builds a la vez; los dos usan `frontend\dist-build`, y uno lo borro en su limpieza final mientras el otro lo copiaba. El EXE salio con `backend\public` vacio: instalaba, el servicio arrancaba, la salud decia que todo bien, y la pantalla salia en blanco. Ninguna revision lo detecto porque todas miraban que la carpeta existiera, no que tuviera algo adentro.
+
+Ahora hay un candado en cada eslabon, para que una falla en uno no llegue al siguiente:
+
+| Donde | Que revisa |
+|---|---|
+| `build-exe.ps1` | Un build a la vez (`output\.build-en-curso`, con el PID). Falla si no hay `index.html` compilado, y cuenta que las pantallas copiadas sean **las mismas** que las compiladas (minimo 100 archivos). |
+| `install.ps1` | No instala un paquete que no traiga `public\index.html`. |
+| `actualizar.ps1` | No aplica un paquete sin pantallas; se detiene antes de tocar el servicio. |
+| `publicar-actualizacion.ps1` | No publica un paquete sin pantallas, y lo descomprime de prueba antes de subirlo. |
+
+### G2 — El boton Sincronizar
+
+| # | Escenario | Como queda resuelto |
+|---|---|---|
+| G2.1 | **Hay una version nueva** | A los administradores les aparece un aviso arriba en el programa; su boton lleva a *Mantenimiento → Este equipo*, donde se confirma. **Nunca se instala sola**: hace falta el clic. En la nube el aviso no existe. |
+| G2.2 | **No hay internet** | No pasa nada. El aviso no aparece y el POS sigue igual. |
+| G2.3 | **Descarga cortada o alterada** | Se exige el tamano exacto y la huella sha256 publicados. Solo se acepta un paquete por https y del mismo servidor que publica el aviso. Si algo no cuadra, no se toca nada. |
+| G2.4 | **Paquete incompleto** | Antes de detener el servicio se revisa que traiga programa, pantallas y la version anunciada. Si pide librerias que el equipo no tiene, se rechaza. |
+| G2.5 | **Que no se pierda nada** | Sincronizar no es un camino aparte: usa **el mismo** `actualizar.ps1` del EXE. Respaldo completo (base, Excel, imagenes, ajustes), ensayo sobre una copia, y revertir automatico si no arranca o la base no responde. |
+| G2.6 | **Dos actualizaciones a la vez** (dos clics, o el boton y el EXE) | Candado `logs\mantenimiento-en-curso.json`: la segunda se rechaza mientras la primera siga viva. |
+| G2.7 | **Revertir** | `REVERTIR.bat` y el boton de revertir siguen ahi, igual que antes. |
+| G2.8 | **Desde cuando funciona** | Hay que instalar **una vez** el v2.4.5 con el EXE. El servicio que trae instalado hoy, al detenerse, mata a los procesos que el mismo lanzo; eso incluye al actualizador. La correccion se aplica en el siguiente arranque del servicio, asi que la primera vez tiene que ser con el EXE. De la v2.4.6 en adelante llegan por el boton. |
+
+### G3 — Otros hallazgos del doble check
+
+| Hallazgo | Que pasaba | Como queda |
+|---|---|---|
+| `package.json` viejo dentro del paquete | El de staging se habia quedado atras: no listaba socket.io ni twilio. Sincronizar revisa las librerias del equipo contra ese archivo. | Se toma siempre de `backend\`. |
+| Librerias que cambian de version | El build solo agregaba las carpetas que faltaban: una libreria actualizada en el proyecto se quedaba con la version del build anterior. | Copia exacta de `backend\node_modules`. |
+| Bascula y biometrico apuntaban a la nube | En el equipo en sitio las conexiones en vivo buscaban el servidor de la nube. Con internet la nube las rechazaba; sin internet simplemente no funcionaban. | El build en sitio las manda al mismo equipo. El build de la nube no cambia, y un candado en `vite.config.ts` impide compilar la nube en modo sitio. |
+| La letra de Google detenia la pantalla | Con un internet que no contesta (uno apagado falla al instante, uno colgado no), la caja se quedaba en blanco hasta que el navegador se rendia. | Se carga sin detener la pantalla, solo en la copia del equipo. |
+| Los paquetes publicados se colaban al EXE | `uploads\actualizaciones` es donde viven los paquetes de Sincronizar en el servidor. | El build los excluye. |
+
+---
+
+## H. Lo que **NO** queda resuelto
 
 Sin adornos, porque pidio doble check honesto:
 
@@ -232,3 +272,8 @@ Sin adornos, porque pidio doble check honesto:
 | La marca en `version.json` dejaba `version_previa` y `fecha_version` en null: se perdia la senal de si la actualizacion surtio efecto | Medio | `build-exe.ps1`, `actualizar.ps1` |
 | Leer sin `-Encoding UTF8` interpretaba los nombres con acentos de `imagenes.json` con la pagina ANSI y dejaban de coincidir con los archivos reales | Medio | 27 lecturas en 9 scripts |
 | La contrasena de la base viajaba en la linea de comandos de mysqldump, visible en el administrador de tareas | Bajo | `install.ps1` |
+| **v2.4.5:** el EXE v2.4.4 salio con las pantallas vacias por dos builds simultaneos | **Grave** | `build-exe.ps1`, `install.ps1`, `actualizar.ps1` |
+| **v2.4.5:** bascula y biometrico del equipo en sitio buscaban el servidor de la nube | Medio | `api/socket.ts`, `.env.onpremise`, `vite.config.ts` |
+| **v2.4.5:** el paquete llevaba un `package.json` viejo y librerias que no se actualizaban | Medio | `build-exe.ps1` |
+| **v2.4.5:** sin internet la letra de Google podia dejar la caja en blanco | Medio | `build-exe.ps1` |
+| **v2.4.5:** boton Sincronizar con la misma red de seguridad que el EXE | Nuevo | `mantenimiento.service.ts`, `MantenimientoLocal.tsx`, `AvisoSincronizar.tsx`, `publicar-actualizacion.ps1` |

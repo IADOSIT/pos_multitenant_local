@@ -1,5 +1,12 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { spawn } from 'child_process';
+import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -31,12 +38,29 @@ interface Trabajo {
   salida?: string;
   /** Un trabajo desprendido reinicia el backend: nadie va a ver su final. */
   desprendido?: boolean;
+  pid?: number;
 }
+
+/** La ultima consulta al origen de actualizaciones, para no preguntar a cada rato. */
+interface ConsultaGuardada {
+  cuando: number;
+  resultado: any;
+}
+
+/** Una consulta buena se reusa una hora; una que fallo, diez minutos. */
+const CONSULTA_VIGENCIA_MS = 60 * 60 * 1000;
+const CONSULTA_FALLIDA_VIGENCIA_MS = 10 * 60 * 1000;
+
+/** Un actualizar.ps1 tarda minutos, nunca horas: un candado mas viejo quedo huerfano. */
+const CANDADO_VIGENCIA_MS = 3 * 60 * 60 * 1000;
 
 @Injectable()
 export class MantenimientoService {
   private readonly log = new Logger('Mantenimiento');
   private readonly trabajos = new Map<string, Trabajo>();
+  private consulta: ConsultaGuardada | null = null;
+  /** Mientras baja un paquete no se acepta otro clic. */
+  private descargando = false;
 
   // ---------------------------------------------------------------- rutas
 
@@ -131,6 +155,12 @@ export class MantenimientoService {
 
   // ---------------------------------------------------------------- estado
 
+  /** La version que esta corriendo, sin recorrer carpetas: se consulta seguido. */
+  private versionInstalada(): string {
+    const versionJson = this.leerJson(path.join(this.installDir, 'version.json'));
+    return versionJson?.version || process.env.APP_VERSION || 'desconocida';
+  }
+
   estado() {
     const onPrem = this.esOnPremise();
     const versionJson = this.leerJson(path.join(this.installDir, 'version.json'));
@@ -138,7 +168,7 @@ export class MantenimientoService {
       on_premise: onPrem,
       plataforma: process.platform,
       modo: process.env.INSTALL_MODE || 'nube',
-      version: versionJson?.version || process.env.APP_VERSION || 'desconocida',
+      version: this.versionInstalada(),
       version_previa: versionJson?.version_previa || null,
       fecha_version: versionJson?.build_date || null,
     };
@@ -297,6 +327,7 @@ export class MantenimientoService {
       detached: !!opciones.desprendido,
       stdio: ['ignore', fd, fd],
     });
+    t.pid = hijo.pid;
 
     if (opciones.desprendido) {
       hijo.unref();
@@ -322,6 +353,7 @@ export class MantenimientoService {
       } catch {
         /* ya cerrado */
       }
+      this.soltarCandado(hijo.pid);
       this.log.log(`${tipo} termino con codigo ${codigo}`);
     });
 
@@ -338,6 +370,80 @@ export class MantenimientoService {
     });
 
     return t;
+  }
+
+  // ---------------------------------------------------------------- candado
+
+  /**
+   * Un solo trabajo pesado a la vez (actualizar, revertir, respaldar, arreglar
+   * imagenes). El candado vive en un archivo y no en memoria a proposito: el
+   * respaldo y la actualizacion reinician este mismo backend, y con el mapa en
+   * memoria vacio un segundo clic lanzaria otra actualizacion encima de la que
+   * va corriendo. actualizar.ps1 lee y respeta el mismo archivo.
+   */
+  get candadoPath(): string {
+    return path.join(this.installDir, 'logs', 'mantenimiento-en-curso.json');
+  }
+
+  private procesoVivo(pid: number): boolean {
+    if (!Number.isInteger(pid) || pid <= 0) return false;
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch (e: any) {
+      // EPERM: existe pero es de otro usuario. Sigue vivo.
+      return e?.code === 'EPERM';
+    }
+  }
+
+  /** El trabajo que tiene el candado, o null si no hay ninguno vigente. */
+  private mantenimientoEnCurso(): { tipo: string; inicio: number; pid: number } | null {
+    const c = this.leerJson(this.candadoPath);
+    if (!c) return null;
+    const inicio = Number(c.inicio) || 0;
+    if (Date.now() - inicio > CANDADO_VIGENCIA_MS) return null;
+    if (!this.procesoVivo(Number(c.pid))) return null;
+    return { tipo: String(c.tipo || 'mantenimiento'), inicio, pid: Number(c.pid) };
+  }
+
+  private exigirSinMantenimientoEnCurso(): void {
+    if (this.descargando) {
+      throw new ConflictException(
+        'Ya se esta descargando la actualizacion. Espera a que termine; no hace falta volver a darle clic.',
+      );
+    }
+    const c = this.mantenimientoEnCurso();
+    if (c) {
+      const minutos = Math.max(1, Math.round((Date.now() - c.inicio) / 60000));
+      throw new ConflictException(
+        `Hay un ${c.tipo} en curso desde hace ${minutos} min. Espera a que termine antes de lanzar otro.`,
+      );
+    }
+  }
+
+  private tomarCandado(tipo: string, pid: number | undefined): void {
+    if (!pid) return;
+    try {
+      fs.mkdirSync(path.dirname(this.candadoPath), { recursive: true });
+      fs.writeFileSync(
+        this.candadoPath,
+        JSON.stringify({ tipo, pid, inicio: Date.now() }),
+        'utf8',
+      );
+    } catch (e: any) {
+      this.log.warn(`No se pudo escribir el candado de mantenimiento: ${e.message}`);
+    }
+  }
+
+  /** Solo se suelta el candado propio: nunca el de un trabajo que no es este. */
+  private soltarCandado(pid: number | undefined): void {
+    const c = this.leerJson(this.candadoPath);
+    if (!c || !pid || Number(c.pid) !== pid) return;
+    try {
+      fs.unlinkSync(this.candadoPath);
+    } catch {
+      /* ya no estaba */
+    }
   }
 
   private psArgs(script: string, extra: string[]): string[] {
@@ -380,10 +486,12 @@ export class MantenimientoService {
 
   respaldar(etiqueta = 'manual', opciones: { sinExcel?: boolean; sinImagenes?: boolean } = {}) {
     this.exigirOnPremise();
+    this.exigirSinMantenimientoEnCurso();
     const extra: string[] = ['-Etiqueta', this.limpiarEtiqueta(etiqueta), '-Silencioso'];
     if (opciones.sinExcel) extra.push('-SinExcel');
     if (opciones.sinImagenes) extra.push('-SinImagenes');
     const t = this.lanzar('respaldar', 'powershell.exe', this.psArgs('respaldar.ps1', extra));
+    this.tomarCandado('respaldo', t.pid);
     return {
       trabajo: t.id,
       mensaje:
@@ -419,6 +527,9 @@ export class MantenimientoService {
 
   imagenes(arreglar: boolean) {
     this.exigirOnPremise();
+    // Revisar solo lee; arreglar escribe en la base y no debe cruzarse con una
+    // actualizacion o un revert.
+    if (arreglar) this.exigirSinMantenimientoEnCurso();
     const salida = path.join(this.backupsDir, `imagenes-${this.sello()}`);
     fs.mkdirSync(salida, { recursive: true });
     const args = [
@@ -430,6 +541,7 @@ export class MantenimientoService {
     ];
     if (arreglar) args.push('--arreglar');
     const t = this.lanzar(arreglar ? 'imagenes-arreglar' : 'imagenes-revisar', this.nodeExe, args);
+    if (arreglar) this.tomarCandado('ajuste de imagenes', t.pid);
     return {
       trabajo: t.id,
       carpeta: salida,
@@ -465,6 +577,7 @@ export class MantenimientoService {
 
   revertir(nombreRespaldo: string) {
     this.exigirOnPremise();
+    this.exigirSinMantenimientoEnCurso();
     const carpeta = this.resolverRespaldo(nombreRespaldo);
     // revertir.ps1 vuelve a respaldar el estado de hoy antes de restaurar y se
     // niega a continuar si eso falla. Aqui no se le quita esa red.
@@ -474,6 +587,7 @@ export class MantenimientoService {
       this.psArgs('revertir.ps1', ['-Respaldo', carpeta, '-SiSinPreguntar']),
       { desprendido: true },
     );
+    this.tomarCandado('revert', t.pid);
     return {
       trabajo: t.id,
       respaldo: carpeta,
@@ -501,38 +615,145 @@ export class MantenimientoService {
 
   // ---------------------------------------------------------------- actualizar
 
-  /** Consulta si hay version nueva. Solo contra el origen configurado. */
-  async buscarActualizacion() {
+  /**
+   * "2.4.10" contra "2.4.9" numero por numero, no como texto (como texto 2.4.10
+   * saldria menor). Devuelve 1, 0 o -1, y null si alguna no parece version.
+   */
+  private compararVersiones(a: string, b: string): number | null {
+    const partes = (v: string) => {
+      const m = String(v || '')
+        .trim()
+        .replace(/^v/i, '')
+        .match(/^\d+(\.\d+)*/);
+      return m ? m[0].split('.').map(Number) : null;
+    };
+    const pa = partes(a);
+    const pb = partes(b);
+    if (!pa || !pb) return null;
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+      const d = (pa[i] || 0) - (pb[i] || 0);
+      if (d !== 0) return d > 0 ? 1 : -1;
+    }
+    return 0;
+  }
+
+  /**
+   * Consulta si hay version nueva. Solo contra el origen configurado.
+   *
+   * La respuesta se guarda una hora: el aviso de la barra superior pregunta
+   * cada vez que alguien abre el sistema y no tiene caso salir a internet en
+   * cada pantalla. `forzar` es el boton "Buscar ahora", y la descarga siempre
+   * fuerza, para no instalar con datos viejos.
+   */
+  async buscarActualizacion(forzar = false) {
     this.exigirOnPremise();
     const cfg = this.configuracionActualizacion();
-    const actual = this.estado() as any;
+    const versionActual = this.versionInstalada();
     if (!cfg.automatica_disponible) {
-      return { disponible: false, version_actual: actual.version, ...cfg };
+      return { disponible: false, version_actual: versionActual, ...cfg };
     }
+
+    const g = this.consulta;
+    if (!forzar && g && g.resultado.version_actual === versionActual) {
+      const vigencia = g.resultado.error ? CONSULTA_FALLIDA_VIGENCIA_MS : CONSULTA_VIGENCIA_MS;
+      if (Date.now() - g.cuando < vigencia) {
+        return { ...g.resultado, consultado: new Date(g.cuando).toISOString() };
+      }
+    }
+
+    const resultado = await this.consultarOrigen(cfg, versionActual);
+    this.consulta = { cuando: Date.now(), resultado };
+    return { ...resultado, consultado: new Date().toISOString() };
+  }
+
+  private async consultarOrigen(cfg: ReturnType<MantenimientoService['configuracionActualizacion']>, versionActual: string) {
+    const origen = cfg.origen as string;
     try {
       const ctrl = new AbortController();
       const reloj = setTimeout(() => ctrl.abort(), 20000);
-      const r = await fetch(cfg.origen as string, { signal: ctrl.signal });
-      clearTimeout(reloj);
+      let r: Response;
+      try {
+        // El sello en la URL es para que ningun cache intermedio conteste con
+        // el aviso de la semana pasada.
+        const sep = origen.includes('?') ? '&' : '?';
+        r = await fetch(`${origen}${sep}_=${Date.now()}`, {
+          signal: ctrl.signal,
+          headers: { 'Cache-Control': 'no-cache' },
+        });
+      } finally {
+        clearTimeout(reloj);
+      }
       if (!r.ok) throw new Error(`el servidor contesto ${r.status}`);
       const info: any = await r.json();
+
       const nueva = String(info?.version || '').trim();
-      return {
-        disponible: nueva !== '' && nueva !== actual.version,
-        version_actual: actual.version,
+      const base = {
+        version_actual: versionActual,
         version_nueva: nueva || null,
         notas: info?.notas || null,
-        url_paquete: info?.url || null,
+        fecha_publicacion: info?.fecha || null,
+        bytes: Number(info?.bytes) || null,
         ...cfg,
       };
+
+      // Un aviso incompleto no se ofrece: sin huella no hay como saber si lo
+      // que se baja es lo que se publico.
+      const problema = this.problemaDelAviso(info, origen);
+      if (problema) {
+        return { ...base, disponible: false, error: problema };
+      }
+
+      const cmp = this.compararVersiones(nueva, versionActual);
+      if (cmp === -1) {
+        return {
+          ...base,
+          disponible: false,
+          nota_version: `Este equipo ya tiene la ${versionActual}, mas nueva que la publicada (${nueva}). No se ofrece regresar de version por aqui.`,
+        };
+      }
+      return {
+        ...base,
+        // Version instalada desconocida: no hay contra que comparar y la
+        // actualizacion deja version.json, asi que se ofrece una vez.
+        disponible: cmp === 1 || (cmp === null && this.compararVersiones(nueva, '0') !== null),
+        url_paquete: info.url,
+        sha256: String(info.sha256).toLowerCase(),
+      };
     } catch (e: any) {
+      const motivo = e?.name === 'AbortError' ? 'no contesto en 20 segundos' : e.message;
       return {
         disponible: false,
-        version_actual: actual.version,
-        error: `No se pudo consultar si hay actualizacion: ${e.message}`,
+        version_actual: versionActual,
+        error: `No se pudo consultar si hay actualizacion (${motivo}). Revisa la conexion a internet; el sistema sigue funcionando igual.`,
         ...cfg,
       };
     }
+  }
+
+  /** Lo que le falte al aviso publicado para poder confiar en el paquete. */
+  private problemaDelAviso(info: any, origen: string): string | null {
+    if (!info || typeof info !== 'object') return 'El aviso de actualizacion no es valido.';
+    if (this.compararVersiones(String(info.version || ''), '0') === null) {
+      return 'El aviso de actualizacion no trae un numero de version valido.';
+    }
+    if (!info.url) return 'El aviso de actualizacion no indica que paquete bajar.';
+    if (!/^[a-f0-9]{64}$/i.test(String(info.sha256 || ''))) {
+      return 'El aviso de actualizacion no trae la huella del paquete (sha256). No se ofrece por seguridad.';
+    }
+    if (!Number.isInteger(Number(info.bytes)) || Number(info.bytes) <= 0) {
+      return 'El aviso de actualizacion no trae el tamano del paquete. No se ofrece por seguridad.';
+    }
+    try {
+      // El paquete solo puede venir del mismo host que el aviso, y por https.
+      const hostAviso = new URL(origen).host;
+      const destino = new URL(String(info.url));
+      if (destino.host !== hostAviso || destino.protocol !== 'https:') {
+        return 'El paquete no viene del origen configurado. No se ofrece por seguridad.';
+      }
+    } catch {
+      return 'La direccion del paquete no es valida.';
+    }
+    return null;
   }
 
   /**
@@ -545,6 +766,7 @@ export class MantenimientoService {
    */
   async actualizar(cuerpo: { paquete?: string } = {}) {
     this.exigirOnPremise();
+    this.exigirSinMantenimientoEnCurso();
 
     if (!fs.existsSync(path.join(this.toolsDir, 'actualizar.ps1'))) {
       throw new BadRequestException(
@@ -561,9 +783,19 @@ export class MantenimientoService {
           'Esa carpeta no parece un paquete de actualizacion (no trae backend\\dist compilado).',
         );
       }
+      this.verificarPaquete(paquete);
     } else {
-      paquete = await this.descargarPaquete();
+      this.descargando = true;
+      try {
+        paquete = await this.descargarPaquete();
+      } finally {
+        this.descargando = false;
+      }
     }
+
+    // Se revisa otra vez: la descarga tarda y en ese rato alguien pudo haber
+    // lanzado un respaldo desde otra pantalla.
+    this.exigirSinMantenimientoEnCurso();
 
     const t = this.lanzar(
       'actualizar',
@@ -571,13 +803,116 @@ export class MantenimientoService {
       this.psArgs('actualizar.ps1', ['-Paquete', paquete, '-SiSinPreguntar']),
       { desprendido: true },
     );
+    this.tomarCandado('actualizacion', t.pid);
+    this.consulta = null;
     return {
       trabajo: t.id,
       paquete,
       mensaje:
-        'Actualizando. Primero se respalda todo (base, imagenes, Excel y ajustes). El sistema se reinicia solo; si no arranca, regresa por si mismo a la version anterior.',
+        'Sincronizando. Primero se respalda todo (base, imagenes, Excel y ajustes) y se prueba la version nueva contra una copia. El sistema se reinicia solo; si no arranca, regresa por si mismo a la version anterior.',
       reinicia: true,
     };
+  }
+
+  /** La raiz del backend dentro de un paquete: <pkg>\app\backend o <pkg>\backend. */
+  private backendDelPaquete(raiz: string): string {
+    const conApp = path.join(raiz, 'app', 'backend');
+    return fs.existsSync(conApp) ? conApp : path.join(raiz, 'backend');
+  }
+
+  /**
+   * Lo que se revisa del paquete antes de dejar que actualizar.ps1 detenga
+   * nada. Todo lo que aqui falle deja el sistema exactamente como estaba.
+   */
+  private verificarPaquete(raiz: string): void {
+    const backend = this.backendDelPaquete(raiz);
+    if (!fs.existsSync(path.join(backend, 'dist', 'main.js'))) {
+      throw new BadRequestException('El paquete no trae el programa compilado (dist\\main.js). No se aplica.');
+    }
+
+    // Un paquete sin pantallas dejaria el sistema en blanco: ya paso una vez
+    // con un instalador que salio con la carpeta public vacia.
+    const conPantallas = [
+      path.join(backend, 'public', 'index.html'),
+      path.join(raiz, 'app', 'frontend', 'dist-prod', 'index.html'),
+      path.join(raiz, 'frontend', 'dist-prod', 'index.html'),
+    ].some((p) => fs.existsSync(p));
+    if (!conPantallas) {
+      throw new BadRequestException('El paquete no trae las pantallas (index.html). No se aplica.');
+    }
+
+    this.verificarLibrerias(backend);
+  }
+
+  /**
+   * El paquete que baja el boton no trae node_modules (pesaria cientos de MB).
+   * Solo sirve si cada libreria que la version nueva usa ya esta instalada aqui
+   * en la misma version. Si no, se dice que se use el .exe en vez de instalar
+   * un programa que no va a arrancar.
+   */
+  private verificarLibrerias(backendPaquete: string): void {
+    if (fs.existsSync(path.join(backendPaquete, 'node_modules'))) return; // trae las suyas
+
+    const nmInstalado = path.join(this.installDir, 'backend', 'node_modules');
+    const versionInstalada = (rel: string): string | null => {
+      const j = this.leerJson(path.join(nmInstalado, ...rel.split('/'), 'package.json'));
+      return j?.version || null;
+    };
+
+    const faltan: string[] = [];
+    const lock = this.leerJson(path.join(backendPaquete, 'package-lock.json'));
+    if (lock?.packages && typeof lock.packages === 'object') {
+      for (const [clave, info] of Object.entries<any>(lock.packages)) {
+        if (!clave || !clave.startsWith('node_modules/')) continue;
+        if (info?.dev || info?.link) continue;
+        const rel = clave.slice('node_modules/'.length);
+        const v = versionInstalada(rel);
+        if (v === null) {
+          // Las opcionales son de otra plataforma (fsevents y similares).
+          if (info?.optional || info?.devOptional) continue;
+          faltan.push(`${rel}@${info?.version}`);
+        } else if (info?.version && v !== info.version) {
+          faltan.push(`${rel}@${info.version} (aqui ${v})`);
+        }
+      }
+    } else {
+      const pj = this.leerJson(path.join(backendPaquete, 'package.json'));
+      if (!pj) {
+        throw new BadRequestException('El paquete no trae package.json. No se aplica.');
+      }
+      for (const dep of Object.keys(pj.dependencies || {})) {
+        if (versionInstalada(dep) === null) faltan.push(dep);
+      }
+    }
+
+    if (faltan.length) {
+      this.log.warn(`Paquete incompatible, librerias: ${faltan.slice(0, 20).join(', ')}`);
+      throw new BadRequestException(
+        `Esta version necesita librerias que este equipo no tiene (${faltan.length}: ${faltan
+          .slice(0, 4)
+          .join(', ')}${faltan.length > 4 ? ', ...' : ''}). Para esta actualizacion usa el instalador .exe: tambien respalda todo y no borra datos. No se toco nada.`,
+      );
+    }
+  }
+
+  /** Las descargas de hace mas de un dia ya se aplicaron o fallaron: estorban. */
+  private limpiarDescargasViejas(): void {
+    let entradas: fs.Dirent[];
+    try {
+      entradas = fs.readdirSync(os.tmpdir(), { withFileTypes: true });
+    } catch {
+      return;
+    }
+    const limite = Date.now() - 24 * 60 * 60 * 1000;
+    for (const e of entradas) {
+      if (!e.isDirectory() || !e.name.startsWith('pos-update-')) continue;
+      const p = path.join(os.tmpdir(), e.name);
+      try {
+        if (fs.statSync(p).mtimeMs < limite) fs.rmSync(p, { recursive: true, force: true });
+      } catch {
+        /* en uso: se intenta la proxima vez */
+      }
+    }
   }
 
   private async descargarPaquete(): Promise<string> {
@@ -585,66 +920,95 @@ export class MantenimientoService {
     if (!cfg.automatica_disponible) {
       throw new BadRequestException(cfg.nota);
     }
-    const info = (await this.buscarActualizacion()) as any;
-    const url: string = info?.url_paquete;
-    if (!url) {
-      throw new BadRequestException('El origen de actualizaciones no indico un paquete para bajar.');
-    }
-    // El paquete solo puede venir del mismo host que el feed configurado.
-    const hostFeed = new URL(cfg.origen as string).host;
-    const destinoUrl = new URL(url);
-    if (destinoUrl.host !== hostFeed || destinoUrl.protocol !== 'https:') {
+    const info = (await this.buscarActualizacion(true)) as any;
+    if (info?.error) throw new BadRequestException(info.error);
+    if (!info?.disponible) {
       throw new BadRequestException(
-        'El paquete no viene del origen configurado. No se descarga por seguridad.',
+        info?.nota_version || `No hay una version mas nueva que la instalada (${info?.version_actual}).`,
       );
     }
+    const url: string = info.url_paquete;
 
+    this.limpiarDescargasViejas();
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pos-update-'));
-    const zip = path.join(tmp, 'paquete.zip');
-
-    const ctrl = new AbortController();
-    const reloj = setTimeout(() => ctrl.abort(), 20 * 60 * 1000);
     try {
-      const r = await fetch(url, { signal: ctrl.signal });
-      if (!r.ok) throw new Error(`el servidor contesto ${r.status}`);
-      const buf = Buffer.from(await r.arrayBuffer());
+      const zip = path.join(tmp, 'paquete.zip');
+
+      const ctrl = new AbortController();
+      const reloj = setTimeout(() => ctrl.abort(), 20 * 60 * 1000);
+      let buf: Buffer;
+      try {
+        const r = await fetch(url, { signal: ctrl.signal });
+        if (!r.ok) throw new Error(`el servidor contesto ${r.status}`);
+        buf = Buffer.from(await r.arrayBuffer());
+      } catch (e: any) {
+        const motivo = e?.name === 'AbortError' ? 'tardo mas de 20 minutos' : e.message;
+        throw new BadRequestException(`No se pudo descargar el paquete (${motivo}). No se toco nada.`);
+      } finally {
+        clearTimeout(reloj);
+      }
+
+      // Tamano y huella antes de descomprimir nada: un paquete cortado o
+      // cambiado en el camino no llega a tocar el disco de la instalacion.
+      if (buf.length !== info.bytes) {
+        throw new BadRequestException(
+          `El paquete llego incompleto (${buf.length} de ${info.bytes} bytes). No se toco nada; vuelve a intentar.`,
+        );
+      }
+      const huella = createHash('sha256').update(buf).digest('hex');
+      if (huella !== info.sha256) {
+        throw new BadRequestException(
+          'La huella del paquete no coincide con la publicada. No se aplica por seguridad y no se toco nada.',
+        );
+      }
       fs.writeFileSync(zip, buf);
-    } finally {
-      clearTimeout(reloj);
-    }
 
-    const extraido = path.join(tmp, 'paquete');
-    await new Promise<void>((resolver, rechazar) => {
-      const p = spawn(
-        'powershell.exe',
-        [
-          '-NoProfile',
-          '-NonInteractive',
-          '-Command',
-          `Expand-Archive -LiteralPath "${zip}" -DestinationPath "${extraido}" -Force`,
-        ],
-        { windowsHide: true, stdio: 'ignore' },
-      );
-      p.on('close', (c) =>
-        c === 0 ? resolver() : rechazar(new Error('No se pudo descomprimir el paquete.')),
-      );
-      p.on('error', rechazar);
-    });
+      const extraido = path.join(tmp, 'paquete');
+      await new Promise<void>((resolver, rechazar) => {
+        const p = spawn(
+          'powershell.exe',
+          [
+            '-NoProfile',
+            '-NonInteractive',
+            '-Command',
+            `Expand-Archive -LiteralPath "${zip}" -DestinationPath "${extraido}" -Force`,
+          ],
+          { windowsHide: true, stdio: 'ignore' },
+        );
+        p.on('close', (c) =>
+          c === 0 ? resolver() : rechazar(new BadRequestException('No se pudo descomprimir el paquete.')),
+        );
+        p.on('error', rechazar);
+      });
+      try {
+        fs.unlinkSync(zip);
+      } catch {
+        /* se borra con la carpeta mas adelante */
+      }
 
-    // Algunos zip traen todo dentro de una sola carpeta: se baja un nivel.
-    let raiz = extraido;
-    const hijos = fs.readdirSync(raiz, { withFileTypes: true });
-    if (hijos.length === 1 && hijos[0].isDirectory()) {
-      raiz = path.join(raiz, hijos[0].name);
+      // Algunos zip traen todo dentro de una sola carpeta: se baja un nivel.
+      let raiz = extraido;
+      const hijos = fs.readdirSync(raiz, { withFileTypes: true });
+      if (hijos.length === 1 && hijos[0].isDirectory()) {
+        raiz = path.join(raiz, hijos[0].name);
+      }
+      this.verificarPaquete(raiz);
+
+      const vPaquete = this.leerJson(path.join(raiz, 'version.json'))?.version;
+      if (vPaquete && vPaquete !== info.version_nueva) {
+        throw new BadRequestException(
+          `El paquete dice ser la ${vPaquete} y el aviso publicado la ${info.version_nueva}. No se aplica.`,
+        );
+      }
+      return raiz;
+    } catch (e) {
+      // Lo que no se va a aplicar no se deja ocupando disco.
+      try {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      } catch {
+        /* lo limpia la siguiente descarga */
+      }
+      throw e;
     }
-    if (
-      !fs.existsSync(path.join(raiz, 'app', 'backend', 'dist')) &&
-      !fs.existsSync(path.join(raiz, 'backend', 'dist'))
-    ) {
-      throw new BadRequestException(
-        'El paquete descargado no trae backend\\dist compilado. No se aplica.',
-      );
-    }
-    return raiz;
   }
 }

@@ -16,6 +16,7 @@ import {
 import { logisticaApi, basculaApi, empresasApi } from '../../api/endpoints';
 import StockAlertBanner from '../ui/StockAlertBanner';
 import LicenciaBanner from './LicenciaBanner';
+import AvisoSincronizar from './AvisoSincronizar';
 import ViewAsBanner from './ViewAsBanner';
 import LockScreen from '../ui/LockScreen';
 import TecladoPantalla from '../ui/TecladoPantalla';
@@ -466,6 +467,8 @@ export default function MainLayout() {
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <LicenciaBanner />
+        {/* En el POS no se distrae al que cobra; el aviso sale en cualquier otra pantalla. */}
+        <AvisoSincronizar oculto={enPos} />
         <StockAlertBanner />
         {/* Header estandarizado (todas las pantallas menos el POS, que trae el suyo) */}
         {!enPos && !necesitaTienda && <PageHeader fallbackTitle={PAGE_TITLES[location.pathname]} />}

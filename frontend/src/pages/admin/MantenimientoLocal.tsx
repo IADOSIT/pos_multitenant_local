@@ -80,7 +80,7 @@ const TITULOS: Record<string, string> = {
   'imagenes-arreglar': 'Ajustando imágenes',
   ajustes: 'Leyendo ajustes',
   revertir: 'Regresando al respaldo',
-  actualizar: 'Actualizando el sistema',
+  actualizar: 'Sincronizando el sistema',
 };
 
 export default function MantenimientoLocal() {
@@ -147,20 +147,28 @@ export default function MantenimientoLocal() {
     }
   };
 
-  const buscarActualizacion = async () => {
+  // `forzar` es el botón "Buscar ahora"; al abrir la pestaña se usa lo que el
+  // equipo consultó en la última hora y no se avisa con toasts.
+  const buscarActualizacion = useCallback(async (forzar: boolean) => {
     setBuscandoActu(true);
     try {
-      const { data } = await mantenimientoApi.actualizacion();
+      const { data } = await mantenimientoApi.actualizacion(forzar);
       setActu(data);
+      if (!forzar) return;
       if (data.disponible) toast.success(`Hay una versión nueva: ${data.version_nueva}`);
       else if (data.error) toast.error(data.error);
       else toast.success('Ya está en la versión más reciente');
     } catch (e: any) {
-      toast.error(e.response?.data?.message || 'No se pudo consultar');
+      if (forzar) toast.error(e.response?.data?.message || 'No se pudo consultar');
     } finally {
       setBuscandoActu(false);
     }
-  };
+  }, []);
+
+  const conOrigen = !!estado?.actualizacion?.automatica_disponible;
+  useEffect(() => {
+    if (conOrigen) buscarActualizacion(false);
+  }, [conOrigen, buscarActualizacion]);
 
   if (cargando) {
     return <div className="card text-sm text-slate-400">Leyendo el estado del equipo…</div>;
@@ -321,12 +329,13 @@ export default function MantenimientoLocal() {
       {/* ------------------------------------------------------- Actualizar */}
       <div className="card">
         <h3 className="font-bold text-sm flex items-center gap-2 text-slate-300 mb-1">
-          <Rocket size={15} /> Actualizar el sistema
+          <Rocket size={15} /> Sincronizar el sistema
         </h3>
         <p className="text-xs text-slate-400 mb-3">
-          Antes de tocar nada se respalda todo. No se borra ningún dato, ninguna imagen y ningún
-          ajuste. Si la versión nueva no arranca, el equipo regresa solo a la v{estado.version} y
-          sigue vendiendo.
+          Baja las mejoras nuevas cuando hay internet. Antes de tocar nada se respalda todo. No se
+          borra ningún dato, ninguna imagen y ningún ajuste. Si la versión nueva no arranca, el
+          equipo regresa solo a la v{estado.version} y sigue vendiendo. Hazlo cuando no se esté
+          cobrando.
         </p>
 
         {estado.actualizacion?.automatica_disponible ? (
@@ -334,10 +343,10 @@ export default function MantenimientoLocal() {
             <div className="flex flex-wrap gap-2">
               <button
                 disabled={corriendo || buscandoActu}
-                onClick={buscarActualizacion}
+                onClick={() => buscarActualizacion(true)}
                 className="flex items-center gap-2 bg-iados-card text-slate-300 text-sm px-4 py-2 rounded-xl disabled:opacity-40"
               >
-                <RefreshCw size={15} className={buscandoActu ? 'animate-spin' : ''} /> Buscar actualización
+                <RefreshCw size={15} className={buscandoActu ? 'animate-spin' : ''} /> Buscar ahora
               </button>
               {actu?.disponible && !confirmarActu && (
                 <button
@@ -345,15 +354,24 @@ export default function MantenimientoLocal() {
                   onClick={() => setConfirmarActu(true)}
                   className="flex items-center gap-2 bg-emerald-600 text-white text-sm font-medium px-4 py-2 rounded-xl disabled:opacity-40"
                 >
-                  <Rocket size={15} /> Actualizar a v{actu.version_nueva}
+                  <Rocket size={15} /> Sincronizar a v{actu.version_nueva}
                 </button>
               )}
             </div>
 
-            {actu && !actu.disponible && !actu.error && (
+            {actu?.disponible && (
+              <p className="text-xs text-emerald-300 mt-3">
+                Hay una versión nueva: v{actu.version_nueva} (este equipo tiene la v{actu.version_actual})
+                {actu.bytes ? ` · descarga de ${tam(actu.bytes)}` : ''}.
+              </p>
+            )}
+            {actu && !actu.disponible && !actu.error && !actu.nota_version && (
               <p className="text-xs text-emerald-400 mt-3 flex items-center gap-1.5">
                 <CheckCircle size={14} /> Está en la versión más reciente (v{actu.version_actual}).
               </p>
+            )}
+            {actu?.nota_version && (
+              <p className="text-xs text-slate-300 mt-3">{actu.nota_version}</p>
             )}
             {actu?.error && (
               <p className="text-xs text-amber-300 mt-3">{actu.error}</p>
@@ -361,13 +379,19 @@ export default function MantenimientoLocal() {
             {actu?.notas && (
               <div className="mt-3 bg-iados-card rounded-xl p-3 text-xs text-slate-300 whitespace-pre-wrap">{actu.notas}</div>
             )}
+            {actu?.consultado && (
+              <p className="text-[11px] text-slate-500 mt-2">
+                Consultado: {new Date(actu.consultado).toLocaleString('es-MX')}
+              </p>
+            )}
 
             {confirmarActu && (
               <div className="mt-4 border border-emerald-700/50 bg-emerald-900/15 rounded-xl p-4 space-y-3">
                 <p className="text-sm text-emerald-200 font-medium">
-                  Va a actualizar de la v{estado.version} a la v{actu?.version_nueva}.
+                  Va a sincronizar de la v{estado.version} a la v{actu?.version_nueva}.
                 </p>
                 <ul className="text-xs text-slate-300 space-y-1 list-disc pl-5">
+                  <li>Se baja el paquete y se comprueba su huella; si llega incompleto no se usa.</li>
                   <li>Primero se respalda base de datos, imágenes, Excel y ajustes.</li>
                   <li>
                     <strong>Después se ensaya contra una copia de su base, con el sistema todavía
@@ -386,7 +410,7 @@ export default function MantenimientoLocal() {
                     }}
                     className="bg-emerald-600 text-white text-sm font-medium px-4 py-2 rounded-xl"
                   >
-                    Sí, actualizar ahora
+                    Sí, sincronizar ahora
                   </button>
                   <button
                     onClick={() => setConfirmarActu(false)}

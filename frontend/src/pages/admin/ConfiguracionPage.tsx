@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { tiendasApi, empresasApi, tenantsApi, menuDigitalApi, pagosGatewayApi, mesasApi, basculaApi, productosApi } from '../../api/endpoints';
 import api, { resolveUploadUrl } from '../../api/client';
 import { io } from 'socket.io-client';
+import { baseSocket } from '../../api/socket';
 import { leerOrigen, guardarOrigen, type OrigenBascula } from '../../utils/basculaOrigen';
 import { useAuthStore } from '../../store/auth.store';
 import TicketsConfig from './TicketsConfig';
@@ -714,7 +715,7 @@ export default function ConfiguracionPage() {
   useEffect(() => {
     const tiendaId = bsConfig?.tienda_id;
     if (!tiendaId) { setBsBasculas([]); return; }
-    const base = import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://posapi.iados.online';
+    const base = baseSocket();
     // El JWT identifica QUE tienda puede escuchar este navegador. Va en el
     // handshake (no en el evento) para no acabar en un log de payloads.
     const sock = io(`${base}/bascula`, {

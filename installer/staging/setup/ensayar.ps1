@@ -230,6 +230,19 @@ if (-not $backendNuevo) {
 }
 Ok "Backend nuevo: $backendNuevo"
 
+# Las pantallas no cambian el veredicto sobre los datos, pero un paquete sin
+# ellas deja el POS en blanco. actualizar.ps1 lo rechaza; aqui se avisa para
+# que quien ensaya a mano lo sepa antes de intentarlo.
+$traePantallas = $false
+foreach ($rel in @("public", "..\frontend\dist-prod", "..\frontend")) {
+    if (Test-Path (Join-Path (Join-Path $backendNuevo $rel) "index.html")) { $traePantallas = $true; break }
+}
+if ($traePantallas) {
+    Ok "El paquete trae las pantallas"
+} else {
+    Aviso "El paquete NO trae pantallas (falta index.html): actualizar.ps1 no lo va a instalar"
+}
+
 $versionNueva = "desconocida"
 foreach ($rel in @("version.json", "app\version.json")) {
     $vj = Join-Path $Paquete $rel

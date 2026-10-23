@@ -30,9 +30,21 @@ function ensureOnnxImportMap() {
   document.head.prepend(im);
 }
 
+// En la instalacion en sitio el POS trabaja sin internet. La herramienta vive en
+// el CDN, asi que sin conexion no se puede cargar: se dice eso en vez del
+// "no se pudo quitar el fondo" generico, que hace pensar que la foto esta mal.
+export class HerramientaSinConexionError extends Error {}
+
 export async function removeBackgroundToWhite(source: string | File | Blob): Promise<File> {
   ensureOnnxImportMap();
-  const mod: any = await import(/* @vite-ignore */ CDN_URL);
+  let mod: any;
+  try {
+    mod = await import(/* @vite-ignore */ CDN_URL);
+  } catch {
+    throw new HerramientaSinConexionError(
+      'Quitar fondo necesita internet: la herramienta se descarga al usarla. Sin conexión, sube la foto ya recortada.',
+    );
+  }
   const cutout: Blob = await mod.removeBackground(source);
 
   const bitmap = await createImageBitmap(cutout);

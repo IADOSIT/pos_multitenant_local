@@ -471,6 +471,24 @@ if ($SoloImagenes -or $SoloBaseDeDatos) {
             & robocopy $dp (Join-Path $InstallDir "frontend\dist-prod") /MIR /R:2 /W:1 /NFL /NDL /NP /NJH /NJS | Out-Null
             if ($LASTEXITCODE -ge 8) { Falla "robocopy $LASTEXITCODE restaurando las pantallas" }
             else { Ok "pantallas (dist-prod) restauradas" }
+        } elseif (Test-Path (Join-Path $InstallDir "frontend\dist-prod")) {
+            # Al respaldar este equipo NO tenia frontend\dist-prod y ahora si: se
+            # creo despues. El backend sirve esa carpeta antes que backend\public,
+            # asi que dejarla pondria pantallas nuevas sobre el programa viejo.
+            # No se borra: se hace a un lado. Solo si backend\public quedo con
+            # pantallas, para no dejar el sistema sin ninguna.
+            $frontActual = Join-Path $InstallDir "frontend\dist-prod"
+            $aparte = "dist-prod.antes-del-revert-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+            if (Test-Path (Join-Path $InstallDir "backend\public\index.html")) {
+                try {
+                    Rename-Item -Path $frontActual -NewName $aparte -ErrorAction Stop
+                    Ok "frontend\dist-prod no existia al respaldar: se hizo a un lado como frontend\$aparte"
+                } catch {
+                    Falla "No se pudo hacer a un lado frontend\dist-prod: $($_.Exception.Message). Las pantallas pueden no coincidir con el programa."
+                }
+            } else {
+                Aviso "frontend\dist-prod no existia al respaldar, pero backend\public no tiene pantallas: se deja como esta"
+            }
         }
     } else {
         Aviso "El respaldo no trae el programa compilado; se deja el actual"

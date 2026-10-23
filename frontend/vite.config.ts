@@ -16,6 +16,22 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    {
+      // --mode onpremise (npm run build -> dist-prod) manda los sockets al mismo
+      // origen de la pagina. En la nube eso los mandaria a pos.iados.online en
+      // vez de posapi y la bascula se quedaria muda: se corta aqui.
+      name: 'pos-modo-por-destino',
+      configResolved(c) {
+        if (c.command !== 'build') return;
+        const destino = path.basename(c.build.outDir);
+        if (c.mode === 'onpremise' && destino === 'dist-vps') {
+          throw new Error('dist-vps es de la nube: compilalo con "npx vite build --outDir dist-vps --emptyOutDir", sin --mode onpremise');
+        }
+        if (c.mode !== 'onpremise' && destino === 'dist-prod') {
+          console.warn('\n[aviso] dist-prod es para la instalacion en sitio: usa "npm run build" (--mode onpremise) o la bascula buscara la nube.\n');
+        }
+      },
+    },
     VitePWA({
       // 'prompt': cuando hay versión nueva se avisa (un clic en "Actualizar")
       // en vez de tener que recargar varias veces para que el SW la aplique.

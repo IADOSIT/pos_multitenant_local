@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { baseSocket } from '../../api/socket';
 import { basculaApi } from '../../api/endpoints';
 import { suscribirPeso } from '../../api/puenteLocal';
 import { leerOrigen, aceptaLocal, aceptaNube } from '../../utils/basculaOrigen';
@@ -88,7 +89,7 @@ export default function BasculaKioskoPage() {
 
   useEffect(() => {
     if (!tiendaId || origen.modo === 'apagado') return;
-    const base = import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://posapi.iados.online';
+    const base = baseSocket();
     // El JWT identifica QUE tienda puede escuchar este navegador. Va en el
     // handshake (no en el evento) para no acabar en un log de payloads.
     const sock = io(`${base}/bascula`, {
