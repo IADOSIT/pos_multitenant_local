@@ -269,6 +269,33 @@ if (-not $EsInstalacionNueva) {
         Copy-Item -Path "$InstallerPath\setup\node\*" -Destination "$InstallDir\tools\node\" -Recurse -Force -ErrorAction SilentlyContinue
     }
 
+    # Las instalaciones hechas antes de v2.4.8 solo le dieron permiso al usuario
+    # de la app sobre su base, y el ensayo necesita crear una pos_ensayo_*. Ya
+    # paso en sitio: "Access denied for user 'pos_iados'@'localhost' to
+    # database 'pos_ensayo_...'". Se da el permiso aqui con root, que este
+    # instalador conoce. Si root no entra, se sigue igual: el ensayo dira por
+    # que no pudo y el sistema no se toca.
+    if (-not $SinEnsayo) {
+        $mysqlAct = Join-Path $InstallDir "mariadb\bin\mysql.exe"
+        if (Test-Path $mysqlAct) {
+            $puertoDb = $MariaDBPort
+            try {
+                $m = Select-String -Path (Join-Path $InstallDir "backend\.env") -Pattern '^\s*DB_PORT\s*=\s*(\d+)' -ErrorAction Stop | Select-Object -First 1
+                if ($m) { $puertoDb = [int]$m.Matches[0].Groups[1].Value }
+            } catch { }
+            $eapAntes = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+            try {
+                $rootAct = @("-u", "root", "-p$DB_ROOT_PASS", "--host=127.0.0.1", "--port=$puertoDb", "--force")
+                & $mysqlAct @rootAct -e "GRANT ALL PRIVILEGES ON ``pos\_ensayo\_%``.* TO '$DB_USER'@'localhost'; GRANT ALL PRIVILEGES ON ``pos\_ensayo\_%``.* TO '$DB_USER'@'127.0.0.1';" 2>&1 | Out-Null
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Host "  Permiso para la base de ensayo: listo." -ForegroundColor Gray
+                } else {
+                    Write-Host "  No se pudo dar el permiso para la base de ensayo (codigo $LASTEXITCODE)." -ForegroundColor Yellow
+                }
+            } finally { $ErrorActionPreference = $eapAntes }
+        }
+    }
+
     $argsAct = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $actualizador,
                  "-InstallDir", $InstallDir, "-Paquete", $InstallerPath, "-SiSinPreguntar")
     if ($SinEnsayo) {
@@ -817,6 +844,10 @@ $ErrorActionPreference = "SilentlyContinue"
 & $MYSQL @mysqlRoot -e "CREATE OR REPLACE USER '$DB_USER'@'127.0.0.1' IDENTIFIED BY '$DB_PASS';" 2>&1 | Out-Null
 & $MYSQL @mysqlRoot -e "GRANT ALL PRIVILEGES ON ``$DB_NAME``.* TO '$DB_USER'@'localhost';" 2>&1 | Out-Null
 & $MYSQL @mysqlRoot -e "GRANT ALL PRIVILEGES ON ``$DB_NAME``.* TO '$DB_USER'@'127.0.0.1';" 2>&1 | Out-Null
+# El ensayo previo a cada actualizacion (ensayar.ps1) crea y tira una base
+# pos_ensayo_*; sin este permiso falla con "Access denied ... to database".
+& $MYSQL @mysqlRoot -e "GRANT ALL PRIVILEGES ON ``pos\_ensayo\_%``.* TO '$DB_USER'@'localhost';" 2>&1 | Out-Null
+& $MYSQL @mysqlRoot -e "GRANT ALL PRIVILEGES ON ``pos\_ensayo\_%``.* TO '$DB_USER'@'127.0.0.1';" 2>&1 | Out-Null
 & $MYSQL @mysqlRoot -e "FLUSH PRIVILEGES;" 2>&1 | Out-Null
 $ErrorActionPreference = "Stop"
 
