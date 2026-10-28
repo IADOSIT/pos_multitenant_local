@@ -1,12 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '../../store/auth.store';
 import { useAdminContextStore } from '../../store/adminContext.store';
-import { tiendasApi } from '../../api/endpoints';
+import { tiendasApi, mantenimientoApi } from '../../api/endpoints';
 import { Building2, X } from 'lucide-react';
 
 // Selector global "ver como tienda", solo para superadmin. Al elegir una tienda, TODO el
 // resto del app (POS, Dashboard, Productos, Caja, Config, etc.) empieza a operar sobre esa
 // tienda especifica — ver src/store/adminContext.store.ts y src/api/client.ts.
+//
+// Instalacion local con UNA sola tienda: no hay nada que elegir, asi que se elige sola.
+// Sin esto el superadmin entraba sin tienda y abrir caja / ventas fallaban (Mariscos,
+// oct-2026). En la nube /mantenimiento/estado dice on_premise:false y no cambia nada.
+// Si el superadmin pulsa "Salir", no se vuelve a elegir en esa sesion.
+const SALIO_KEY = 'pos_view_as_salio';
+
 export default function ViewAsBanner() {
   const { user } = useAuthStore();
   const { viewAs, setViewAs, loadFromStorage } = useAdminContextStore();
@@ -21,10 +28,26 @@ export default function ViewAsBanner() {
     }
   }, [user?.rol, loaded]);
 
+  useEffect(() => {
+    if (user?.rol !== 'superadmin' || viewAs || !loaded || tiendas.length !== 1) return;
+    try { if (sessionStorage.getItem(SALIO_KEY)) return; } catch { /* sin sessionStorage: se elige igual */ }
+    let vivo = true;
+    mantenimientoApi.estado()
+      .then(({ data }) => {
+        if (!vivo || !data?.on_premise) return;
+        const t = tiendas[0];
+        setViewAs({ tienda_id: t.id, empresa_id: t.empresa_id, tenant_id: t.tenant_id, nombre: t.nombre });
+        window.location.reload();
+      })
+      .catch(() => { /* nube o sin respuesta: no se elige nada */ });
+    return () => { vivo = false; };
+  }, [user?.rol, viewAs, loaded, tiendas]);
+
   if (user?.rol !== 'superadmin') return null;
 
   const handleChange = (tiendaId: string) => {
     if (!tiendaId) {
+      try { sessionStorage.setItem(SALIO_KEY, '1'); } catch { /* no importa */ }
       setViewAs(null);
       window.location.reload();
       return;

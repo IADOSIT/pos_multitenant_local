@@ -15,6 +15,12 @@ export class CajaService {
   ) {}
 
   async abrir(data: any, scope: any) {
+    // Superadmin sin "Elegir tienda": el scope llega sin tienda y TypeORM ignora el
+    // null del where (devolveria la caja abierta de cualquier tienda) y el insert
+    // truena por empresa_id/tienda_id NOT NULL. Mejor decir que falta.
+    if (!scope.tienda_id || !scope.empresa_id) {
+      throw new BadRequestException('Elige la tienda donde se abre la caja (arriba, en "Elegir tienda...")');
+    }
     const abierta = await this.cajaRepo.findOne({
       where: { tienda_id: scope.tienda_id, estado: CajaEstado.ABIERTA },
     });
@@ -178,6 +184,8 @@ export class CajaService {
   }
 
   getActiva(scope: any) {
+    // Sin tienda no hay "caja activa": sin esto se veia la de otra tienda.
+    if (!scope.tienda_id) return null;
     return this.cajaRepo.findOne({
       where: { tienda_id: scope.tienda_id, estado: CajaEstado.ABIERTA },
     });

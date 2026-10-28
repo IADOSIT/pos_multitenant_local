@@ -27,6 +27,9 @@ let CajaService = class CajaService {
         this.pedidoWebRepo = pedidoWebRepo;
     }
     async abrir(data, scope) {
+        if (!scope.tienda_id || !scope.empresa_id) {
+            throw new common_1.BadRequestException('Elige la tienda donde se abre la caja (arriba, en "Elegir tienda...")');
+        }
         const abierta = await this.cajaRepo.findOne({
             where: { tienda_id: scope.tienda_id, estado: caja_entity_1.CajaEstado.ABIERTA },
         });
@@ -166,6 +169,8 @@ let CajaService = class CajaService {
         };
     }
     getActiva(scope) {
+        if (!scope.tienda_id)
+            return null;
         return this.cajaRepo.findOne({
             where: { tienda_id: scope.tienda_id, estado: caja_entity_1.CajaEstado.ABIERTA },
         });

@@ -144,7 +144,8 @@ export default function Login() {
         setPassword('');
 
         // Si el admin ya tiene tienda asignada → vincular directo
-        if (adminUser.tienda_id) {
+        // (el superadmin no: su tienda_id es la del alta, no una tienda real → elige de la lista)
+        if (adminUser.tienda_id && adminUser.rol !== 'superadmin') {
           bindTienda(adminUser.tienda_id);
           return;
         }
@@ -153,7 +154,7 @@ export default function Login() {
         localStorage.setItem('pos_token', data.access_token);
         try {
           const { data: tiendasData } = await tiendasApi.list();
-          const opts: TiendaOption[] = adminUser.empresa_id
+          const opts: TiendaOption[] = adminUser.empresa_id && adminUser.rol !== 'superadmin'
             ? tiendasData.filter((t: any) => t.empresa_id === adminUser.empresa_id)
             : tiendasData;
 

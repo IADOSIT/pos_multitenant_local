@@ -55,6 +55,6 @@ export declare class CajaService {
             };
         };
     }>;
-    getActiva(scope: any): Promise<Caja | null>;
+    getActiva(scope: any): Promise<Caja | null> | null;
     findAll(scope: any): Promise<Caja[]>;
 }

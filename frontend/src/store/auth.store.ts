@@ -25,6 +25,17 @@ function estadoInicial(): { user: User | null; token: string | null; isAuthentic
   return { user: null, token: null, isAuthenticated: false };
 }
 
+// El login de tarjetas/PIN muestra los usuarios de la tienda ligada a este equipo
+// (pos_tienda_id). El superadmin no es de ninguna tienda: su tienda_id en la base es la
+// del alta (en una instalacion local, una que ni existe) y ligar el equipo a ella dejaba
+// el login con las tarjetas de demostracion en vez de las de la tienda real.
+function ligarDispositivo(user: any) {
+  if (user?.rol === 'superadmin') return;
+  if (user?.tienda_id) {
+    localStorage.setItem('pos_tienda_id', String(user.tienda_id));
+  }
+}
+
 export const useAuthStore = create<AuthState>((set) => ({
   ...estadoInicial(),
   isLocked: false,
@@ -32,9 +43,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: (user, token) => {
     localStorage.setItem('pos_token', token);
     localStorage.setItem('pos_user', JSON.stringify(user));
-    if (user.tienda_id) {
-      localStorage.setItem('pos_tienda_id', String(user.tienda_id));
-    }
+    ligarDispositivo(user);
     set({ user, token, isAuthenticated: true, isLocked: false });
     useThemeStore.getState().applyFromEmpresa(user.config_apariencia);
   },
@@ -53,9 +62,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   unlock: (user, token) => {
     localStorage.setItem('pos_token', token);
     localStorage.setItem('pos_user', JSON.stringify(user));
-    if (user.tienda_id) {
-      localStorage.setItem('pos_tienda_id', String(user.tienda_id));
-    }
+    ligarDispositivo(user);
     set({ user, token, isAuthenticated: true, isLocked: false });
     useThemeStore.getState().applyFromEmpresa(user.config_apariencia);
   },

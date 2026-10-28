@@ -49,6 +49,6 @@ export declare class CajaController {
             };
         };
     }>;
-    getActiva(scope: any): Promise<import("./caja.entity").Caja | null>;
+    getActiva(scope: any): Promise<import("./caja.entity").Caja | null> | null;
     findAll(scope: any): Promise<import("./caja.entity").Caja[]>;
 }
