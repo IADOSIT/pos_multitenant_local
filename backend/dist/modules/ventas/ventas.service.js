@@ -365,6 +365,17 @@ let VentasService = class VentasService {
         const results = [];
         for (const v of ventas || []) {
             try {
+                const tiendaVenta = await this.tiendaDeVentaOffline(v);
+                if (!scope.tienda_id || (tiendaVenta && Number(tiendaVenta) !== Number(scope.tienda_id))) {
+                    results.push({
+                        folio_offline: v?.folio_offline,
+                        status: 'error',
+                        message: scope.tienda_id
+                            ? 'Esta venta se cobro en otra tienda: entra con un usuario de esa tienda para subirla'
+                            : 'Elige la tienda (arriba, en "Elegir tienda...") para subir las ventas sin internet',
+                    });
+                    continue;
+                }
                 const existing = await this.ventasRepo.findOne({
                     where: { folio_offline: v.folio_offline, tenant_id: scope.tenant_id },
                 });
@@ -381,6 +392,14 @@ let VentasService = class VentasService {
             }
         }
         return results;
+    }
+    async tiendaDeVentaOffline(v) {
+        if (v?.tienda_id)
+            return Number(v.tienda_id);
+        if (!v?.caja_id)
+            return null;
+        const caja = await this.cajaRepo.findOne({ where: { id: v.caja_id } });
+        return caja?.tienda_id ?? null;
     }
 };
 exports.VentasService = VentasService;

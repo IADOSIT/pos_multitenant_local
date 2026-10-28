@@ -19,7 +19,10 @@
 #    -Paso Unificar   Pasa a la tienda real las ventas, cajas y pedidos que
 #                     quedaron en una tienda que no existe o sin tienda (la del
 #                     superadmin). Lo de otra tienda real nunca se mueve. Con
-#                     varias tiendas pide -Tienda <numero>. Sin -Confirmar solo
+#                     varias tiendas pide -Tienda <numero>. Las ventas sin
+#                     internet que se subieron con otro usuario recuperan su
+#                     fecha, el usuario de su caja y un folio de la tienda; las
+#                     que parecen repetidas no se mueven. Sin -Confirmar solo
 #                     dice lo que haria. Deja un .sql para deshacerlo.
 #
 #  Uso (PowerShell como administrador):
@@ -607,8 +610,12 @@ function Probar-EnVivo {
     $sa = $UsuariosFilas | Where-Object { $_[3] -eq "superadmin" -and $_[7] -eq "1" } | Select-Object -First 1
     if ($sa) {
         $casos += [pscustomobject]@{ etiqueta = "superadmin $($sa[1]) SIN elegir tienda"; id = [int]$sa[0]; email = $sa[1]; rol = $sa[3]; tenant_id = $sa[4]; empresa_id = $sa[5]; tienda_id = $sa[6]; ver = $null; publico = $false }
-        foreach ($t in ($Tiendas | Select-Object -First 3)) {
-            $casos += [pscustomobject]@{ etiqueta = "superadmin eligiendo la tienda $($t[0]) ($($t[3]))"; id = [int]$sa[0]; email = $sa[1]; rol = $sa[3]; tenant_id = $sa[4]; empresa_id = $sa[5]; tienda_id = $sa[6]; ver = @{ t = [int]$t[1]; e = [int]$t[2]; s = [int]$t[0] }; publico = $false }
+        # foreach directo sobre la lista: con una sola tienda, "$Tiendas | Select-Object"
+        # devuelve la fila suelta y el foreach recorria sus columnas (3, 4, 4, M, 1).
+        $vistas = 0
+        foreach ($t in $Tiendas) {
+            if ($vistas++ -ge 3) { break }
+            $casos +=[pscustomobject]@{ etiqueta = "superadmin eligiendo la tienda $($t[0]) ($($t[3]))"; id = [int]$sa[0]; email = $sa[1]; rol = $sa[3]; tenant_id = $sa[4]; empresa_id = $sa[5]; tienda_id = $sa[6]; ver = @{ t = [int]$t[1]; e = [int]$t[2]; s = [int]$t[0] }; publico = $false }
         }
     }
     foreach ($rol in @("admin", "cajero")) {
@@ -1045,6 +1052,80 @@ function Paso-Unificar {
     }
     Imprimir-Tabla -Encabezado @("tabla", "esta en (ten/emp/tda)", "pasa a", "registros", "desde", "hasta") -Filas $filas
 
+    # Ventas cobradas sin internet que el navegador subio despues con OTRO usuario (en la
+    # v2.2.50 la cola nunca se vaciaba; la v2.4.7 la vacio de golpe con el que estuviera
+    # logueado). Lo que traen mal se corrige al moverlas, y todo queda en el .sql de deshacer:
+    #  - la fecha es la de cuando se subieron; la real va en el folio_offline
+    #    (OFF-<milisegundos en base 36>, igual en la v2.2.50 y en la v2.4.x);
+    #  - el usuario es el que estaba logueado; se ponen a nombre de quien abrio esa caja;
+    #  - el folio se genero en una tienda que no existe (todas IX00000001); se les da folio
+    #    nuevo con el consecutivo de la tienda real.
+    # Las que parecen repetidas de una venta que ya esta en la tienda (mismo folio offline,
+    # o mismo total y renglones a menos de 3 minutos) NO se mueven: se listan para verlas.
+    $extra = $null
+    $pv = $plan | Where-Object { $_.Tabla -eq "ventas" } | Select-Object -First 1
+    $cv = Columnas $BaseActual "ventas"
+    # El rango se valida en milisegundos y no con FROM_UNIXTIME: con un folio raro (fuera
+    # de rango) un UPDATE en modo estricto truena en vez de solo saltarse la fila.
+    $msOff = "CONV(SUBSTRING_INDEX(SUBSTRING_INDEX(folio_offline,'-',2),'-',-1),36,10)"
+    $fechaOff = "FROM_UNIXTIME($msOff/1000)"
+    $fechaValida = "(folio_offline LIKE 'OFF-%' AND $msOff + 0 BETWEEN UNIX_TIMESTAMP('2025-01-01')*1000 AND UNIX_TIMESTAMP(created_at)*1000)"
+    if ($pv -and $cv -contains "folio_offline") {
+        $repetidas =A-Filas (Consultar ("SELECT v.id, v.folio_offline, v.total, MIN(d.id), DATE_FORMAT(MIN(d.created_at),'%Y-%m-%d %H:%i') " +
+            "FROM (SELECT id, folio_offline, total, IF($fechaValida, $fechaOff, created_at) AS cuando, " +
+            "(SELECT COUNT(*) FROM venta_detalles x WHERE x.venta_id = ventas.id) AS renglones FROM ventas WHERE $($pv.Cond) AND folio_offline LIKE 'OFF-%') v " +
+            "JOIN ventas d ON d.tienda_id = $idTienda AND d.id <> v.id AND (d.folio_offline = v.folio_offline OR (d.total = v.total " +
+            "AND ABS(TIMESTAMPDIFF(SECOND, d.created_at, v.cuando)) <= 180 AND (SELECT COUNT(*) FROM venta_detalles y WHERE y.venta_id = d.id) = v.renglones)) " +
+            "GROUP BY v.id, v.folio_offline, v.total ORDER BY v.id;") $BaseActual)
+        if ($repetidas.Count -gt 0) {
+            Escribir ""
+            Aviso "$($repetidas.Count) venta(s) parecen repetidas de una que ya esta en la tienda ${idTienda}: NO se mueven"
+            Imprimir-Tabla -Encabezado @("venta", "folio offline", "total $", "igual a la venta", "de") -Filas $repetidas
+            $pv.Cond += " AND id NOT IN (" + (($repetidas | ForEach-Object { $_[0] }) -join ",") + ")"
+            $pv.N -= $repetidas.Count
+            if ($pv.N -le 0) { $plan = @($plan | Where-Object { $_.Tabla -ne "ventas" }) }
+        }
+
+        $ids = @()
+        if ($pv.N -gt 0) {
+            Escribir ""
+            Escribir "      Ventas a mover, por dia en que se cobraron (las 'sin internet' toman la fecha de su folio offline):"
+            $porDia = A-Filas (Consultar ("SELECT DATE_FORMAT(v.cuando,'%Y-%m-%d'), DATE_FORMAT(MIN(v.cuando),'%H:%i'), DATE_FORMAT(MAX(v.cuando),'%H:%i'), " +
+                "IFNULL(v.caja_id,'-'), IFNULL(DATE_FORMAT(c.fecha_apertura,'%Y-%m-%d'),'-'), IFNULL(c.tienda_id,'-'), COUNT(*), SUM(v.offline), SUM(v.total) " +
+                "FROM (SELECT caja_id, total, IF($fechaValida, $fechaOff, created_at) AS cuando, IF(folio_offline LIKE 'OFF-%',1,0) AS offline FROM ventas WHERE $($pv.Cond)) v " +
+                "LEFT JOIN cajas c ON c.id = v.caja_id GROUP BY 1, 4, 5, 6 ORDER BY 1, 4;") $BaseActual)
+            Imprimir-Tabla -Encabezado @("cobrada", "de", "a", "caja", "caja abrio", "caja tda", "ventas", "sin internet", "total $") -Filas $porDia
+
+            # Solo las que estan en una tienda que no existe traen folio/usuario de mentira.
+            foreach ($r in (A-Filas (Consultar "SELECT id FROM ventas WHERE $($pv.Cond) AND tienda_id NOT IN (SELECT id FROM tiendas) ORDER BY id;" $BaseActual))) { $ids += $r[0] }
+        }
+        if ($ids.Count -gt 0) {
+            $in = $ids -join ","
+            $extra = [pscustomobject]@{ Ids = $in; Fecha = 0; Usuario = 0; Folio = 0; Prefijo = "" }
+            $extra.Fecha = [int](Uno "SELECT COUNT(*) FROM ventas WHERE id IN ($in) AND $fechaValida;" $BaseActual)
+            $extra.Usuario = [int](Uno ("SELECT COUNT(*) FROM ventas v JOIN cajas c ON c.id = v.caja_id AND c.tienda_id = $idTienda " +
+                "WHERE v.id IN ($in) AND v.usuario_id <> c.usuario_id AND v.usuario_id NOT IN (SELECT id FROM users WHERE tienda_id = $idTienda);") $BaseActual)
+            $ctd = Columnas $BaseActual "tiendas"
+            if ($ctd -contains "folio_venta_counter" -and $cv -contains "numero_orden") {
+                # El prefijo sale del ultimo folio de la tienda (el mismo que pone el sistema).
+                $ultimo = [string](Uno "SELECT IFNULL(MAX(folio),'') FROM ventas WHERE tienda_id = $idTienda AND folio REGEXP '^I[A-Z][0-9]{8}`$';" $BaseActual)
+                if ($ultimo -match '^(I[A-Z])\d{8}$') { $extra.Prefijo = $Matches[1] }
+                else {
+                    $letra = (($destino[3].Normalize([Text.NormalizationForm]::FormD) -replace '[^a-zA-Z]', '') + "X").Substring(0, 1).ToUpper()
+                    $extra.Prefijo = "I$letra"
+                }
+                $extra.Folio = $ids.Count
+            }
+            Escribir ""
+            Escribir "      Al moverlas tambien se corrige:"
+            Escribir "        - $($extra.Fecha) regresan a la fecha y hora en que se cobraron (hoy tienen la hora en que se subieron)"
+            Escribir "        - $($extra.Usuario) quedan a nombre de quien abrio esa caja (hoy estan a nombre del usuario que las subio)"
+            if ($extra.Folio -gt 0) { Escribir "        - $($extra.Folio) reciben folio nuevo $($extra.Prefijo)######## con el consecutivo de la tienda $idTienda (el que tienen se genero en una tienda que no existe)" }
+            Escribir "        Los cortes ya cerrados no se recalculan (el sistema hace lo mismo con las ventas sin internet);"
+            Escribir "        el reporte de cada caja si las va a mostrar."
+        }
+    }
+
     # Usuarios: solo los que se pidan por numero, nunca el superadmin.
     $usuariosPlan = @()
     $cand = A-Filas (Consultar "SELECT u.id, u.email, u.nombre, u.rol, IFNULL(u.tenant_id,'NULL'), IFNULL(u.empresa_id,'NULL'), IFNULL(u.tienda_id,'NULL'), u.activo FROM users u WHERE u.rol <> 'superadmin' AND NOT (u.tenant_id <=> $idTenant AND u.empresa_id <=> $idEmpresa AND u.tienda_id <=> $idTienda) AND (u.tienda_id IS NULL OR u.tienda_id = $idTienda OR u.tienda_id NOT IN (SELECT id FROM tiendas)) ORDER BY u.id;" $BaseActual)
@@ -1084,8 +1165,13 @@ function Paso-Unificar {
     $deshacer = New-Object System.Text.StringBuilder
     [void]$deshacer.AppendLine("-- Regresa cada registro que movio REPARAR-MARISCOS -Paso Unificar el $sello a la tienda donde estaba.")
     $esperadas = 0
+    if ($extra) { [void]$deshacer.AppendLine("-- Las ventas recuperan tambien su fecha, usuario y folio de antes. El consecutivo de folios de la tienda no se regresa (un hueco no hace dano; regresarlo repetiria folios).") }
     foreach ($p in $plan) {
         $set = ($p.Scope | ForEach-Object { "'$($_[0])=', IFNULL($(Ident $_[0]),'NULL')" }) -join ", ', ', "
+        if ($p.Tabla -eq "ventas" -and $extra) {
+            $set += ", ', usuario_id=', IFNULL(usuario_id,'NULL'), ', created_at=', QUOTE(created_at)"
+            if ($extra.Folio -gt 0) { $set += ", ', folio=', QUOTE(folio), ', numero_orden=', IFNULL(numero_orden,'NULL')" }
+        }
         $lineas = Consultar "SELECT CONCAT('UPDATE $(Ident $p.Tabla) SET ', $set, ' WHERE id=', id, ';') FROM $(Ident $p.Tabla) WHERE $($p.Cond);" $BaseActual
         foreach ($l in $lineas) { if ($l) { [void]$deshacer.AppendLine($l); $esperadas++ } }
     }
@@ -1103,6 +1189,30 @@ function Paso-Unificar {
     $sql = New-Object System.Text.StringBuilder
     [void]$sql.AppendLine("START TRANSACTION;")
     foreach ($p in $plan) {
+        if ($p.Tabla -eq "ventas" -and $extra) {
+            # Antes de moverlas (mientras siguen en la tienda que no existe): fecha real
+            # primero, para que el folio nuevo vaya en el orden en que se cobraron.
+            $in = $extra.Ids
+            if ($extra.Fecha -gt 0) {
+                [void]$sql.AppendLine("UPDATE ventas SET created_at = $fechaOff WHERE id IN ($in) AND $fechaValida;")
+                [void]$sql.AppendLine("SELECT 'ventas: fecha real', ROW_COUNT();")
+            }
+            if ($extra.Usuario -gt 0) {
+                [void]$sql.AppendLine("UPDATE ventas v JOIN cajas c ON c.id = v.caja_id AND c.tienda_id = $idTienda SET v.usuario_id = c.usuario_id " +
+                    "WHERE v.id IN ($in) AND v.usuario_id <> c.usuario_id AND v.usuario_id NOT IN (SELECT id FROM users WHERE tienda_id = $idTienda);")
+                [void]$sql.AppendLine("SELECT 'ventas: usuario de la caja', ROW_COUNT();")
+            }
+            if ($extra.Folio -gt 0) {
+                # Dos pasos y no uno: si MariaDB evalua el SET en paralelo, folio leeria el
+                # numero_orden viejo.
+                [void]$sql.AppendLine("SELECT IFNULL(folio_venta_counter, 0) INTO @base FROM tiendas WHERE id = $idTienda FOR UPDATE;")
+                [void]$sql.AppendLine("SET @n := 0;")
+                [void]$sql.AppendLine("UPDATE ventas SET numero_orden = @base + (@n := @n + 1) WHERE id IN ($in) ORDER BY created_at, id;")
+                [void]$sql.AppendLine("UPDATE ventas SET folio = CONCAT('$($extra.Prefijo)', LPAD(numero_orden, 8, '0')) WHERE id IN ($in);")
+                [void]$sql.AppendLine("UPDATE tiendas SET folio_venta_counter = @base + @n WHERE id = $idTienda;")
+                [void]$sql.AppendLine("SELECT 'ventas: folio nuevo', @n;")
+            }
+        }
         $set = ($p.Scope | ForEach-Object { "$(Ident $_[0])=$($_[1])" }) -join ", "
         [void]$sql.AppendLine("UPDATE $(Ident $p.Tabla) SET $set WHERE $($p.Cond);")
         [void]$sql.AppendLine("SELECT '$($p.Tabla)', ROW_COUNT();")
@@ -1118,7 +1228,7 @@ function Paso-Unificar {
     Escribir "      Para deshacerlo:" "Cyan"
     Escribir "      powershell -NoProfile -ExecutionPolicy Bypass -File $REVERTIR -Respaldo `"$previo`" -SoloBaseDeDatos" "Cyan"
     Escribir "      (o solo regresar lo movido con $rutaDeshacer)"
-    Escribir "      Las ventas movidas conservan su folio; puede haber folios repetidos con las de la tienda $idTienda."
+    if (-not ($extra -and $extra.Folio -gt 0)) { Escribir "      Las ventas movidas conservan su folio; puede haber folios repetidos con las de la tienda $idTienda." }
     Terminar 0 "Unificacion aplicada. Respaldo previo: $previo"
 }
 

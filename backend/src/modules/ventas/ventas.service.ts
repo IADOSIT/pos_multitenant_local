@@ -450,6 +450,22 @@ export class VentasService {
     const results: any[] = [];
     for (const v of ventas || []) {
       try {
+        // La venta se registra con el scope de quien esta logueado al subirla, no con el
+        // de quien la cobro. Si la cola la drena otro usuario (el superadmin sin tienda, un
+        // demo de otra tienda) quedaria en la tienda equivocada: mejor dejarla pendiente en
+        // el navegador hasta que entre alguien de su tienda. Mariscos perdio asi 110 ventas
+        // de vista al pasar a la v2.4.7.
+        const tiendaVenta = await this.tiendaDeVentaOffline(v);
+        if (!scope.tienda_id || (tiendaVenta && Number(tiendaVenta) !== Number(scope.tienda_id))) {
+          results.push({
+            folio_offline: v?.folio_offline,
+            status: 'error',
+            message: scope.tienda_id
+              ? 'Esta venta se cobro en otra tienda: entra con un usuario de esa tienda para subirla'
+              : 'Elige la tienda (arriba, en "Elegir tienda...") para subir las ventas sin internet',
+          });
+          continue;
+        }
         // Acotado al tenant: el folio offline lo genera el navegador, no la base.
         const existing = await this.ventasRepo.findOne({
           where: { folio_offline: v.folio_offline, tenant_id: scope.tenant_id },
@@ -466,5 +482,14 @@ export class VentasService {
       }
     }
     return results;
+  }
+
+  // Tienda donde se cobro: la anota el navegador desde la v2.4.8; las que ya estaban en
+  // cola la heredan de la caja con la que se cobraron. Sin ninguna de las dos, null.
+  private async tiendaDeVentaOffline(v: any): Promise<number | null> {
+    if (v?.tienda_id) return Number(v.tienda_id);
+    if (!v?.caja_id) return null;
+    const caja = await this.cajaRepo.findOne({ where: { id: v.caja_id } });
+    return caja?.tienda_id ?? null;
   }
 }

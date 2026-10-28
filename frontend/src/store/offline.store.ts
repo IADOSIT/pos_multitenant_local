@@ -84,14 +84,32 @@ export async function pedirPersistencia(): Promise<boolean> {
   }
 }
 
+// Tienda donde se esta cobrando, con la misma regla que `api/client.ts` usa para los
+// encabezados x-view-*: el superadmin cobra en la que eligio, los demas en la suya.
+// Viaja con la venta para que el servidor no la registre en la tienda de quien este
+// logueado cuando la cola se drene (ver `syncOffline` en el backend).
+function tiendaDeCobro(): number | null {
+  try {
+    const user = JSON.parse(localStorage.getItem('pos_user') || 'null');
+    if (user?.rol === 'superadmin') {
+      const viewAs = JSON.parse(localStorage.getItem('pos_view_as_tienda') || 'null');
+      return viewAs?.tienda_id ? Number(viewAs.tienda_id) : null;
+    }
+    return user?.tienda_id ? Number(user.tienda_id) : null;
+  } catch {
+    return null;
+  }
+}
+
 export const offlineActions = {
   async saveVentaOffline(venta: any): Promise<string> {
     // Hora + azar: dos cajas de la misma tienda pueden cobrar en el mismo milisegundo
     // y el folio es la llave con la que el servidor evita duplicar al sincronizar.
     const folio = `OFF-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    const tienda_id = tiendaDeCobro();
     await offlineDB.ventasPendientes.add({
       folio_offline: folio,
-      data: { ...venta, folio_offline: folio },
+      data: { ...venta, folio_offline: folio, ...(tienda_id ? { tienda_id } : {}) },
       synced: 0,
       intentos: 0,
       ultimo_error: null,

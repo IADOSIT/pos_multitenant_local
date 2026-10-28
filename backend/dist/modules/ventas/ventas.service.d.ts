@@ -25,4 +25,5 @@ export declare class VentasService {
     getClientes(scope: any, q?: string): Promise<any>;
     private sendStockAlerts;
     syncOffline(ventas: any[], scope: any): Promise<any[]>;
+    private tiendaDeVentaOffline;
 }
