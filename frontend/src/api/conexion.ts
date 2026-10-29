@@ -37,7 +37,15 @@ let latiendo = false;
 // un momento lento las agota casi todas juntas.
 let confirmando = false;
 
+// En la instalacion en sitio el servidor es esta misma PC (o una de la LAN), no
+// internet. Sin router conectado, Windows deja `navigator.onLine` en false aunque
+// localhost conteste, y el POS se daba por desconectado: no abria caja ni cobraba
+// (28-oct-2026). Ahi solo manda el latido real contra /health. La nube no trae
+// VITE_EN_SITIO y sigue usando el atajo del navegador.
+const EN_SITIO = import.meta.env.VITE_EN_SITIO === '1';
+
 function hayRed(): boolean {
+  if (EN_SITIO) return true;
   return typeof navigator === 'undefined' ? true : navigator.onLine;
 }
 

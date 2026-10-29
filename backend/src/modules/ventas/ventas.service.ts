@@ -249,12 +249,12 @@ export class VentasService {
       }
     }
 
-    // WhatsApp stock-low alerts via Fonnte
-    try {
-      await this.sendStockAlerts(scope, folio);
-    } catch (e: any) {
+    // WhatsApp stock-low alerts via Fonnte. Sin esperarla: la venta ya quedo
+    // guardada, y sin internet (o con un modem sin salida) el cobro se quedaba
+    // colgado hasta que la llamada a Fonnte se rindiera.
+    this.sendStockAlerts(scope, folio).catch((e: any) => {
       this.logger.warn(`WhatsApp alert error: ${e?.message}`);
-    }
+    });
 
     // Auditoría
     await this.auditoriaRepo.save(this.auditoriaRepo.create({
@@ -435,6 +435,7 @@ export class VentasService {
         target: cp.whatsapp_phone,
         message: mensaje,
       }),
+      signal: AbortSignal.timeout(10000),
     });
   }
 

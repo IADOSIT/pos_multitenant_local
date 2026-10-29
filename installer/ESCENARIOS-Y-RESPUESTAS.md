@@ -56,10 +56,22 @@ El servicio lo administra **nssm**, y nssm trae `AppKillProcessTree` **encendido
 
 Lo que habria pasado: clic en Actualizar → respaldo hecho → se detiene el servicio → **nssm mata al actualizador en ese mismo instante** → actualizacion a medias, posiblemente con el programa a medio copiar, **y sin que corra el revertir automatico, porque el script que lo haria acaba de morir**. Equipo abajo, a distancia, sin nadie enfrente.
 
-**Resuelto con `AppKillProcessTree 0`**, puesto en dos lugares y las dos son necesarias:
+~~Resuelto con `AppKillProcessTree 0`~~ **Eso no funcionaba (comprobado el 28-oct, v2.4.8).** El `nssm.exe` que trae el instalador es la 2.24, que **no conoce** `AppKillProcessTree`: lo rechaza con *"Invalid parameter"* y sale con codigo 1. Al detener el servicio manda Ctrl+C a la consola del node y mata a **todos sus descendientes vivos**. Ademas, un PowerShell lanzado con `detached: true` desde node **sale en el acto sin correr el script**. Con los botones reales:
 
-- `install.ps1`, para cualquier equipo nuevo.
-- `actualizar.ps1`, **antes** de detener el servicio, porque el equipo de Mariscos23 tiene el servicio creado por una version vieja y traeria el valor peligroso para siempre.
+- **Respaldar** moria en *"[3/8] Pausando el sistema"*, sin `base-datos.sql`, y **dejaba el POS detenido** hasta arrancarlo a mano.
+- **Revertir** y **Sincronizar** respondian *"en marcha"* y **no corrian nada**.
+
+El EXE no tenia el problema: Inno corre `install.ps1`, que no es hijo del node.
+
+**Resuelto en v2.4.8 con un relevo, probado con un servicio desechable y con los tres botones:**
+
+- El backend lanza el script normal, sin `detached`, con `POS_RELANZAR_FUERA=1` (`mantenimiento.service.ts`, `lanzar()`).
+- `respaldar.ps1`, `revertir.ps1` y `actualizar.ps1` traen arriba el bloque *"Fuera del servicio"*. Con esa variable, el script lanza una copia de si mismo con `Start-Process` (consola propia, oculta, salida a `logs\mantenimiento-<id>-fuera.log`), le pasa el candado y sale.
+- La copia no tiene padre vivo, asi que nssm no la encuentra al recorrer el arbol y el Ctrl+C no le llega.
+- `POS_FUERA_DEL_SERVICIO=1` lo heredan la copia y los scripts que ella llama, para que ninguno se vuelva a relanzar.
+- Desde el EXE, los `.bat` o a mano, los scripts corren igual que siempre.
+
+`AppKillProcessTree 0` se sigue pidiendo por si algun dia el nssm lo entiende, y `actualizar.ps1` ya no imprime *"Servicio ajustado para no matar al actualizador"* si nssm lo rechazo.
 
 ---
 
@@ -231,6 +243,25 @@ Ahora hay un candado en cada eslabon, para que una falla en uno no llegue al sig
 
 ---
 
+## G4. Version 2.4.8: sin router la caja no abria ni cobraba
+
+**Lo que reporto el cliente (28-oct):** con la PC conectada a internet por otro lado, pero sin ningun router, el POS no abria caja ni cobraba. Parecia que el EXE seguia dependiendo de la nube.
+
+**No depende de la nube.** Se reviso de punta a punta: programa, pantallas y base corren en la misma PC (`127.0.0.1`), abrir caja y la licencia se resuelven ahi mismo, y el acceso directo abre `http://localhost:3000`. Ni abrir caja ni cobrar pasan por el VPS.
+
+**La causa:** las pantallas le preguntaban al navegador si habia red (`navigator.onLine`). En Windows, sin un adaptador de red conectado, el navegador contesta que no **aunque el servidor de la misma PC conteste**. Con eso el POS se daba por desconectado y frenaba cada peticion antes de mandarla; solo dejaba pasar el login y la salud. Por eso salia "Error al abrir caja" y el cobro no se registraba.
+
+**Reproducido antes de corregir**, sobre la instalacion de prueba con las pantallas viejas: con el navegador creyendo que no hay red, el boton *Abrir Caja* da "Error al abrir caja" sin mandar **ninguna** peticion, mientras `/api/health` del mismo equipo contesta 200.
+
+| Hallazgo | Que pasaba | Como queda |
+|---|---|---|
+| El POS creia que no habia red | Sin router, `navigator.onLine` es false y el POS frenaba todo antes de preguntarle al servidor local. | En la copia del equipo (`VITE_EN_SITIO=1` en `.env.onpremise`) solo cuenta el latido real contra `/api/health`. Si el servidor de verdad no contesta, la venta se guarda en la cola sin conexion como siempre. La nube no trae esa marca y sigue igual. |
+| El aviso de WhatsApp de poco inventario detenia el cobro | Quien lo tiene activado: la venta esperaba la llamada a Fonnte, y sin salida a internet el cobro se quedaba colgado hasta que esa llamada se rendia. | La venta ya no la espera (queda guardada primero) y la llamada se corta a los 10 s. A quien no lo tiene activado no le cambia nada. |
+
+Lo demas que usa internet no detiene nada: la consulta de Sincronizar se rinde a los 20 s y no avisa; el tipo de cambio, el respaldo a la nube y los cobros con tarjeta en linea solo corren si estan configurados.
+
+---
+
 ## H. Lo que **NO** queda resuelto
 
 Sin adornos, porque pidio doble check honesto:
@@ -275,5 +306,8 @@ Sin adornos, porque pidio doble check honesto:
 | **v2.4.5:** el EXE v2.4.4 salio con las pantallas vacias por dos builds simultaneos | **Grave** | `build-exe.ps1`, `install.ps1`, `actualizar.ps1` |
 | **v2.4.5:** bascula y biometrico del equipo en sitio buscaban el servidor de la nube | Medio | `api/socket.ts`, `.env.onpremise`, `vite.config.ts` |
 | **v2.4.5:** el paquete llevaba un `package.json` viejo y librerias que no se actualizaban | Medio | `build-exe.ps1` |
+| **v2.4.8:** los botones Respaldar, Revertir y Sincronizar no servian en sitio (nssm 2.24 mataba al script) | **Grave** | `mantenimiento.service.ts`, `respaldar.ps1`, `revertir.ps1`, `actualizar.ps1` |
+| **v2.4.8:** sin router el POS se daba por desconectado: no abria caja ni cobraba | **Grave** | `api/conexion.ts`, `sync.store.ts`, `.env.onpremise` |
+| **v2.4.8:** el aviso de WhatsApp de poco inventario podia dejar colgado el cobro sin internet | Medio | `ventas.service.ts` |
 | **v2.4.5:** sin internet la letra de Google podia dejar la caja en blanco | Medio | `build-exe.ps1` |
 | **v2.4.5:** boton Sincronizar con la misma red de seguridad que el EXE | Nuevo | `mantenimiento.service.ts`, `MantenimientoLocal.tsx`, `AvisoSincronizar.tsx`, `publicar-actualizacion.ps1` |

@@ -120,7 +120,8 @@ export function iniciarSincronizacion() {
   };
   window.addEventListener('conexion:cambio', alCambiarConexion);
   window.addEventListener('online', alCambiarConexion);
-  window.addEventListener('offline', () => useSyncStore.setState({ online: false }));
+  // hayConexion() y no `false`: en sitio quitar el router no corta el servidor local.
+  window.addEventListener('offline', () => useSyncStore.setState({ online: hayConexion() }));
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && hayConexion()) sincronizar();

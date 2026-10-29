@@ -38,6 +38,71 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# --- Fuera del servicio ------------------------------------------------------
+# Los botones de Configuracion -> Mantenimiento lanzan este script como hijo
+# del backend, y el script detiene ese mismo backend. El nssm 2.24 del
+# instalador, al detener el servicio, manda Ctrl+C a la consola del node y mata
+# a todos sus descendientes vivos. No conoce AppKillProcessTree ("Invalid
+# parameter"), asi que ese ajuste nunca protegio nada; y un PowerShell lanzado
+# "detached" desde node sale en el acto sin correr el script. Probado el 28-oct
+# con un servicio desechable y con los botones reales: el respaldo moria en
+# "Pausando el sistema" y dejaba el POS detenido, y revertir y sincronizar no
+# hacian nada.
+#
+# Lo que si sobrevive, probado igual: una copia de este script con su propia
+# consola, lanzada desde aqui, mientras este proceso sale enseguida. Sin padre
+# vivo nssm no la encuentra al recorrer el arbol, y el Ctrl+C no le llega.
+# Solo pasa cuando el backend lo pide (POS_RELANZAR_FUERA=1): desde el EXE, los
+# .bat o a mano el script corre igual que siempre. POS_FUERA_DEL_SERVICIO lo
+# heredan la copia y los scripts que ella llame, para que ninguno se relance.
+if ($env:POS_RELANZAR_FUERA -eq "1" -and $env:POS_FUERA_DEL_SERVICIO -ne "1") {
+    $env:POS_FUERA_DEL_SERVICIO = "1"
+    $env:POS_RELEVO_DE = "$PID"
+    $partesRelevo = @("-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", "`"$PSCommandPath`"")
+    foreach ($parRelevo in $PSBoundParameters.GetEnumerator()) {
+        if ($parRelevo.Value -is [System.Management.Automation.SwitchParameter]) {
+            if ($parRelevo.Value.IsPresent) { $partesRelevo += "-$($parRelevo.Key)" }
+        } else {
+            # Una diagonal pegada a la comilla de cierre la escaparia: se duplica.
+            $partesRelevo += "-$($parRelevo.Key)"
+            $partesRelevo += ("`"" + ([string]$parRelevo.Value -replace '(\\+)$', '$1$1') + "`"")
+        }
+    }
+    $salidaRelevo = $env:POS_SALIDA_RELEVO
+    if (-not $salidaRelevo) {
+        $salidaRelevo = Join-Path $InstallDir ("logs\{0}-{1}-fuera" -f [IO.Path]::GetFileNameWithoutExtension($PSCommandPath), (Get-Date -Format "yyyyMMdd-HHmmss"))
+    }
+    try { New-Item -ItemType Directory -Path (Split-Path -Parent $salidaRelevo) -Force | Out-Null } catch { }
+
+    # El backend pone el candado a nombre de este proceso en cuanto lo lanza. Se
+    # le pasa a la copia, para que el boton siga viendo el trabajo en curso y no
+    # se pueda lanzar otro encima.
+    $candadoRelevo = Join-Path $InstallDir "logs\mantenimiento-en-curso.json"
+    $datosCandado = $null
+    for ($vuelta = 0; $vuelta -lt 30 -and -not $datosCandado; $vuelta++) {
+        try { $datosCandado = Get-Content -Path $candadoRelevo -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $datosCandado = $null }
+        if ($datosCandado -and [int]$datosCandado.pid -ne $PID) { $datosCandado = $null }
+        if (-not $datosCandado) { Start-Sleep -Milliseconds 100 }
+    }
+
+    try {
+        $copiaRelevo = Start-Process -FilePath "powershell.exe" -ArgumentList ($partesRelevo -join " ") -WindowStyle Hidden `
+            -RedirectStandardOutput "$salidaRelevo.log" -RedirectStandardError "$salidaRelevo.err" -PassThru -ErrorAction Stop
+    } catch {
+        Write-Host "No se pudo pasar a segundo plano: $($_.Exception.Message). No se toco nada."
+        exit 1
+    }
+    if ($datosCandado) {
+        try {
+            $datosCandado.pid = $copiaRelevo.Id
+            [System.IO.File]::WriteAllText($candadoRelevo, ($datosCandado | ConvertTo-Json -Compress), (New-Object System.Text.UTF8Encoding($false)))
+        } catch { }
+    }
+    Write-Host "Sigue en segundo plano (proceso $($copiaRelevo.Id)), fuera del servicio para que no se corte al detenerlo."
+    Write-Host "Bitacora: $salidaRelevo.log"
+    exit 0
+}
+
 # Escribe texto en UTF-8 de verdad, SIN marca de orden de bytes.
 #
 # "Set-Content -Encoding UTF8" en el PowerShell que trae Windows mete tres
@@ -211,7 +276,10 @@ function Tomar-Candado {
             $pidOtro = [int]$c.pid
             $desde = [long]$c.inicio
             $vigente = ($ahora - $desde) -lt (3 * 3600 * 1000)
-            if ($pidOtro -ne $PID -and $vigente -and (Get-Process -Id $pidOtro -ErrorAction SilentlyContinue)) {
+            # El proceso que nos paso el trabajo ("Fuera del servicio") tambien
+            # cuenta como propio: puede no haber cambiado el candado todavia.
+            $propio = ($pidOtro -eq $PID) -or ("$pidOtro" -eq "$env:POS_RELEVO_DE")
+            if (-not $propio -and $vigente -and (Get-Process -Id $pidOtro -ErrorAction SilentlyContinue)) {
                 $min = [int][Math]::Max(1, ($ahora - $desde) / 60000)
                 return "Ya hay un $($c.tipo) en curso desde hace $min min (proceso $pidOtro). Espera a que termine y vuelve a intentarlo."
             }
@@ -333,18 +401,18 @@ if (-not $SiSinPreguntar) {
     if ($r -ne "ACTUALIZAR") { Terminar 0 "Cancelado. No se toco nada." }
 }
 
-# Que el servicio no mate a sus procesos hijos al detenerse. Este script puede
-# venir del boton "Sincronizar", es decir como hijo del backend, y el respaldo
-# del paso 2 es el primero que detiene el backend: con el valor de fabrica de
-# nssm (matar el arbol) ese "stop" nos mataria a nosotros y la actualizacion
-# quedaria a medias, sin revertir. Por eso va aqui y no en el paso 4, que es
-# donde estaba. nssm lee este valor al arrancar el servicio; el instalador lo
-# fija antes del primer arranque y aqui se reafirma para los arranques que
-# siguen. Es un ajuste del servicio: no toca datos ni archivos del cliente.
+# AppKillProcessTree 0 pide que el servicio no mate a sus hijos al detenerse.
+# El nssm 2.24 que trae el instalador no lo conoce y lo rechaza ("Invalid
+# parameter"), asi que nunca protegio al actualizador: lo que lo protege es el
+# relevo de arriba ("Fuera del servicio"). Se sigue pidiendo por si el equipo
+# trae un nssm que si lo entienda, y el mensaje dice lo que paso de verdad.
+# Son ajustes del servicio: no tocan datos ni archivos del cliente.
 if (Test-Path $script:NSSM) {
     $eapAntes = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+    $arbolAjustado = $false
     try {
     & $script:NSSM set $SVC_BACKEND AppKillProcessTree 0 2>&1 | Out-Null
+    $arbolAjustado = ($LASTEXITCODE -eq 0)
     # Rotar las bitacoras a los 10 MB. En un equipo que nadie revisa estos
     # archivos crecen sin limite y el disco lleno deja la base sin arrancar.
     & $script:NSSM set $SVC_BACKEND AppRotateFiles  1        2>&1 | Out-Null
@@ -354,7 +422,8 @@ if (Test-Path $script:NSSM) {
     & $script:NSSM set $SVC_MARIADB AppRotateOnline 1        2>&1 | Out-Null
     & $script:NSSM set $SVC_MARIADB AppRotateBytes  10485760 2>&1 | Out-Null
     } finally { $ErrorActionPreference = $eapAntes }
-    Ok "Servicio ajustado para no matar al actualizador"
+    if ($arbolAjustado) { Ok "Servicio ajustado para no matar al actualizador; bitacoras con rotacion a 10 MB" }
+    else { Ok "Bitacoras de los servicios con rotacion a 10 MB" }
 }
 
 # =============================================================================

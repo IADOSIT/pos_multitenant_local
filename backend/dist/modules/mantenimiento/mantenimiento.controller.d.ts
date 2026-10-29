@@ -35,6 +35,7 @@ export declare class MantenimientoController {
     }): {
         trabajo: string;
         mensaje: string;
+        reinicia: boolean;
     };
     excel(): {
         trabajo: string;

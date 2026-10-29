@@ -33,6 +33,71 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# --- Fuera del servicio ------------------------------------------------------
+# Los botones de Configuracion -> Mantenimiento lanzan este script como hijo
+# del backend, y el script detiene ese mismo backend. El nssm 2.24 del
+# instalador, al detener el servicio, manda Ctrl+C a la consola del node y mata
+# a todos sus descendientes vivos. No conoce AppKillProcessTree ("Invalid
+# parameter"), asi que ese ajuste nunca protegio nada; y un PowerShell lanzado
+# "detached" desde node sale en el acto sin correr el script. Probado el 28-oct
+# con un servicio desechable y con los botones reales: el respaldo moria en
+# "Pausando el sistema" y dejaba el POS detenido, y revertir y sincronizar no
+# hacian nada.
+#
+# Lo que si sobrevive, probado igual: una copia de este script con su propia
+# consola, lanzada desde aqui, mientras este proceso sale enseguida. Sin padre
+# vivo nssm no la encuentra al recorrer el arbol, y el Ctrl+C no le llega.
+# Solo pasa cuando el backend lo pide (POS_RELANZAR_FUERA=1): desde el EXE, los
+# .bat o a mano el script corre igual que siempre. POS_FUERA_DEL_SERVICIO lo
+# heredan la copia y los scripts que ella llame, para que ninguno se relance.
+if ($env:POS_RELANZAR_FUERA -eq "1" -and $env:POS_FUERA_DEL_SERVICIO -ne "1") {
+    $env:POS_FUERA_DEL_SERVICIO = "1"
+    $env:POS_RELEVO_DE = "$PID"
+    $partesRelevo = @("-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", "`"$PSCommandPath`"")
+    foreach ($parRelevo in $PSBoundParameters.GetEnumerator()) {
+        if ($parRelevo.Value -is [System.Management.Automation.SwitchParameter]) {
+            if ($parRelevo.Value.IsPresent) { $partesRelevo += "-$($parRelevo.Key)" }
+        } else {
+            # Una diagonal pegada a la comilla de cierre la escaparia: se duplica.
+            $partesRelevo += "-$($parRelevo.Key)"
+            $partesRelevo += ("`"" + ([string]$parRelevo.Value -replace '(\\+)$', '$1$1') + "`"")
+        }
+    }
+    $salidaRelevo = $env:POS_SALIDA_RELEVO
+    if (-not $salidaRelevo) {
+        $salidaRelevo = Join-Path $InstallDir ("logs\{0}-{1}-fuera" -f [IO.Path]::GetFileNameWithoutExtension($PSCommandPath), (Get-Date -Format "yyyyMMdd-HHmmss"))
+    }
+    try { New-Item -ItemType Directory -Path (Split-Path -Parent $salidaRelevo) -Force | Out-Null } catch { }
+
+    # El backend pone el candado a nombre de este proceso en cuanto lo lanza. Se
+    # le pasa a la copia, para que el boton siga viendo el trabajo en curso y no
+    # se pueda lanzar otro encima.
+    $candadoRelevo = Join-Path $InstallDir "logs\mantenimiento-en-curso.json"
+    $datosCandado = $null
+    for ($vuelta = 0; $vuelta -lt 30 -and -not $datosCandado; $vuelta++) {
+        try { $datosCandado = Get-Content -Path $candadoRelevo -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $datosCandado = $null }
+        if ($datosCandado -and [int]$datosCandado.pid -ne $PID) { $datosCandado = $null }
+        if (-not $datosCandado) { Start-Sleep -Milliseconds 100 }
+    }
+
+    try {
+        $copiaRelevo = Start-Process -FilePath "powershell.exe" -ArgumentList ($partesRelevo -join " ") -WindowStyle Hidden `
+            -RedirectStandardOutput "$salidaRelevo.log" -RedirectStandardError "$salidaRelevo.err" -PassThru -ErrorAction Stop
+    } catch {
+        Write-Host "No se pudo pasar a segundo plano: $($_.Exception.Message). No se toco nada."
+        exit 1
+    }
+    if ($datosCandado) {
+        try {
+            $datosCandado.pid = $copiaRelevo.Id
+            [System.IO.File]::WriteAllText($candadoRelevo, ($datosCandado | ConvertTo-Json -Compress), (New-Object System.Text.UTF8Encoding($false)))
+        } catch { }
+    }
+    Write-Host "Sigue en segundo plano (proceso $($copiaRelevo.Id)), fuera del servicio para que no se corte al detenerlo."
+    Write-Host "Bitacora: $salidaRelevo.log"
+    exit 0
+}
+
 # Escribe texto en UTF-8 de verdad, SIN marca de orden de bytes.
 #
 # "Set-Content -Encoding UTF8" en el PowerShell que trae Windows mete tres
@@ -71,11 +136,24 @@ function Ok    { param([string]$t) Escribir "    OK  $t" "Green" }
 function Aviso { param([string]$t) Escribir "    !   $t" "Yellow" }
 function Falla { param([string]$t) Escribir "    X   $t" "Red" }
 
+# Lanzado desde el boton, el candado queda a nombre de este proceso (ver "Fuera
+# del servicio"). Se quita al terminar: si se quedara y Windows reusara el
+# numero de proceso, los botones dirian que hay un respaldo en curso. Llamado
+# desde actualizar.ps1 o revertir.ps1 el candado es de ellos y no se toca.
+function Soltar-CandadoPropio {
+    try {
+        $f = Join-Path $InstallDir "logs\mantenimiento-en-curso.json"
+        $c = Get-Content -Path $f -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ([int]$c.pid -eq $PID) { Remove-Item -Path $f -Force -ErrorAction SilentlyContinue }
+    } catch { }
+}
+
 function Terminar {
     param([int]$Codigo, [string]$Mensaje)
     Escribir ""
     if ($Codigo -eq 0) { Escribir "  $Mensaje" "Green" } else { Escribir "  $Mensaje" "Red" }
     Escribir ""
+    Soltar-CandadoPropio
     exit $Codigo
 }
 
@@ -259,6 +337,7 @@ trap {
         Escribir "        Volviendo a prender el sistema..." "Yellow"
         Servicio -Accion "start" -Nombre $SVC_BACKEND
     }
+    Soltar-CandadoPropio
     exit 1
 }
 
@@ -625,4 +704,5 @@ Escribir ""
 Escribir "   Lee primero:  $carpeta\RESUMEN.txt" "Cyan"
 Escribir "   Para volver atras:  .\revertir.ps1 -Respaldo ""$carpeta""" "Cyan"
 Escribir ""
+Soltar-CandadoPropio
 exit 0

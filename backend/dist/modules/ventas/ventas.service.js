@@ -200,12 +200,9 @@ let VentasService = class VentasService {
                 this.logger.error(`Error descontando stock producto ${item.producto_id}: ${e?.message}`, e?.stack);
             }
         }
-        try {
-            await this.sendStockAlerts(scope, folio);
-        }
-        catch (e) {
+        this.sendStockAlerts(scope, folio).catch((e) => {
             this.logger.warn(`WhatsApp alert error: ${e?.message}`);
-        }
+        });
         await this.auditoriaRepo.save(this.auditoriaRepo.create({
             tenant_id: scope.tenant_id,
             empresa_id: scope.empresa_id,
@@ -359,6 +356,7 @@ let VentasService = class VentasService {
                 target: cp.whatsapp_phone,
                 message: mensaje,
             }),
+            signal: AbortSignal.timeout(10000),
         });
     }
     async syncOffline(ventas, scope) {

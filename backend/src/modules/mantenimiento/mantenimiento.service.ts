@@ -39,6 +39,8 @@ interface Trabajo {
   /** Un trabajo desprendido reinicia el backend: nadie va a ver su final. */
   desprendido?: boolean;
   pid?: number;
+  /** Donde escribe la copia que sigue fuera del servicio (sin .log/.err). */
+  salidaFuera?: string;
 }
 
 /** La ultima consulta al origen de actualizaciones, para no preguntar a cada rato. */
@@ -301,10 +303,15 @@ export class MantenimientoService {
   /**
    * Lanza un script y acumula su salida en un archivo.
    *
-   * `desprendido` es para actualizar: ese script detiene este mismo backend,
-   * asi que el proceso hijo no puede depender de nosotros. Se suelta con
-   * stdio a archivo y unref(), para que siga vivo cuando el servicio muera y
-   * pueda volverlo a levantar.
+   * `desprendido` es para los scripts que detienen este mismo backend
+   * (respaldar, revertir, actualizar): tienen que seguir vivos cuando el
+   * servicio muera, para volverlo a levantar. Ni detached ni unref() lo logran
+   * en este equipo, probado el 28-oct: el nssm 2.24 del instalador mata a todos
+   * los descendientes vivos del node al detener el servicio, y un PowerShell
+   * lanzado con detached:true sale en el acto sin correr el script. Por eso se
+   * lanza normal con POS_RELANZAR_FUERA=1, y el script se pasa a una copia de
+   * si mismo con su propia consola y sale. Esa copia ya no desciende de nadie,
+   * escribe en `salidaFuera` y se queda con el candado.
    */
   private lanzar(
     tipo: string,
@@ -321,28 +328,41 @@ export class MantenimientoService {
       `=== ${tipo} === ${new Date().toISOString()}\r\n${comando} ${args.join(' ')}\r\n\r\n`,
     );
 
+    let env: NodeJS.ProcessEnv = process.env;
+    if (t.desprendido) {
+      t.salidaFuera = t.logPath.replace(/\.log$/, '-fuera');
+      env = { ...process.env, POS_RELANZAR_FUERA: '1', POS_SALIDA_RELEVO: t.salidaFuera };
+      this.log.warn(`${tipo}: sigue fuera del servicio, este backend se va a reiniciar`);
+    }
+
     const hijo = spawn(comando, args, {
       cwd: this.installDir,
       windowsHide: true,
-      detached: !!opciones.desprendido,
+      env,
       stdio: ['ignore', fd, fd],
     });
     t.pid = hijo.pid;
 
-    if (opciones.desprendido) {
-      hijo.unref();
-      // El final no se va a poder observar: el backend se va a reiniciar.
-      t.estado = 'desconocido';
-      this.log.warn(`${tipo}: lanzado desprendido, este servicio se va a reiniciar`);
-      try {
-        fs.closeSync(fd);
-      } catch {
-        /* ya cerrado */
-      }
-      return t;
-    }
-
     hijo.on('close', (codigo) => {
+      if (t.desprendido) {
+        try {
+          fs.closeSync(fd);
+        } catch {
+          /* ya cerrado */
+        }
+        // Este primer proceso solo le pasa el trabajo a la copia de fuera y
+        // sale: 0 es que la copia ya va corriendo, y su final lo sigue
+        // trabajo() por el candado. Otro codigo es que no se pudo pasar y no
+        // se toco nada.
+        if (codigo !== 0) {
+          t.fin = Date.now();
+          t.codigo = codigo ?? -1;
+          t.estado = 'error';
+          this.soltarCandado(hijo.pid);
+          this.log.error(`${tipo} no pudo seguir fuera del servicio (codigo ${codigo})`);
+        }
+        return;
+      }
       t.fin = Date.now();
       t.codigo = codigo ?? -1;
       // ajustes.js y actualizar.ps1 usan 3 para "termino, pero hay diferencias
@@ -463,13 +483,26 @@ export class MantenimientoService {
   trabajo(id: string) {
     const t = this.trabajos.get(id);
     if (!t) throw new NotFoundException('No se encontro ese trabajo.');
-    let cola = '';
-    try {
-      const txt = fs.readFileSync(t.logPath, 'utf8');
-      cola = txt.length > 20000 ? txt.slice(-20000) : txt;
-    } catch {
-      cola = '';
+
+    // Un trabajo desprendido sigue en marcha mientras su copia de fuera tenga
+    // el candado. Si el candado ya no esta y este backend sigue vivo, no hubo
+    // reinicio: el script se detuvo antes de tocar el sistema, y el motivo
+    // esta en la bitacora.
+    if (t.desprendido && t.estado === 'corriendo' && !this.mantenimientoEnCurso()) {
+      t.fin = Date.now();
+      t.estado = 'desconocido';
     }
+
+    const leer = (ruta: string) => {
+      try {
+        return fs.readFileSync(ruta, 'utf8');
+      } catch {
+        return '';
+      }
+    };
+    let txt = leer(t.logPath);
+    if (t.salidaFuera) txt += leer(`${t.salidaFuera}.log`) + leer(`${t.salidaFuera}.err`);
+    const cola = txt.length > 20000 ? txt.slice(-20000) : txt;
     return {
       id: t.id,
       tipo: t.tipo,
@@ -490,12 +523,17 @@ export class MantenimientoService {
     const extra: string[] = ['-Etiqueta', this.limpiarEtiqueta(etiqueta), '-Silencioso'];
     if (opciones.sinExcel) extra.push('-SinExcel');
     if (opciones.sinImagenes) extra.push('-SinImagenes');
-    const t = this.lanzar('respaldar', 'powershell.exe', this.psArgs('respaldar.ps1', extra));
+    // Desprendido: el respaldo detiene este backend mientras vuelca la base.
+    // Como hijo normal moria ahi mismo y dejaba el POS detenido.
+    const t = this.lanzar('respaldar', 'powershell.exe', this.psArgs('respaldar.ps1', extra), {
+      desprendido: true,
+    });
     this.tomarCandado('respaldo', t.pid);
     return {
       trabajo: t.id,
       mensaje:
         'Respaldando base de datos, imagenes, Excel y ajustes. El sistema se detiene unos segundos.',
+      reinicia: true,
     };
   }
 

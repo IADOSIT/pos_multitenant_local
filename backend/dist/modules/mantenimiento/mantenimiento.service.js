@@ -228,25 +228,35 @@ let MantenimientoService = class MantenimientoService {
         t.desprendido = !!opciones.desprendido;
         const fd = fs.openSync(t.logPath, 'a');
         fs.writeSync(fd, `=== ${tipo} === ${new Date().toISOString()}\r\n${comando} ${args.join(' ')}\r\n\r\n`);
+        let env = process.env;
+        if (t.desprendido) {
+            t.salidaFuera = t.logPath.replace(/\.log$/, '-fuera');
+            env = { ...process.env, POS_RELANZAR_FUERA: '1', POS_SALIDA_RELEVO: t.salidaFuera };
+            this.log.warn(`${tipo}: sigue fuera del servicio, este backend se va a reiniciar`);
+        }
         const hijo = (0, child_process_1.spawn)(comando, args, {
             cwd: this.installDir,
             windowsHide: true,
-            detached: !!opciones.desprendido,
+            env,
             stdio: ['ignore', fd, fd],
         });
         t.pid = hijo.pid;
-        if (opciones.desprendido) {
-            hijo.unref();
-            t.estado = 'desconocido';
-            this.log.warn(`${tipo}: lanzado desprendido, este servicio se va a reiniciar`);
-            try {
-                fs.closeSync(fd);
-            }
-            catch {
-            }
-            return t;
-        }
         hijo.on('close', (codigo) => {
+            if (t.desprendido) {
+                try {
+                    fs.closeSync(fd);
+                }
+                catch {
+                }
+                if (codigo !== 0) {
+                    t.fin = Date.now();
+                    t.codigo = codigo ?? -1;
+                    t.estado = 'error';
+                    this.soltarCandado(hijo.pid);
+                    this.log.error(`${tipo} no pudo seguir fuera del servicio (codigo ${codigo})`);
+                }
+                return;
+            }
             t.fin = Date.now();
             t.codigo = codigo ?? -1;
             t.estado = codigo === 0 || codigo === 3 ? 'ok' : 'error';
@@ -344,14 +354,22 @@ let MantenimientoService = class MantenimientoService {
         const t = this.trabajos.get(id);
         if (!t)
             throw new common_1.NotFoundException('No se encontro ese trabajo.');
-        let cola = '';
-        try {
-            const txt = fs.readFileSync(t.logPath, 'utf8');
-            cola = txt.length > 20000 ? txt.slice(-20000) : txt;
+        if (t.desprendido && t.estado === 'corriendo' && !this.mantenimientoEnCurso()) {
+            t.fin = Date.now();
+            t.estado = 'desconocido';
         }
-        catch {
-            cola = '';
-        }
+        const leer = (ruta) => {
+            try {
+                return fs.readFileSync(ruta, 'utf8');
+            }
+            catch {
+                return '';
+            }
+        };
+        let txt = leer(t.logPath);
+        if (t.salidaFuera)
+            txt += leer(`${t.salidaFuera}.log`) + leer(`${t.salidaFuera}.err`);
+        const cola = txt.length > 20000 ? txt.slice(-20000) : txt;
         return {
             id: t.id,
             tipo: t.tipo,
@@ -371,11 +389,14 @@ let MantenimientoService = class MantenimientoService {
             extra.push('-SinExcel');
         if (opciones.sinImagenes)
             extra.push('-SinImagenes');
-        const t = this.lanzar('respaldar', 'powershell.exe', this.psArgs('respaldar.ps1', extra));
+        const t = this.lanzar('respaldar', 'powershell.exe', this.psArgs('respaldar.ps1', extra), {
+            desprendido: true,
+        });
         this.tomarCandado('respaldo', t.pid);
         return {
             trabajo: t.id,
             mensaje: 'Respaldando base de datos, imagenes, Excel y ajustes. El sistema se detiene unos segundos.',
+            reinicia: true,
         };
     }
     limpiarEtiqueta(e) {

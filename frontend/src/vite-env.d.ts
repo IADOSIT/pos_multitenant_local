@@ -8,6 +8,8 @@ interface ImportMetaEnv {
   readonly VITE_API_URL: string;
   // '1' solo en el build en sitio (.env.onpremise). Ver api/socket.ts.
   readonly VITE_SOCKET_MISMO_ORIGEN?: string;
+  // '1' solo en el build en sitio: el servidor es local. Ver api/conexion.ts.
+  readonly VITE_EN_SITIO?: string;
 }
 
 interface ImportMeta {

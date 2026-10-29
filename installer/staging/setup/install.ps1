@@ -329,6 +329,86 @@ if (-not $EsInstalacionNueva) {
         Copy-Item -Path "$InstallerPath\setup\node\*" -Destination "$InstallDir\tools\node\" -Recurse -Force -ErrorAction SilentlyContinue
     }
 
+    # uninstall.ps1 (sin -BorrarTodo) quita los servicios y el firewall y DEJA
+    # la carpeta con los datos. Si despues se vuelve a correr el EXE, se llega
+    # aqui sin servicios: MariaDB no esta arriba, el respaldo no puede sacar la
+    # base y la actualizacion se cancela con el sistema apagado. Ya paso en
+    # prueba (28-oct-2026): "mysqldump.exe: Got error: 2002". Se dan de alta otra
+    # vez sobre los programas que ya estan en la carpeta, con los mismos ajustes
+    # que los Pasos 3, 6 y 8 de una instalacion nueva. No se toca ningun dato.
+    $nssmAct = "$InstallDir\tools\nssm.exe"
+    if (-not (Test-Path $nssmAct) -and (Test-Path "$InstallerPath\runtime\nssm.exe")) {
+        Copy-Item -Path "$InstallerPath\runtime\nssm.exe" -Destination $nssmAct -Force -ErrorAction SilentlyContinue
+    }
+    # En modo online no hay MariaDB local: ahi su servicio no "falta".
+    $mysqldAct = "$InstallDir\mariadb\bin\mysqld.exe"
+    $faltaDb   = (Test-Path $mysqldAct) -and -not (Get-Service -Name "PosIaDos-MariaDB" -ErrorAction SilentlyContinue)
+    $faltaBack = -not (Get-Service -Name "PosIaDos-Backend" -ErrorAction SilentlyContinue)
+    if (($faltaDb -or $faltaBack) -and (Test-Path $nssmAct)) {
+        Write-Host "  No estan los servicios de Windows (se desinstalo y los datos" -ForegroundColor Yellow
+        Write-Host "  se quedaron). Se vuelven a dar de alta con lo que ya esta en" -ForegroundColor Yellow
+        Write-Host "  $InstallDir." -ForegroundColor Yellow
+        $puertoDbAct = $MariaDBPort
+        $puertoAppAct = $BackendPort
+        try {
+            foreach ($m in (Select-String -Path (Join-Path $InstallDir "backend\.env") -Pattern '^\s*(DB_PORT|APP_PORT)\s*=\s*(\d+)' -ErrorAction Stop)) {
+                if ($m.Matches[0].Groups[1].Value -eq "DB_PORT") { $puertoDbAct = [int]$m.Matches[0].Groups[2].Value }
+                else { $puertoAppAct = [int]$m.Matches[0].Groups[2].Value }
+            }
+        } catch { }
+        $eapAntes = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+        try {
+            New-Item -ItemType Directory -Force -Path "$InstallDir\logs" | Out-Null
+            if ($faltaDb -and (Test-Path "$InstallDir\mariadb\my.ini")) {
+                Esperar-ServicioBorrado -Nombre "PosIaDos-MariaDB" | Out-Null
+                & $nssmAct install PosIaDos-MariaDB $mysqldAct "--defaults-file=$InstallDir\mariadb\my.ini" 2>&1 | Out-Null
+                & $nssmAct set PosIaDos-MariaDB DisplayName "POS-iaDoS MariaDB" 2>&1 | Out-Null
+                & $nssmAct set PosIaDos-MariaDB Description "Servidor de base de datos MariaDB para POS-iaDoS" 2>&1 | Out-Null
+                & $nssmAct set PosIaDos-MariaDB Start SERVICE_AUTO_START 2>&1 | Out-Null
+                & $nssmAct set PosIaDos-MariaDB AppStdout "$InstallDir\logs\mariadb-stdout.log" 2>&1 | Out-Null
+                & $nssmAct set PosIaDos-MariaDB AppStderr "$InstallDir\logs\mariadb-stderr.log" 2>&1 | Out-Null
+                & $nssmAct set PosIaDos-MariaDB AppRotateFiles 1 2>&1 | Out-Null
+                & $nssmAct set PosIaDos-MariaDB AppRotateOnline 1 2>&1 | Out-Null
+                & $nssmAct set PosIaDos-MariaDB AppRotateBytes 10485760 2>&1 | Out-Null
+                & $nssmAct start PosIaDos-MariaDB 2>&1 | Out-Null
+                if (Wait-ForPort -Port $puertoDbAct -TimeoutSeconds 90 -Etiqueta "MariaDB") {
+                    Write-Host "  Servicio PosIaDos-MariaDB: dado de alta y arriba." -ForegroundColor Green
+                } else {
+                    Write-Host "  PosIaDos-MariaDB se dio de alta pero no abrio el puerto $puertoDbAct." -ForegroundColor Yellow
+                }
+            }
+            $nodeAct = "$InstallDir\node\node.exe"
+            if ($faltaBack -and (Test-Path $nodeAct) -and (Test-Path "$InstallDir\backend\dist\main.js")) {
+                Esperar-ServicioBorrado -Nombre "PosIaDos-Backend" | Out-Null
+                & $nssmAct install PosIaDos-Backend $nodeAct "dist\main.js" 2>&1 | Out-Null
+                & $nssmAct set PosIaDos-Backend DisplayName "POS-iaDoS Backend" 2>&1 | Out-Null
+                & $nssmAct set PosIaDos-Backend Description "Servidor API y Frontend para POS-iaDoS" 2>&1 | Out-Null
+                & $nssmAct set PosIaDos-Backend AppDirectory "$InstallDir\backend" 2>&1 | Out-Null
+                & $nssmAct set PosIaDos-Backend Start SERVICE_AUTO_START 2>&1 | Out-Null
+                & $nssmAct set PosIaDos-Backend AppStdout "$InstallDir\logs\backend-stdout.log" 2>&1 | Out-Null
+                & $nssmAct set PosIaDos-Backend AppStderr "$InstallDir\logs\backend-stderr.log" 2>&1 | Out-Null
+                & $nssmAct set PosIaDos-Backend AppEnvironmentExtra "NODE_ENV=production" 2>&1 | Out-Null
+                & $nssmAct set PosIaDos-Backend AppKillProcessTree 0 2>&1 | Out-Null
+                & $nssmAct set PosIaDos-Backend AppRotateFiles 1 2>&1 | Out-Null
+                & $nssmAct set PosIaDos-Backend AppRotateOnline 1 2>&1 | Out-Null
+                & $nssmAct set PosIaDos-Backend AppRotateBytes 10485760 2>&1 | Out-Null
+                # Se prende para que, si la actualizacion se cancela (ensayo,
+                # respaldo), el negocio quede vendiendo como antes de desinstalar.
+                & $nssmAct start PosIaDos-Backend 2>&1 | Out-Null
+                Write-Host "  Servicio PosIaDos-Backend: dado de alta." -ForegroundColor Green
+            }
+            netsh advfirewall firewall show rule name="POS-iaDoS Backend" 2>&1 | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+                netsh advfirewall firewall add rule name="POS-iaDoS Backend" dir=in action=allow protocol=tcp localport=$puertoAppAct 2>&1 | Out-Null
+            }
+            netsh advfirewall firewall show rule name="POS-iaDoS MariaDB" 2>&1 | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+                netsh advfirewall firewall add rule name="POS-iaDoS MariaDB" dir=in action=allow protocol=tcp localport=$puertoDbAct 2>&1 | Out-Null
+            }
+        } finally { $ErrorActionPreference = $eapAntes }
+        Write-Host ""
+    }
+
     # Las instalaciones hechas antes de v2.4.8 solo le dieron permiso al usuario
     # de la app sobre su base, y el ensayo necesita crear una pos_ensayo_*. Ya
     # paso en sitio: "Access denied for user 'pos_iados'@'localhost' to
@@ -1472,13 +1552,13 @@ Esperar-ServicioBorrado -Nombre $SVC_BACKEND | Out-Null
 & $NSSM set $SVC_BACKEND AppStdout "$InstallDir\logs\backend-stdout.log"
 & $NSSM set $SVC_BACKEND AppStderr "$InstallDir\logs\backend-stderr.log"
 & $NSSM set $SVC_BACKEND AppEnvironmentExtra "NODE_ENV=production"
-# IMPORTANTE: no matar el arbol de procesos al detener el servicio.
-# El boton "Actualizar" de la aplicacion lanza actualizar.ps1 como hijo
-# desprendido de este backend, y lo primero que hace ese script es detener
-# este mismo servicio. Con el valor de fabrica (1), nssm recorreria el arbol
-# y mataria al actualizador justo en ese momento: la actualizacion quedaria
-# a medias y tampoco correria el revertir automatico. Con 0, nssm detiene
-# unicamente el node.exe. Los node colgados los cierra actualizar.ps1 solo.
+# Pide no matar el arbol de procesos al detener el servicio. OJO: el nssm 2.24
+# que viene en tools\ no conoce este ajuste y lo rechaza ("Invalid parameter").
+# Al detener el servicio mata a todos los descendientes vivos del node. Los
+# botones de Mantenimiento (respaldar, revertir, sincronizar) detienen este
+# mismo servicio; lo que los protege es que respaldar.ps1, revertir.ps1 y
+# actualizar.ps1 se pasan a una copia fuera del servicio (bloque "Fuera del
+# servicio"), probado el 28-oct. Se deja por si algun dia el nssm lo entiende.
 & $NSSM set $SVC_BACKEND AppKillProcessTree 0
 # Rotar las bitacoras a los 10 MB. Este equipo opera sin que nadie lo mire
 # durante meses; sin rotacion estos archivos crecen hasta llenar el disco y

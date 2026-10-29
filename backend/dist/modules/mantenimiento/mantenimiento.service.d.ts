@@ -55,6 +55,7 @@ export declare class MantenimientoService {
     }): {
         trabajo: string;
         mensaje: string;
+        reinicia: boolean;
     };
     private limpiarEtiqueta;
     exportarExcel(): {
