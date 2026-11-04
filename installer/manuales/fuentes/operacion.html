@@ -5,124 +5,1178 @@
 <title>Manual de Operación POS-iaDoS</title>
 <link rel="stylesheet" href="manual.css">
 <style>
+  @page {
+    @bottom-left { content: "POS-iaDoS 2.4.8 · Manual de operación"; font: 8pt "Segoe UI", sans-serif; color: #58627a; }
+    @bottom-right { content: "Página " counter(page); font: 8pt "Segoe UI", sans-serif; color: #58627a; }
+  }
+  @page :first { @bottom-left { content: none; } @bottom-right { content: none; } }
+
+  h3 { margin: 0 0 3px; font: 600 12.5pt/1.2 Bahnschrift, "Segoe UI", sans-serif; text-wrap: balance; }
+  p { margin: 0 0 5px; }
+  .nota { color: var(--gris); font-size: 9.5pt; }
   .rol { display: inline-block; font: 600 8pt Bahnschrift, "Segoe UI", sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--gris); border: 1px solid var(--linea); border-radius: 4px; padding: 1px 6px; margin-bottom: 3px; }
+
+  /* Capitulos: cada uno empieza en hoja nueva */
+  .cap { break-before: page; }
+  .cap-cab { display: flex; align-items: center; gap: 12px; padding-bottom: 7px; margin-bottom: 5mm; border-bottom: 2px solid var(--tinta); break-after: avoid; }
+  .cap-cab .num { width: 42px; height: 42px; line-height: 42px; font-size: 20pt; flex: none; }
+  .cap-cab h2 { margin: 0; font-size: 19pt; line-height: 1.1; font-weight: 700; }
+  .cap-cab p { margin: 1px 0 0; color: var(--gris); font-size: 10pt; }
+  .sec { margin: 7mm 0 4mm; padding: 4px 10px; background: var(--tinta); color: #fff; border-radius: 6px; font: 600 13pt Bahnschrift, "Segoe UI", sans-serif; break-after: avoid; }
+  .sec:first-of-type { margin-top: 0; }
+
+  .bloque { break-inside: avoid; margin-top: 5mm; }
+  .bloque:first-child { margin-top: 0; }
+  .fila { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 6mm; align-items: start; }
+  .fila.img-ancha { grid-template-columns: minmax(0,.8fr) minmax(0,1.2fr); }
+  .fila.img-chica { grid-template-columns: minmax(0,1.5fr) minmax(0,1fr); }
+  .fila.tres { grid-template-columns: minmax(0,1fr) 34mm 34mm; }
   .trio { display: grid; grid-template-columns: minmax(0,2.6fr) minmax(0,1fr) minmax(0,1fr); gap: 4mm; align-items: start; }
-  .lado { display: grid; gap: 5mm; align-items: start; }
-  .paso + .paso { padding-top: 6mm; border-top: 1px solid var(--linea); }
-  .paso.salto { padding-top: 0; border-top: 0; }
-  .pasos.una { gap: 6mm; }
+  .apila { display: grid; gap: 4mm; align-content: start; }
+  figure + p, p + figure, ul + figure, figure + .ops { margin-top: 3mm; }
+
+  /* Listas de opciones */
+  ul.ops { list-style: none; margin: 3px 0 0; padding: 0; display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 3px 6mm; }
+  ul.ops.una { grid-template-columns: minmax(0,1fr); }
+  ul.ops li { position: relative; padding-left: 11px; font-size: 9.8pt; line-height: 1.35; }
+  ul.ops li::before { content: ""; position: absolute; left: 0; top: .55em; width: 5px; height: 5px; border-radius: 50%; background: var(--marca); }
+  ol.orden { margin: 3px 0 0; padding-left: 18px; }
+  ol.orden li { margin: 2px 0; }
+
+  /* Etiquetas de internet */
+  .tag { margin: 0 1px; vertical-align: 1px; white-space: nowrap; }
+  .tag.red { background: var(--ambar-suave); color: var(--ambar); }
+  .tag.lan { background: var(--azul-suave); color: var(--azul); }
+  .tag.ok { background: #e2f3e7; color: var(--verde); }
+
+  /* Tablas */
+  table.tabla { width: 100%; border-collapse: collapse; font-size: 9.6pt; line-height: 1.3; }
+  .tabla th { text-align: left; font: 600 8.5pt Bahnschrift, "Segoe UI", sans-serif; letter-spacing: .05em; text-transform: uppercase; color: var(--gris); background: var(--panel); padding: 5px 7px; border-bottom: 1px solid var(--linea); }
+  .tabla td { padding: 5px 7px; border-bottom: 1px solid var(--linea); vertical-align: top; }
+  .tabla tr { break-inside: avoid; }
+  .tabla td:first-child { font-weight: 600; }
+  .tabla code { white-space: nowrap; }
+  .tabla.apretada td { padding: 3.5px 7px; }
+
+  /* Portada e indice */
+  .intro { margin: 5mm 0 0; font-size: 11pt; max-width: 165mm; }
+  .indice { margin-top: 6mm; padding: 5mm 6mm; border: 1px solid var(--linea); border-radius: 8px; }
+  .indice h2 { margin: 0 0 3mm; font: 600 15pt Bahnschrift, "Segoe UI", sans-serif; }
+  .indice ol { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 10mm; }
+  .indice li { break-inside: avoid; }
+  .indice a { display: flex; align-items: baseline; gap: 6px; padding: 2.2px 0; color: var(--tinta); text-decoration: none; }
+  .indice .n { width: 20px; flex: none; font: 600 10pt Bahnschrift, "Segoe UI", sans-serif; color: var(--marca); }
+  .indice .pts { flex: 1; border-bottom: 1px dotted #9aa3b5; transform: translateY(-3px); }
+  .indice .pg { min-width: 16px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .indice li.s a { padding-left: 26px; font-size: 9.5pt; color: var(--gris); }
+  .leyenda { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 4mm; margin-top: 6mm; }
+  .leyenda .caja p { font-size: 9.5pt; }
+
+  .rutina { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 3mm; margin-top: 3mm; }
+  .rutina > div { border: 1px solid var(--linea); border-radius: 8px; padding: 8px 10px; background: var(--panel); }
+  .rutina .num { width: 26px; height: 26px; line-height: 26px; font-size: 12pt; margin-bottom: 4px; }
+  .rutina b { display: block; font: 600 11pt Bahnschrift, "Segoe UI", sans-serif; }
+  .rutina span { font-size: 9pt; color: var(--gris); }
+  .caso { margin-top: 5mm; }
+  .caja { break-inside: avoid; }
+  .sec + p { break-after: avoid; }
 </style>
 </head>
 <body>
 
+<!-- ============================ PORTADA E INDICE ============================ -->
 <header class="cabecera">
   <svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><g fill="none" stroke="#16a34a" stroke-linejoin="round"><path d="M24 4 41.3 14v20L24 44 6.7 34V14Z" stroke-width="2.6"/><path d="M24 24 6.7 14M24 24l17.3-10M24 24v20" stroke-width="1.6"/><circle cx="24" cy="24" r="3.4" fill="#fff" stroke-width="2"/></g></svg>
   <div>
-    <div class="eyebrow">POS-iaDoS · versión 2.4.8</div>
-    <h1>Operación del día</h1>
-    <p class="sub">Entrar, vender, cobrar, cerrar caja y respaldar. Los círculos rojos de cada imagen son los clics, en orden.</p>
+    <div class="eyebrow">POS-iaDoS · versión 2.4.8 · instalación en esta PC</div>
+    <h1>Manual de operación</h1>
+    <p class="sub">Todas las pantallas y opciones del sistema, cómo configurarlo y qué queda apagado sin internet.</p>
   </div>
 </header>
 
-<div class="pasos una">
-  <section class="paso">
-    <div class="num">1</div>
-    <div class="lado" style="grid-template-columns: minmax(0,1fr) minmax(0,1fr)">
-      <div>
-        <h2>Entra</h2>
-        <p>Doble clic en el ícono <b>POS-iaDoS</b> del escritorio.</p>
-        <p>Escribe tu correo y contraseña → <b>Ingresar</b>.</p>
-        <p class="nota">Los usuarios (administrador y cajero) y sus claves están en <code>C:\POS-iaDoS\CREDENCIALES.txt</code></p>
-      </div>
-      <figure class="app"><img src="img/op-login.png" alt="Entrar"></figure>
-    </div>
-  </section>
+<p class="intro">Este sistema vive completo en esta computadora: la base de datos, las pantallas y los respaldos. <b>No necesita internet para vender.</b> Las pocas funciones que sí lo necesitan están marcadas en todo el manual con la etiqueta <span class="tag red">Necesita internet</span> y reunidas en el capítulo 14.</p>
 
-  <section class="paso">
-    <div class="num">2</div>
-    <div>
-      <span class="rol">Administrador · una sola vez</span>
-      <h2>Da de alta tus productos</h2>
-      <p><b>Catálogos</b> → <b>Nuevo</b> → escribe nombre y precio → <b>Guardar</b>. Repite con cada producto.</p>
-      <div class="trio">
-        <figure class="app"><img src="img/op-catalogos.png" alt="Catálogos, botón Nuevo"><figcaption>A · Catálogos → Nuevo</figcaption></figure>
-        <figure class="app"><img src="img/op-producto.png" alt="Nombre y precio"><figcaption>B · Nombre y precio</figcaption></figure>
-        <figure class="app"><img src="img/op-guardar.png" alt="Guardar"><figcaption>C · Guardar</figcaption></figure>
-      </div>
-    </div>
-  </section>
+<!-- Los numeros de pagina del indice se escriben a mano: despues de cambiar el manual, imprimir
+     con generar-pdf.ps1, buscar en el PDF en que pagina quedo cada "Capitulo N" y "12.x" y
+     corregirlos aqui. Los enlaces del indice en el PDF ya apuntan a la pagina correcta. -->
+<nav class="indice">
+  <h2>Índice</h2>
+  <ol>
+    <li><a href="#c0"><span class="n">·</span>Antes de empezar: tu día y tu primer día<span class="pts"></span><span class="pg">2</span></a></li>
+    <li><a href="#c1"><span class="n">1</span>Entrar y moverte por el sistema<span class="pts"></span><span class="pg">3</span></a></li>
+    <li><a href="#c2"><span class="n">2</span>Caja: abrir, movimientos y cierre<span class="pts"></span><span class="pg">4</span></a></li>
+    <li><a href="#c3"><span class="n">3</span>Vender y cobrar (POS)<span class="pts"></span><span class="pg">6</span></a></li>
+    <li><a href="#c4"><span class="n">4</span>Pedidos<span class="pts"></span><span class="pg">9</span></a></li>
+    <li><a href="#c5"><span class="n">5</span>Mesas y meseros<span class="pts"></span><span class="pg">10</span></a></li>
+    <li><a href="#c6"><span class="n">6</span>Catálogos: productos y categorías<span class="pts"></span><span class="pg">11</span></a></li>
+    <li><a href="#c7"><span class="n">7</span>Inventario<span class="pts"></span><span class="pg">13</span></a></li>
+    <li><a href="#c8"><span class="n">8</span>Reportes<span class="pts"></span><span class="pg">14</span></a></li>
+    <li><a href="#c9"><span class="n">9</span>Dashboard<span class="pts"></span><span class="pg">15</span></a></li>
+    <li><a href="#c10"><span class="n">10</span>Usuarios y PIN<span class="pts"></span><span class="pg">16</span></a></li>
+    <li><a href="#c11"><span class="n">11</span>Tienda en Línea y Menú QR<span class="pts"></span><span class="pg">17</span></a></li>
+    <li><a href="#c12"><span class="n">12</span>Configuración<span class="pts"></span><span class="pg">18</span></a></li>
+    <li class="s"><a href="#c12-1">12.1 · Tienda<span class="pts"></span><span class="pg">18</span></a></li>
+    <li class="s"><a href="#c12-2">12.2 · Tickets<span class="pts"></span><span class="pg">22</span></a></li>
+    <li class="s"><a href="#c12-3">12.3 · Módulos<span class="pts"></span><span class="pg">23</span></a></li>
+    <li class="s"><a href="#c12-4">12.4 · Mantenimiento<span class="pts"></span><span class="pg">25</span></a></li>
+    <li><a href="#c13"><span class="n">13</span>Respaldos y recuperación<span class="pts"></span><span class="pg">28</span></a></li>
+    <li><a href="#c14"><span class="n">14</span>Sin internet: qué queda apagado<span class="pts"></span><span class="pg">30</span></a></li>
+    <li><a href="#c15"><span class="n">15</span>Ayuda y problemas comunes<span class="pts"></span><span class="pg">31</span></a></li>
+  </ol>
+</nav>
 
-  <section class="paso salto">
-    <div class="num">3</div>
-    <div>
-      <span class="rol">Cajero · al empezar el día</span>
-      <h2>Abre la caja</h2>
-      <p>Menú <b>Caja</b> → escribe el dinero con el que empiezas → <b>Abrir Caja</b>.</p>
-      <figure class="app"><img src="img/op-abrir-caja.png" alt="Abrir caja"></figure>
-    </div>
-  </section>
-
-  <section class="paso">
-    <div class="num">4</div>
-    <div>
-      <span class="rol">Cajero</span>
-      <h2>Vende</h2>
-      <p>Toca cada producto (otra vez para sumar piezas) → <b>Cobrar</b>.</p>
-      <figure class="app"><img src="img/op-vender.png" alt="Vender"></figure>
-    </div>
-  </section>
-
-  <section class="paso salto">
-    <div class="num">5</div>
-    <div>
-      <span class="rol">Cajero</span>
-      <h2>Cobra</h2>
-      <div class="lado" style="grid-template-columns: minmax(0,.8fr) minmax(0,1fr)">
-        <figure class="app"><img src="img/op-cobrar.png" alt="Cobrar en efectivo"></figure>
-        <div>
-          <p><b>Efectivo</b> → toca los billetes que te entrega el cliente → te muestra el <b>cambio</b> → <b>Completar Venta</b>.</p>
-          <p class="nota">Con tarjeta o transferencia: toca ese botón y completa la venta.</p>
-          <figure class="app" style="margin-top:4mm"><img src="img/op-venta-lista.png" alt="Venta completada"><figcaption>Listo: la venta queda guardada.</figcaption></figure>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="paso">
-    <div class="num">6</div>
-    <div>
-      <span class="rol">Cajero · al terminar el día</span>
-      <h2>Cierra la caja</h2>
-      <p>Menú <b>Caja</b> → cuenta el efectivo y escribe el total → <b>Cerrar Caja</b> → escribe tu <b>PIN</b>.</p>
-      <div class="lado" style="grid-template-columns: minmax(0,1.9fr) minmax(0,1fr)">
-        <figure class="app"><img src="img/op-cerrar-caja.png" alt="Cerrar caja"></figure>
-        <figure class="app"><img src="img/op-pin.png" alt="PIN para cerrar"></figure>
-      </div>
-    </div>
-  </section>
-
-  <section class="paso salto">
-    <div class="num">7</div>
-    <div>
-      <span class="rol">Administrador · cada noche</span>
-      <h2>Haz un respaldo</h2>
-      <p><b>Config</b> → <b>Mantenimiento</b> → <b>Respaldo Completo</b>.</p>
-      <figure class="app"><img src="img/op-respaldo.png" alt="Respaldo completo"></figure>
-      <figure class="app" style="margin-top:4mm"><img src="img/op-respaldo-hecho.png" alt="Último respaldo"><figcaption>Revisa que <b>Último respaldo</b> tenga la fecha y hora de hoy.</figcaption></figure>
-    </div>
-  </section>
-</div>
-
-<div class="caso">
+<div class="leyenda">
   <div class="caja">
-    <h3>¿Se fue el internet?</h3>
-    <p>Sigue vendiendo normal. El sistema vive en esta PC y no necesita internet para abrir caja, vender ni cerrar.</p>
+    <h3>Círculos rojos</h3>
+    <p>En las imágenes, los círculos rojos numerados son los clics, en orden.</p>
   </div>
-  <div class="caja alerta">
-    <h3>¿No abre el sistema?</h3>
-    <p>Reinicia la PC y espera <b>3 minutos</b> antes de abrir el ícono. Si sigue sin abrir, llama a soporte iaDoS.</p>
+  <div class="caja act">
+    <h3>Etiquetas</h3>
+    <p><span class="tag red">Necesita internet</span> no funciona sin conexión.<br><span class="tag lan">Solo en el WiFi del negocio</span> funciona en celulares y tablets conectados al mismo módem, aunque no haya internet.</p>
+  </div>
+  <div class="caja nueva">
+    <h3>Quién puede</h3>
+    <p>La etiqueta gris arriba de cada tema dice qué usuario lo hace: <span class="rol">Administrador</span> <span class="rol">Cajero</span> <span class="rol">Mesero</span></p>
   </div>
 </div>
+
+<!-- ============================ ANTES DE EMPEZAR ============================ -->
+<section class="cap" id="c0">
+  <header class="cap-cab">
+    <div class="num">·</div>
+    <div><div class="eyebrow">Antes de empezar</div><h2>Tu día y tu primer día</h2><p>Lo que se hace todos los días y lo que se configura una sola vez.</p></div>
+  </header>
+
+  <div class="bloque">
+    <span class="rol">Cajero · todos los días</span>
+    <h3>El día en cuatro pasos</h3>
+    <div class="rutina">
+      <div><div class="num">1</div><b>Abre la caja</b><span>Caja → fondo con el que empiezas → Abrir Caja. Capítulo 2.</span></div>
+      <div><div class="num">2</div><b>Vende y cobra</b><span>POS → toca productos → Cobrar. Capítulo 3.</span></div>
+      <div><div class="num">3</div><b>Cierra la caja</b><span>Caja → cuenta el efectivo → Cerrar Caja → tu PIN. Capítulo 2.</span></div>
+      <div><div class="num">4</div><b>Respalda</b><span>Config → Mantenimiento → Este equipo → Respaldo completo. Capítulo 13.</span></div>
+    </div>
+  </div>
+
+  <div class="bloque">
+    <span class="rol">Administrador · una sola vez</span>
+    <h3>Primer día: configura en este orden</h3>
+    <table class="tabla">
+      <tr><th style="width:7mm">#</th><th>Dónde</th><th>Qué haces</th><th style="width:20mm">Capítulo</th></tr>
+      <tr><td>1</td><td>Config → Tienda</td><td>Elige el <b>Tipo de negocio</b> (te deja una configuración sugerida) y sube tu logo.</td><td>12.1</td></tr>
+      <tr><td>2</td><td>Config → Tienda → Datos Generales</td><td>Nombre, dirección, teléfono, zona horaria y las opciones del carrito (cuentas abiertas, notas, devoluciones, IVA).</td><td>12.1</td></tr>
+      <tr><td>3</td><td>Config → Tienda → Modo de Servicio POS</td><td>¿Cobras en caja o atiendes mesas? ¿Pantalla de restaurante o de tienda con escáner?</td><td>12.1</td></tr>
+      <tr><td>4</td><td>Config → Tickets / Impresora</td><td>Encabezado y pie del ticket, ancho del papel, impresión automática, comandera.</td><td>12.1 y 12.2</td></tr>
+      <tr><td>5</td><td>Catálogos</td><td>Da de alta categorías y productos (con código de barras si usas pistola).</td><td>6</td></tr>
+      <tr><td>6</td><td>Inventario</td><td>Si quieres llevar existencias: activa <b>Controla</b> y captura el stock inicial.</td><td>7</td></tr>
+      <tr><td>7</td><td>Usuarios</td><td>Un usuario para cada persona, con su rol y un <b>PIN</b> de 4 dígitos.</td><td>10</td></tr>
+      <tr><td>8</td><td>Config → Mantenimiento → Configuración</td><td>Revisa el respaldo automático y activa la <b>copia a una USB o disco externo</b>.</td><td>12.4</td></tr>
+      <tr><td>9</td><td>Caja y POS</td><td>Abre la caja, haz una venta de prueba, revisa el ticket y ciérrala.</td><td>2 y 3</td></tr>
+    </table>
+    <p class="nota" style="margin-top:3mm">Si el sistema se instaló con <b>datos de demostración</b> y vas a empezar a vender de verdad, bórralos una sola vez en Config → Mantenimiento → Limpiar Demo (ver 12.4) antes del paso 5.</p>
+  </div>
+
+  <div class="caso">
+    <div class="caja">
+      <h3>Funciona sin internet</h3>
+      <p>Entrar, vender, cobrar en efectivo, tarjeta (con tu terminal) o transferencia, imprimir tickets, abrir el cajón, pesar en báscula, inventario, reportes y respaldos. Todo eso funciona con el internet apagado.</p>
+    </div>
+    <div class="caja alerta">
+      <h3>Si algo no abre</h3>
+      <p>Reinicia la PC y espera <b>3 minutos</b> antes de abrir el ícono. Si sigue igual, ve al capítulo 15.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 1. ENTRAR ============================ -->
+<section class="cap" id="c1">
+  <header class="cap-cab">
+    <div class="num">1</div>
+    <div><div class="eyebrow">Capítulo 1</div><h2>Entrar y moverte por el sistema</h2><p>Pantalla de entrada, menú lateral y quién ve cada opción.</p></div>
+  </header>
+
+  <div class="bloque fila">
+    <div>
+      <h3>Entrar</h3>
+      <p>Doble clic en el ícono <b>POS-iaDoS</b> del escritorio. Escribe tu correo y contraseña → <b>Ingresar</b>.</p>
+      <p><b>Acceso con PIN:</b> en la misma pantalla, toca <b>Acceso con PIN</b>, elige tu nombre y escribe tu PIN de 4 dígitos. Es lo más rápido para cajeros y meseros.</p>
+      <p class="nota">Los usuarios que creó el instalador y sus claves están en <code>C:\POS-iaDoS\CREDENCIALES.txt</code>. Cámbialas en Usuarios (capítulo 10) y guarda ese archivo en un lugar seguro.</p>
+    </div>
+    <figure class="app"><img src="img/op-login.png" alt="Pantalla de entrada"></figure>
+  </div>
+
+  <div class="bloque fila tres">
+    <div>
+      <h3>El menú lateral</h3>
+      <p>Cada usuario ve solo lo que le toca según su rol:</p>
+      <table class="tabla">
+        <tr><th>Rol</th><th>Ve en el menú</th></tr>
+        <tr><td>Administrador</td><td>Todo: POS, Dashboard, Pedidos, Caja, Reportes, Inventario, Catálogos, Mesas, Usuarios, Tienda en Línea, Menú QR, Config, Ayuda.</td></tr>
+        <tr><td>Gerente</td><td>POS, Dashboard, Pedidos, Caja, Reportes, Inventario, Ayuda.</td></tr>
+        <tr><td>Cajero</td><td>POS, Pedidos, Caja, Reportes, Inventario, Ayuda. Dashboard solo si se activa «Cajero puede ver Dashboard».</td></tr>
+        <tr><td>Mesero</td><td>POS, Pedidos, Ayuda.</td></tr>
+      </table>
+      <p class="nota" style="margin-top:3mm"><b>Mesas</b>, <b>Logística</b> y <b>Báscula</b> aparecen solo cuando están activadas. Báscula abre el kiosco en una ventana aparte. <b>Tenants</b>, <b>Monitor</b>, <b>Licencias</b> y <b>Conf. Especial</b> solo los ve soporte iaDoS.</p>
+      <p class="nota">El botón de arriba a la derecha del menú lo encoge para dejar más espacio a la pantalla.</p>
+    </div>
+    <figure class="app"><img src="img/m-menu-items.png" alt="Menú lateral"><figcaption>Menú del administrador.</figcaption></figure>
+    <div class="apila">
+      <figure class="app"><img src="img/m-menu-pie.png" alt="Pie del menú"><figcaption>Pie del menú.</figcaption></figure>
+    </div>
+  </div>
+
+  <div class="bloque">
+    <h3>El pie del menú</h3>
+    <ul class="ops">
+      <li><b>v2.4.8 · build</b>: la versión instalada. Te la pide soporte.</li>
+      <li><b>BD: 127.0.0.1</b>: la base de datos está en esta misma PC. API y Front <b>localhost:3000</b>: las pantallas también.</li>
+      <li><b>EXTERNO</b> (en ámbar): en esta instalación siempre sale así; es solo una etiqueta, <b>no</b> quiere decir que use internet.</li>
+      <li><b>Teclado ON/OFF</b>: muestra un teclado en pantalla para monitores táctiles. Se recuerda en cada equipo.</li>
+      <li><b>Bloquear</b>: tapa la pantalla con «¿Quién eres?». Para seguir, tocas tu nombre y escribes tu PIN. Sirve para cambiar de cajero sin cerrar sesión.</li>
+      <li><b>Salir</b>: cierra la sesión.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================ 2. CAJA ============================ -->
+<section class="cap" id="c2">
+  <header class="cap-cab">
+    <div class="num">2</div>
+    <div><div class="eyebrow">Capítulo 2</div><h2>Caja: abrir, movimientos y cierre</h2><p>Sin caja abierta el POS no cobra. Se abre al empezar el día y se cierra al terminar.</p></div>
+  </header>
+
+  <div class="bloque">
+    <span class="rol">Cajero · al empezar el día</span>
+    <h3>Abrir la caja</h3>
+    <p>Menú <b>Caja</b> → en <b>Fondo de apertura</b> escribe el efectivo con el que empiezas → <b>Abrir Caja</b>.</p>
+    <figure class="app"><img src="img/op-abrir-caja.png" alt="Abrir caja"></figure>
+    <p class="nota">Si soporte activó la caja automática, verás un solo botón: <b>Abrir Caja del Día</b>.</p>
+  </div>
+
+  <div class="bloque fila">
+    <div>
+      <span class="rol">Cajero · durante el día</span>
+      <h3>Corte X y movimientos</h3>
+      <p>Con la caja abierta, la pantalla Caja muestra el <b>Corte X</b>: ventas del turno, cuánto entró en efectivo, tarjeta y transferencia, entradas, salidas y el <b>efectivo que debe haber</b> en el cajón.</p>
+      <p><b>Registrar Movimiento</b>: para meter o sacar efectivo que no es venta (cambio, pago a un proveedor). Elige <b>Entrada</b> o <b>Salida</b>, escribe el <b>Monto</b> y el <b>Concepto</b> → <b>Registrar</b>. Queda en el corte.</p>
+    </div>
+    <div class="caja">
+      <h3>Cuando no hay caja abierta</h3>
+      <p>El POS muestra «No hay caja abierta. Abra una caja para vender.» Se puede armar el pedido, pero no cobrarlo. El mesero sí puede <b>enviar pedidos</b> a cocina sin caja; para cobrarlos alguien tiene que abrirla.</p>
+    </div>
+  </div>
+
+  <div class="bloque">
+    <span class="rol">Cajero · al terminar el día</span>
+    <h3>Cerrar la caja</h3>
+    <p>Menú <b>Caja</b> → cuenta el efectivo del cajón y escríbelo en <b>Total real en caja</b> → <b>Cerrar Caja</b> → escribe tu <b>PIN</b>.</p>
+    <div class="fila img-chica" style="grid-template-columns: minmax(0,1.9fr) minmax(0,1fr)">
+      <figure class="app"><img src="img/op-cerrar-caja.png" alt="Cerrar caja"></figure>
+      <figure class="app"><img src="img/op-pin.png" alt="PIN para cerrar"></figure>
+    </div>
+    <ul class="ops" style="margin-top:3mm">
+      <li>Sirve el PIN de cualquier usuario activo de la tienda que tenga PIN.</li>
+      <li>Si lo contado no cuadra con lo esperado, la <b>diferencia</b> (sobrante o faltante) queda guardada.</li>
+      <li>El corte de cada caja se consulta después en <b>Reportes → Cierre de Caja</b> (capítulo 8).</li>
+      <li>El cajón de dinero se configura en Config → Tienda → Cajón de dinero (12.1).</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================ 3. POS ============================ -->
+<section class="cap" id="c3">
+  <header class="cap-cab">
+    <div class="num">3</div>
+    <div><div class="eyebrow">Capítulo 3</div><h2>Vender y cobrar (POS)</h2><p>Agregar productos, cantidades, escáner, báscula, cobro, cuentas abiertas y mesas.</p></div>
+  </header>
+
+  <div class="bloque">
+    <h3>La pantalla del POS</h3>
+    <figure class="app"><img src="img/m-pos.png" alt="Pantalla del POS"></figure>
+    <ul class="ops">
+      <li><b>Buscador</b> (arriba): escribe el nombre o el SKU. También recibe la pistola lectora.</li>
+      <li><b>Categorías</b>: <b>Todos</b> y una pestaña por categoría.</li>
+      <li><b>Tarjetas de producto</b>: toca una para agregarla a la orden.</li>
+      <li><b>Orden</b> (derecha): lo que lleva el cliente, con el total y el botón <b>Cobrar</b>.</li>
+      <li><b>En sitio / Para llevar</b>: cómo se lleva el pedido. Se puede ocultar (Datos Generales).</li>
+      <li>El icono de <b>WiFi verde</b> indica que la pantalla está conectada a esta PC.</li>
+    </ul>
+  </div>
+
+  <div class="bloque">
+    <h3>Botones de arriba del POS</h3>
+    <ul class="ops">
+      <li><b>Devolver</b>: devuelve una venta. Lo ven administrador y gerente (y el cajero si se le permite) cuando está activado «Devoluciones / Reembolsos».</li>
+      <li><b>Cajón</b>: abre el cajón de dinero a mano; puede pedir PIN.</li>
+      <li><b>Apartados</b>: solo con «Inventario compartido entre tiendas» (12.3).</li>
+      <li><b>Self Order · Confirmar</b>: avisa de pedidos que llegaron por QR de mesa <span class="tag lan">Solo en el WiFi del negocio</span>.</li>
+    </ul>
+  </div>
+
+  <div class="bloque">
+    <span class="rol">Cajero</span>
+    <h3>Agregar productos</h3>
+    <figure class="app"><img src="img/op-vender.png" alt="Vender"></figure>
+    <ul class="ops">
+      <li><b>Un toque</b> = una pieza. Toca otra vez para sumar.</li>
+      <li><b>Mantén presionado</b> el producto: sale «¿Cuántas unidades?» con botones rápidos (10, 25, 50, 100; se cambian en Datos Generales).</li>
+      <li>En la orden: <b>−</b> y <b>+</b>, o escribe la cantidad.</li>
+      <li>El <b>bote de basura</b> quita esa línea; <b>Limpiar</b> vacía la orden.</li>
+      <li><b>Notas por producto</b> y <b>nota general</b> («sin cebolla») si están activadas en Datos Generales.</li>
+      <li>Productos <b>A cotizar</b>: el cajero escribe el precio al venderlos.</li>
+    </ul>
+  </div>
+
+  <div class="bloque fila">
+    <div>
+      <h3>Pistola lectora de códigos</h3>
+      <p>Actívala en Config → Tienda → Modo de Servicio POS → <b>Cobro con pistola lectora de código de barras</b>. Apunta al producto: si el código coincide con el de un producto, se agrega solo. Si no, sale «Producto no encontrado»: captura ese código en el producto (Catálogos).</p>
+      <p>Las <b>etiquetas de la báscula</b> (13 dígitos que empiezan con 2) entran con el peso y el precio impresos.</p>
+    </div>
+    <div>
+      <h3>Báscula en el POS</h3>
+      <p>Si está activado <b>Usar báscula en el POS</b> (12.1), al tocar un producto que se vende por <b>kg</b> se abre la ventana de pesado: pon el producto en la báscula, espera el peso y confirma. Entra a la orden con su peso y precio.</p>
+      <p class="nota">La báscula tiene que estar conectada a esta PC con su programa (bridge) abierto.</p>
+    </div>
+  </div>
+
+  <div class="bloque">
+    <span class="rol">Cajero</span>
+    <h3>Cobrar</h3>
+    <div class="fila" style="grid-template-columns: minmax(0,.8fr) minmax(0,1fr)">
+      <figure class="app"><img src="img/op-cobrar.png" alt="Cobrar en efectivo"></figure>
+      <div>
+        <p><b>Cobrar</b> → elige cómo paga:</p>
+        <ul class="ops una">
+          <li><b>Efectivo</b>: toca los billetes que te da el cliente; te dice el <b>cambio</b>.</li>
+          <li><b>Tarjeta</b>: cobra en tu terminal bancaria y marca Tarjeta.</li>
+          <li><b>Transfer.</b>: cuando el cliente te transfiere.</li>
+          <li><b>Mixto</b>: parte en un método y parte en otro.</li>
+          <li><b>Propina</b>: aparece si está activada (Tickets).</li>
+          <li><b>MercadoPago QR / Point y Stripe</b> <span class="tag red">Necesita internet</span>: no aparecen sin conexión.</li>
+        </ul>
+        <p style="margin-top:3mm">→ <b>Completar Venta</b>. El ticket se imprime solo si está activada la impresión automática.</p>
+        <figure class="app"><img src="img/op-venta-lista.png" alt="Venta completada"><figcaption>La venta queda guardada.</figcaption></figure>
+      </div>
+    </div>
+    <p class="nota" style="margin-top:3mm"><b>Reimprimir un ticket:</b> en la pantalla Tienda/Retail sale <b>Reimprimir Ticket</b> al terminar. En cualquier caso: Reportes → Cierre de Caja → Detalle de Ventas → icono de impresora. <b>Descuentos:</b> el POS no tiene botón de descuento; si tus precios cambian por cliente, usa «Permitir precio manual al cobrar» (12.3).</p>
+  </div>
+
+  <div class="bloque">
+    <h3>Cuentas abiertas y pre-cuenta</h3>
+    <p>Para clientes que piden y pagan al final. Se activan en Datos Generales (<b>Habilitar Cuentas Abiertas</b> y <b>Habilitar Pre-cuenta</b>).</p>
+    <ul class="ops">
+      <li>Botón <b>Cuenta</b> en la orden → <b>Mesa</b> (obligatoria), cliente, teléfono o dirección → <b>Abrir Cuenta (sin cobrar)</b> o <b>Cobrar Ahora</b>.</li>
+      <li>Botón <b>Cuentas</b> (arriba): carga una cuenta, agrégale productos con <b>Actualizar Mesa N</b>, o <b>Cobrar Mesa N</b>.</li>
+      <li><b>Pre-cuenta</b>: imprime lo consumido para que el cliente revise antes de pagar.</li>
+      <li>Si el cliente paga solo una parte, la cuenta sigue abierta con lo que falta. También se puede cancelar.</li>
+    </ul>
+  </div>
+
+  <div class="bloque">
+    <span class="rol">Mesero</span>
+    <h3>Servicio a mesa</h3>
+    <p>Con Modo de Servicio en <b>Servicio a Mesa</b>, la orden pide el número de mesa. Escribe la mesa → <b>Enviar Pedido — Mesa N</b>. La <b>comanda</b> sale sola en la impresora si la comandera está activada (12.2). Enviar no necesita caja abierta; cobrar sí. El cobro se hace en Pedidos o con <b>Cuentas</b>.</p>
+  </div>
+</section>
+
+<!-- ============================ 4. PEDIDOS ============================ -->
+<section class="cap" id="c4">
+  <header class="cap-cab">
+    <div class="num">4</div>
+    <div><div class="eyebrow">Capítulo 4</div><h2>Pedidos</h2><p>Todos los pedidos de mostrador, de mesas y de QR, con su estado.</p></div>
+  </header>
+
+  <div class="bloque">
+    <figure class="app"><img src="img/m-pedidos.png" alt="Pedidos"></figure>
+  </div>
+
+  <div class="bloque fila">
+    <div>
+      <h3>Buscar y filtrar</h3>
+      <ul class="ops una">
+        <li><b>Pendientes / Completados</b>: lo que falta atender y lo ya cerrado.</li>
+        <li><b>Buscar pedido, mesa o cliente</b>.</li>
+        <li><b>Todos los orígenes</b>: Mostrador, QR Mesa o Web.</li>
+        <li><b>Todos los estados</b>: Nuevo, Cotización, Por cobrar, Confirmado, Preparando, Listo, Enviado, Entregado, Cancelado.</li>
+        <li><b>Actualizar</b>: vuelve a leer la lista.</li>
+        <li>Cada fila tiene un botón para pasarla al <b>siguiente estado</b>.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Dentro de un pedido</h3>
+      <ul class="ops una">
+        <li><b>Confirmar al cliente</b> o <b>Rechazar</b> (pedidos de QR).</li>
+        <li><b>Iniciar Preparación</b> → <b>Marcar Listo</b>.</li>
+        <li><b>Cobrar</b> (necesita caja abierta).</li>
+        <li><b>Pre-cuenta</b> y <b>Comanda</b>: los vuelve a imprimir.</li>
+        <li><b>Asignar entrega</b>: con el módulo de Logística (12.3).</li>
+        <li><b>Cancelar pedido</b>: pide el motivo y un PIN.</li>
+        <li>Pedidos web: <b>Cotizar y enviar al POS por cobrar</b> <span class="tag red">Necesita internet</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="caja act" style="margin-top:5mm">
+    <h3>Sin internet</h3>
+    <p>Los pedidos de <b>mostrador</b> y de <b>mesa</b> funcionan igual. Los de la <b>Tienda en Línea (Web)</b> no llegan. Los de <b>QR de mesa</b> solo llegan si el cliente está conectado al WiFi del negocio.</p>
+  </div>
+</section>
+
+<!-- ============================ 5. MESAS ============================ -->
+<section class="cap" id="c5">
+  <header class="cap-cab">
+    <div class="num">5</div>
+    <div><div class="eyebrow">Capítulo 5</div><h2>Mesas y meseros</h2><p>Alta de mesas, asignación de meseros, juntar mesas y reporte por mesero.</p></div>
+  </header>
+
+  <div class="bloque">
+    <span class="rol">Administrador</span>
+    <figure class="app"><img src="img/m-mesas.png" alt="Mesas"></figure>
+  </div>
+
+  <div class="bloque fila">
+    <div>
+      <h3>Botones</h3>
+      <ul class="ops una">
+        <li><b>Nueva Mesa</b>: número, nombre, zona (terraza, salón…) y capacidad.</li>
+        <li><b>Juntar</b>: elige la mesa principal y la mesa a unir → <b>Unir Mesas</b>. Las cuentas se cobran juntas.</li>
+        <li><b>Reporte</b>: hoja imprimible con el <b>Resumen por Mesero</b> → <b>Imprimir / Guardar PDF</b>.</li>
+      </ul>
+      <h3 style="margin-top:4mm">Pestañas</h3>
+      <ul class="ops una">
+        <li><b>Por Mesa</b>: una tarjeta por mesa con <b>Cobrar</b>, su <b>QR</b> de autoservicio, editar, borrar y el selector de <b>mesero</b>.</li>
+        <li><b>Por Mesero</b>: las mesas agrupadas por mesero, y las que están «Sin mesero asignado».</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Cómo trabaja el mesero</h3>
+      <p>El mesero <b>no ve</b> el menú Mesas. Toma el pedido en el <b>POS</b>: escribe el número de mesa → <b>Enviar Pedido — Mesa N</b> (o abre una <b>Cuenta</b>). El cajero lo cobra desde Pedidos o desde Cuentas.</p>
+      <div class="caja act" style="margin-top:4mm">
+        <h3>QR de mesa</h3>
+        <p>El cliente escanea el QR de su mesa y pide desde su celular. <span class="tag lan">Solo en el WiFi del negocio</span> sin internet; con internet, desde cualquier lado.</p>
+      </div>
+      <p class="nota" style="margin-top:3mm">Si no ves el menú Mesas, pide a soporte que lo active.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 6. CATALOGOS ============================ -->
+<section class="cap" id="c6">
+  <header class="cap-cab">
+    <div class="num">6</div>
+    <div><div class="eyebrow">Capítulo 6</div><h2>Catálogos: productos y categorías</h2><p>Lo que vendes, cómo se agrupa y la materia prima que usas.</p></div>
+  </header>
+
+  <div class="bloque">
+    <span class="rol">Administrador</span>
+    <figure class="app"><img src="img/m-catalogos.png" alt="Catálogos"></figure>
+    <ul class="ops">
+      <li>Pestañas <b>Productos</b>, <b>Categorías</b> y <b>Materia Prima</b>.</li>
+      <li><b>Nuevo</b>: da de alta un producto. El <b>lápiz</b> lo edita y el <b>bote</b> lo borra.</li>
+      <li><b>CSV Template</b>: descarga la plantilla para cargar muchos productos en Excel.</li>
+      <li><b>Importar CSV</b>: sube esa plantilla ya llena.</li>
+      <li><b>Estado</b> Activo y <b>Disponible</b> En POS: el producto se ve y se vende.</li>
+      <li><b>Buscar</b>: por nombre o SKU.</li>
+    </ul>
+  </div>
+
+  <div class="bloque">
+    <h3>Alta de un producto</h3>
+    <p><b>Nuevo</b> → llena los datos → <b>Guardar</b>.</p>
+    <div class="trio">
+      <figure class="app"><img src="img/op-catalogos.png" alt="Catálogos, botón Nuevo"><figcaption>A · Catálogos → Nuevo</figcaption></figure>
+      <figure class="app"><img src="img/op-producto.png" alt="Nombre y precio"><figcaption>B · Datos del producto</figcaption></figure>
+      <figure class="app"><img src="img/op-guardar.png" alt="Guardar"><figcaption>C · Guardar</figcaption></figure>
+    </div>
+  </div>
+
+  <div class="bloque fila">
+    <div>
+      <h3>Campos del producto</h3>
+      <ul class="ops una">
+        <li><b>SKU</b> y <b>Nombre</b> (obligatorios).</li>
+        <li><b>Código de barras</b> (opcional): escanéalo con la pistola o escríbelo.</li>
+        <li><b>Descripción</b> y <b>Categoría</b>.</li>
+        <li><b>Precio</b> y <b>Costo</b>. <b>A cotizar</b>: sin precio fijo; se escribe al vender.</li>
+        <li><b>IVA %</b> (16): se usa si está activado «Manejar IVA».</li>
+        <li><b>Unidad</b>: pza, o <b>kg</b> para lo que se vende por peso (abre la báscula en el POS).</li>
+        <li><b>Disponible</b>: Visible u Oculto en el POS.</li>
+        <li>Las <b>existencias</b> no se capturan aquí: van en Inventario (capítulo 7).</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Foto del producto</h3>
+      <ul class="ops una">
+        <li><b>Subir imagen local</b>: una foto de esta PC. <span class="tag ok">Sin internet</span></li>
+        <li><b>URL de imagen</b> <span class="tag red">Necesita internet</span></li>
+        <li><b>Buscar imagen</b> <span class="tag red">Necesita internet</span></li>
+        <li><b>Generar con IA (gratis)</b> <span class="tag red">Necesita internet</span></li>
+        <li><b>Quitar fondo</b> <span class="tag red">Necesita internet</span></li>
+      </ul>
+      <p class="nota" style="margin-top:3mm">Sin internet, recorta la foto antes y súbela con <b>Subir imagen local</b>.</p>
+    </div>
+  </div>
+
+  <div class="bloque fila img-ancha">
+    <div>
+    <h3>Categorías</h3>
+    <p>Cada categoría lleva <b>nombre</b>, <b>color</b>, <b>orden</b> (en qué lugar sale en el POS), <b>imagen</b> y, si aplica, una <b>sección especial</b>. Son las pestañas de arriba del POS.</p>
+    </div>
+    <figure class="app"><img src="img/m-cat-categorias.png" alt="Categorías"></figure>
+  </div>
+
+  <div class="bloque fila img-ancha">
+    <div>
+    <h3>Materia Prima</h3>
+    <p>Insumos que compras y no vendes tal cual (carne, harina, empaques): SKU, categoría, nombre, costo, unidad (kg, g, lt, ml, pza, paq, caja), proveedor, stock actual, stock mínimo y notas.</p>
+    </div>
+    <figure class="app"><img src="img/m-cat-materia.png" alt="Materia prima"></figure>
+  </div>
+</section>
+
+<!-- ============================ 7. INVENTARIO ============================ -->
+<section class="cap" id="c7">
+  <header class="cap-cab">
+    <div class="num">7</div>
+    <div><div class="eyebrow">Capítulo 7</div><h2>Inventario</h2><p>Existencias, entradas y salidas, y carga masiva con Excel.</p></div>
+  </header>
+
+  <div class="bloque">
+    <figure class="app"><img src="img/m-inventario.png" alt="Inventario"></figure>
+  </div>
+
+  <div class="bloque fila">
+    <div>
+      <h3>Botones</h3>
+      <ul class="ops una">
+        <li><b>+ Movimiento</b>: <b>Entrada</b> (llegó mercancía), <b>Salida</b> (merma, consumo) o <b>Ajuste</b> (escribes el nuevo stock total, por ejemplo tras contar). Siempre con <b>Concepto</b>.</li>
+        <li><b>Plantilla CSV</b>: descarga el archivo con las columnas sku, stock_actual, stock_minimo y controla_stock.</li>
+        <li><b>Importar</b>: sube esa plantilla llena. Solo <b>actualiza</b> productos que ya existen (por SKU), no crea nuevos. Al final dice «X de Y productos actualizados».</li>
+        <li><b>Exportar</b>: baja el inventario a un archivo. <b>Imprimir</b>: lo imprime.</li>
+        <li>Pestañas <b>Stock</b> (existencias) y <b>Movimientos</b> (historial).</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Controlar existencias</h3>
+      <p>En cada fila: <b>+</b> registra un movimiento de ese producto y la <b>flecha</b> abre su configuración: <b>Controla</b> Sí/No y el <b>stock mínimo</b>.</p>
+      <p>Con <b>Controla = Sí</b>:</p>
+      <ul class="ops una">
+        <li>cada venta descuenta del stock;</li>
+        <li>si no alcanza, el POS no deja vender: «Stock insuficiente…»;</li>
+        <li>la fila se pinta de rojo cuando el stock llega al mínimo.</li>
+      </ul>
+      <p class="nota" style="margin-top:3mm">Para ver el stock en las tarjetas del POS: «Mostrar alerta de stock en tarjetas de producto» (Datos Generales). El inventario dual de carbón y hielo está en Config → Módulos (12.3).</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 8. REPORTES ============================ -->
+<section class="cap" id="c8">
+  <header class="cap-cab">
+    <div class="num">8</div>
+    <div><div class="eyebrow">Capítulo 8</div><h2>Reportes</h2><p>Cortes de caja, indicadores y clientes, en PDF o Excel.</p></div>
+  </header>
+
+  <div class="bloque">
+    <figure class="app"><img src="img/m-reportes.png" alt="Reportes"></figure>
+    <h3 style="margin-top:4mm">Cierre de Caja</h3>
+    <p>Elige una caja (abierta o cerrada) y ves sus totales por método de pago, gráficas, las <b>ventas en línea</b> y el <b>Detalle de Ventas</b>, con un icono por venta para <b>reimprimir el ticket</b> y otro para <b>devolverla</b> (si «Devoluciones / Reembolsos» está activado). Botones <b>Exportar PDF</b> y <b>Exportar Excel</b>.</p>
+  </div>
+
+  <div class="bloque fila img-ancha">
+    <div>
+      <h3>KPI</h3>
+      <p>Indicadores de <b>hoy</b>, la <b>semana</b> y el <b>mes</b>: ventas, tickets, ticket promedio y comparativos. Botón <b>PDF KPI</b>.</p>
+      <p class="nota">Si activas la segunda moneda (12.3) aparece también la pestaña <b>Moneda</b>.</p>
+    </div>
+    <figure class="app"><img src="img/m-reporte-kpi.png" alt="KPI"></figure>
+  </div>
+
+  <div class="bloque fila img-ancha">
+    <div>
+      <h3>Clientes</h3>
+      <p>Los clientes registrados en las ventas (con «Enlazar cliente por teléfono», Datos Generales) y lo que ha comprado cada uno. Se exporta a PDF o Excel.</p>
+    </div>
+    <figure class="app"><img src="img/m-reporte-clientes.png" alt="Reporte de clientes"></figure>
+  </div>
+</section>
+
+<!-- ============================ 9. DASHBOARD ============================ -->
+<section class="cap" id="c9">
+  <header class="cap-cab">
+    <div class="num">9</div>
+    <div><div class="eyebrow">Capítulo 9</div><h2>Dashboard</h2><p>Cómo va el negocio de un vistazo.</p></div>
+  </header>
+
+  <div class="bloque">
+    <span class="rol">Administrador · Gerente</span>
+    <figure class="app"><img src="img/m-dashboard.png" alt="Dashboard"></figure>
+  </div>
+
+  <div class="bloque">
+    <h3>Pestañas</h3>
+    <ul class="ops">
+      <li><b>Ventas</b>: total del día y tendencia.</li>
+      <li><b>Por Categoría</b> y <b>Por Presentación</b>: qué se vende más por grupo.</li>
+      <li><b>Top Productos</b>: los más vendidos.</li>
+      <li><b>Empleados</b>: ventas por cajero o mesero.</li>
+      <li><b>Self Order</b>: elige fechas → <b>Consultar</b>. Muestra pedidos por QR, encuestas y calificaciones por mesero.</li>
+      <li>El cajero lo ve solo si está activado «Cajero puede ver Dashboard» (Datos Generales).</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================ 10. USUARIOS ============================ -->
+<section class="cap" id="c10">
+  <header class="cap-cab">
+    <div class="num">10</div>
+    <div><div class="eyebrow">Capítulo 10</div><h2>Usuarios y PIN</h2><p>Una persona, un usuario. El PIN es su firma dentro del sistema.</p></div>
+  </header>
+
+  <div class="bloque">
+    <span class="rol">Administrador</span>
+    <figure class="app"><img src="img/m-usuarios.png" alt="Usuarios"></figure>
+  </div>
+
+  <div class="bloque fila img-chica">
+    <div>
+      <h3>Nuevo usuario</h3>
+      <p><b>Nuevo Usuario</b> abre un asistente de 2 pasos:</p>
+      <ol class="orden">
+        <li><b>Paso 1</b>: Nombre completo, Email, Contraseña, <b>Rol</b> (administrador, gerente, cajero o mesero) y <b>PIN</b> de 4 dígitos.</li>
+        <li><b>Paso 2</b>: la empresa y la tienda donde trabaja.</li>
+      </ol>
+      <h3 style="margin-top:4mm">Editar</h3>
+      <p>El lápiz abre sus datos. En <b>Nueva contraseña</b> escribe la nueva, o déjalo vacío para no cambiarla. Así se resuelve un «olvidé mi contraseña».</p>
+      <h3 style="margin-top:4mm">Para qué sirve el PIN</h3>
+      <ul class="ops una">
+        <li>Entrar con <b>Acceso con PIN</b>.</li>
+        <li>Desbloquear la pantalla (<b>Bloquear</b>).</li>
+        <li>Cerrar la caja.</li>
+        <li>Cancelar un pedido.</li>
+        <li>Abrir el cajón a mano (si se pide PIN).</li>
+      </ul>
+      <p class="nota" style="margin-top:3mm">Si se activa la asistencia con huella, aparece la pestaña <b>Empleados</b>; el lector va conectado a esta PC.</p>
+    </div>
+    <figure class="app"><img src="img/m-usuario-nuevo.png" alt="Nuevo usuario"></figure>
+  </div>
+</section>
+
+<!-- ============================ 11. TIENDA EN LINEA Y MENU QR ============================ -->
+<section class="cap" id="c11">
+  <header class="cap-cab">
+    <div class="num">11</div>
+    <div><div class="eyebrow">Capítulo 11</div><h2>Tienda en Línea y Menú QR</h2><p>Lo que tus clientes ven desde su celular. Necesita internet.</p></div>
+  </header>
+
+  <div class="bloque">
+    <h3>Tienda en Línea <span class="tag red">Necesita internet</span></h3>
+    <figure class="app"><img src="img/m-tienda-linea.png" alt="Tienda en línea"></figure>
+    <p style="margin-top:3mm">Tu catálogo publicado en internet con su dirección <b>.iados.store</b>. Pestañas: General (estado y subdominio), Pedidos, Diseño, Escaparate, Banners, Contacto, Promociones, Envío y Checkout → <b>Guardar cambios</b>. <b>Sin internet no funciona</b>: la tienda no se publica y sus pedidos no llegan.</p>
+  </div>
+
+  <div class="bloque fila img-chica">
+    <div>
+      <h3>Menú QR</h3>
+      <p>El menú de tu negocio en el celular del cliente, al escanear un QR.</p>
+      <ul class="ops una">
+        <li><b>Menú público para clientes</b>: lo prende o lo apaga.</li>
+        <li><b>Worker URL (internet)</b>: la dirección en internet donde se publica. <span class="tag red">Necesita internet</span></li>
+        <li><b>URL del servidor</b> y <b>Este servidor</b>: la dirección de esta PC.</li>
+        <li><b>Enlace del menú</b>: el nombre corto de tu menú.</li>
+        <li><b>Modo del menú</b> (solo consulta o con pedidos) y <b>Sincronización</b>.</li>
+        <li><b>Plantilla visual</b>: Oscuro, Claro o Mar.</li>
+        <li><b>Guardar config</b> y <b>Publicar Menú</b>.</li>
+      </ul>
+      <div class="caja act" style="margin-top:4mm">
+        <h3>Sin internet</h3>
+        <p>El menú solo abre en celulares conectados al <b>WiFi del negocio</b>, y solo si dejas vacía la Worker URL y abres el sistema con la dirección de «Red WiFi local» (12.1), no con localhost, antes de imprimir el QR.</p>
+      </div>
+    </div>
+    <figure class="app"><img src="img/m-menu-qr.png" alt="Menú QR"></figure>
+  </div>
+</section>
+
+<!-- ============================ 12. CONFIGURACION ============================ -->
+<section class="cap" id="c12">
+  <header class="cap-cab">
+    <div class="num">12</div>
+    <div><div class="eyebrow">Capítulo 12</div><h2>Configuración</h2><p>Menú <b>Config</b>. Solo el administrador.</p></div>
+  </header>
+
+  <div class="bloque">
+    <figure class="app"><img src="img/m-cf-pestanas.png" alt="Pestañas de configuración"></figure>
+    <p style="margin-top:3mm">Arriba dice qué tienda estás configurando (<b>Configurando tienda</b>); si tienes varias, cámbiala en el selector de la derecha. Cuatro pestañas: <b>Tienda</b> (12.1), <b>Tickets</b> (12.2), <b>Módulos</b> (12.3) y <b>Mantenimiento</b> (12.4). Dentro de Tienda, cada sección se abre con un clic en su título y se guarda con su propio botón <b>Guardar</b>.</p>
+  </div>
+
+  <h2 class="sec" id="c12-1">12.1 · Tienda</h2>
+
+  <div class="bloque">
+    <h3>Logo y tipo de negocio</h3>
+    <figure class="app"><img src="img/m-cf-logo-tipo.png" alt="Logo y tipo de negocio"></figure>
+    <p style="margin-top:3mm"><b>Logo de Empresa</b> → <b>Subir Logo</b>. <b>Tipo de negocio</b>: Restaurante, Cafetería / Comida rápida, Ferretería / Retail, Abarrotes / Minisuper, Farmacia o Servicios. Al elegirlo se aplica una configuración sugerida <b>solo a esta tienda</b>; después puedes cambiar cualquier opción.</p>
+  </div>
+
+  <div class="bloque fila img-ancha">
+    <div>
+      <h3>Apariencia</h3>
+      <p><b>Plantilla / Tema</b>: Default, Moderno, Elegante, Neon, Compacto o Claro. <b>Paleta</b>: Azul, Esmeralda, Púrpura, Rubí u Océano. Se aplica a toda la empresa.</p>
+    </div>
+    <figure class="app"><img src="img/m-cf-apariencia.png" alt="Apariencia"></figure>
+  </div>
+
+  <div class="bloque fila img-chica">
+    <div>
+      <h3>Conexión y Red</h3>
+      <p><b>QR de Acceso para Meseros / Cajeros</b>: para abrir el sistema en una tablet o celular. Hay una tarjeta por cada forma de llegar a esta PC:</p>
+      <ul class="ops una">
+        <li><b>localhost</b>: solo sirve en esta misma PC.</li>
+        <li><b>Red WiFi local (IP)</b>: imprime <b>este</b> QR para las tablets y celulares del negocio. <span class="tag lan">Solo en el WiFi del negocio</span></li>
+      </ul>
+      <p class="nota" style="margin-top:3mm">Sin módem o router no hay red: solo funciona esta PC.</p>
+      <h3 style="margin-top:4mm">Menú Digital QR</h3>
+      <p>Solo tiene el botón <b>Ir a Menú QR</b> (capítulo 11).</p>
+    </div>
+    <div class="apila">
+      <figure class="app"><img src="img/m-cf-red.png" alt="Conexión y red"></figure>
+      <figure class="app"><img src="img/m-cf-menu-digital.png" alt="Menú digital"></figure>
+    </div>
+  </div>
+
+  <div class="bloque">
+    <h3>Báscula de autoservicio</h3>
+    <div class="fila img-ancha">
+      <ul class="ops una">
+        <li><b>Kiosko de autoservicio</b>: pantalla para que el cliente pese su fruta o verdura, elija el producto e imprima una etiqueta con precio. Paga después en la caja escaneando la etiqueta. Se abre desde el menú <b>Báscula</b>.</li>
+        <li><b>Usar báscula en el POS</b>: al vender un producto por kg, el cajero lo pesa ahí mismo (capítulo 3).</li>
+        <li><b>Impresora de etiquetas</b>: de red (IP y puerto, normalmente 9100), etiquetadora USB Brother QL o la impresora predeterminada de Windows. Tamaño de etiqueta, por ejemplo 50x25 mm.</li>
+      </ul>
+      <figure class="app"><img src="img/m-cf-bascula.png" alt="Báscula"></figure>
+    </div>
+  </div>
+
+  <div class="bloque fila img-ancha">
+    <div>
+      <h3>Báscula que lee esta computadora</h3>
+      <ul class="ops una">
+        <li><b>Automático (recomendado)</b>: usa la báscula conectada a esta PC.</li>
+        <li><b>Solo la de esta PC</b>.</li>
+        <li><b>Apagada</b>.</li>
+        <li><b>O leer una báscula de la red</b> <span class="tag red">Necesita internet</span></li>
+      </ul>
+    </div>
+    <figure class="app"><img src="img/m-cf-bascula-pc.png" alt="Báscula de esta PC"></figure>
+  </div>
+
+  <div class="bloque fila img-ancha">
+    <div>
+      <h3>Cajón de dinero</h3>
+      <p>Explica las dos formas de conectarlo: <b>A</b> con un cable RJ11 a USB, o <b>B</b> desde la impresora de tickets.</p>
+      <ul class="ops una">
+        <li><b>Activar cajón de dinero</b>.</li>
+        <li><b>Cuándo se abre solo</b>: solo con efectivo, en toda venta, o nunca solo.</li>
+        <li><b>Pedir PIN para abrirlo a mano</b> (botón Cajón del POS).</li>
+        <li>→ <b>Guardar</b>.</li>
+      </ul>
+      <p class="nota" style="margin-top:3mm">Las dos últimas opciones aparecen después de activar el cajón.</p>
+    </div>
+    <figure class="app"><img src="img/m-cf-cajon.png" alt="Cajón de dinero"></figure>
+  </div>
+
+  <div class="bloque fila">
+    <div>
+      <h3>Datos Generales</h3>
+      <p>Nombre, Dirección, Teléfono, Email y <b>Zona Horaria</b> de la tienda. Luego, casillas que prenden funciones del POS:</p>
+      <ul class="ops una">
+        <li><b>Habilitar Cuentas Abiertas</b>: botón Cuenta en el carrito.</li>
+        <li><b>Habilitar Pre-cuenta</b>: imprimir la pre-cuenta.</li>
+        <li><b>Cajero puede ver Dashboard</b>.</li>
+        <li><b>Mostrar alerta Self Order en POS</b>: pedidos de QR por confirmar.</li>
+        <li><b>Notas por ítem en carrito</b> y <b>Nota general del pedido</b>.</li>
+        <li><b>Devoluciones / Reembolsos</b>: botón de devolución en Reportes y en el POS.</li>
+        <li><b>Datos de entrega (para llevar)</b>: nombre, teléfono y dirección.</li>
+        <li><b>Enlazar cliente por teléfono en la venta</b> (opcional al cobrar).</li>
+        <li><b>Mostrar En sitio / Para llevar</b>: qué botones salen.</li>
+        <li><b>Mostrar alerta de stock en tarjetas de producto</b>.</li>
+        <li><b>Botones de cantidad rápida</b>: por ejemplo 10,25,50,100.</li>
+        <li><b>Alertas WhatsApp (Fonnte)</b>: aviso de stock bajo. <span class="tag red">Necesita internet</span> Sin internet no se manda, pero la venta no se detiene.</li>
+        <li><b>Manejar IVA</b>: aplica el impuesto de cada producto.</li>
+      </ul>
+    </div>
+    <figure class="app"><img src="img/m-cf-general.png" alt="Datos generales"></figure>
+  </div>
+
+  <div class="bloque">
+    <h3>Modo de Servicio POS</h3>
+    <figure class="app"><img src="img/m-cf-modo.png" alt="Modo de servicio"></figure>
+    <ul class="ops" style="margin-top:3mm">
+      <li><b>Autoservicio / Caja</b>: el cajero toma el pedido y cobra al momento.</li>
+      <li><b>Servicio a Mesa</b>: el mesero manda pedidos asignados a una mesa.</li>
+      <li><b>Restaurante / Cafetería</b>: cuadrícula de productos con imágenes.</li>
+      <li><b>Tienda / Retail</b>: escáner y tabla tipo supermercado.</li>
+      <li><b>Cobro con pistola lectora de código de barras</b>: lo que se escanea entra solo al carrito.</li>
+    </ul>
+  </div>
+
+  <div class="bloque">
+    <h3>Impresora</h3>
+    <figure class="app"><img src="img/m-cf-impresora.png" alt="Impresora"></figure>
+    <p style="margin-top:3mm"><b>Modelo</b>, <b>Ancho de papel</b> (80 mm o 58 mm), <b>Copias</b> e <b>Imprimir automáticamente al completar venta</b>. La impresora tiene que estar instalada en Windows; el ticket se diseña en la pestaña Tickets (12.2).</p>
+  </div>
+
+  <div class="bloque fila">
+    <div>
+      <h3>Pasarelas de Pago <span class="tag red">Necesita internet</span></h3>
+      <p><b>MercadoPago</b> (QR y terminal Point: Access Token, Public Key, User ID, Point Device ID y comisión) y <b>Stripe</b> (Habilitado, claves y comisión). <b>Confirmación automática</b> marca la venta pagada en cuanto llega el pago.</p>
+      <div class="caja act" style="margin-top:4mm">
+        <h3>Sin internet</h3>
+        <p>Estos botones no aparecen al cobrar. Cobra con tu <b>terminal bancaria</b> y marca <b>Tarjeta</b>, o usa <b>Transferencia</b>.</p>
+      </div>
+    </div>
+    <figure class="app"><img src="img/m-cf-pagos.png" alt="Pasarelas de pago"></figure>
+  </div>
+
+  <h2 class="sec" id="c12-2">12.2 · Tickets</h2>
+  <p>Cómo se ve lo que imprime la impresora de tickets. Cambia un dato y revisa la vista previa antes de <b>Guardar</b>.</p>
+
+  <div class="bloque fila">
+    <figure class="app"><img src="img/m-tk-1-logo.png" alt="Logo y encabezado del ticket"></figure>
+    <div class="apila">
+      <div>
+        <h3>Logo, letra, encabezado y pie</h3>
+        <ul class="ops una">
+          <li><b>Logo del Ticket</b> → <b>Subir Logo</b>; centrado o a la izquierda.</li>
+          <li><b>Fuente</b> y <b>Tamaño</b> de la letra.</li>
+          <li><b>Encabezado</b>: nombre del negocio, dirección y teléfono (3 líneas).</li>
+          <li><b>Pie</b>: el mensaje de despedida.</li>
+        </ul>
+      </div>
+      <figure class="app"><img src="img/m-tk-2-papel.png" alt="Papel y conexión"></figure>
+      <div>
+        <h3>Papel y conexión</h3>
+        <ul class="ops una">
+          <li><b>Ancho</b> y <b>Columnas</b> (42 para 80 mm).</li>
+          <li><b>Navegador</b>: la impresora está instalada en esta PC (lo normal).</li>
+          <li><b>Tablet / celular por WiFi</b>: imprime directo a una impresora de red, sin PC. <span class="tag lan">Solo en el WiFi del negocio</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="bloque fila">
+    <div class="apila">
+      <figure class="app"><img src="img/m-tk-3-opciones.png" alt="Opciones del ticket"></figure>
+      <div>
+        <h3>Opciones</h3>
+        <ul class="ops una">
+          <li>Imprimir logo; mostrar fecha, cajero y folio.</li>
+          <li>Leyenda «Desarrollado por iaDoS».</li>
+          <li>Imprimir el nombre de quien atendió.</li>
+          <li><b>Activar impresión automática de ticket al cobrar</b> y número de <b>copias</b>.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="apila">
+      <figure class="app"><img src="img/m-tk-4-comandera.png" alt="Comandera, pre-cuenta y propina"></figure>
+      <div>
+        <h3>Comandera, pre-cuenta y propina</h3>
+        <ul class="ops una">
+          <li><b>Activar Comandera</b>: imprime el ticket de orden para cocina al enviar un pedido.</li>
+          <li><b>Activar botón Pre-cuenta en POS</b>.</li>
+          <li><b>Activar propina en cobro</b>: el cliente elige si deja propina.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="sec" id="c12-3">12.3 · Módulos</h2>
+  <p>Funciones extra que se prenden por empresa. Si no las usas, déjalas apagadas.</p>
+
+  <div class="bloque">
+    <h3>Perfil de negocio e inventario dual</h3>
+    <figure class="app"><img src="img/m-mod-1-perfil.png" alt="Perfil de negocio"></figure>
+    <p style="margin-top:3mm"><b>Perfil de Negocio</b>: por ejemplo <b>Carbón + Hielo</b> → <b>Activar Perfil</b>. Prende el <b>Inventario Dual</b> (carbón y hielo por separado) con su botón <b>+ Movimiento</b>.</p>
+  </div>
+
+  <div class="bloque fila img-chica">
+    <div>
+      <h3>Logística de entregas</h3>
+      <ul class="ops una">
+        <li><b>Módulo de Logística</b>: agrega el menú Logística y el botón <b>Asignar entrega</b> en Pedidos.</li>
+        <li><b>Notificaciones WhatsApp al Cliente</b> (Twilio: SID, Token, Número, Proveedor). <span class="tag red">Necesita internet</span></li>
+        <li>El enlace que sigue el repartidor en su celular. <span class="tag lan">Solo en el WiFi del negocio</span></li>
+      </ul>
+      <h3 style="margin-top:4mm">Mensajes de WhatsApp</h3>
+      <p>Debajo vienen las plantillas de los mensajes que se mandan al cliente: de entregas y de pedidos en mesa o QR. Se escriben una vez y se guardan. <span class="tag red">Necesita internet</span> para enviarse; sin internet, avísale al cliente por teléfono.</p>
+    </div>
+    <figure class="app"><img src="img/m-mod-2-logistica.png" alt="Logística"></figure>
+  </div>
+
+  <div class="bloque">
+    <h3>Configuraciones Especiales</h3>
+    <div class="fila img-ancha">
+      <ul class="ops una">
+        <li><b>Mostrar precios en menú público</b>: si lo apagas, el menú QR y la tienda en línea no muestran precios.</li>
+        <li><b>Permitir precio manual al cobrar</b>: al cobrar un pedido, el cajero escribe el precio de cada producto.</li>
+        <li><b>Notificaciones de estado al cliente</b>: el cliente del menú QR ve «En preparación» → «¡Listo para recoger!».</li>
+        <li><b>Campos del formulario de pedido</b>: qué datos se piden al cliente (nombre, teléfono, correo, dirección, empresa, notas) en QR de mesa y en tienda en línea.</li>
+        <li><b>Inventario compartido entre tiendas</b>: si una tienda no tiene stock, el POS ofrece apartarlo en otra tienda de la empresa (botón Apartados).</li>
+        <li><b>Transferencias directas entre tiendas</b>: mandar stock de una tienda a otra con folio. Primero hay que activar el inventario compartido.</li>
+      </ul>
+      <figure class="app"><img src="img/m-mod-4-especiales.png" alt="Configuraciones especiales"></figure>
+    </div>
+  </div>
+
+  <div class="bloque fila img-ancha">
+    <div>
+      <h3>Moneda</h3>
+      <p><b>Activar segunda moneda (dólar americano)</b>: el POS muestra el total también en dólares. El tipo de cambio automático <span class="tag red">Necesita internet</span>; sin internet, escríbelo a mano.</p>
+    </div>
+    <figure class="app"><img src="img/m-mod-5-moneda.png" alt="Moneda"></figure>
+  </div>
+
+  <div class="bloque fila img-ancha">
+    <div>
+      <h3>Imágenes con IA <span class="tag red">Necesita internet</span></h3>
+      <p>Para el botón <b>Generar con IA</b> de Catálogos: <b>Gratis</b> (Pollinations) u <b>OpenAI</b> (de paga, con tu clave). Sin internet no funciona; usa <b>Subir imagen local</b>.</p>
+    </div>
+    <figure class="app"><img src="img/m-mod-6-ia.png" alt="Imágenes con IA"></figure>
+  </div>
+
+  <h2 class="sec" id="c12-4">12.4 · Mantenimiento</h2>
+  <p>Respaldos, limpieza y el estado de este equipo. Las tarjetas de arriba dicen cuándo fue el <b>último respaldo</b>, su <b>estado</b>, a qué hora corre el <b>auto respaldo</b> y cuántos <b>archivos</b> hay guardados.</p>
+
+  <div class="bloque">
+    <figure class="app"><img src="img/m-mt-1-arriba.png" alt="Mantenimiento"></figure>
+    <h3 style="margin-top:4mm">Respaldo Manual (de esta tienda)</h3>
+    <ul class="ops">
+      <li><b>Respaldo BD</b>: configuración, catálogo y operación de la tienda.</li>
+      <li><b>Respaldo Excel</b>: ventas, productos e inventario en Excel.</li>
+      <li><b>Respaldo Completo</b>: los dos juntos.</li>
+      <li>Abajo, cinco pestañas: <b>Archivos</b>, <b>Configuración</b>, <b>Limpiar Demo</b>, <b>Restaurar BD</b> y <b>Este equipo</b>.</li>
+    </ul>
+  </div>
+
+  <div class="bloque fila img-ancha">
+    <div>
+      <h3>Archivos</h3>
+      <p>La lista de respaldos guardados con su tipo, fecha y tamaño. La flecha lo <b>descarga</b> (para copiarlo a una USB) y el bote lo borra.</p>
+    </div>
+    <figure class="app"><img src="img/m-mt-2-archivos.png" alt="Archivos de respaldo"></figure>
+  </div>
+
+  <div class="bloque">
+    <h3>Configuración</h3>
+    <div class="fila">
+      <figure class="app"><img src="img/m-mt-3-auto.png" alt="Respaldo automático y copia adicional"></figure>
+      <figure class="app"><img src="img/m-mt-4-nube.png" alt="Respaldo en la nube y dispositivo"></figure>
+    </div>
+    <ul class="ops" style="margin-top:3mm">
+      <li><b>Respaldo Automático</b>: prendido, la <b>hora</b> (02:00), cuántos días se guardan (7) y si incluye BD (.sql) y Excel (.xlsx).</li>
+      <li><b>Carpeta de copia adicional</b>: copia los respaldos a una USB, disco externo, OneDrive o carpeta de red. <span class="tag ok">Sin internet</span> con USB o disco.</li>
+      <li><b>Respaldo en la nube (FileBrowser)</b> → Activar envío SFTP. <span class="tag red">Necesita internet</span></li>
+      <li><b>Guardar Configuración</b> guarda todo lo anterior.</li>
+      <li><b>Dispositivo → Desvincular dispositivo</b>: quita esta PC de la tienda; al entrar de nuevo pedirá un administrador para volver a ligarla. No lo uses sin soporte.</li>
+    </ul>
+  </div>
+
+  <div class="bloque fila img-ancha">
+    <div>
+      <h3>Limpiar Demo</h3>
+      <p>Borra los <b>datos de prueba</b> de esta tienda. Marcas qué borrar: Ventas, Pedidos, Movimientos de Caja, Movimientos de Inventario y, aparte, Productos y Categorías (marcados <b>DESTRUCTIVO</b>). Escribes <b>LIMPIAR</b> → <b>Eliminar datos seleccionados</b>.</p>
+      <div class="caja alerta" style="margin-top:4mm">
+        <h3>Cuidado</h3>
+        <p>Solo para quitar el demo <b>antes</b> de empezar a vender. Lo que se borra aquí no regresa, salvo con un respaldo. Haz un respaldo completo antes.</p>
+      </div>
+    </div>
+    <figure class="app"><img src="img/m-mt-5-limpiar.png" alt="Limpiar demo"></figure>
+  </div>
+
+  <div class="bloque fila img-ancha">
+    <div>
+      <h3>Restaurar BD</h3>
+      <p>Reemplaza los datos de esta tienda con un archivo de respaldo <b>.sql</b>. Es una <b>acción destructiva</b>: lo de hoy se pierde. Para regresar todo el equipo a un respaldo usa mejor <b>Este equipo → Regresar a un respaldo</b> (capítulo 13), que antes guarda el estado de hoy.</p>
+    </div>
+    <figure class="app"><img src="img/m-mt-6-restaurar.png" alt="Restaurar BD"></figure>
+  </div>
+
+  <div class="bloque">
+    <h3>Este equipo</h3>
+    <figure class="app"><img src="img/m-eq-1-respaldar.png" alt="Este equipo y Respaldar todo"></figure>
+    <ul class="ops" style="margin-top:3mm">
+      <li>Arriba: la <b>versión</b> instalada, la anterior y la fecha; el tamaño de la base de datos, cuántas imágenes y respaldos hay y el disco libre.</li>
+      <li><b>Respaldar todo</b>: <b>Respaldo completo</b> (base de datos, imágenes, Excel y ajustes), <b>Rápido (sin Excel)</b>, <b>Sólo Excel</b> y <b>Ver ajustes activos</b>. El punto de venta se detiene unos segundos: hazlo cuando no se esté cobrando.</li>
+    </ul>
+  </div>
+
+  <div class="bloque fila img-ancha">
+    <div>
+      <h3>Imágenes y sincronizar</h3>
+      <ul class="ops una">
+        <li><b>Revisar (no cambia nada)</b>: lista las imágenes que no se ven.</li>
+        <li><b>Ajustar direcciones</b>: corrige las rutas viejas y descarga a esta PC las que viven en internet. Nunca borra una dirección. <span class="tag red">Necesita internet</span> para descargar.</li>
+        <li><b>Sincronizar el sistema → Buscar ahora</b>: baja la versión nueva. <span class="tag red">Necesita internet</span> Sin internet, actualiza con el instalador (capítulo 13).</li>
+      </ul>
+    </div>
+    <figure class="app"><img src="img/m-eq-2-imagenes-sync.png" alt="Imágenes y sincronizar"></figure>
+  </div>
+</section>
+
+<!-- ============================ 13. RESPALDOS ============================ -->
+<section class="cap" id="c13">
+  <header class="cap-cab">
+    <div class="num">13</div>
+    <div><div class="eyebrow">Capítulo 13</div><h2>Respaldos y recuperación</h2><p>Si la PC falla o algo sale mal, el respaldo es lo único que te regresa tus datos.</p></div>
+  </header>
+
+  <div class="bloque">
+    <span class="rol">Administrador · cada noche</span>
+    <h3>El respaldo de la noche</h3>
+    <p><b>Config</b> → <b>Mantenimiento</b> → <b>Este equipo</b> → <b>Respaldo completo</b>. Espera a que abajo diga <b>Último respaldo</b> con la fecha y hora de hoy.</p>
+    <figure class="app"><img src="img/op-respaldo.png" alt="Llegar a Mantenimiento"><figcaption>1 · Config → 2 · Mantenimiento. El botón 3, Respaldo Completo, respalda solo los datos de esta tienda. El de Este equipo guarda además las imágenes y los ajustes.</figcaption></figure>
+  </div>
+
+  <div class="bloque fila">
+    <div class="caja nueva">
+      <h3>Copia fuera de la PC</h3>
+      <p>Un respaldo que vive en la misma PC no sirve si la PC se descompone. Activa la <b>Carpeta de copia adicional</b> (12.4) hacia una USB o disco externo, y al menos una vez por semana llévate esa copia.</p>
+    </div>
+    <div class="caja">
+      <h3>También con doble clic</h3>
+      <p><code>C:\POS-iaDoS\RESPALDAR.bat</code> hace lo mismo que Respaldo completo, sin entrar al sistema. No borra nada y el sistema se detiene unos segundos.</p>
+    </div>
+  </div>
+
+  <div class="bloque fila img-ancha">
+    <div>
+    <h3>Regresar a un respaldo</h3>
+    <p>Config → Mantenimiento → Este equipo → <b>Regresar a un respaldo</b> → <b>Regresar aquí</b> en el respaldo que quieras. El equipo queda exactamente como estaba en ese momento. Antes de hacerlo se guarda el estado de hoy, así que también se puede deshacer.</p>
+    <p class="nota">Los respaldos que dicen <b>ensayo</b> y «Incompleto: no se puede restaurar» son pruebas que hace el instalador; no se usan para regresar.</p>
+    </div>
+    <figure class="app"><img src="img/m-eq-3-regresar.png" alt="Regresar a un respaldo"></figure>
+  </div>
+
+  <div class="bloque">
+    <h3>Los archivos de la carpeta <code>C:\POS-iaDoS</code></h3>
+    <p>Para cuando el sistema no abre o te lo pide soporte. Los que dicen «como administrador»: clic derecho → <b>Ejecutar como administrador</b>.</p>
+    <table class="tabla">
+      <tr><th style="width:42mm">Archivo</th><th>Para qué sirve</th></tr>
+      <tr><td>ESTADO.bat</td><td>Dice si el sistema y la base de datos están prendidos.</td></tr>
+      <tr><td>INICIAR.bat</td><td>Prende el sistema (como administrador).</td></tr>
+      <tr><td>DETENER.bat</td><td>Apaga el sistema.</td></tr>
+      <tr><td>RESPALDAR.bat</td><td>Respaldo completo: base de datos, imágenes, Excel y ajustes.</td></tr>
+      <tr><td>REVERTIR.bat</td><td>Regresa el sistema a un respaldo anterior (guarda antes el de hoy).</td></tr>
+      <tr><td>REVISAR.bat</td><td>Revisa el equipo y deja un reporte. Solo lee: no detiene ni borra nada.</td></tr>
+      <tr><td>DIAGNOSTICO.bat</td><td>Junta la información que necesita soporte.</td></tr>
+      <tr><td>MANTENIMIENTO.bat</td><td>Menú con todo lo anterior: respaldar, regresar, Excel, imágenes, ajustes, diagnóstico y ensayar. Nunca borra datos.</td></tr>
+      <tr><td>ENSAYAR.bat</td><td>Prueba una versión nueva contra una copia de tu base, sin tocar la real.</td></tr>
+      <tr><td>ACTUALIZAR.bat</td><td>Explica cómo actualizar y aplica un paquete de actualización.</td></tr>
+      <tr><td>DESINSTALAR.bat</td><td><b>No lo uses para actualizar.</b> Solo si soporte te lo pide.</td></tr>
+      <tr><td>CREDENCIALES.txt</td><td>Usuarios y claves iniciales. Guárdalo en un lugar seguro.</td></tr>
+    </table>
+  </div>
+
+  <div class="caja act" style="margin-top:5mm">
+    <h3>Actualizar a una versión nueva</h3>
+    <p>Corre el instalador nuevo (<b>.exe</b>) con clic derecho → <b>Ejecutar como administrador</b>, sobre la instalación que ya tienes. <b>No desinstales antes.</b> El instalador respalda todo, prueba la versión nueva contra una copia de tus datos y, si algo falla, regresa solo a la versión anterior. No se borran ventas, productos, imágenes ni ajustes.</p>
+  </div>
+</section>
+
+<!-- ============================ 14. SIN INTERNET ============================ -->
+<section class="cap" id="c14">
+  <header class="cap-cab">
+    <div class="num">14</div>
+    <div><div class="eyebrow">Capítulo 14</div><h2>Sin internet: qué queda apagado</h2><p>Esta instalación trabaja sin internet. Estas funciones se ven en pantalla pero no sirven sin conexión.</p></div>
+  </header>
+
+  <table class="tabla apretada">
+    <tr><th style="width:52mm">Función</th><th style="width:44mm">Sin internet</th><th>Qué hacer</th></tr>
+    <tr><td>Tienda en Línea (.iados.store) y sus pedidos web</td><td>No funciona. Los pedidos no llegan.</td><td>Atiende por teléfono o en mostrador.</td></tr>
+    <tr><td>Menú QR público</td><td>No abre desde la calle.</td><td>Solo en el WiFi del negocio, con la configuración del capítulo 11.</td></tr>
+    <tr><td>QR de mesa, encuestas y enlace del repartidor</td><td>Solo en el WiFi del negocio.</td><td>Que el cliente o repartidor se conecte a tu WiFi.</td></tr>
+    <tr><td>MercadoPago QR / Point y Stripe</td><td>No aparecen al cobrar.</td><td>Cobra con tu terminal bancaria (Tarjeta) o con Transferencia.</td></tr>
+    <tr><td>WhatsApp: alertas de stock (Fonnte), avisos al cliente (Twilio) y de entregas</td><td>No se mandan. La venta sigue normal.</td><td>Revisa el stock en pantalla (filas en rojo) y avisa al cliente por teléfono.</td></tr>
+    <tr><td>Respaldo en la nube (SFTP)</td><td>No sube.</td><td>Usa la Carpeta de copia adicional con una USB o disco externo.</td></tr>
+    <tr><td>Fotos: Generar con IA, Quitar fondo, Buscar imagen, URL de imagen</td><td>No funcionan.</td><td>Sube la foto con «Subir imagen local».</td></tr>
+    <tr><td>Imágenes guardadas como dirección de internet</td><td>No se ven.</td><td>Conecta internet una vez → Este equipo → Ajustar direcciones: las deja en esta PC.</td></tr>
+    <tr><td>Sincronizar el sistema y aviso de versión nueva</td><td>No encuentran nada.</td><td>Actualiza con el instalador .exe como administrador (capítulo 13).</td></tr>
+    <tr><td>Tipo de cambio automático (segunda moneda)</td><td>No se actualiza.</td><td>Escribe el tipo de cambio a mano.</td></tr>
+    <tr><td>Leer una báscula de la red</td><td>No funciona.</td><td>Conecta la báscula a esta PC y usa «Automático».</td></tr>
+  </table>
+
+  <div class="caja" style="margin-top:4mm; border-left:5px solid var(--verde)">
+      <h3 style="color:var(--verde)">Funciona al 100% sin internet</h3>
+      <ul class="ops">
+        <li>Entrar con contraseña o PIN, bloquear y cambiar de usuario.</li>
+        <li>POS: vender y cobrar en efectivo, tarjeta (terminal aparte), transferencia y mixto.</li>
+        <li>Caja: abrir, movimientos, Corte X y cierre con PIN.</li>
+        <li>Tickets, comandas, pre-cuentas y cajón de dinero.</li>
+        <li>Báscula conectada a esta PC y kiosco de autoservicio.</li>
+        <li>Pedidos de mostrador y de mesas; Mesas y meseros.</li>
+        <li>Catálogos, Inventario e importar/exportar con Excel.</li>
+        <li>Reportes, exportar a PDF/Excel y Dashboard.</li>
+        <li>Usuarios, PIN y toda la Configuración.</li>
+        <li>Respaldos, copia a USB y Regresar a un respaldo.</li>
+        <li>Ayuda y licencia: nunca pide internet ni licencia para seguir vendiendo.</li>
+      </ul>
+  </div>
+    <div class="leyenda" style="margin-top:3mm">
+      <div class="caja nueva">
+        <h3>WiFi del negocio sin internet</h3>
+        <p>Tablets y celulares en el <b>mismo módem o router</b> sí llegan a esta PC sin internet (red local). Usa el QR de «Red WiFi local» (12.1).</p>
+      </div>
+      <div class="caja">
+        <h3>Sin módem</h3>
+        <p>Si el módem está apagado o no hay router, solo funciona <b>esta PC</b>. Vende desde aquí normal.</p>
+      </div>
+      <div class="caja">
+        <h3>Cuando regresa el internet</h3>
+        <p>No tienes que hacer nada: las ventas ya están guardadas en esta PC. Las funciones de la tabla vuelven a funcionar.</p>
+      </div>
+    </div>
+</section>
+
+<!-- ============================ 15. AYUDA ============================ -->
+<section class="cap" id="c15">
+  <header class="cap-cab">
+    <div class="num">15</div>
+    <div><div class="eyebrow">Capítulo 15</div><h2>Ayuda y problemas comunes</h2><p>La guía dentro del sistema y qué hacer cuando algo no sale.</p></div>
+  </header>
+
+  <div class="bloque fila img-chica">
+    <div>
+      <h3>Menú Ayuda</h3>
+      <p>Guías por tipo de negocio: <b>Primeros pasos</b>, <b>Restaurante</b>, <b>Abarrotes</b>, <b>Albercas y químicos</b>, <b>Ferretería</b> y <b>Frutas y verduras</b>. Cada una trae los pasos, qué configurar y consejos.</p>
+    </div>
+    <figure class="app"><img src="img/m-ayuda.png" alt="Ayuda"></figure>
+  </div>
+
+  <div class="bloque">
+    <h3>Problemas comunes</h3>
+    <table class="tabla">
+      <tr><th style="width:58mm">Qué pasa</th><th>Qué hacer</th></tr>
+      <tr><td>El sistema no abre o la pantalla sale en blanco</td><td>Espera <b>3 minutos</b> después de prender la PC. Doble clic en <code>ESTADO.bat</code>. Si algo dice detenido: <code>INICIAR.bat</code> como administrador. Si sigue: <code>DIAGNOSTICO.bat</code> y manda el reporte a soporte.</td></tr>
+      <tr><td>«No hay caja abierta»</td><td>Abre la caja (capítulo 2).</td></tr>
+      <tr><td>No imprime el ticket</td><td>Revisa que la impresora esté prendida, con papel e instalada en Windows. En Tickets: «Activar impresión automática». Reimprime desde Reportes → Cierre de Caja.</td></tr>
+      <tr><td>«Stock insuficiente»</td><td>Registra una <b>Entrada</b> en Inventario, o quita «Controla» a ese producto.</td></tr>
+      <tr><td>«Producto no encontrado» al escanear</td><td>Edita el producto en Catálogos y captura su código de barras.</td></tr>
+      <tr><td>Me pide PIN y no tengo</td><td>El administrador te lo asigna en Usuarios → editar.</td></tr>
+      <tr><td>Olvidé mi contraseña</td><td>El administrador escribe una nueva en Usuarios → editar → Nueva contraseña. Si es el administrador quien la olvidó, llama a soporte.</td></tr>
+      <tr><td>La pantalla dice «¿Quién eres?»</td><td>Está bloqueada: toca tu nombre y escribe tu PIN.</td></tr>
+      <tr><td>No se ven las imágenes</td><td>Conecta internet un momento → Config → Mantenimiento → Este equipo → <b>Ajustar direcciones</b>.</td></tr>
+      <tr><td>La tablet o el celular no abre el sistema</td><td>Tiene que estar en el WiFi del negocio. Escanea el QR de «Red WiFi local» (Config → Tienda → Conexión y Red). Esta PC tiene que estar prendida.</td></tr>
+      <tr><td>Algo quedó mal después de un cambio</td><td>Este equipo → <b>Regresar a un respaldo</b> (capítulo 13).</td></tr>
+      <tr><td>Se fue el internet</td><td>Sigue vendiendo. Ver capítulo 14.</td></tr>
+      <tr><td>Hay una versión nueva</td><td>Corre el instalador .exe como administrador, sin desinstalar (capítulo 13).</td></tr>
+    </table>
+  </div>
+
+  <div class="caja alerta" style="margin-top:5mm">
+    <h3>Soporte iaDoS</h3>
+    <p>Antes de llamar, ten a la mano la <b>versión</b> (pie del menú lateral) y, si puedes, el reporte de <code>DIAGNOSTICO.bat</code>. Nunca desinstales ni borres la carpeta <code>C:\POS-iaDoS</code>: ahí están tus datos y tus respaldos.</p>
+  </div>
+</section>
 
 </body>
 </html>
