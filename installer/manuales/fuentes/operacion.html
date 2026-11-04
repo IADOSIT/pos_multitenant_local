@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Manual de Operación POS-iaDoS</title>
+<link rel="stylesheet" href="manual.css">
+<style>
+  .rol { display: inline-block; font: 600 8pt Bahnschrift, "Segoe UI", sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--gris); border: 1px solid var(--linea); border-radius: 4px; padding: 1px 6px; margin-bottom: 3px; }
+  .trio { display: grid; grid-template-columns: minmax(0,2.6fr) minmax(0,1fr) minmax(0,1fr); gap: 4mm; align-items: start; }
+  .lado { display: grid; gap: 5mm; align-items: start; }
+  .paso + .paso { padding-top: 6mm; border-top: 1px solid var(--linea); }
+  .paso.salto { padding-top: 0; border-top: 0; }
+  .pasos.una { gap: 6mm; }
+</style>
+</head>
+<body>
+
+<header class="cabecera">
+  <svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><g fill="none" stroke="#16a34a" stroke-linejoin="round"><path d="M24 4 41.3 14v20L24 44 6.7 34V14Z" stroke-width="2.6"/><path d="M24 24 6.7 14M24 24l17.3-10M24 24v20" stroke-width="1.6"/><circle cx="24" cy="24" r="3.4" fill="#fff" stroke-width="2"/></g></svg>
+  <div>
+    <div class="eyebrow">POS-iaDoS · versión 2.4.8</div>
+    <h1>Operación del día</h1>
+    <p class="sub">Entrar, vender, cobrar, cerrar caja y respaldar. Los círculos rojos de cada imagen son los clics, en orden.</p>
+  </div>
+</header>
+
+<div class="pasos una">
+  <section class="paso">
+    <div class="num">1</div>
+    <div class="lado" style="grid-template-columns: minmax(0,1fr) minmax(0,1fr)">
+      <div>
+        <h2>Entra</h2>
+        <p>Doble clic en el ícono <b>POS-iaDoS</b> del escritorio.</p>
+        <p>Escribe tu correo y contraseña → <b>Ingresar</b>.</p>
+        <p class="nota">Los usuarios (administrador y cajero) y sus claves están en <code>C:\POS-iaDoS\CREDENCIALES.txt</code></p>
+      </div>
+      <figure class="app"><img src="img/op-login.png" alt="Entrar"></figure>
+    </div>
+  </section>
+
+  <section class="paso">
+    <div class="num">2</div>
+    <div>
+      <span class="rol">Administrador · una sola vez</span>
+      <h2>Da de alta tus productos</h2>
+      <p><b>Catálogos</b> → <b>Nuevo</b> → escribe nombre y precio → <b>Guardar</b>. Repite con cada producto.</p>
+      <div class="trio">
+        <figure class="app"><img src="img/op-catalogos.png" alt="Catálogos, botón Nuevo"><figcaption>A · Catálogos → Nuevo</figcaption></figure>
+        <figure class="app"><img src="img/op-producto.png" alt="Nombre y precio"><figcaption>B · Nombre y precio</figcaption></figure>
+        <figure class="app"><img src="img/op-guardar.png" alt="Guardar"><figcaption>C · Guardar</figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="paso salto">
+    <div class="num">3</div>
+    <div>
+      <span class="rol">Cajero · al empezar el día</span>
+      <h2>Abre la caja</h2>
+      <p>Menú <b>Caja</b> → escribe el dinero con el que empiezas → <b>Abrir Caja</b>.</p>
+      <figure class="app"><img src="img/op-abrir-caja.png" alt="Abrir caja"></figure>
+    </div>
+  </section>
+
+  <section class="paso">
+    <div class="num">4</div>
+    <div>
+      <span class="rol">Cajero</span>
+      <h2>Vende</h2>
+      <p>Toca cada producto (otra vez para sumar piezas) → <b>Cobrar</b>.</p>
+      <figure class="app"><img src="img/op-vender.png" alt="Vender"></figure>
+    </div>
+  </section>
+
+  <section class="paso salto">
+    <div class="num">5</div>
+    <div>
+      <span class="rol">Cajero</span>
+      <h2>Cobra</h2>
+      <div class="lado" style="grid-template-columns: minmax(0,.8fr) minmax(0,1fr)">
+        <figure class="app"><img src="img/op-cobrar.png" alt="Cobrar en efectivo"></figure>
+        <div>
+          <p><b>Efectivo</b> → toca los billetes que te entrega el cliente → te muestra el <b>cambio</b> → <b>Completar Venta</b>.</p>
+          <p class="nota">Con tarjeta o transferencia: toca ese botón y completa la venta.</p>
+          <figure class="app" style="margin-top:4mm"><img src="img/op-venta-lista.png" alt="Venta completada"><figcaption>Listo: la venta queda guardada.</figcaption></figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="paso">
+    <div class="num">6</div>
+    <div>
+      <span class="rol">Cajero · al terminar el día</span>
+      <h2>Cierra la caja</h2>
+      <p>Menú <b>Caja</b> → cuenta el efectivo y escribe el total → <b>Cerrar Caja</b> → escribe tu <b>PIN</b>.</p>
+      <div class="lado" style="grid-template-columns: minmax(0,1.9fr) minmax(0,1fr)">
+        <figure class="app"><img src="img/op-cerrar-caja.png" alt="Cerrar caja"></figure>
+        <figure class="app"><img src="img/op-pin.png" alt="PIN para cerrar"></figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="paso salto">
+    <div class="num">7</div>
+    <div>
+      <span class="rol">Administrador · cada noche</span>
+      <h2>Haz un respaldo</h2>
+      <p><b>Config</b> → <b>Mantenimiento</b> → <b>Respaldo Completo</b>.</p>
+      <figure class="app"><img src="img/op-respaldo.png" alt="Respaldo completo"></figure>
+      <figure class="app" style="margin-top:4mm"><img src="img/op-respaldo-hecho.png" alt="Último respaldo"><figcaption>Revisa que <b>Último respaldo</b> tenga la fecha y hora de hoy.</figcaption></figure>
+    </div>
+  </section>
+</div>
+
+<div class="caso">
+  <div class="caja">
+    <h3>¿Se fue el internet?</h3>
+    <p>Sigue vendiendo normal. El sistema vive en esta PC y no necesita internet para abrir caja, vender ni cerrar.</p>
+  </div>
+  <div class="caja alerta">
+    <h3>¿No abre el sistema?</h3>
+    <p>Reinicia la PC y espera <b>3 minutos</b> antes de abrir el ícono. Si sigue sin abrir, llama a soporte iaDoS.</p>
+  </div>
+</div>
+
+</body>
+</html>

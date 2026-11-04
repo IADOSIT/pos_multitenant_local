@@ -1,0 +1,78 @@
+/* Estilo comun de los manuales en PDF (se imprimen con Chrome: generar-pdf.ps1). */
+:root {
+  --papel: #ffffff;
+  --tinta: #131a2b;
+  --gris: #58627a;
+  --linea: #d9dfea;
+  --panel: #f1f4f9;
+  --azul: #2563eb;
+  --azul-suave: #e8effd;
+  --ambar: #b45309;
+  --ambar-suave: #fdf1e1;
+  --marca: #e11d48;
+  --verde: #15803d;
+}
+@page { size: Letter; margin: 11mm 12mm 13mm; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--papel); color: var(--tinta); }
+body { font: 10.5pt/1.4 "Segoe UI", system-ui, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+h1, h2, .num, .eyebrow, .tag { font-family: Bahnschrift, "Segoe UI", sans-serif; }
+b { font-weight: 600; }
+code { font: 9.5pt Consolas, monospace; background: var(--panel); border: 1px solid var(--linea); border-radius: 4px; padding: 0 4px; white-space: nowrap; }
+
+/* Cabecera */
+.cabecera { display: flex; align-items: center; gap: 14px; padding-bottom: 10px; border-bottom: 2px solid var(--tinta); }
+.cabecera .logo { width: 46px; height: 46px; flex: none; }
+.eyebrow { font-size: 9pt; letter-spacing: .08em; text-transform: uppercase; color: var(--gris); }
+h1 { margin: 0; font-size: 25pt; line-height: 1.05; font-weight: 700; letter-spacing: -.01em; }
+.sub { margin: 2px 0 0; color: var(--gris); font-size: 11pt; }
+
+/* Pasos */
+.pasos { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 9mm 8mm; margin-top: 7mm; }
+.pasos.una { grid-template-columns: minmax(0,1fr); }
+.paso { display: grid; grid-template-columns: 34px minmax(0,1fr); gap: 10px; align-content: start; break-inside: avoid; }
+.paso.ancho { grid-column: 1 / -1; }
+.num { width: 34px; height: 34px; border-radius: 50%; background: var(--marca); color: #fff; font-size: 17pt; font-weight: 700; line-height: 34px; text-align: center; }
+.paso h2 { margin: 3px 0 2px; font-size: 14pt; line-height: 1.15; font-weight: 600; text-wrap: balance; }
+.paso p { margin: 0 0 6px; color: var(--tinta); }
+.paso .nota { color: var(--gris); font-size: 9.5pt; }
+.tag { display: inline-block; font-size: 8pt; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; border-radius: 4px; padding: 1px 6px; margin-bottom: 3px; }
+.tag.nueva { background: var(--azul-suave); color: var(--azul); }
+.tag.act { background: var(--ambar-suave); color: var(--ambar); }
+.paso.nueva .num { background: var(--azul); }
+.paso.act .num { background: var(--ambar); }
+
+figure { margin: 0; }
+figure img { display: block; max-width: 100%; height: auto; border: 1px solid var(--linea); border-radius: 6px; }
+figure.app img { border-color: #0f172a; }
+figcaption { font-size: 8.5pt; color: var(--gris); margin-top: 3px; }
+.par { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 5mm; align-items: start; }
+.par.l { grid-template-columns: minmax(0,1.15fr) minmax(0,1fr); }
+
+/* Recuadros */
+.caso { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 6mm; margin-top: 6mm; }
+.caja { border-radius: 8px; padding: 9px 12px; background: var(--panel); border: 1px solid var(--linea); }
+.caja h3 { margin: 0 0 3px; font: 600 12pt Bahnschrift, "Segoe UI", sans-serif; }
+.caja p { margin: 0; }
+.caja.nueva { background: var(--azul-suave); border-color: #c7d6fb; }
+.caja.nueva h3 { color: var(--azul); }
+.caja.act { background: var(--ambar-suave); border-color: #f3d3a8; }
+.caja.act h3 { color: var(--ambar); }
+.caja.alerta { border-left: 5px solid var(--marca); }
+.caja ul { margin: 4px 0 0; padding-left: 18px; }
+.caja li { margin: 2px 0; }
+.salto { break-before: page; }
+
+/* Ilustracion del clic derecho (no es captura) */
+.ilus { display: flex; gap: 10px; align-items: flex-start; padding: 10px; border: 1px dashed var(--linea); border-radius: 8px; background: var(--panel); }
+.archivo { width: 92px; text-align: center; font-size: 8pt; line-height: 1.2; }
+.archivo .logo { width: 40px; height: 40px; display: block; margin: 0 auto 3px; }
+.menu { background: #fff; border: 1px solid #b9bfca; box-shadow: 2px 2px 6px rgba(0,0,0,.15); font-size: 9pt; min-width: 150px; padding: 3px 0; }
+.menu div { padding: 3px 12px; }
+.menu .sel { position: relative; background: #cce4f7; outline: 3px solid var(--marca); outline-offset: -1px; }
+.menu hr { border: 0; border-top: 1px solid #e3e6eb; margin: 3px 0; }
+.uac { background: #1f3a68; color: #fff; font-size: 8.5pt; padding: 8px 10px; width: 150px; }
+.uac .bts { display: flex; gap: 6px; margin-top: 8px; }
+.uac .bts span { flex: 1; text-align: center; padding: 3px 0; background: #3c5a8c; }
+.uac .bts .si { outline: 3px solid var(--marca); background: #2d6cdf; }
+.flecha { align-self: center; font: 700 16pt Bahnschrift, sans-serif; color: var(--gris); }

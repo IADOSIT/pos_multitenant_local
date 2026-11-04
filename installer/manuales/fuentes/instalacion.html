@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Manual de Instalación POS-iaDoS</title>
+<link rel="stylesheet" href="manual.css">
+</head>
+<body>
+
+<header class="cabecera">
+  <svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><g fill="none" stroke="#16a34a" stroke-linejoin="round"><path d="M24 4 41.3 14v20L24 44 6.7 34V14Z" stroke-width="2.6"/><path d="M24 24 6.7 14M24 24l17.3-10M24 24v20" stroke-width="1.6"/><circle cx="24" cy="24" r="3.4" fill="#fff" stroke-width="2"/></g></svg>
+  <div>
+    <div class="eyebrow">POS-iaDoS · versión 2.4.8 · Windows 10 / 11</div>
+    <h1>Instalar o actualizar</h1>
+    <p class="sub">Un solo instalador para las dos cosas. No necesita internet.</p>
+  </div>
+</header>
+
+<div class="caso">
+  <div class="caja nueva">
+    <h3>Instalación nueva</h3>
+    <p>La PC nunca ha tenido POS-iaDoS. Haz los pasos con número rojo y los <b>azules</b>.</p>
+  </div>
+  <div class="caja act">
+    <h3>Actualización</h3>
+    <p>Ya tienes POS-iaDoS. Haz los pasos con número rojo y los <b>naranjas</b>. <b>No desinstales nada:</b> tus ventas, productos e imágenes se quedan.</p>
+  </div>
+</div>
+
+<div class="pasos">
+  <section class="paso">
+    <div class="num">1</div>
+    <div>
+      <h2>Abre el instalador como administrador</h2>
+      <p>Clic derecho en <code>POS-iaDoS-Local-v2.4.8.exe</code> → <b>Ejecutar como administrador</b> → <b>Sí</b>.</p>
+      <div class="ilus">
+        <div class="archivo"><svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><g fill="none" stroke="#16a34a" stroke-linejoin="round"><path d="M24 4 41.3 14v20L24 44 6.7 34V14Z" stroke-width="2.6"/><path d="M24 24 6.7 14M24 24l17.3-10M24 24v20" stroke-width="1.6"/><circle cx="24" cy="24" r="3.4" fill="#fff" stroke-width="2"/></g></svg>POS-iaDoS-Local-v2.4.8.exe</div>
+        <div class="menu"><div>Abrir</div><div class="sel">Ejecutar como administrador</div><hr><div>Propiedades</div></div>
+        <div class="flecha">→</div>
+        <div class="uac">¿Permitir que haga cambios en el equipo?<div class="bts"><span class="si">Sí</span><span>No</span></div></div>
+      </div>
+      <figcaption>Ilustración</figcaption>
+    </div>
+  </section>
+
+  <section class="paso act">
+    <div class="num">2</div>
+    <div>
+      <span class="tag act">Solo actualización</span>
+      <h2>Te avisa que ya está instalado: clic en Sí</h2>
+      <p class="nota">Primero respalda todo y prueba la versión nueva en una copia. Si la prueba falla, no cambia nada.</p>
+      <figure><img src="img/ins-aviso.png" alt="Aviso de actualización" style="width:76%"></figure>
+    </div>
+  </section>
+
+  <section class="paso">
+    <div class="num">3</div>
+    <div>
+      <h2>Acepta el acuerdo → Siguiente</h2>
+      <figure><img src="img/ins-licencia.png" alt="Acuerdo de licencia"></figure>
+    </div>
+  </section>
+
+  <section class="paso nueva">
+    <div class="num">4</div>
+    <div>
+      <span class="tag nueva">Solo instalación nueva</span>
+      <h2>Correo del administrador y nombre del negocio → Siguiente</h2>
+      <figure><img src="img/ins-negocio.png" alt="Datos del negocio"></figure>
+      <figcaption>Las claves se tapan en este manual; quedan en <code>C:\POS-iaDoS\CREDENCIALES.txt</code></figcaption>
+    </div>
+  </section>
+
+  <section class="paso">
+    <div class="num">5</div>
+    <div>
+      <h2>Menú Inicio: deja todo igual → Siguiente</h2>
+      <figure><img src="img/ins-menu.png" alt="Carpeta del menú Inicio"></figure>
+    </div>
+  </section>
+
+  <section class="paso">
+    <div class="num">6</div>
+    <div>
+      <h2>Tareas → Siguiente</h2>
+      <p><b>Datos de demostración:</b> quítale la palomita si es para tu negocio real (son productos de ejemplo). Al actualizar no cambia nada.</p>
+      <figure><img src="img/ins-tareas.png" alt="Tareas adicionales"></figure>
+    </div>
+  </section>
+
+  <section class="paso">
+    <div class="num">7</div>
+    <div>
+      <h2>Clic en Instalar</h2>
+      <figure><img src="img/ins-listo.png" alt="Listo para instalar"></figure>
+    </div>
+  </section>
+
+  <section class="paso">
+    <div class="num">8</div>
+    <div>
+      <h2>Espera de 5 a 15 minutos</h2>
+      <p>No apagues la PC ni cierres la ventana.</p>
+      <figure><img src="img/ins-instalando.png" alt="Instalando"></figure>
+    </div>
+  </section>
+
+  <section class="paso ancho">
+    <div class="num">9</div>
+    <div>
+      <h2>Termina y da Finalizar</h2>
+      <div class="par">
+        <div>
+          <span class="tag nueva">Instalación nueva</span>
+          <p>Te pregunta si ya anotaste tus claves. Ábrelas en <code>C:\POS-iaDoS\CREDENCIALES.txt</code>, guárdalas y da <b>Sí</b>.</p>
+          <figure><img src="img/ins-fin-nueva.png" alt="Pregunta de credenciales" style="width:88%"></figure>
+        </div>
+        <div>
+          <span class="tag act">Actualización</span>
+          <p>Debe decir <b>SE ACTUALIZÓ</b>. Clic en <b>Finalizar</b>.</p>
+          <figure><img src="img/ins-fin-actual.png" alt="Resultado de la actualización"></figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="paso ancho">
+    <div class="num">10</div>
+    <div>
+      <h2>Entra al sistema</h2>
+      <div class="par l">
+        <figure class="app"><img src="img/op-login.png" alt="Pantalla de entrada"></figure>
+        <div>
+          <p>Doble clic en el ícono <b>POS-iaDoS</b> del escritorio, o abre <code>http://localhost:3000</code> en el navegador.</p>
+          <p>Escribe tu correo y contraseña → <b>Ingresar</b>. Para vender, sigue el <b>Manual de operación</b>.</p>
+          <div class="caja alerta" style="margin-top:5mm">
+            <h3>Si algo sale mal</h3>
+            <ul>
+              <li>Si una actualización no se aplica, tu sistema sigue igual y funcionando. Manda a soporte <code>C:\POS-iaDoS\ULTIMA-ACTUALIZACION.txt</code></li>
+              <li>Para actualizar <b>nunca</b> desinstales: corre el instalador nuevo encima.</li>
+              <li>Regresar a la versión anterior (<code>REVERTIR.bat</code>) solo si soporte te lo pide.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+</body>
+</html>
