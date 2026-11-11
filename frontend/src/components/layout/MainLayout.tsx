@@ -11,7 +11,7 @@ import { resolveUploadUrl } from '../../api/client';
 import apiClient from '../../api/client';
 import toast from 'react-hot-toast';
 import {
-  Package, LogOut, Menu, X, Database, Lock, Truck, Scale, Store, PanelLeftClose, PanelLeftOpen, Keyboard
+  Package, LogOut, Menu, X, Database, Lock, Truck, Scale, Store, PanelLeftClose, PanelLeftOpen, Keyboard, Bike
 } from 'lucide-react';
 import { logisticaApi, basculaApi, empresasApi } from '../../api/endpoints';
 import StockAlertBanner from '../ui/StockAlertBanner';
@@ -26,6 +26,8 @@ import { iniciarVigilanciaConexion } from '../../api/conexion';
 import { useTecladoStore, tecladoHabilitado } from '../../store/teclado.store';
 import PageHeader from './PageHeader';
 import { navItems } from './navItems';
+import AsignarRepartidorModal from '../pos/AsignarRepartidorModal';
+import { useRepartidoresCtlStore } from '../../store/repartidoresCtl.store';
 
 // Título de respaldo por ruta para el header estandarizado (cuando la pantalla no fija el suyo).
 const PAGE_TITLES: Record<string, string> = {
@@ -51,6 +53,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/admin/licencias': 'Licencias',
   '/admin/perfil-negocio': 'Perfil del Negocio',
   '/ayuda': 'Ayuda',
+  '/repartidores': 'Repartidores',
 };
 
 // Rutas cuyo contenido depende de UNA tienda concreta. Para un superadmin que NO ha
@@ -61,7 +64,7 @@ const PAGE_TITLES: Record<string, string> = {
 const RUTAS_POR_TIENDA = new Set([
   '/pos', '/dashboard', '/pedidos', '/caja', '/reportes', '/inventario', '/inventario-dual',
   '/catalogos', '/logistica', '/admin/mesas', '/admin/tienda-en-linea', '/admin/menu-qr',
-  '/admin/materia-prima',
+  '/admin/materia-prima', '/repartidores',
   '/admin/productos', '/admin/categorias', '/admin/self-order', '/admin/perfil-negocio',
 ]);
 
@@ -129,7 +132,10 @@ export default function MainLayout() {
   }, []);
 
   // Load config_pos flags (de la tienda de contexto: propia o la que ve el superadmin)
+  const repartidoresCtl = useRepartidoresCtlStore((s) => s.habilitado);
   useEffect(() => {
+    // Control de Repartidores: apagado hasta confirmar que ESTA tienda lo tiene encendido.
+    useRepartidoresCtlStore.getState().apagar();
     if (tiendaCtxId) {
       import('../../api/endpoints').then(({ tiendasApi }) => {
         tiendasApi.get(tiendaCtxId).then(({ data }) => {
@@ -137,6 +143,7 @@ export default function MainLayout() {
           setCajeroDashboard(cp.cajero_dashboard_enabled || false);
           setSidebarPermisos(cp.sidebar_permisos || {});
           setMesasMenuEnabled(cp.mesas_menu_enabled !== false);
+          useRepartidoresCtlStore.getState().setDesdeConfig(cp);
         }).catch(() => {});
       });
     }
@@ -227,9 +234,24 @@ export default function MainLayout() {
     roles: ['superadmin', 'admin', 'manager', 'cajero'],
     badge: false,
   };
-  const withLogistica = logisticaEnabled && user && logisticaNavItem.roles.includes(user.rol)
+  const conLogistica = logisticaEnabled && user && logisticaNavItem.roles.includes(user.rol)
     ? [...baseFiltered.slice(0, 6), logisticaNavItem, ...baseFiltered.slice(6)]
     : baseFiltered;
+
+  // Repartidores (tablero y liquidaciones): solo en la tienda donde el superadmin lo
+  // encendio (Configuracion > Conf. Especial). Va junto a Logistica si esta visible.
+  const repartidoresNavItem = {
+    to: '/repartidores', icon: Bike, label: 'Repartidores',
+    roles: ['superadmin', 'admin', 'manager', 'cajero'],
+    badge: false,
+  };
+  const withLogistica = repartidoresCtl && user && repartidoresNavItem.roles.includes(user.rol)
+    ? (() => {
+      const iLog = conLogistica.findIndex((n) => n.to === '/logistica');
+      const pos = iLog >= 0 ? iLog + 1 : Math.min(6, conLogistica.length);
+      return [...conLogistica.slice(0, pos), repartidoresNavItem, ...conLogistica.slice(pos)];
+    })()
+    : conLogistica;
 
   // Bascula: se abre en ventana aparte (popup), no navega dentro del SPA — el cliente
   // se autodespacha ahi sin tocar el resto del sistema.
@@ -498,6 +520,9 @@ export default function MainLayout() {
       {/* Teclado en pantalla: unico para todas las pantallas internas del POS
           (con la sesion bloqueada manda el PIN de LockScreen, que trae el suyo) */}
       {!isLocked && <TecladoPantalla />}
+
+      {/* Control de Repartidores: tras cobrar, pregunta quien lleva el pedido (solo si la tienda lo tiene) */}
+      {repartidoresCtl && !isLocked && tiendaCtxId && <AsignarRepartidorModal tiendaId={tiendaCtxId} />}
 
       {/* Lock screen overlay */}
       {isLocked && <LockScreen />}

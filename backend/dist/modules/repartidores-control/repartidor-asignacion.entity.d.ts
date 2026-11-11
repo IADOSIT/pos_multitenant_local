@@ -1,0 +1,30 @@
+export declare class RepartidorAsignacion {
+    id: number;
+    tenant_id: number;
+    empresa_id: number;
+    tienda_id: number;
+    repartidor_id: number;
+    repartidor_nombre: string;
+    venta_id: number;
+    pedido_id: number | null;
+    folio: string;
+    numero_orden: number | null;
+    productos: string | null;
+    cliente_nombre: string | null;
+    cliente_direccion: string | null;
+    total: number;
+    metodo_pago: string | null;
+    efectivo: number;
+    fecha_venta: Date | null;
+    estado: string;
+    origen: string;
+    asignado_por_id: number | null;
+    asignado_por_nombre: string | null;
+    liquidacion_id: number | null;
+    motivo: string | null;
+    cerrado_por_id: number | null;
+    cerrado_por_nombre: string | null;
+    cerrado_at: Date | null;
+    created_at: Date;
+    updated_at: Date;
+}

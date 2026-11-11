@@ -18,6 +18,7 @@ const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const tienda_entity_1 = require("./tienda.entity");
 const user_entity_1 = require("../users/user.entity");
+const SOLO_SUPERADMIN_CONFIG_POS = ['repartidores_control_enabled', 'repartidores_preguntar'];
 let TiendasService = class TiendasService {
     constructor(repo) {
         this.repo = repo;
@@ -59,8 +60,12 @@ let TiendasService = class TiendasService {
         }
         return saved;
     }
-    async update(id, data) {
+    async update(id, data, scope) {
         const { id: _id, created_at, updated_at, ...clean } = data;
+        if (scope && scope.rol !== 'superadmin' && clean.config_pos && typeof clean.config_pos === 'object') {
+            for (const k of SOLO_SUPERADMIN_CONFIG_POS)
+                delete clean.config_pos[k];
+        }
         if (clean.config_pos !== undefined) {
             const existing = await this.repo.findOne({ where: { id } });
             if (existing?.config_pos) {

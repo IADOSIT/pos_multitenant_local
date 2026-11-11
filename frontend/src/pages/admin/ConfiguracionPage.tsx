@@ -9,7 +9,7 @@ import { useAuthStore } from '../../store/auth.store';
 import TicketsConfig from './TicketsConfig';
 import { useThemeStore, ThemeName, PaletteName } from '../../store/theme.store';
 import toast from 'react-hot-toast';
-import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Download, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers, TrendingUp, DollarSign, Truck, X, Scale, Search, Sparkles, Banknote } from 'lucide-react';
+import { Settings, Store, Monitor, Printer, Save, Plus, Edit2, Trash2, ChevronDown, ChevronUp, Upload, Download, Building2, Palette, LayoutGrid, Wifi, Copy, Check, QrCode, RefreshCw, Globe, Clock, AlertTriangle, Loader2, ExternalLink, Key, CreditCard, Smartphone, Eye, EyeOff, Layers, TrendingUp, DollarSign, Truck, X, Scale, Search, Sparkles, Banknote, Bike } from 'lucide-react';
 import MantenimientoPage from './MantenimientoPage';
 import LicenciasAdmin from './LicenciasAdmin';
 import PerfilNegocioPage from './PerfilNegocioPage';
@@ -249,6 +249,8 @@ export default function ConfiguracionPage() {
     // Conf. Especial (solo superadmin)
     caja_auto_enabled: false,
     caja_ocultar_ui: false,
+    repartidores_control_enabled: false,
+    repartidores_preguntar: 'todas',
     dashboard_ventas_enabled: true,
     dashboard_selforder_enabled: true,
     dashboard_categorias_enabled: false,
@@ -511,6 +513,8 @@ export default function ConfiguracionPage() {
       impresora_copias: ci.copias || 1,
       caja_auto_enabled: cp.caja_auto_enabled || false,
       caja_ocultar_ui: cp.caja_ocultar_ui || false,
+      repartidores_control_enabled: cp.repartidores_control_enabled === true,
+      repartidores_preguntar: cp.repartidores_preguntar === 'para_llevar' ? 'para_llevar' : 'todas',
       dashboard_ventas_enabled: cp.dashboard_ventas_enabled !== false,
       dashboard_selforder_enabled: cp.dashboard_selforder_enabled !== false,
       dashboard_categorias_enabled: cp.dashboard_categorias_enabled || false,
@@ -585,6 +589,8 @@ export default function ConfiguracionPage() {
           iva_incluido: form.iva_incluido,
           caja_auto_enabled: form.caja_auto_enabled,
           caja_ocultar_ui: form.caja_ocultar_ui,
+          repartidores_control_enabled: form.repartidores_control_enabled,
+          repartidores_preguntar: form.repartidores_preguntar,
           dashboard_ventas_enabled: form.dashboard_ventas_enabled,
           dashboard_selforder_enabled: form.dashboard_selforder_enabled,
           dashboard_categorias_enabled: form.dashboard_categorias_enabled,
@@ -668,6 +674,7 @@ export default function ConfiguracionPage() {
       modo_servicio: 'autoservicio', pos_layout: 'restaurante', tipo_cobro_mesa: 'post_pago', num_mesas: 20, self_order_enabled: false, self_order_url: '', habilitar_cuenta_abierta: false, mostrar_so_pendiente_en_pos: false, devoluciones_enabled: false, devoluciones_rol: 'admin', notas_por_item: false, notas_rapidas: '', notas_pedido_enabled: false, datos_envio_enabled: false, cliente_venta_enabled: false, en_sitio_visible: true, para_llevar_visible: true, pos_stock_badge_enabled: false, escaner_habilitado: false, cajero_dashboard_enabled: false, precuenta_enabled: false, cantidades_rapidas: '10,25,50,100', whatsapp_enabled: false, whatsapp_phone: '', whatsapp_token: '',
       impresora_modelo: '', impresora_ancho: 80, impresora_auto_print: false, impresora_copias: 1,
       caja_auto_enabled: false, caja_ocultar_ui: false,
+      repartidores_control_enabled: false, repartidores_preguntar: 'todas',
       dashboard_ventas_enabled: true, dashboard_selforder_enabled: true,
       dashboard_categorias_enabled: false, dashboard_drill_down_enabled: false,
       dashboard_unidad_enabled: false, dashboard_top_productos_enabled: false,
@@ -1456,6 +1463,44 @@ export default function ConfiguracionPage() {
                     <p className="text-xs text-slate-500">Los cajeros/meseros no ven la opción Caja en el sidebar</p>
                   </div>
                 </label>
+              </div>
+
+              {/* ── Sección Control de Repartidores (por tienda, solo superadmin) ── */}
+              <div className="card space-y-3">
+                <h3 className="font-bold text-sm flex items-center gap-2"><Bike size={16} className="text-amber-400" /> Control de Repartidores</h3>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" checked={form.repartidores_control_enabled}
+                    onChange={(e) => setForm({ ...form, repartidores_control_enabled: e.target.checked })}
+                    className="w-5 h-5 accent-iados-primary" />
+                  <div>
+                    <span className="text-sm font-medium">Activar control y liquidación de repartidores en esta tienda</span>
+                    <p className="text-xs text-slate-500">
+                      Después de cobrar, la caja pregunta qué repartidor lleva el pedido (se escanea el QR de su gafete).
+                      Aparece la opción «Repartidores» en el menú: cuánto debe cada uno, liquidaciones e historial.
+                      El cobro no cambia y las demás tiendas no ven nada.
+                    </p>
+                  </div>
+                </label>
+                {form.repartidores_control_enabled && (
+                  <div className="pl-8 space-y-2">
+                    <span className="text-xs text-slate-400 block">¿En qué ventas preguntar por el repartidor?</span>
+                    {([
+                      ['todas', 'En todas las ventas', 'Si el pedido no sale a domicilio, el cajero oprime Esc o «Sin repartidor».'],
+                      ['para_llevar', 'Solo en ventas «Para llevar»', 'Las ventas «En sitio» se cobran como siempre, sin preguntar.'],
+                    ] as const).map(([valor, titulo, desc]) => (
+                      <label key={valor} className="flex items-start gap-3 cursor-pointer">
+                        <input type="radio" name="repartidores_preguntar" value={valor}
+                          checked={form.repartidores_preguntar === valor}
+                          onChange={() => setForm({ ...form, repartidores_preguntar: valor })}
+                          className="w-4 h-4 mt-0.5 accent-iados-primary" />
+                        <div>
+                          <span className="text-sm">{titulo}</span>
+                          <p className="text-xs text-slate-500">{desc}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* ── Sección Dashboard ── */}

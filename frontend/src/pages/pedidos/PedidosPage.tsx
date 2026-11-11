@@ -5,6 +5,7 @@ import { useAuthStore } from '../../store/auth.store';
 import { useNotificaciones } from '../../hooks/useNotificaciones';
 import { printTicket, printComanda } from '../../utils/printTicket';
 import { resolveUploadUrl } from '../../api/client';
+import { avisarVentaCobrada } from '../../utils/ventaCobrada';
 import toast from 'react-hot-toast';
 import { ClipboardList, XCircle, RefreshCw, Ban, Truck } from 'lucide-react';
 import { ecommerceApi, tiendasApi } from '../../api/endpoints';
@@ -242,6 +243,10 @@ export default function PedidosPage() {
       setShowCobrar(false);
       setSelected(null);
       load();
+      avisarVentaCobrada({
+        venta_id: data.venta?.id, folio: data.venta?.folio, total: data.venta?.total,
+        tipo_servicio: selected.tipo_servicio, pedido_id: selected.id,
+      });
     } catch (e: any) { toast.error(e.response?.data?.message || 'Error al cobrar'); }
     finally { setLoading(false); }
   };

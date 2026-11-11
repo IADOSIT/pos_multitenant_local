@@ -39,6 +39,7 @@ const InventarioDualPage = lazy(() => import('./pages/inventario/InventarioDualP
 const PerfilNegocioPage = lazy(() => import('./pages/admin/PerfilNegocioPage'));
 const ActivarLicenciaPage = lazy(() => import('./pages/ActivarLicenciaPage'));
 const LogisticaPage = lazy(() => import('./pages/logistica/LogisticaPage'));
+const RepartidoresPage = lazy(() => import('./pages/repartidores/RepartidoresPage'));
 const RepartidorPage = lazy(() => import('./pages/public/RepartidorPage'));
 const BiometricoLivePage = lazy(() => import('./pages/public/BiometricoLivePage'));
 const AyudaPage = lazy(() => import('./pages/ayuda/AyudaPage'));
@@ -149,6 +150,11 @@ export default function App() {
           <Route path="logistica" element={
             <PrivateRoute roles={['superadmin', 'admin', 'manager', 'cajero']}>
               <LogisticaPage />
+            </PrivateRoute>
+          } />
+          <Route path="repartidores" element={
+            <PrivateRoute roles={['superadmin', 'admin', 'manager', 'cajero']}>
+              <RepartidoresPage />
             </PrivateRoute>
           } />
           <Route path="ayuda" element={<AyudaPage />} />

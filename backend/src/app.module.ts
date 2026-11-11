@@ -44,6 +44,7 @@ import { MantenimientoModule } from './modules/mantenimiento/mantenimiento.modul
 import { ApartadosModule } from './modules/apartados/apartados.module';
 import { TransferenciasModule } from './modules/transferencias/transferencias.module';
 import { MonitorModule } from './modules/monitor/monitor.module';
+import { RepartidoresControlModule } from './modules/repartidores-control/repartidores-control.module';
 
 // En SERVER LOCAL/EXTERNO: servir desde frontend/dist-prod (build con plantillas).
 // En SERVER OFFLINE (exe instalado): dist-prod no existe → cae a backend/public.
@@ -104,6 +105,7 @@ const _serveStatic = existsSync(_staticRoot);
     ApartadosModule,
     TransferenciasModule,
     MonitorModule,
+    RepartidoresControlModule,
   ],
   providers: [SchemaSyncService],
 })

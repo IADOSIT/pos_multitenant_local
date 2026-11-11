@@ -24,7 +24,7 @@ export class TiendasController {
 
   @Put(':id')
   @Roles('superadmin', 'admin')
-  update(@Param('id', ParseIntPipe) id: number, @Body() data: any) { return this.service.update(id, data); }
+  update(@Param('id', ParseIntPipe) id: number, @Body() data: any, @TenantScope() scope) { return this.service.update(id, data, scope); }
 
   @Delete(':id')
   @Roles('superadmin', 'admin')

@@ -53,6 +53,7 @@ const mantenimiento_module_1 = require("./modules/mantenimiento/mantenimiento.mo
 const apartados_module_1 = require("./modules/apartados/apartados.module");
 const transferencias_module_1 = require("./modules/transferencias/transferencias.module");
 const monitor_module_1 = require("./modules/monitor/monitor.module");
+const repartidores_control_module_1 = require("./modules/repartidores-control/repartidores-control.module");
 const _distProd = (0, path_1.join)(process.cwd(), '..', 'frontend', 'dist-prod');
 const _staticRoot = (0, fs_1.existsSync)(_distProd)
     ? _distProd
@@ -113,6 +114,7 @@ exports.AppModule = AppModule = __decorate([
             apartados_module_1.ApartadosModule,
             transferencias_module_1.TransferenciasModule,
             monitor_module_1.MonitorModule,
+            repartidores_control_module_1.RepartidoresControlModule,
         ],
         providers: [schema_sync_service_1.SchemaSyncService],
     })

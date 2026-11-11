@@ -26,7 +26,7 @@ let TiendasController = class TiendasController {
     findAll(scope) { return this.service.findAll(scope); }
     findOne(id) { return this.service.findOne(id); }
     create(data) { return this.service.create(data); }
-    update(id, data) { return this.service.update(id, data); }
+    update(id, data, scope) { return this.service.update(id, data, scope); }
     delete(id) { return this.service.remove(id); }
 };
 exports.TiendasController = TiendasController;
@@ -58,8 +58,9 @@ __decorate([
     (0, roles_decorator_1.Roles)('superadmin', 'admin'),
     __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),
     __param(1, (0, common_1.Body)()),
+    __param(2, (0, tenant_decorator_1.TenantScope)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number, Object]),
+    __metadata("design:paramtypes", [Number, Object, Object]),
     __metadata("design:returntype", void 0)
 ], TiendasController.prototype, "update", null);
 __decorate([

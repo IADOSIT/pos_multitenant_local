@@ -4,6 +4,9 @@ import { Repository } from 'typeorm';
 import { Tienda } from './tienda.entity';
 import { UserRole } from '../users/user.entity';
 
+// Llaves de config_pos reservadas al superadmin (Control de Repartidores).
+const SOLO_SUPERADMIN_CONFIG_POS = ['repartidores_control_enabled', 'repartidores_preguntar'];
+
 @Injectable()
 export class TiendasService {
   constructor(@InjectRepository(Tienda) private repo: Repository<Tienda>) {}
@@ -48,8 +51,14 @@ export class TiendasService {
     return saved;
   }
 
-  async update(id: number, data: Partial<Tienda>) {
+  async update(id: number, data: Partial<Tienda>, scope?: any) {
     const { id: _id, created_at, updated_at, ...clean } = data as any;
+
+    // Interruptores que solo el superadmin puede mover (Conf. Especial). Si los manda
+    // otro rol se ignoran y se conserva lo que ya tenia la tienda.
+    if (scope && scope.rol !== 'superadmin' && clean.config_pos && typeof clean.config_pos === 'object') {
+      for (const k of SOLO_SUPERADMIN_CONFIG_POS) delete clean.config_pos[k];
+    }
 
     // Merge config_pos y config_impresora en lugar de reemplazar.
     // Evita que un guardado parcial borre configuraciones que no estaban en el form.

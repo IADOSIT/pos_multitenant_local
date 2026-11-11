@@ -5,7 +5,7 @@ export declare class TiendasController {
     findAll(scope: any): Promise<import("./tienda.entity").Tienda[]>;
     findOne(id: number): Promise<import("./tienda.entity").Tienda | null>;
     create(data: any): Promise<import("./tienda.entity").Tienda>;
-    update(id: number, data: any): Promise<import("./tienda.entity").Tienda | null>;
+    update(id: number, data: any, scope: any): Promise<import("./tienda.entity").Tienda | null>;
     delete(id: number): Promise<{
         deleted: boolean;
     }>;

@@ -7,7 +7,7 @@ export declare class TiendasService {
     findAll(scope: any): Promise<Tienda[]>;
     findOne(id: number): Promise<Tienda | null>;
     create(data: Partial<Tienda>): Promise<Tienda>;
-    update(id: number, data: Partial<Tienda>): Promise<Tienda | null>;
+    update(id: number, data: Partial<Tienda>, scope?: any): Promise<Tienda | null>;
     remove(id: number): Promise<{
         deleted: boolean;
     }>;

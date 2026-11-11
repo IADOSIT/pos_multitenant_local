@@ -8,6 +8,7 @@ import { guardarConfigTicket, configTicketCache, ticketOfflineRaw } from '../../
 import { abrirCajon, debeAbrirPorVenta } from '../../api/puenteLocal';
 import { printTicket } from '../../utils/printTicket';
 import { money } from '../../utils/money';
+import { avisarVentaCobrada } from '../../utils/ventaCobrada';
 import toast from 'react-hot-toast';
 import { X, DollarSign, CreditCard, ArrowRightLeft, Banknote, Printer, ShoppingBag, Wifi, Smartphone, RotateCw, CheckCircle2, XCircle } from 'lucide-react';
 
@@ -424,6 +425,10 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
           // Modo restaurante (no inline): sin pantalla de confirmacion, regresa directo al POS.
           // Modo inline (retail): breve tarjeta que se autocierra sola (ver efecto mas abajo).
           if (inline) setVentaCompletada(data.venta); else onClose();
+          avisarVentaCobrada({
+            venta_id: data.venta?.id, folio: data.venta?.folio, total: data.venta?.total,
+            tipo_servicio: pedido.tipo_servicio, pedido_id: pedido.id,
+          });
         }
       } else {
         // ── Modo carrito: venta directa ──
@@ -439,6 +444,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
             toast.success(`Venta ${data.folio} completada`);
             clearCart();
             if (inline) setVentaCompletada(data); else onClose();
+            avisarVentaCobrada({ venta_id: data.id, folio: data.folio, total: data.total, tipo_servicio: tipoServicio });
           }
         } else {
           const folio = await offlineActions.saveVentaOffline(ventaData);
@@ -450,6 +456,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
             toast.success(`Venta offline ${folio} guardada`);
             clearCart();
             if (inline) setVentaCompletada({ folio_offline: folio, total }); else onClose();
+            avisarVentaCobrada({ folio_offline: folio, total, tipo_servicio: tipoServicio });
           }
         }
       }
@@ -469,6 +476,7 @@ export default function PayModal({ onClose, isOnline, pedido, cajaManaged, inlin
           toast('Guardada offline por error de red', { icon: '📡' });
           clearCart();
           if (inline) setVentaCompletada({ folio_offline: folio, total }); else onClose();
+          avisarVentaCobrada({ folio_offline: folio, total, tipo_servicio: tipoServicio });
         }
       } else {
         toast.error(err.response?.data?.message || 'Error al procesar pago');

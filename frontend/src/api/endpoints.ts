@@ -406,6 +406,27 @@ export const logisticaApi = {
     api.patch(`/public/logistica/${token}/entrega/${entrega_id}`, { estado, notas }),
 };
 
+// Control y Liquidacion de Repartidores (opcional por tienda; lo habilita el superadmin)
+export const repartidoresCtlApi = {
+  estado: () => api.get('/repartidores-control/estado'),
+  repartidores: () => api.get('/repartidores-control/repartidores'),
+  crearRepartidor: (data: { nombre: string; telefono?: string }) => api.post('/repartidores-control/repartidores', data),
+  actualizarRepartidor: (id: number, data: any) => api.put(`/repartidores-control/repartidores/${id}`, data),
+  regenerarCodigo: (id: number) => api.post(`/repartidores-control/repartidores/${id}/regenerar-codigo`),
+  asignar: (data: { codigo?: string; repartidor_id?: number; venta_id?: number; folio_offline?: string; origen?: string }) =>
+    api.post('/repartidores-control/asignar', data),
+  reasignar: (id: number, data: { codigo?: string; repartidor_id?: number; motivo?: string }) =>
+    api.post(`/repartidores-control/asignaciones/${id}/reasignar`, data),
+  quitar: (id: number, motivo: string) => api.post(`/repartidores-control/asignaciones/${id}/quitar`, { motivo }),
+  tablero: () => api.get('/repartidores-control/tablero'),
+  pendientes: (repartidorId: number) => api.get(`/repartidores-control/repartidores/${repartidorId}/pendientes`),
+  liquidar: (data: { repartidor_id: number; asignacion_ids: number[]; efectivo_recibido: number; notas?: string }) =>
+    api.post('/repartidores-control/liquidar', data),
+  liquidaciones: (params?: any) => api.get('/repartidores-control/liquidaciones', { params }),
+  liquidacion: (id: number) => api.get(`/repartidores-control/liquidaciones/${id}`),
+  historial: (params?: any) => api.get('/repartidores-control/historial', { params }),
+};
+
 // Bascula de autoservicio (frutas y verduras)
 export const basculaApi = {
   getConfig: (tiendaId: number) => api.get(`/bascula/config/${tiendaId}`),
